@@ -27,6 +27,7 @@ function RootShell() {
       <header className="flex items-center justify-between border-b border-atelier-line bg-atelier px-6 py-5 text-ivory">
         <Link
           to="/"
+          search={{}}
           className="font-display text-sm tracking-[0.28em] text-ivory uppercase"
         >
           Fashion Leader Vote
@@ -34,6 +35,7 @@ function RootShell() {
         <nav className="flex items-center gap-6 text-xs tracking-[0.18em] text-ivory-muted uppercase">
           <Link
             to="/"
+            search={{}}
             className="hover:text-brass"
             activeProps={{ className: 'text-brass' }}
           >
