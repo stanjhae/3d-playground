@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
+import { AtelierScene } from '../components/scene/AtelierScene'
+
 export const Route = createFileRoute('/')({
   component: AtelierHome,
 })
@@ -17,10 +19,8 @@ function AtelierHome() {
         The atelier opens on a garment, not a campus tour. Fabric names come
         next. Walk mode stays optional.
       </p>
-      <section className="flex min-h-80 items-center justify-center border border-atelier-line bg-atelier-raised">
-        <p className="font-display text-sm tracking-[0.22em] text-ivory-muted uppercase">
-          Garment frame
-        </p>
+      <section className="h-[min(72vh,44rem)] overflow-hidden border border-atelier-line bg-atelier-raised">
+        <AtelierScene />
       </section>
     </section>
   )
