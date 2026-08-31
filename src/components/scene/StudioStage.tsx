@@ -135,9 +135,8 @@ export function StudioCamera({
     camera.far = STUDIO_CAMERA.far
     camera.fov = STUDIO_CAMERA.fov
     camera.updateProjectionMatrix()
-    camera.position.set(
-      ...(intro && !reducedMotion ? INTRO_FROM : STUDIO_CAMERA.position),
-    )
+    const seat = intro && !reducedMotion ? INTRO_FROM : STUDIO_CAMERA.position
+    camera.position.set(seat[0], seat[1], seat[2])
     camera.lookAt(...STUDIO_CAMERA.target)
   }, [camera, intro, reducedMotion])
 
