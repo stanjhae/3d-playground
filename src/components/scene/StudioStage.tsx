@@ -15,15 +15,15 @@ import { useEditorStore } from '../../lib/editor-store'
 import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
 
 export const STUDIO_CAMERA = {
-  position: [5.2, 2.6, 5.6] as const,
-  target: [0, 0.7, 0] as const,
-  fov: 42,
+  position: [2.35, 1.52, 3.45] as const,
+  target: [0, 0.78, 0] as const,
+  fov: 36,
   near: 0.1,
   far: 2000,
 }
 
 export const INTRO_DURATION = 1.2
-const INTRO_FROM = [6.4, 3.1, 6.8] as const
+const INTRO_FROM = [3.05, 1.82, 4.25] as const
 
 export function StudioRenderer() {
   const gl = useThree((state) => state.gl)
@@ -98,11 +98,11 @@ export function StudioFloor({
           useEditorStore.getState().selectMesh({ selectedMeshName: 'body' })
         }}
       >
-        <circleGeometry args={[6.5, 64]} />
+        <circleGeometry args={[10, 64]} />
         <meshStandardMaterial color="#1d1914" metalness={0.08} roughness={0.78} />
       </mesh>
-      <mesh position={[0, 2.4, -4.2]} receiveShadow>
-        <cylinderGeometry args={[6.4, 6.4, 5.2, 48, 1, true]} />
+      <mesh position={[0, 2.8, -4]} receiveShadow>
+        <cylinderGeometry args={[9.5, 9.5, 6, 48, 1, true]} />
         <meshStandardMaterial
           color="#241f19"
           metalness={0.04}
@@ -115,42 +115,34 @@ export function StudioFloor({
         far={4}
         opacity={0.48}
         position={[0, 0.01, 0]}
-        scale={7}
+        scale={10}
       />
     </>
   )
 }
 
-export function IntroCamera({
-  enabled = true,
+export function StudioCamera({
+  intro = false,
 }: {
-  enabled?: boolean
+  intro?: boolean
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
-  const elapsed = useRef(prefersReducedMotion() || !enabled ? INTRO_DURATION : 0)
+  const reducedMotion = prefersReducedMotion()
+  const elapsed = useRef(reducedMotion || !intro ? INTRO_DURATION : 0)
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
     camera.far = STUDIO_CAMERA.far
     camera.fov = STUDIO_CAMERA.fov
     camera.updateProjectionMatrix()
-
-    if (prefersReducedMotion() || !enabled) {
-      camera.position.set(...STUDIO_CAMERA.position)
-      camera.lookAt(...STUDIO_CAMERA.target)
-      return
-    }
-
-    camera.position.set(...INTRO_FROM)
+    camera.position.set(
+      ...(intro && !reducedMotion ? INTRO_FROM : STUDIO_CAMERA.position),
+    )
     camera.lookAt(...STUDIO_CAMERA.target)
-  }, [camera, enabled])
+  }, [camera, intro, reducedMotion])
 
   useFrame((_, delta) => {
-    if (!enabled || prefersReducedMotion()) {
-      return
-    }
-
-    if (elapsed.current >= INTRO_DURATION) {
+    if (!intro || reducedMotion || elapsed.current >= INTRO_DURATION) {
       return
     }
 
@@ -166,6 +158,14 @@ export function IntroCamera({
   })
 
   return null
+}
+
+export function IntroCamera({
+  enabled = true,
+}: {
+  enabled?: boolean
+}) {
+  return <StudioCamera intro={enabled} />
 }
 
 export function StudioStage({
@@ -184,7 +184,7 @@ export function StudioStage({
       <StudioEnvironment />
       <StudioLights />
       <StudioFloor picking={picking} />
-      {intro ? <IntroCamera enabled /> : null}
+      <StudioCamera intro={intro} />
       {children}
     </>
   )
@@ -219,9 +219,9 @@ export function StudioOrbit({
     <OrbitControls
       enabled={enabled}
       enablePan={false}
-      maxDistance={9}
+      maxDistance={6.5}
       maxPolarAngle={Math.PI / 2.05}
-      minDistance={4.6}
+      minDistance={3.2}
       minPolarAngle={Math.PI / 4}
       target={[...STUDIO_CAMERA.target]}
     />
