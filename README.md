@@ -1,6 +1,8 @@
 # Fashion Leader Vote
 
-A garment-first Create → Publish → Vote slice. The Informatics building is the atelier, not the product.
+The garment is the product. The building is the atelier. FLV garments swap in without rewriting the app.
+
+Live: [https://3d-playground-vert.vercel.app/](https://3d-playground-vert.vercel.app/)
 
 ## Develop
 
