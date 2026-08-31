@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-body: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --color-atelier: oklch(0.16 0.018 70);
+  --color-atelier-raised: oklch(0.21 0.018 70);
+  --color-atelier-line: oklch(0.32 0.02 70);
+  --color-ivory: oklch(0.93 0.02 85);
+  --color-ivory-muted: oklch(0.72 0.02 80);
+  --color-brass: oklch(0.78 0.1 85);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-atelier);
+  color: var(--color-ivory);
+  font-family: var(--font-body);
+}
