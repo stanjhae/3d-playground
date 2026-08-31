@@ -46,4 +46,14 @@ describe('resolveVoteId', () => {
 
     expect(id).toBe('unknown')
   })
+
+  test('reads a rewritten voteId query', async () => {
+    const id = await resolveVoteId({
+      request: new Request(
+        'https://example.com/api/designs?voteId=look-atelier-ivory',
+      ),
+    })
+
+    expect(id).toBe('look-atelier-ivory')
+  })
 })

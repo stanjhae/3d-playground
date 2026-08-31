@@ -46,24 +46,19 @@ async function incomingToRequest({
 async function dispatchApi({ request }: { request: Request }) {
   const { pathname } = new URL(request.url)
 
-  if (pathname === '/api/designs') {
+  if (
+    pathname === '/api/designs' ||
+    /^\/api\/designs\/[^/]+\/vote$/.test(pathname)
+  ) {
     const { GET, POST } = await import('./api/designs.ts')
 
     if (request.method === 'GET') {
-      return GET()
+      return GET(request)
     }
 
     if (request.method === 'POST') {
       return POST(request)
     }
-  }
-
-  const voteMatch = /^\/api\/designs\/([^/]+)\/vote$/.exec(pathname)
-
-  if (voteMatch && request.method === 'POST') {
-    const { POST } = await import('./api/designs/[id]/vote.ts')
-
-    return POST(request)
   }
 
   return Response.json({ error: 'Not found' }, { status: 404 })

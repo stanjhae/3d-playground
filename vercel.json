@@ -2,15 +2,16 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/api/designs/:id/vote",
+      "destination": "/api/designs?voteId=:id"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
   "functions": {
     "api/designs.ts": {
-      "includeFiles": "{src/lib/**,data/designs.json}"
-    },
-    "api/designs/[id]/vote.ts": {
       "includeFiles": "{src/lib/**,data/designs.json}"
     }
   }

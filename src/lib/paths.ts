@@ -17,7 +17,14 @@ export async function resolveVoteId({
     }
   }
 
-  const segments = new URL(request.url).pathname.split('/').filter(Boolean)
+  const url = new URL(request.url)
+  const voteId = url.searchParams.get('voteId')
+
+  if (voteId) {
+    return voteId
+  }
+
+  const segments = url.pathname.split('/').filter(Boolean)
   const designsIndex = segments.indexOf('designs')
   const voteIndex = segments.lastIndexOf('vote')
 

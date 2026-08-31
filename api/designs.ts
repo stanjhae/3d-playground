@@ -1,38 +1,26 @@
-import {
-  createStoredDesign,
-  listStoredDesigns,
-  parseDesignDraft,
-} from '../src/lib/designs-store.ts'
-import { rankDesigns } from '../src/lib/rank-designs.ts'
+import { handleDesignsRequest } from '../src/lib/designs-handlers.ts'
 
-export function GET() {
-  return Response.json({
-    designs: rankDesigns({ designs: listStoredDesigns() }),
+function designsRequest({ request }: { request?: Request }) {
+  return (
+    request ??
+    new Request('http://localhost/api/designs', {
+      method: 'GET',
+    })
+  )
+}
+
+export function GET(request?: Request) {
+  return handleDesignsRequest({
+    request: designsRequest({ request }),
   })
 }
 
-export async function POST(request: Request) {
-  let body: unknown
+export function POST(request: Request) {
+  return handleDesignsRequest({ request })
+}
 
-  try {
-    body = await request.json()
-  } catch {
-    return Response.json(
-      { error: 'The look could not be read' },
-      { status: 400 },
-    )
-  }
-
-  const draft = parseDesignDraft({ body })
-
-  if (!draft) {
-    return Response.json(
-      { error: 'The look needs a title and panels' },
-      { status: 400 },
-    )
-  }
-
-  const design = createStoredDesign({ draft })
-
-  return Response.json({ design }, { status: 201 })
+export default {
+  fetch(request: Request) {
+    return handleDesignsRequest({ request })
+  },
 }

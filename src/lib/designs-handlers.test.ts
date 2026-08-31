@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import { GET, POST } from '../../api/designs'
-import { POST as votePost } from '../../api/designs/[id]/vote'
+import { handleDesignsRequest } from './designs-handlers'
 import { MAX_THUMBNAIL_CHARS, resetDesignsStore } from './designs-store'
 
 describe('designs HTTP handlers', () => {
@@ -10,7 +10,9 @@ describe('designs HTTP handlers', () => {
   })
 
   test('GET lists ranked seed looks', async () => {
-    const response = GET()
+    const response = await GET(
+      new Request('http://localhost/api/designs', { method: 'GET' }),
+    )
     const body = (await response.json()) as {
       designs: { id: string; votes: number }[]
     }
@@ -20,7 +22,7 @@ describe('designs HTTP handlers', () => {
     expect(body.designs).toHaveLength(7)
   })
 
-  test('POST creates a look and vote 404s when missing', async () => {
+  test('create and vote share one board', async () => {
     const created = await POST(
       new Request('http://localhost/api/designs', {
         method: 'POST',
@@ -40,18 +42,31 @@ describe('designs HTTP handlers', () => {
     expect(created.status).toBe(201)
     expect(createdBody.design.votes).toBe(0)
 
-    const voted = await votePost(
+    const voted = await POST(
       new Request(
         `http://localhost/api/designs/${createdBody.design.id}/vote`,
         { method: 'POST' },
       ),
     )
-    const votedBody = (await voted.json()) as { votes: number }
+    const votedBody = (await voted.json()) as { id: string; votes: number }
 
     expect(voted.status).toBe(200)
+    expect(votedBody.id).toBe(createdBody.design.id)
     expect(votedBody.votes).toBe(1)
 
-    const missing = await votePost(
+    const listed = await GET(
+      new Request('http://localhost/api/designs', { method: 'GET' }),
+    )
+    const listedBody = (await listed.json()) as {
+      designs: { id: string; votes: number }[]
+    }
+    const onBoard = listedBody.designs.find(
+      (design) => design.id === createdBody.design.id,
+    )
+
+    expect(onBoard?.votes).toBe(1)
+
+    const missing = await POST(
       new Request('http://localhost/api/designs/look-missing/vote', {
         method: 'POST',
       }),
@@ -60,7 +75,31 @@ describe('designs HTTP handlers', () => {
     expect(missing.status).toBe(404)
   })
 
-  test('POST drops an oversized thumbnail', async () => {
+  test('rewritten voteId query hits the same store', async () => {
+    const voted = await handleDesignsRequest({
+      request: new Request(
+        'http://localhost/api/designs?voteId=look-atelier-ivory',
+        { method: 'POST' },
+      ),
+    })
+    const body = (await voted.json()) as { id: string; votes: number }
+    const listed = await GET(
+      new Request('http://localhost/api/designs', { method: 'GET' }),
+    )
+    const listedBody = (await listed.json()) as {
+      designs: { id: string; votes: number }[]
+    }
+
+    expect(voted.status).toBe(200)
+    expect(body.id).toBe('look-atelier-ivory')
+    expect(body.votes).toBe(6)
+    expect(
+      listedBody.designs.find((design) => design.id === 'look-atelier-ivory')
+        ?.votes,
+    ).toBe(6)
+  })
+
+  test('POST drops an oversized thumbnail at parse time', async () => {
     const response = await POST(
       new Request('http://localhost/api/designs', {
         method: 'POST',
