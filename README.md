@@ -20,4 +20,8 @@ pnpm build
 
 ## Assets
 
-Building and tree GLBs live in `public/models/`. `informatics_5_4.glb` is just over GitHub's 50MB warning. Commit `public/` in the same change that removes `models/` — do not `git add -u` alone. Wave 1 L4 compresses these files.
+Building and tree GLBs live in `public/models/`. L4 compresses them with Draco + WebP (`scripts/compress-models.sh`). First paint is the 22KB gown; the campus files are ~9MB combined. Draco decoders live in `public/draco/` (from three.js r185 / Google Draco) so first paint does not call gstatic. Commit `public/models/garment.glb`, `public/fabrics/`, and `public/draco/` with the campus GLB shrinks — do not `git add -u` alone.
+
+### Hero garment
+
+`public/models/garment.glb` is an original ivory silk column gown authored for this demo (`body`, `collar`, `lining`, `hardware`). License: CC0 1.0 (public domain). Mesh names are stable for Design-mode picking. Regenerate with `node scripts/build-garment.mjs` if you change the silhouette.
