@@ -1,18 +1,5 @@
+import { voteStoredDesign } from '../../../src/lib/designs-store'
 import { resolveVoteId } from '../../../src/lib/paths'
-
-function voteOnDesign({
-  request,
-  id,
-}: {
-  request: Request
-  id: string
-}) {
-  return Response.json({
-    id,
-    votes: 0,
-    method: request.method,
-  })
-}
 
 export async function POST(
   request: Request,
@@ -22,6 +9,14 @@ export async function POST(
     request,
     params: context.params,
   })
+  const design = voteStoredDesign({ id })
 
-  return voteOnDesign({ request, id })
+  if (!design) {
+    return Response.json({ error: 'That look is gone' }, { status: 404 })
+  }
+
+  return Response.json({
+    id: design.id,
+    votes: design.votes,
+  })
 }

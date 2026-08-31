@@ -1,0 +1,261 @@
+[
+  {
+    "id": "look-midnight-silk",
+    "title": "Midnight Silk Column",
+    "author": "Elise Moreau",
+    "votes": 6,
+    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%231a1c22%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%23c4a15a%22%2F%3E%3C%2Fsvg%3E",
+    "overrides": [
+      {
+        "meshName": "body",
+        "color": "#1a1c22",
+        "roughness": 0.84,
+        "metalness": 0,
+        "mapId": "cotton-weave"
+      },
+      {
+        "meshName": "collar",
+        "color": "#c4a15a",
+        "roughness": 0.22,
+        "metalness": 0.12,
+        "mapId": "silk-shine"
+      },
+      {
+        "meshName": "lining",
+        "color": "#e8c4b8",
+        "roughness": 0.2,
+        "metalness": 0.03,
+        "mapId": "silk-shine"
+      },
+      {
+        "meshName": "hardware",
+        "color": "#6b1d2a",
+        "roughness": 0.4,
+        "metalness": 0.08,
+        "mapId": "leather-grain"
+      }
+    ]
+  },
+  {
+    "id": "look-atelier-ivory",
+    "title": "Atelier Ivory",
+    "author": "Camille Wren",
+    "votes": 5,
+    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%232b241c%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%23f4ead4%22%2F%3E%3C%2Fsvg%3E",
+    "overrides": [
+      {
+        "meshName": "body",
+        "color": "#f4ead4",
+        "roughness": 0.2,
+        "metalness": 0.04,
+        "mapId": "silk-shine"
+      },
+      {
+        "meshName": "collar",
+        "color": "#f3efe6",
+        "roughness": 0.85,
+        "metalness": 0,
+        "mapId": "cotton-weave"
+      },
+      {
+        "meshName": "lining",
+        "color": "#e8c4b8",
+        "roughness": 0.2,
+        "metalness": 0.03,
+        "mapId": "silk-shine"
+      },
+      {
+        "meshName": "hardware",
+        "color": "#c4a15a",
+        "roughness": 0.22,
+        "metalness": 0.12,
+        "mapId": "silk-shine"
+      }
+    ]
+  },
+  {
+    "id": "look-oxblood-evening",
+    "title": "Oxblood Evening",
+    "author": "Hiro Tanaka",
+    "votes": 4,
+    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%23241014%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%236b1d2a%22%2F%3E%3C%2Fsvg%3E",
+    "overrides": [
+      {
+        "meshName": "body",
+        "color": "#6b1d2a",
+        "roughness": 0.4,
+        "metalness": 0.08,
+        "mapId": "leather-grain"
+      },
+      {
+        "meshName": "collar",
+        "color": "#7a4a28",
+        "roughness": 0.45,
+        "metalness": 0.06,
+        "mapId": "leather-grain"
+      },
+      {
+        "meshName": "lining",
+        "color": "#1a1c22",
+        "roughness": 0.84,
+        "metalness": 0,
+        "mapId": "cotton-weave"
+      },
+      {
+        "meshName": "hardware",
+        "color": "#c4a15a",
+        "roughness": 0.22,
+        "metalness": 0.12,
+        "mapId": "silk-shine"
+      }
+    ]
+  },
+  {
+    "id": "look-meadow-walk",
+    "title": "Meadow Walk",
+    "author": "Noor Rahman",
+    "votes": 3,
+    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%231c2218%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%236b7c4a%22%2F%3E%3C%2Fsvg%3E",
+    "overrides": [
+      {
+        "meshName": "body",
+        "color": "#6b7c4a",
+        "roughness": 0.86,
+        "metalness": 0,
+        "mapId": "cotton-weave"
+      },
+      {
+        "meshName": "collar",
+        "color": "#f3efe6",
+        "roughness": 0.85,
+        "metalness": 0,
+        "mapId": "cotton-weave"
+      },
+      {
+        "meshName": "lining",
+        "color": "#d8cfc2",
+        "roughness": 0.92,
+        "metalness": 0,
+        "mapId": "wool-nap"
+      },
+      {
+        "meshName": "hardware",
+        "color": "#4a2f22",
+        "roughness": 0.42,
+        "metalness": 0.08,
+        "mapId": "leather-grain"
+      }
+    ]
+  },
+  {
+    "id": "look-slate-denim",
+    "title": "Slate Denim",
+    "author": "Jules Adler",
+    "votes": 2,
+    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%231a1e22%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%233d4a55%22%2F%3E%3C%2Fsvg%3E",
+    "overrides": [
+      {
+        "meshName": "body",
+        "color": "#3d4a55",
+        "roughness": 0.76,
+        "metalness": 0,
+        "mapId": "denim-twill"
+      },
+      {
+        "meshName": "collar",
+        "color": "#2c3d56",
+        "roughness": 0.78,
+        "metalness": 0,
+        "mapId": "denim-twill"
+      },
+      {
+        "meshName": "lining",
+        "color": "#1a1c22",
+        "roughness": 0.84,
+        "metalness": 0,
+        "mapId": "cotton-weave"
+      },
+      {
+        "meshName": "hardware",
+        "color": "#7a4a28",
+        "roughness": 0.45,
+        "metalness": 0.06,
+        "mapId": "leather-grain"
+      }
+    ]
+  },
+  {
+    "id": "look-wool-hour",
+    "title": "Wool Hour",
+    "author": "Marta Klein",
+    "votes": 1,
+    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%231c1814%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%232b241c%22%2F%3E%3C%2Fsvg%3E",
+    "overrides": [
+      {
+        "meshName": "body",
+        "color": "#2b241c",
+        "roughness": 0.9,
+        "metalness": 0,
+        "mapId": "wool-nap"
+      },
+      {
+        "meshName": "collar",
+        "color": "#d8cfc2",
+        "roughness": 0.92,
+        "metalness": 0,
+        "mapId": "wool-nap"
+      },
+      {
+        "meshName": "lining",
+        "color": "#f4ead4",
+        "roughness": 0.2,
+        "metalness": 0.04,
+        "mapId": "silk-shine"
+      },
+      {
+        "meshName": "hardware",
+        "color": "#c4a15a",
+        "roughness": 0.22,
+        "metalness": 0.12,
+        "mapId": "silk-shine"
+      }
+    ]
+  },
+  {
+    "id": "look-blush-first",
+    "title": "Blush First Look",
+    "author": "Iman Farouk",
+    "votes": 0,
+    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%232a201c%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%23e8c4b8%22%2F%3E%3C%2Fsvg%3E",
+    "overrides": [
+      {
+        "meshName": "body",
+        "color": "#e8c4b8",
+        "roughness": 0.2,
+        "metalness": 0.03,
+        "mapId": "silk-shine"
+      },
+      {
+        "meshName": "collar",
+        "color": "#f6e7d8",
+        "roughness": 0.18,
+        "metalness": 0.04,
+        "mapId": "silk-shine"
+      },
+      {
+        "meshName": "lining",
+        "color": "#f4ead4",
+        "roughness": 0.2,
+        "metalness": 0.04,
+        "mapId": "silk-shine"
+      },
+      {
+        "meshName": "hardware",
+        "color": "#4a2f22",
+        "roughness": 0.42,
+        "metalness": 0.08,
+        "mapId": "leather-grain"
+      }
+    ]
+  }
+]

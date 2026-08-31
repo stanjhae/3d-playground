@@ -9,16 +9,18 @@ export function SelectableMesh({
   name,
   mesh,
   children,
+  picking = true,
 }: {
   name: string
   mesh: Mesh
   children?: ReactNode
+  picking?: boolean
 }) {
   const mode = useEditorStore((state) => state.mode)
   const isSelected = useEditorStore((state) => state.selectedMeshName === name)
   const selectMesh = useEditorStore((state) => state.selectMesh)
   const [hovered, setHovered] = useState(false)
-  const canPick = mode === 'design'
+  const canPick = picking && mode === 'design'
 
   useCursor(canPick && hovered)
 

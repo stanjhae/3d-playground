@@ -20,6 +20,9 @@ import {
 } from 'react'
 import { PCFShadowMap, type PerspectiveCamera } from 'three'
 
+import { listDesigns } from '../../lib/designs-api'
+import type { Design } from '../../lib/design-schema'
+import { rankDesigns } from '../../lib/rank-designs'
 import { useEditorStore } from '../../lib/editor-store'
 import { getLocationById, listLocations } from '../../lib/locations'
 import { isTypingTarget } from '../../lib/walk-input'
@@ -63,6 +66,52 @@ type WalkAction =
   | 'loc5'
   | 'loc6'
 
+
+function LeaderPedestal() {
+  const [leader, setLeader] = useState<Design | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    void listDesigns()
+      .then((designs) => {
+        if (cancelled) {
+          return
+        }
+
+        setLeader(rankDesigns({ designs })[0] ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLeader(null)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (!leader) {
+    return null
+  }
+
+  return (
+    <group name="leader-pedestal" position={[-80, 0, -2680]} scale={70}>
+      <pointLight
+        color="#fff6e8"
+        intensity={1.8}
+        position={[0.4, 2.4, 0.8]}
+        distance={12}
+      />
+      <mesh position={[0, -0.06, 0]}>
+        <cylinderGeometry args={[0.85, 0.95, 0.14, 24]} />
+        <meshStandardMaterial color="#241f19" metalness={0.04} roughness={0.9} />
+      </mesh>
+      <Garment overrides={leader.overrides} picking={false} />
+    </group>
+  )
+}
 
 function FashionLoader() {
   const { errors, progress } = useProgress()
@@ -306,6 +355,7 @@ function AtelierCanvas({
       )}
       <Suspense fallback={<FashionLoader />}>
         <Garment src="/models/garment.glb" />
+        {isWalk ? <LeaderPedestal /> : null}
         {children}
       </Suspense>
       <Suspense fallback={isWalk ? <FashionLoader /> : null}>

@@ -14,6 +14,7 @@ import {
   cloneObjectMaterials,
   listMeshes,
 } from '../../lib/apply-overrides'
+import type { MaterialOverride } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { SelectableMesh } from './SelectableMesh'
 
@@ -49,12 +50,26 @@ function detachChildren({ object }: { object: Object3D }): DetachedNode {
   }
 }
 
-function GarmentNode({ node }: { node: DetachedNode }) {
+function GarmentNode({
+  node,
+  picking,
+}: {
+  node: DetachedNode
+  picking: boolean
+}) {
   if (node.object instanceof Mesh) {
     return (
-      <SelectableMesh name={node.object.name} mesh={node.object}>
+      <SelectableMesh
+        name={node.object.name}
+        mesh={node.object}
+        picking={picking}
+      >
         {node.children.map((child) => (
-          <GarmentNode key={child.object.uuid} node={child} />
+          <GarmentNode
+            key={child.object.uuid}
+            node={child}
+            picking={picking}
+          />
         ))}
       </SelectableMesh>
     )
@@ -63,15 +78,24 @@ function GarmentNode({ node }: { node: DetachedNode }) {
   return (
     <primitive object={node.object}>
       {node.children.map((child) => (
-        <GarmentNode key={child.object.uuid} node={child} />
+        <GarmentNode key={child.object.uuid} node={child} picking={picking} />
       ))}
     </primitive>
   )
 }
 
-export function Garment({ src = DEFAULT_GARMENT_SRC }: { src?: string }) {
+export function Garment({
+  src = DEFAULT_GARMENT_SRC,
+  overrides: overridesProp,
+  picking = true,
+}: {
+  src?: string
+  overrides?: MaterialOverride[]
+  picking?: boolean
+}) {
   const { scene } = useGLTF(src)
-  const overrides = useEditorStore((state) => state.overrides)
+  const storeOverrides = useEditorStore((state) => state.overrides)
+  const overrides = overridesProp ?? storeOverrides
   const loadedMaps = useTexture(FABRIC_MAP_SRC)
 
   const { tree, meshes, baseMaterials } = useMemo(() => {
@@ -102,5 +126,5 @@ export function Garment({ src = DEFAULT_GARMENT_SRC }: { src?: string }) {
     })
   }, [baseMaterials, loadedMaps, meshes, overrides])
 
-  return <GarmentNode node={tree} />
+  return <GarmentNode node={tree} picking={picking} />
 }
