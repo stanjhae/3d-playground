@@ -7,10 +7,12 @@ import {
   PublishBar,
   PublishThumbnailSync,
 } from '../components/editor/PublishBar'
+import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
 import { createDesign, getDesign } from '../lib/designs-api'
 import { useEditorStore } from '../lib/editor-store'
 import { resolveFetchedLook } from '../lib/fetched-look'
+import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
 
 export const Route = createFileRoute('/')({
   validateSearch: (
@@ -31,6 +33,8 @@ function AtelierHome() {
   const mode = useEditorStore((state) => state.mode)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
+  const [enteredLabel, setEnteredLabel] = useState<string | null>(null)
+  const [remixTitle, setRemixTitle] = useState<string | null>(null)
   const [remixStatus, setRemixStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'missing' | 'error'
   >('idle')
@@ -38,6 +42,7 @@ function AtelierHome() {
   useEffect(() => {
     if (!remixId) {
       setRemixStatus('idle')
+      setRemixTitle(null)
       return
     }
 
@@ -54,16 +59,19 @@ function AtelierHome() {
 
         if (resolved.status === 'ready' && resolved.design) {
           useEditorStore.getState().loadDesign({ design: resolved.design })
+          setRemixTitle(resolved.design.title)
           setRemixStatus('loaded')
           return
         }
 
+        setRemixTitle(null)
         setRemixStatus(
           resolved.status === 'missing' ? 'missing' : 'error',
         )
       })
       .catch(() => {
         if (!cancelled) {
+          setRemixTitle(null)
           setRemixStatus('error')
         }
       })
@@ -74,57 +82,73 @@ function AtelierHome() {
   }, [remixId])
 
   return (
-    <section className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-16">
-      <p className="font-display text-xs tracking-[0.32em] text-brass uppercase">
-        Fashion Leader Vote
-      </p>
-      <h1 className="max-w-xl font-display text-5xl leading-tight text-ivory">
-        Design a look. Publish it. Name a Leader.
-      </h1>
-      <p className="max-w-lg text-base leading-relaxed text-ivory-muted">
-        The atelier opens on a garment, not a campus tour. Click a panel, then
-        a cloth name. Walk mode stays optional.
-      </p>
-      {remixStatus === 'missing' ? (
-        <p className="text-sm text-ivory-muted">
-          That look is gone. The studio is open on a fresh gown.
-        </p>
-      ) : null}
-      {remixStatus === 'error' ? (
-        <p className="text-sm text-ivory-muted">
-          The look could not be opened. The studio is still here.
-        </p>
-      ) : null}
-      <ModeToggle mode={mode} />
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <section className="h-[min(72vh,44rem)] overflow-hidden border border-atelier-line bg-atelier-raised">
-          <AtelierScene>
-            <PublishThumbnailSync />
-          </AtelierScene>
-        </section>
-        <FabricPanel />
-      </section>
-      {publishError ? (
-        <p className="text-sm text-ivory-muted">{publishError}</p>
-      ) : null}
-      <PublishBar
-        publishing={publishing}
-        onPublish={async ({ design }) => {
-          setPublishError(null)
-          setPublishing(true)
+    <section className="relative h-dvh overflow-hidden">
+      <AtelierScene>
+        <PublishThumbnailSync />
+      </AtelierScene>
+      <div className="pointer-events-none absolute inset-0 z-20">
+        <div className="pointer-events-auto absolute top-20 left-4 flex flex-wrap items-center gap-6 lg:left-6">
+          <ModeToggle mode={mode} />
+          {mode === 'design' ? <SilhouetteSwitch /> : null}
+          {remixStatus === 'loaded' && remixTitle ? (
+            <p className="font-display text-xs tracking-[0.18em] text-brass uppercase">
+              {remixCaption({ title: remixTitle })}
+            </p>
+          ) : null}
+          {remixStatus === 'missing' ? (
+            <p className="text-sm text-ivory-muted">
+              {HOUSE_COPY.lookGone} {HOUSE_COPY.studioOpen}
+            </p>
+          ) : null}
+          {remixStatus === 'error' ? (
+            <p className="text-sm text-ivory-muted">
+              {HOUSE_COPY.lookFailed} {HOUSE_COPY.studioOpen}
+            </p>
+          ) : null}
+        </div>
+        {mode === 'design' ? (
+          <div className="pointer-events-auto absolute inset-x-4 bottom-4 flex flex-col gap-3 lg:contents">
+            <div className="lg:absolute lg:top-24 lg:right-6 lg:w-72">
+              <FabricPanel />
+            </div>
+            <div className="flex flex-col gap-3 lg:absolute lg:bottom-4 lg:left-6 lg:w-[28rem]">
+              {publishError ? (
+                <p className="text-sm text-ivory-muted">{publishError}</p>
+              ) : null}
+              {enteredLabel ? (
+                <p className="font-display text-xs tracking-[0.18em] text-brass uppercase">
+                  {enteredLabel}
+                </p>
+              ) : null}
+              <PublishBar
+                publishing={publishing}
+                onPublish={async ({ design }) => {
+                  setPublishError(null)
+                  setPublishing(true)
 
-          try {
-            await createDesign({ design })
-            useEditorStore.getState().publishLook({ design })
-            await navigate({ to: '/vote' })
-          } catch {
-            setPublishError('The look could not enter the vote. Try again.')
-            throw new Error('The look could not be published')
-          } finally {
-            setPublishing(false)
-          }
-        }}
-      />
+                  try {
+                    const created = await createDesign({ design })
+                    useEditorStore.getState().publishLook({ design })
+                    setEnteredLabel(HOUSE_COPY.entered)
+                    await navigate({
+                      to: '/vote',
+                      search: { entered: created.id },
+                    })
+                  } catch (error) {
+                    setPublishError(
+                      error instanceof Error
+                        ? error.message
+                        : HOUSE_COPY.publishFailed,
+                    )
+                  } finally {
+                    setPublishing(false)
+                  }
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
     </section>
   )
 }

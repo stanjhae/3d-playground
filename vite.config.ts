@@ -46,6 +46,16 @@ async function incomingToRequest({
 async function dispatchApi({ request }: { request: Request }) {
   const { pathname } = new URL(request.url)
 
+  if (pathname === '/api/og') {
+    const { GET } = await import('./api/og.ts')
+    return GET(request)
+  }
+
+  if (pathname === '/api/og-page') {
+    const { GET } = await import('./api/og-page.ts')
+    return GET(request)
+  }
+
   if (
     pathname === '/api/designs' ||
     /^\/api\/designs\/[^/]+\/vote$/.test(pathname)

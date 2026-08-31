@@ -6,12 +6,29 @@
       "destination": "/api/designs?voteId=:id"
     },
     {
+      "source": "/look/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(Twitterbot|facebookexternalhit|Slackbot|WhatsApp|Telegram|LinkedInBot|Discordbot|Applebot|Googlebot|bingbot|preview|bot|crawl).*"
+        }
+      ],
+      "destination": "/api/og-page?id=:id"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
   "functions": {
     "api/designs.ts": {
+      "includeFiles": "{src/lib/**,data/designs.json}"
+    },
+    "api/og.ts": {
+      "includeFiles": "{src/lib/**,public/og-default.png,public/stills/**}"
+    },
+    "api/og-page.ts": {
       "includeFiles": "{src/lib/**,data/designs.json}"
     }
   }

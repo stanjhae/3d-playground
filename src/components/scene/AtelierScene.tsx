@@ -1,15 +1,14 @@
 import {
-  ContactShadows,
   Html,
   KeyboardControls,
-  OrbitControls,
   PointerLockControls,
   useKeyboardControls,
   useProgress,
 } from '@react-three/drei'
-import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import {
   Suspense,
+  lazy,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -18,24 +17,22 @@ import {
   type ComponentRef,
   type ReactNode,
 } from 'react'
-import { PCFShadowMap, type PerspectiveCamera } from 'three'
+import type { PerspectiveCamera } from 'three'
 
 import { listDesigns } from '../../lib/designs-api'
 import type { Design } from '../../lib/design-schema'
-import { rankDesigns } from '../../lib/rank-designs'
 import { useEditorStore } from '../../lib/editor-store'
 import { getLocationById, listLocations } from '../../lib/locations'
+import { rankDesigns } from '../../lib/rank-designs'
 import { isTypingTarget } from '../../lib/walk-input'
-import { BuildingVenue } from './BuildingVenue'
 import { Garment } from './Garment'
+import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
+import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
 
-const STUDIO_CAMERA = {
-  position: [1.85, 1.15, 1.95] as const,
-  target: [0, 0.72, 0] as const,
-  fov: 32,
-  near: 0.1,
-  far: 2000,
-}
+const BuildingVenue = lazy(async () => {
+  const module = await import('./BuildingVenue')
+  return { default: module.BuildingVenue }
+})
 
 const WALK_KEY_MAP = [
   { name: 'forward', keys: ['KeyW', 'w', 'W', 'ArrowUp'] },
@@ -66,6 +63,12 @@ type WalkAction =
   | 'loc5'
   | 'loc6'
 
+const PEDESTAL_POSITION = [-80, 0, -2680] as const
+const CINEMATIC_CAMERA = {
+  position: [-80, 90, -2500] as const,
+  target: [-80, 55, -2680] as const,
+}
+const CINEMATIC_DOLLY = [-80, 82, -2540] as const
 
 function LeaderPedestal() {
   const [leader, setLeader] = useState<Design | null>(null)
@@ -75,11 +78,9 @@ function LeaderPedestal() {
 
     void listDesigns()
       .then((designs) => {
-        if (cancelled) {
-          return
+        if (!cancelled) {
+          setLeader(rankDesigns({ designs })[0] ?? null)
         }
-
-        setLeader(rankDesigns({ designs })[0] ?? null)
       })
       .catch(() => {
         if (!cancelled) {
@@ -97,18 +98,22 @@ function LeaderPedestal() {
   }
 
   return (
-    <group name="leader-pedestal" position={[-80, 0, -2680]} scale={70}>
+    <group name="leader-pedestal" position={[...PEDESTAL_POSITION]} scale={70}>
       <pointLight
         color="#fff6e8"
-        intensity={1.8}
+        intensity={2.2}
         position={[0.4, 2.4, 0.8]}
-        distance={12}
+        distance={14}
       />
       <mesh position={[0, -0.06, 0]}>
         <cylinderGeometry args={[0.85, 0.95, 0.14, 24]} />
-        <meshStandardMaterial color="#241f19" metalness={0.04} roughness={0.9} />
+        <meshStandardMaterial color="#241f19" metalness={0.08} roughness={0.86} />
       </mesh>
-      <Garment overrides={leader.overrides} picking={false} />
+      <Garment
+        garmentId={leader.garmentId}
+        overrides={leader.overrides}
+        picking={false}
+      />
     </group>
   )
 }
@@ -120,28 +125,10 @@ function FashionLoader() {
     <Html center>
       <p className="font-display text-xs tracking-[0.28em] text-ivory-muted uppercase">
         {errors.length > 0
-          ? 'The look failed to load'
-          : `Preparing the look ${Math.round(progress)}`}
+          ? 'The look could not open'
+          : `Opening the look ${Math.round(progress)}`}
       </p>
     </Html>
-  )
-}
-
-function StudioLights() {
-  return (
-    <>
-      <hemisphereLight args={['#f4ead4', '#1a1612', 0.42]} />
-      <directionalLight
-        castShadow
-        color="#fff6e8"
-        intensity={1.65}
-        position={[2.2, 3.4, 1.6]}
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
-      <directionalLight color="#9bb4d0" intensity={0.32} position={[-2.4, 1.2, -1.2]} />
-      <directionalLight color="#c4a15a" intensity={0.48} position={[0.2, 1.8, -2.4]} />
-    </>
   )
 }
 
@@ -162,26 +149,14 @@ function applyLocation({
   camera.lookAt(...location.lookAt)
 }
 
-function StudioCameraReset() {
-  const camera = useThree((state) => state.camera) as PerspectiveCamera
-
-  useLayoutEffect(() => {
-    camera.position.set(...STUDIO_CAMERA.position)
-    camera.near = STUDIO_CAMERA.near
-    camera.far = STUDIO_CAMERA.far
-    camera.lookAt(...STUDIO_CAMERA.target)
-    camera.updateProjectionMatrix()
-  }, [camera])
-
-  return null
-}
-
 function WalkRig({
   onLock,
   onUnlock,
+  roomsOpen,
 }: {
   onLock: () => void
   onUnlock: () => void
+  roomsOpen: boolean
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const controlsRef = useRef<ComponentRef<typeof PointerLockControls>>(null)
@@ -193,7 +168,8 @@ function WalkRig({
     camera.near = 1
     camera.far = 250000
     camera.updateProjectionMatrix()
-    applyLocation({ camera, locationId: 'entrance' })
+    camera.position.set(...CINEMATIC_CAMERA.position)
+    camera.lookAt(...CINEMATIC_CAMERA.target)
   }, [camera])
 
   useEffect(() => {
@@ -203,11 +179,7 @@ function WalkRig({
       return subscribeKeys(
         (state) => state[action],
         (pressed) => {
-          if (!pressed) {
-            return
-          }
-
-          if (!controlsRef.current?.isLocked) {
+          if (!pressed || !roomsOpen || !controlsRef.current?.isLocked) {
             return
           }
 
@@ -229,9 +201,18 @@ function WalkRig({
         unsubscribe()
       }
     }
-  }, [camera, locations, subscribeKeys])
+  }, [camera, locations, roomsOpen, subscribeKeys])
 
   useFrame((_, delta) => {
+    if (!roomsOpen) {
+      const ease = Math.min(1, delta * 0.35)
+      camera.position.x += (CINEMATIC_DOLLY[0] - camera.position.x) * ease
+      camera.position.y += (CINEMATIC_DOLLY[1] - camera.position.y) * ease
+      camera.position.z += (CINEMATIC_DOLLY[2] - camera.position.z) * ease
+      camera.lookAt(...CINEMATIC_CAMERA.target)
+      return
+    }
+
     const keys = getKeys()
     const controls = controlsRef.current
     const forwardStep = 1800 * delta
@@ -267,6 +248,10 @@ function WalkRig({
     }
   })
 
+  if (!roomsOpen) {
+    return null
+  }
+
   return (
     <PointerLockControls
       ref={controlsRef}
@@ -277,22 +262,79 @@ function WalkRig({
   )
 }
 
-function WalkOverlay({ locked }: { locked: boolean }) {
+function WalkEnterFade() {
+  const [ready, setReady] = useState(prefersReducedMotion)
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      setReady(true)
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setReady(true)
+    }, 40)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [])
+
   return (
     <div
       className={
-        locked
-          ? 'pointer-events-none invisible absolute inset-0 z-10 flex items-center justify-center bg-atelier/80'
-          : 'absolute inset-0 z-10 flex items-center justify-center bg-atelier/80'
+        ready
+          ? 'pointer-events-none absolute inset-0 z-20 bg-atelier opacity-0 transition-opacity duration-700'
+          : 'pointer-events-none absolute inset-0 z-20 bg-atelier opacity-100 transition-opacity duration-700'
       }
-    >
+    />
+  )
+}
+
+function HouseOverlay({
+  locked,
+  roomsOpen,
+  leaderTitle,
+  onOpenRooms,
+}: {
+  locked: boolean
+  roomsOpen: boolean
+  leaderTitle: string
+  onOpenRooms: () => void
+}) {
+  if (locked) {
+    return null
+  }
+
+  if (!roomsOpen) {
+    return (
+      <div className="absolute inset-0 z-10 flex items-end bg-gradient-to-t from-atelier via-atelier/20 to-transparent">
+        <div className="flex w-full flex-col gap-3 p-6">
+          <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
+            The Leader
+          </p>
+          <p className="font-display text-3xl text-ivory">{leaderTitle}</p>
+          <button
+            type="button"
+            onClick={onOpenRooms}
+            className="w-fit border border-atelier-line px-4 py-2 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass"
+          >
+            Walk the rooms
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-atelier/80">
       <div className="flex max-w-md flex-col gap-4 border border-atelier-line bg-atelier-raised p-6">
         <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
-          Walk the atelier
+          The house
         </p>
         <p className="text-sm leading-relaxed text-ivory-muted">
-          WASD or arrows to move. R and F raise and lower. Keys 1 to 6 jump to
-          rooms. Esc returns your cursor. Your look stays on the gown.
+          Move with WASD. R and F raise and lower. Keys 1 to 6 jump the rooms.
+          Esc returns the cursor.
         </p>
         <button
           id="walk-start"
@@ -309,14 +351,18 @@ function WalkOverlay({ locked }: { locked: boolean }) {
 function AtelierCanvas({
   children,
   isWalk,
+  roomsOpen,
   onLock,
   onUnlock,
 }: {
   children?: ReactNode
   isWalk: boolean
+  roomsOpen: boolean
   onLock: () => void
   onUnlock: () => void
 }) {
+  const garmentId = useEditorStore((state) => state.garmentId)
+
   return (
     <Canvas
       shadows={!isWalk}
@@ -327,62 +373,32 @@ function AtelierCanvas({
         far: STUDIO_CAMERA.far,
       }}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
-      onCreated={({ gl }) => {
-        gl.shadowMap.type = PCFShadowMap
-      }}
       className="h-full min-h-80 w-full bg-atelier"
     >
-      <color attach="background" args={['#1f1a14']} />
-      {isWalk ? null : <StudioLights />}
-      {isWalk ? null : (
-        <mesh
-          position={[0, 0, 0]}
-          receiveShadow
-          rotation={[-Math.PI / 2, 0, 0]}
-          onClick={(event: ThreeEvent<MouseEvent>) => {
-            event.stopPropagation()
-
-            if (useEditorStore.getState().mode !== 'design') {
-              return
-            }
-
-            useEditorStore.getState().selectMesh({ selectedMeshName: null })
-          }}
-        >
-          <planeGeometry args={[12, 12]} />
-          <meshStandardMaterial color="#241f19" metalness={0} roughness={0.92} />
-        </mesh>
-      )}
-      <Suspense fallback={<FashionLoader />}>
-        <Garment src="/models/garment.glb" />
-        {isWalk ? <LeaderPedestal /> : null}
-        {children}
-      </Suspense>
-      <Suspense fallback={isWalk ? <FashionLoader /> : null}>
-        <BuildingVenue enabled={isWalk} />
-      </Suspense>
-      {isWalk ? null : (
-        <ContactShadows
-          blur={2.6}
-          far={4}
-          opacity={0.42}
-          position={[0, 0.01, 0]}
-          scale={6}
-        />
-      )}
       {isWalk ? (
-        <WalkRig onLock={onLock} onUnlock={onUnlock} />
+        <>
+          <color attach="background" args={['#12100d']} />
+          <Suspense fallback={<FashionLoader />}>
+            <LeaderPedestal />
+          </Suspense>
+          <Suspense fallback={null}>
+            <BuildingVenue enabled />
+          </Suspense>
+          <WalkRig
+            roomsOpen={roomsOpen}
+            onLock={onLock}
+            onUnlock={onUnlock}
+          />
+        </>
       ) : (
         <>
-          <StudioCameraReset />
-          <OrbitControls
-            enablePan={false}
-            maxDistance={4.2}
-            maxPolarAngle={Math.PI / 2.05}
-            minDistance={1.5}
-            minPolarAngle={Math.PI / 4}
-            target={[0, 0.72, 0]}
-          />
+          <StudioStage picking intro>
+            <Suspense fallback={<FashionLoader />}>
+              <Garment garmentId={garmentId} />
+              {children}
+            </Suspense>
+          </StudioStage>
+          <StudioOrbit intro />
         </>
       )}
     </Canvas>
@@ -393,19 +409,61 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
   const mode = useEditorStore((state) => state.mode)
   const isWalk = mode === 'atelier'
   const [locked, setLocked] = useState(false)
+  const [roomsOpen, setRoomsOpen] = useState(false)
+  const [leaderTitle, setLeaderTitle] = useState('The Leader')
 
   useEffect(() => {
     if (!isWalk) {
       setLocked(false)
+      setRoomsOpen(false)
+    }
+  }, [isWalk])
+
+  useEffect(() => {
+    if (!isWalk) {
+      return
+    }
+
+    let cancelled = false
+
+    void listDesigns()
+      .then((designs) => {
+        if (!cancelled) {
+          setLeaderTitle(
+            rankDesigns({ designs })[0]?.title ?? 'The Leader',
+          )
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLeaderTitle('The Leader')
+        }
+      })
+
+    return () => {
+      cancelled = true
     }
   }, [isWalk])
 
   return (
     <div className="relative h-full min-h-80 w-full">
-      {isWalk ? <WalkOverlay locked={locked} /> : null}
+      {isWalk ? (
+        <>
+          <WalkEnterFade />
+          <HouseOverlay
+            locked={locked}
+            roomsOpen={roomsOpen}
+            leaderTitle={leaderTitle}
+            onOpenRooms={() => {
+              setRoomsOpen(true)
+            }}
+          />
+        </>
+      ) : null}
       <KeyboardControls map={WALK_KEY_MAP}>
         <AtelierCanvas
           isWalk={isWalk}
+          roomsOpen={roomsOpen}
           onLock={() => {
             setLocked(true)
           }}

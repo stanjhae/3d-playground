@@ -1,8 +1,12 @@
+@import "@fontsource/cormorant-garamond/500.css";
+@import "@fontsource/cormorant-garamond/600.css";
+@import "@fontsource/outfit/300.css";
+@import "@fontsource/outfit/400.css";
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-body: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", "Iowan Old Style", Palatino, Georgia, serif;
+  --font-body: "Outfit", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --color-atelier: oklch(0.16 0.018 70);
   --color-atelier-raised: oklch(0.21 0.018 70);
   --color-atelier-line: oklch(0.32 0.02 70);
@@ -22,4 +26,20 @@ body {
   background-color: var(--color-atelier);
   color: var(--color-ivory);
   font-family: var(--font-body);
+}
+
+:focus-visible {
+  outline: 1px solid var(--color-brass);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

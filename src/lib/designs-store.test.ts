@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import {
+  DesignsBoardFullError,
   MAX_AUTHOR_CHARS,
+  MAX_LIVE_DESIGNS,
   MAX_OVERRIDE_COUNT,
   MAX_THUMBNAIL_CHARS,
   MAX_TITLE_CHARS,
@@ -88,6 +90,7 @@ describe('designs store', () => {
       author: 'Guest',
       thumbnailDataUrl: '',
       overrides: [{ meshName: 'body' }],
+      garmentId: 'column',
     })
 
     const longTitle = 'M'.repeat(MAX_TITLE_CHARS + 12)
@@ -145,5 +148,19 @@ describe('designs store', () => {
     expect(after[0]?.id).toBe('look-atelier-ivory')
     expect(after[0]?.votes).toBe(6)
     expect(after[1]?.id).toBe('look-midnight-silk')
+  })
+
+  test('refuses a twenty-fifth look', () => {
+    const room = MAX_LIVE_DESIGNS - listStoredDesigns().length
+
+    for (let index = 0; index < room; index += 1) {
+      createStoredDesign({
+        draft: { ...DRAFT, title: `House Look ${index}` },
+      })
+    }
+
+    expect(() => {
+      createStoredDesign({ draft: DRAFT })
+    }).toThrow(DesignsBoardFullError)
   })
 })

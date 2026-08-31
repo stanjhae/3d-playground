@@ -9,17 +9,23 @@
   "scripts": {
     "dev": "vite",
     "generate": "node scripts/generate-routes.mjs",
+    "garments": "node scripts/build-garment.mjs && node scripts/build-jacket.mjs",
+    "stills": "node scripts/bake-stills.mjs",
+    "og": "node scripts/bake-og.mjs",
     "build": "pnpm generate && tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.2.8",
+    "@fontsource/outfit": "^5.2.8",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@tanstack/react-router": "^1.170.32",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.185.1",
+    "@vercel/kv": "^3.0.0",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

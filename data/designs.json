@@ -4,7 +4,7 @@
     "title": "Midnight Silk Column",
     "author": "Elise Moreau",
     "votes": 6,
-    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%231a1c22%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%23c4a15a%22%2F%3E%3C%2Fsvg%3E",
+    "thumbnailDataUrl": "/stills/look-midnight-silk.png",
     "overrides": [
       {
         "meshName": "body",
@@ -34,14 +34,15 @@
         "metalness": 0.08,
         "mapId": "leather-grain"
       }
-    ]
+    ],
+    "garmentId": "column"
   },
   {
     "id": "look-atelier-ivory",
     "title": "Atelier Ivory",
     "author": "Camille Wren",
     "votes": 5,
-    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%232b241c%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%23f4ead4%22%2F%3E%3C%2Fsvg%3E",
+    "thumbnailDataUrl": "/stills/look-atelier-ivory.png",
     "overrides": [
       {
         "meshName": "body",
@@ -71,14 +72,15 @@
         "metalness": 0.12,
         "mapId": "silk-shine"
       }
-    ]
+    ],
+    "garmentId": "column"
   },
   {
     "id": "look-oxblood-evening",
     "title": "Oxblood Evening",
     "author": "Hiro Tanaka",
     "votes": 4,
-    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%23241014%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%236b1d2a%22%2F%3E%3C%2Fsvg%3E",
+    "thumbnailDataUrl": "/stills/look-oxblood-evening.png",
     "overrides": [
       {
         "meshName": "body",
@@ -108,14 +110,15 @@
         "metalness": 0.12,
         "mapId": "silk-shine"
       }
-    ]
+    ],
+    "garmentId": "column"
   },
   {
     "id": "look-meadow-walk",
     "title": "Meadow Walk",
     "author": "Noor Rahman",
     "votes": 3,
-    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%231c2218%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%236b7c4a%22%2F%3E%3C%2Fsvg%3E",
+    "thumbnailDataUrl": "/stills/look-meadow-walk.png",
     "overrides": [
       {
         "meshName": "body",
@@ -145,14 +148,15 @@
         "metalness": 0.08,
         "mapId": "leather-grain"
       }
-    ]
+    ],
+    "garmentId": "column"
   },
   {
     "id": "look-slate-denim",
     "title": "Slate Denim",
     "author": "Jules Adler",
     "votes": 2,
-    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%231a1e22%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%233d4a55%22%2F%3E%3C%2Fsvg%3E",
+    "thumbnailDataUrl": "/stills/look-slate-denim.png",
     "overrides": [
       {
         "meshName": "body",
@@ -182,14 +186,15 @@
         "metalness": 0.06,
         "mapId": "leather-grain"
       }
-    ]
+    ],
+    "garmentId": "column"
   },
   {
     "id": "look-wool-hour",
     "title": "Wool Hour",
     "author": "Marta Klein",
     "votes": 1,
-    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%231c1814%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%232b241c%22%2F%3E%3C%2Fsvg%3E",
+    "thumbnailDataUrl": "/stills/look-wool-hour.png",
     "overrides": [
       {
         "meshName": "body",
@@ -219,14 +224,15 @@
         "metalness": 0.12,
         "mapId": "silk-shine"
       }
-    ]
+    ],
+    "garmentId": "column"
   },
   {
     "id": "look-blush-first",
     "title": "Blush First Look",
     "author": "Iman Farouk",
     "votes": 0,
-    "thumbnailDataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22300%22%20viewBox%3D%220%200%20240%20300%22%3E%3Crect%20width%3D%22240%22%20height%3D%22300%22%20fill%3D%22%232a201c%22%2F%3E%3Cpath%20d%3D%22M120%2034c20%200%2030%2011%2030%2024v16l34%2016v18l-20-8v168c0%2018-16%2026-44%2026s-44-8-44-26V100l-20%208V82l34-16V58c0-13%2010-24%2030-24z%22%20fill%3D%22%23e8c4b8%22%2F%3E%3C%2Fsvg%3E",
+    "thumbnailDataUrl": "/stills/look-blush-first.png",
     "overrides": [
       {
         "meshName": "body",
@@ -256,6 +262,7 @@
         "metalness": 0.08,
         "mapId": "leather-grain"
       }
-    ]
+    ],
+    "garmentId": "column"
   }
 ]

@@ -29,4 +29,24 @@ describe('garment.glb', () => {
       expect.arrayContaining(['body', 'collar', 'lining', 'hardware']),
     )
   })
+
+  test('jacket keeps the same fashion panel names', async () => {
+    const { readFileSync } = (await import(
+      // @ts-expect-error Node built-in; tests run in Vitest, not the browser bundle
+      'node:fs'
+    )) as { readFileSync: (path: string) => Uint8Array }
+    const { resolve } = (await import(
+      // @ts-expect-error Node built-in
+      'node:path'
+    )) as { resolve: (...parts: string[]) => string }
+    const cwd = (
+      globalThis as unknown as { process: { cwd: () => string } }
+    ).process.cwd()
+    const bytes = readFileSync(resolve(cwd, 'public/models/jacket.glb'))
+    const names = (glbJson({ bytes }).nodes ?? []).map((node) => node.name)
+
+    expect(names).toEqual(
+      expect.arrayContaining(['body', 'collar', 'lining', 'hardware']),
+    )
+  })
 })

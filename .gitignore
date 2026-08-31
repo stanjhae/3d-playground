@@ -6,3 +6,4 @@ dist
 /.idea
 .tanstack
 .vercel
+.qa

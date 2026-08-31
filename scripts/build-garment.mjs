@@ -24,115 +24,211 @@ import {
   Group,
   LatheGeometry,
   Mesh,
-  MeshStandardMaterial,
+  MeshPhysicalMaterial,
   Scene,
-  TorusGeometry,
+  SphereGeometry,
   Vector2,
 } from 'three'
 
-function createWool({ color }) {
-  return new MeshStandardMaterial({
+function createSilk({ color, sheen = 1 }) {
+  return new MeshPhysicalMaterial({
     color,
-    roughness: 0.86,
+    roughness: 0.18,
+    metalness: 0.04,
+    sheen,
+    sheenRoughness: 0.28,
+    sheenColor: '#fff4e4',
+    side: DoubleSide,
+  })
+}
+
+function createLiningSilk({ color }) {
+  return new MeshPhysicalMaterial({
+    color,
+    roughness: 0.22,
+    metalness: 0.03,
+    sheen: 0.7,
+    sheenRoughness: 0.34,
+    sheenColor: '#ffe8dc',
+    side: DoubleSide,
+  })
+}
+
+function createWool({ color }) {
+  return new MeshPhysicalMaterial({
+    color,
+    roughness: 0.88,
     metalness: 0,
     side: DoubleSide,
   })
 }
 
-function createSilk({ color }) {
-  return new MeshStandardMaterial({
-    color,
-    roughness: 0.18,
-    metalness: 0.05,
-    side: DoubleSide,
-  })
-}
-
 function createBrass() {
-  return new MeshStandardMaterial({
+  return new MeshPhysicalMaterial({
     color: '#c4a15a',
     roughness: 0.28,
-    metalness: 0.85,
+    metalness: 0.82,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.2,
   })
 }
 
-function createGownBody() {
-  const points = [
-    new Vector2(0.3, 0),
-    new Vector2(0.24, 0.18),
-    new Vector2(0.2, 0.4),
-    new Vector2(0.22, 0.58),
-    new Vector2(0.26, 0.72),
-    new Vector2(0.19, 0.9),
-    new Vector2(0.23, 1.08),
-    new Vector2(0.21, 1.2),
-    new Vector2(0.12, 1.34),
-    new Vector2(0.09, 1.4),
-  ]
-
-  const mesh = new Mesh(new LatheGeometry(points, 72), createSilk({ color: '#f4ead4' }))
-  mesh.name = 'body'
+function latheFrom({
+  name,
+  points,
+  segments = 96,
+  material,
+}) {
+  const mesh = new Mesh(
+    new LatheGeometry(
+      points.map(([x, y]) => new Vector2(x, y)),
+      segments,
+    ),
+    material,
+  )
+  mesh.name = name
   mesh.castShadow = true
   mesh.receiveShadow = true
   return mesh
 }
 
-function createLining() {
-  const points = [
-    new Vector2(0.28, 0.04),
-    new Vector2(0.22, 0.2),
-    new Vector2(0.18, 0.42),
-    new Vector2(0.2, 0.6),
-    new Vector2(0.24, 0.72),
-    new Vector2(0.17, 0.9),
-    new Vector2(0.21, 1.08),
-    new Vector2(0.19, 1.18),
-    new Vector2(0.1, 1.3),
-  ]
+function createBodice() {
+  return latheFrom({
+    name: 'body',
+    material: createSilk({ color: '#f4ead4' }),
+    points: [
+      [0.155, 0.96],
+      [0.168, 1.02],
+      [0.2, 1.1],
+      [0.218, 1.18],
+      [0.222, 1.24],
+      [0.2, 1.3],
+      [0.168, 1.36],
+      [0.132, 1.42],
+      [0.118, 1.46],
+    ],
+  })
+}
 
-  const mesh = new Mesh(new LatheGeometry(points, 64), createSilk({ color: '#6b1d2a' }))
-  mesh.name = 'lining'
+function createSkirt() {
+  return latheFrom({
+    name: 'body-skirt',
+    material: createSilk({ color: '#f4ead4' }),
+    points: [
+      [0.27, 0],
+      [0.255, 0.06],
+      [0.228, 0.2],
+      [0.21, 0.36],
+      [0.208, 0.5],
+      [0.22, 0.64],
+      [0.248, 0.78],
+      [0.262, 0.86],
+      [0.22, 0.92],
+      [0.155, 0.96],
+    ],
+  })
+}
+
+function createTrain() {
+  const mesh = latheFrom({
+    name: 'body-train',
+    segments: 48,
+    material: createSilk({ color: '#f1e4cc', sheen: 0.85 }),
+    points: [
+      [0.02, 0],
+      [0.18, 0.01],
+      [0.3, 0.02],
+      [0.34, 0.05],
+      [0.22, 0.08],
+    ],
+  })
+  mesh.scale.set(1, 1, 1.35)
+  mesh.position.set(0, 0, -0.08)
   return mesh
 }
 
+function createLining() {
+  return latheFrom({
+    name: 'lining',
+    segments: 80,
+    material: createLiningSilk({ color: '#6b1d2a' }),
+    points: [
+      [0.25, 0.03],
+      [0.21, 0.22],
+      [0.198, 0.5],
+      [0.23, 0.78],
+      [0.148, 0.97],
+      [0.19, 1.16],
+      [0.188, 1.26],
+      [0.14, 1.38],
+      [0.1, 1.44],
+    ],
+  })
+}
+
 function createCollar() {
-  const mesh = new Mesh(new TorusGeometry(0.105, 0.022, 20, 56), createWool({ color: '#2b241c' }))
-  mesh.name = 'collar'
-  mesh.rotation.x = Math.PI / 2
-  mesh.position.y = 1.4
-  mesh.castShadow = true
-  return mesh
+  const group = new Group()
+  group.name = 'collar'
+
+  const neck = latheFrom({
+    name: 'collar',
+    segments: 64,
+    material: createWool({ color: '#2b241c' }),
+    points: [
+      [0.118, 1.455],
+      [0.122, 1.462],
+      [0.11, 1.468],
+    ],
+  })
+
+  const leftStrap = new Mesh(
+    new CylinderGeometry(0.008, 0.007, 0.16, 16),
+    createSilk({ color: '#f4ead4' }),
+  )
+  leftStrap.name = 'collar-strap-left'
+  leftStrap.position.set(-0.1, 1.5, 0.01)
+  leftStrap.rotation.z = 0.55
+  leftStrap.castShadow = true
+
+  const rightStrap = leftStrap.clone()
+  rightStrap.name = 'collar-strap-right'
+  rightStrap.position.x = 0.1
+  rightStrap.rotation.z = -0.55
+
+  group.add(neck, leftStrap, rightStrap)
+  return group
 }
 
 function createHardware() {
   const group = new Group()
   group.name = 'hardware'
 
-  const belt = new Mesh(new TorusGeometry(0.2, 0.012, 12, 48), createBrass())
-  belt.name = 'hardware-belt'
-  belt.rotation.x = Math.PI / 2
-  belt.position.y = 0.9
-  group.add(belt)
-
-  const buckle = new Mesh(new BoxGeometry(0.055, 0.03, 0.018), createBrass())
-  buckle.name = 'hardware-buckle'
-  buckle.position.set(0.2, 0.9, 0.02)
-  group.add(buckle)
-
-  for (const [index, x] of [-0.035, 0, 0.035].entries()) {
-    const button = new Mesh(new CylinderGeometry(0.012, 0.012, 0.006, 20), createBrass())
+  for (const [index, y] of [1.34, 1.26, 1.18, 1.1].entries()) {
+    const button = new Mesh(new SphereGeometry(0.011, 16, 12), createBrass())
     button.name = `hardware-button-${index + 1}`
-    button.rotation.x = Math.PI / 2
-    button.position.set(x, 1.12, 0.2)
+    button.position.set(0, y, -0.155)
+    button.castShadow = true
     group.add(button)
   }
+
+  const clasp = new Mesh(new BoxGeometry(0.04, 0.014, 0.01), createBrass())
+  clasp.name = 'hardware-clasp'
+  clasp.position.set(0, 1.45, 0.12)
+  group.add(clasp)
 
   return group
 }
 
 const garment = new Group()
 garment.name = 'garment'
-garment.add(createGownBody(), createLining(), createCollar(), createHardware())
+garment.add(
+  createBodice(),
+  createSkirt(),
+  createTrain(),
+  createLining(),
+  createCollar(),
+  createHardware(),
+)
 
 const scene = new Scene()
 scene.add(garment)
@@ -144,6 +240,12 @@ if (!(glb instanceof ArrayBuffer)) {
   throw new Error('Expected a binary GLB')
 }
 
-const outPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'models', 'garment.glb')
+const outPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'public',
+  'models',
+  'garment.glb',
+)
 writeFileSync(outPath, Buffer.from(glb))
 console.log('wrote', outPath, glb.byteLength)

@@ -1,6 +1,6 @@
 # Fashion Leader Vote
 
-The garment is the product. The building is the atelier. FLV garments swap in without rewriting the app.
+The garment is the product. The building is the house.
 
 Live: [https://3d-playground-vert.vercel.app/](https://3d-playground-vert.vercel.app/)
 
@@ -8,22 +8,29 @@ Live: [https://3d-playground-vert.vercel.app/](https://3d-playground-vert.vercel
 
 ```bash
 pnpm install
+pnpm garments
+pnpm stills
 pnpm dev
 ```
 
-Open the local URL. You should see **Fashion Leader Vote**, not the old campus walkthrough.
+Open the local URL. You should see a gown in frame and **Fashion Leader Vote**.
 
 ```bash
 pnpm test
 pnpm build
 ```
 
-`pnpm build` regenerates `src/routeTree.gen.ts` before typecheck. Keep that generated file in git so a clean checkout typechecks.
+`pnpm build` regenerates `src/routeTree.gen.ts` before typecheck.
+
+## Persist the board
+
+The one dashboard step: in the Vercel project, add a Redis store (Marketplace → Upstash / the KV env pair) and pull `KV_REST_API_URL` + `KV_REST_API_TOKEN`. The API keeps the same `/api/designs` shape. Local and tests use memory when those env values are missing. Seed looks always load.
 
 ## Assets
 
-Building and tree GLBs live in `public/models/`. L4 compresses them with Draco + WebP (`scripts/compress-models.sh`). First paint is the 22KB gown; the campus files are ~9MB combined. Draco decoders live in `public/draco/` (from three.js r185 / Google Draco) so first paint does not call gstatic. Commit `public/models/garment.glb`, `public/fabrics/`, and `public/draco/` with the campus GLB shrinks — do not `git add -u` alone.
+- `public/models/garment.glb` — original ivory silk column (bodice, skirt, train, lining, collar, hardware). CC0. `pnpm garments`
+- `public/models/jacket.glb` — original evening jacket. Same panel names. CC0.
+- Campus GLBs stay in `public/models/` and load only in **The house**.
+- Board stills live in `public/stills/`. `pnpm stills`
 
-### Hero garment
-
-`public/models/garment.glb` is an original ivory silk column gown authored for this demo (`body`, `collar`, `lining`, `hardware`). License: CC0 1.0 (public domain). Mesh names are stable for Design-mode picking. Regenerate with `node scripts/build-garment.mjs` if you change the silhouette.
+Draco decoders live in `public/draco/` so first paint does not call gstatic.

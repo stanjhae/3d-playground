@@ -10,7 +10,7 @@ export function ModeToggle({
   const current = mode ?? storeMode
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-3">
       <button
         type="button"
         onClick={() => {
@@ -18,11 +18,11 @@ export function ModeToggle({
         }}
         className={
           current === 'design'
-            ? 'border border-brass px-4 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase'
-            : 'border border-atelier-line px-4 py-2 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass'
+            ? 'min-h-11 font-display text-xs tracking-[0.18em] text-brass uppercase'
+            : 'min-h-11 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass'
         }
       >
-        Design look
+        Design
       </button>
       <button
         type="button"
@@ -31,11 +31,11 @@ export function ModeToggle({
         }}
         className={
           current === 'atelier'
-            ? 'border border-brass px-4 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase'
-            : 'border border-atelier-line px-4 py-2 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass'
+            ? 'min-h-11 font-display text-xs tracking-[0.18em] text-brass uppercase'
+            : 'min-h-11 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass'
         }
       >
-        Walk the atelier
+        The house
       </button>
     </div>
   )

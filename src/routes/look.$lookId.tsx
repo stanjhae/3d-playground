@@ -5,6 +5,7 @@ import { LookStage } from '../components/scene/LookStage'
 import { getDesign, voteOnDesign } from '../lib/designs-api'
 import type { Design } from '../lib/design-schema'
 import { resolveFetchedLook } from '../lib/fetched-look'
+import { HOUSE_COPY } from '../lib/house-copy'
 
 export const Route = createFileRoute('/look/$lookId')({
   component: LookPage,
@@ -39,6 +40,10 @@ function LookPage() {
         const resolved = resolveFetchedLook({ failed: false, design })
         setLook(resolved.design)
         setStatus(resolved.status)
+
+        if (resolved.design) {
+          document.title = `${resolved.design.title} — Fashion Leader Vote`
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -50,6 +55,7 @@ function LookPage() {
 
     return () => {
       cancelled = true
+      document.title = 'Fashion Leader Vote'
     }
   }, [lookId])
 
@@ -66,7 +72,7 @@ function LookPage() {
       const result = await voteOnDesign({ id: look.id })
       setLook({ ...look, votes: result.votes })
     } catch {
-      setVoteError('The vote could not be counted.')
+      setVoteError(HOUSE_COPY.voteFailed)
     } finally {
       votingRef.current = false
       setVoting(false)
@@ -83,70 +89,62 @@ function LookPage() {
   }
 
   return (
-    <section className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-16">
-      <p className="font-display text-xs tracking-[0.32em] text-brass uppercase">
-        Shared look
-      </p>
-      {status === 'loading' ? (
-        <p className="text-sm text-ivory-muted">Opening the look</p>
-      ) : null}
-      {status === 'error' ? (
-        <>
-          <h1 className="font-display text-4xl text-ivory">
-            The look could not open
-          </h1>
-          <p className="max-w-lg text-base leading-relaxed text-ivory-muted">
-            The board may be resetting. Open the vote and try the look again.
-          </p>
-          <Link to="/vote" className="text-brass hover:underline">
-            Back to the board
-          </Link>
-        </>
-      ) : null}
-      {status === 'missing' ? (
-        <>
-          <h1 className="font-display text-4xl text-ivory">That look is gone</h1>
-          <p className="max-w-lg text-base leading-relaxed text-ivory-muted">
-            The board may have reset. Open the vote and pick another look.
-          </p>
-          <Link to="/vote" className="text-brass hover:underline">
-            Back to the board
-          </Link>
-        </>
-      ) : null}
+    <section className="relative h-dvh overflow-hidden">
       {status === 'ready' && look ? (
-        <>
-          <h1 className="font-display text-4xl text-ivory">{look.title}</h1>
-          <p className="text-base text-ivory-muted">
+        <LookStage
+          garmentId={look.garmentId}
+          overrides={look.overrides}
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center px-6">
+          {status === 'loading' ? (
+            <p className="text-sm text-ivory-muted">{HOUSE_COPY.lookLoading}</p>
+          ) : null}
+          {status === 'error' || status === 'missing' ? (
+            <div className="flex max-w-md flex-col gap-4">
+              <h1 className="font-display text-4xl text-ivory">
+                {HOUSE_COPY.lookGone}
+              </h1>
+              <Link to="/vote" search={{}} className="text-brass hover:underline">
+                Back to the board
+              </Link>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {status === 'ready' && look ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-4 bg-gradient-to-t from-atelier via-atelier/70 to-transparent p-6 pt-20">
+          <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
+            Shared look
+          </p>
+          <h1 className="font-display text-4xl text-ivory md:text-5xl">
+            {look.title}
+          </h1>
+          <p className="text-sm text-ivory-muted">
             By {look.author} · {look.votes}{' '}
             {look.votes === 1 ? 'vote' : 'votes'}
           </p>
-          <section className="h-[min(72vh,44rem)] overflow-hidden border border-atelier-line bg-atelier-raised">
-            <LookStage overrides={look.overrides} />
-          </section>
           {voteError ? (
             <p className="text-sm text-ivory-muted">{voteError}</p>
           ) : null}
           {copyStatus === 'error' ? (
-            <p className="text-sm text-ivory-muted">
-              The link could not be copied. Select the address bar instead.
-            </p>
+            <p className="text-sm text-ivory-muted">{HOUSE_COPY.copyFailed}</p>
           ) : null}
-          <section className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="pointer-events-auto flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
               type="button"
               disabled={voting}
               onClick={() => {
                 void handleVote()
               }}
-              className="border border-brass px-5 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
+              className="min-h-11 border border-brass px-5 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
             >
               {voting ? 'Voting' : 'Vote this look'}
             </button>
             <Link
               to="/"
               search={{ design: look.id }}
-              className="border border-atelier-line px-5 py-2 text-center font-display text-xs tracking-[0.18em] text-ivory uppercase hover:text-brass"
+              className="min-h-11 border border-atelier-line px-5 py-2 text-center font-display text-xs tracking-[0.18em] text-ivory uppercase hover:text-brass"
             >
               Remix in studio
             </Link>
@@ -155,12 +153,12 @@ function LookPage() {
               onClick={() => {
                 void handleCopy()
               }}
-              className="border border-atelier-line px-5 py-2 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass"
+              className="min-h-11 border border-atelier-line px-5 py-2 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass"
             >
               {copyStatus === 'copied' ? 'Link copied' : 'Copy link'}
             </button>
-          </section>
-        </>
+          </div>
+        </div>
       ) : null}
     </section>
   )

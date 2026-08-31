@@ -5,6 +5,7 @@ import { Leaderboard } from '../components/vote/Leaderboard'
 import { LookCard } from '../components/vote/LookCard'
 import { listDesigns, voteOnDesign } from '../lib/designs-api'
 import type { Design } from '../lib/design-schema'
+import { HOUSE_COPY } from '../lib/house-copy'
 import { rankDesigns } from '../lib/rank-designs'
 import {
   applyOptimisticVote,
@@ -13,10 +14,20 @@ import {
 } from '../lib/vote-board'
 
 export const Route = createFileRoute('/vote')({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { entered?: string } => {
+    if (typeof search.entered === 'string' && search.entered.length > 0) {
+      return { entered: search.entered }
+    }
+
+    return {}
+  },
   component: VotePage,
 })
 
 function VotePage() {
+  const { entered } = Route.useSearch()
   const [looks, setLooks] = useState<Design[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [votingIds, setVotingIds] = useState<string[]>([])
@@ -73,35 +84,50 @@ function VotePage() {
     }
   }
 
-  const leaderId = looks[0]?.id
+  const leader = looks[0]
+  const rest = looks.slice(1)
 
   return (
-    <section className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-16">
+    <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pt-24 pb-16">
       <p className="font-display text-xs tracking-[0.32em] text-brass uppercase">
         Fashion Leader Vote
       </p>
-      <h1 className="font-display text-4xl text-ivory">The board</h1>
-      <p className="max-w-lg text-base leading-relaxed text-ivory-muted">
-        Vote a look to the top. The Leader wears the company name.
-      </p>
+      <h1 className="font-display text-5xl text-ivory">The board</h1>
       {status === 'loading' ? (
-        <p className="text-sm text-ivory-muted">Preparing the board</p>
+        <div className="grid gap-5 sm:grid-cols-2">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div
+              key={index}
+              className="aspect-[4/5] border border-atelier-line bg-atelier-raised"
+            />
+          ))}
+        </div>
       ) : null}
       {status === 'error' ? (
-        <p className="text-sm text-ivory-muted">The board could not load.</p>
+        <p className="text-sm text-ivory-muted">{HOUSE_COPY.boardFailed}</p>
       ) : null}
-      {status === 'ready' ? (
+      {status === 'ready' && leader ? (
         <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
-          <section className="grid gap-5 sm:grid-cols-2">
-            {looks.map((look) => (
-              <LookCard
-                key={look.id}
-                design={look}
-                isLeader={look.id === leaderId}
-                voting={votingIds.includes(look.id)}
-                onVote={handleVote}
-              />
-            ))}
+          <section className="flex flex-col gap-8">
+            <LookCard
+              design={leader}
+              isLeader
+              featured
+              isEntered={entered === leader.id}
+              voting={votingIds.includes(leader.id)}
+              onVote={handleVote}
+            />
+            <section className="grid gap-5 sm:grid-cols-2">
+              {rest.map((look) => (
+                <LookCard
+                  key={look.id}
+                  design={look}
+                  isEntered={entered === look.id}
+                  voting={votingIds.includes(look.id)}
+                  onVote={handleVote}
+                />
+              ))}
+            </section>
           </section>
           <Leaderboard looks={looks} />
         </section>

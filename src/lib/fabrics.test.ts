@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { getFabricById, listFabrics } from './fabrics'
+import { getFabricById, getFabricByMapId, getFabricForOverride, listFabrics } from './fabrics'
 
 describe('listFabrics', () => {
   test('includes the five families and at least eight editorial colors', () => {
@@ -43,5 +43,18 @@ describe('getFabricById', () => {
 
   test('returns undefined for unknown ids', () => {
     expect(getFabricById({ id: 'missing' })).toBeUndefined()
+  })
+})
+
+describe('getFabricForOverride', () => {
+  test('uses the first family preset when only a map is known', () => {
+    expect(getFabricByMapId({ mapId: 'silk-shine' })?.id).toBe('silk')
+    expect(getFabricForOverride({ mapId: 'silk-shine' })?.id).toBe('silk')
+  })
+
+  test('matches the editorial color on the same map family', () => {
+    expect(
+      getFabricForOverride({ mapId: 'silk-shine', color: '#e8c4b8' })?.id,
+    ).toBe('blush-silk')
   })
 })

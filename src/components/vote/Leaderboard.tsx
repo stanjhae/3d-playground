@@ -6,7 +6,7 @@ export function Leaderboard({ looks }: { looks: Design[] }) {
   return (
     <aside className="flex flex-col gap-4 border border-atelier-line bg-atelier-raised p-5">
       <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
-        Leaderboard
+        The house
       </p>
       <ol className="flex flex-col gap-3">
         {looks.map((look, index) => (

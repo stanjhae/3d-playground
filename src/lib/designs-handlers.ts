@@ -1,8 +1,16 @@
+import { HOUSE_COPY } from './house-copy.ts'
 import {
+  DesignsBoardFullError,
+  DesignsPersistError,
   createStoredDesign,
+  hydrateDesignsStore,
   parseDesignDraft,
+  persistDesignsStore,
+  removeStoredDesign,
+  restoreStoredVotes,
   voteStoredDesign,
   listStoredDesigns,
+  withDesignsLock,
 } from './designs-store.ts'
 import { resolveVoteId } from './paths.ts'
 import { rankDesigns } from './rank-designs.ts'
@@ -48,17 +56,58 @@ async function createDesignsResponse({ request }: { request: Request }) {
     )
   }
 
-  const design = createStoredDesign({ draft })
+  let design
+
+  try {
+    design = createStoredDesign({ draft })
+  } catch (error) {
+    if (error instanceof DesignsBoardFullError) {
+      return Response.json({ error: HOUSE_COPY.boardFull }, { status: 409 })
+    }
+
+    throw error
+  }
+
+  try {
+    await persistDesignsStore()
+  } catch (error) {
+    removeStoredDesign({ id: design.id })
+
+    if (error instanceof DesignsPersistError) {
+      return Response.json(
+        { error: HOUSE_COPY.boardPersistFailed },
+        { status: 503 },
+      )
+    }
+
+    throw error
+  }
 
   return Response.json({ design }, { status: 201 })
 }
 
 async function voteDesignsResponse({ request }: { request: Request }) {
   const id = await resolveVoteId({ request })
+  const before = listStoredDesigns().find((design) => design.id === id)
   const design = voteStoredDesign({ id })
 
   if (!design) {
     return Response.json({ error: 'That look is gone' }, { status: 404 })
+  }
+
+  try {
+    await persistDesignsStore()
+  } catch (error) {
+    restoreStoredVotes({ id, votes: before?.votes ?? design.votes - 1 })
+
+    if (error instanceof DesignsPersistError) {
+      return Response.json(
+        { error: HOUSE_COPY.boardPersistFailed },
+        { status: 503 },
+      )
+    }
+
+    throw error
   }
 
   return Response.json({
@@ -72,21 +121,27 @@ export async function handleDesignsRequest({
 }: {
   request: Request
 }) {
-  const { pathname } = new URL(request.url)
-  const normalizedPath = pathname.replace(/\/+$/, '') || '/'
-  const isVote = isVoteRequest({ request })
+  return withDesignsLock({
+    run: async () => {
+      await hydrateDesignsStore()
 
-  if (request.method === 'GET' && !isVote) {
-    return listDesignsResponse()
-  }
+      const { pathname } = new URL(request.url)
+      const normalizedPath = pathname.replace(/\/+$/, '') || '/'
+      const isVote = isVoteRequest({ request })
 
-  if (request.method === 'POST' && isVote) {
-    return voteDesignsResponse({ request })
-  }
+      if (request.method === 'GET' && !isVote) {
+        return listDesignsResponse()
+      }
 
-  if (request.method === 'POST' && normalizedPath.endsWith('/api/designs')) {
-    return createDesignsResponse({ request })
-  }
+      if (request.method === 'POST' && isVote) {
+        return voteDesignsResponse({ request })
+      }
 
-  return Response.json({ error: 'Not found' }, { status: 404 })
+      if (request.method === 'POST' && normalizedPath.endsWith('/api/designs')) {
+        return createDesignsResponse({ request })
+      }
+
+      return Response.json({ error: 'Not found' }, { status: 404 })
+    },
+  })
 }

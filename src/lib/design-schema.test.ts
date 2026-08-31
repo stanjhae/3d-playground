@@ -13,6 +13,7 @@ describe('createEmptyDesign', () => {
       votes: 0,
       thumbnailDataUrl: '',
       overrides: [],
+      garmentId: 'column',
     })
   })
 })

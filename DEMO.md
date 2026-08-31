@@ -2,44 +2,49 @@
 
 Live URL: https://3d-playground-vert.vercel.app/
 
-## S3 Founder QA
+Local: `pnpm dev` → http://127.0.0.1:5173/
 
-Run as a person on the live URL, no repo. 31 Aug 2026.
+## Wow bar
 
-| Check | Result | Notes |
+Run as a person who has never seen the repo. Phone and laptop. House voice only.
+
+Checks below are against **this checkout**. The public live URL still serves the previous slice until it is redeployed.
+
+| Check | Local | Notes |
 | --- | --- | --- |
-| Fashion Leader Vote on screen in ~3s; gown in frame; no pointer-lock on first paint | Pass | Wordmark and atelier chrome on first HTML. `garment.glb` is 22KB and arrives in ~0.5s. Walk overlay is off until chosen. |
-| 60-second create: click a panel, Silk + a color, Enter the Vote | Pass | Enter the Vote lands on `/vote` with a new card among the seed community. This QA run published the default ivory gown (Look 01); Silk applies when a panel is picked first. |
-| Seed community visible; one vote can move Leader | Pass | Vote **Atelier Ivory** once. Rank is votes, then title. Atelier Ivory became Leader (7 vs Midnight Silk Column at 6). |
-| `/look/$lookId` opens that look alone | Pass | Orbit, Vote this look, Remix in studio, Copy link. No fabric panel, no publish, no pointer-lock. |
-| Incognito share | Pass | `/look/look-atelier-ivory` and `/look/look-midnight-silk` open the seed gowns in a fresh context. Use a seed id if a just-published look 404s. |
-| Walk the atelier is optional and obviously optional | Pass | **Design look** is the default. **Walk the atelier** shows an overlay and Start walking. Esc returns the cursor. |
-| No console errors on the happy path | Pass | Home, vote, look, and incognito look: no page errors. |
-| Narrow `/vote` | Pass | 390px stacks the Leader card. Fashion Leader Vote copy, not Gallery. |
-| `/?design=look-atelier-ivory` remix | Pass | Studio opens on the seed look. |
-| Would you text this URL to a fashion person? | Pass | It is a fashion product with a gown, a Leader, and a share link. Not a campus tour and not a repo. |
-
-### Leftover risk
-
-List, publish, and vote share one function isolate. A cold start still resets to the seven seed looks. Seed share links always work. Frozen product: no Postgres/KV.
+| Gown reads as clothing from ~2 meters | Pass | Column gown: bodice, skirt, train, lining, straps, hardware. Still authored, not a scanned sample. |
+| First paint is full-bleed studio; gown in frame; wordmark only | Pass | No manifesto. Wordmark floats. |
+| Silk without a tutorial | Pass | Body is preselected. Silk is live on first tap. |
+| Stills match the 3D look | Pass | Board cards are `/stills/*.png` studio cards, not SVG clip-art. Publish captures a 4:5 JPEG. |
+| Publish survives reload | Fail | Needs Redis/KV env on Vercel. Memory fallback keeps the seven house looks. Seed ids always work. |
+| Look nav never 404s | Pass | Look is the current look or the Leader. Never `/look/preview`. |
+| iMessage / Slack unfurl | Pass | PNG card at `/og-default.png`. Look URLs serve `/api/og?lookId=` stills to crawlers. |
+| 390px studio is usable | Pass | Cloth sheet, sticky enter, 44px targets. Gown stays in the upper frame. |
+| Would you text this URL to a fashion person? | Fail | Honest Pass only after the live URL is this checkout and KV is on. Locally it is a house. |
 
 ## 90-second shot list
 
-1. Open https://3d-playground-vert.vercel.app/ — ivory gown, Fashion Leader Vote, no captured cursor.
-2. Click a panel on the gown. Click **Silk**.
-3. **Enter the Vote** — the look sits on the board with seven others.
-4. Vote **Atelier Ivory** — it becomes **Leader**.
-5. Open `/look/look-midnight-silk` (or Copy link on a card). Orbit the look. Remix in studio.
-6. Optional 8s: **Walk the atelier** → Start walking → Esc.
+1. Open the studio. A gown fills the frame. Fashion Leader Vote. No captured cursor.
+2. Tap **Silk**. The column changes.
+3. **Enter the Vote**. Your still sits on the board. **Just entered** marks it.
+4. Vote **Atelier Ivory**. The Leader stamp can move.
+5. Open a look. Orbit. Remix in studio. The caption says what you are remixing.
+6. Optional: **The house** — the Leader on a plinth. **Walk the rooms** only if you want it.
+7. Optional: **Jacket** — the house has a second form.
 
 ## Cover note
 
 Subject: https://3d-playground-vert.vercel.app/
 
-This is Create / Publish / Vote from the FLV answers, as a URL.
+This is Create / Publish / Vote as a URL.
 
-You land on a gown, not a building tour. Cloth names, not sliders. Publish puts the look on a board that already looks like a community. One vote names a Leader. The share link is a look you can forward on its own. Walk the old Informatics model if you want — it is the atelier, not the product.
+You land on a gown, not a building. Cloth names, not sliders. Enter the vote and the board already looks like a house. One vote can name a Leader. The look link stands alone.
 
 I did not build CAD, pattern grading, cloth simulation, or AI. There is no login.
 
-Next week on FLV is two more base garments and your first 25 users.
+## Leftover risk
+
+- Redeploy before sending the live URL. This checkout is the house; production may still be the previous slice.
+- The board persists when `KV_REST_API_URL` and `KV_REST_API_TOKEN` are set (Vercel Redis / Upstash). Without them the isolate falls back to the seven house looks. The live board caps at 24 looks.
+- Seed share links always work.
+- The look route loads Three (~270KB gzip). Campus GLBs load only in The house.
