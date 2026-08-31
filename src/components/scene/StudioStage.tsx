@@ -15,15 +15,15 @@ import { useEditorStore } from '../../lib/editor-store'
 import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
 
 export const STUDIO_CAMERA = {
-  position: [1.85, 1.15, 1.95] as const,
-  target: [0, 0.72, 0] as const,
-  fov: 32,
+  position: [5.2, 2.6, 5.6] as const,
+  target: [0, 0.7, 0] as const,
+  fov: 42,
   near: 0.1,
   far: 2000,
 }
 
 export const INTRO_DURATION = 1.2
-const INTRO_FROM = [2.55, 1.42, 2.7] as const
+const INTRO_FROM = [6.4, 3.1, 6.8] as const
 
 export function StudioRenderer() {
   const gl = useThree((state) => state.gl)
@@ -219,9 +219,9 @@ export function StudioOrbit({
     <OrbitControls
       enabled={enabled}
       enablePan={false}
-      maxDistance={4.2}
+      maxDistance={9}
       maxPolarAngle={Math.PI / 2.05}
-      minDistance={1.5}
+      minDistance={4.6}
       minPolarAngle={Math.PI / 4}
       target={[...STUDIO_CAMERA.target]}
     />
