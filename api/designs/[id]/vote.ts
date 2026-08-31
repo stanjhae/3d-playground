@@ -1,5 +1,5 @@
-import { voteStoredDesign } from '../../../src/lib/designs-store'
-import { resolveVoteId } from '../../../src/lib/paths'
+import { voteStoredDesign } from '../../../src/lib/designs-store.ts'
+import { resolveVoteId } from '../../../src/lib/paths.ts'
 
 export async function POST(
   request: Request,

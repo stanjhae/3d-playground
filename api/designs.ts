@@ -2,8 +2,8 @@ import {
   createStoredDesign,
   listStoredDesigns,
   parseDesignDraft,
-} from '../src/lib/designs-store'
-import { rankDesigns } from '../src/lib/rank-designs'
+} from '../src/lib/designs-store.ts'
+import { rankDesigns } from '../src/lib/rank-designs.ts'
 
 export function GET() {
   return Response.json({

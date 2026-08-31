@@ -5,3 +5,4 @@ dist
 *.local
 /.idea
 .tanstack
+.vercel

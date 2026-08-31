@@ -5,5 +5,13 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/designs.ts": {
+      "includeFiles": "{src/lib/**,data/designs.json}"
+    },
+    "api/designs/[id]/vote.ts": {
+      "includeFiles": "{src/lib/**,data/designs.json}"
+    }
+  }
 }
