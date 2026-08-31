@@ -10,10 +10,12 @@ import { describe, expect, test } from 'vitest'
 
 import {
   applyDesignOverrides,
+  applyLiveOverrides,
   applyOverridesFromBases,
   captureMeshMaterials,
   cloneObjectMaterials,
   listMeshes,
+  stampAncestorNames,
 } from './apply-overrides'
 
 function createNamedMesh({ name }: { name: string }) {
@@ -75,7 +77,8 @@ describe('applyDesignOverrides', () => {
     expect(collar.material.roughness).toBe(0.35)
     expect(collar.material.metalness).toBe(0.05)
     expect(collar.material.userData.mapId).toBe('silk-ivory')
-    expect(collar.material.map).toBe(weave)
+    expect(collar.material.map).toBeInstanceOf(Texture)
+    expect(collar.material.map).not.toBe(weave)
 
     expect(lining.material).toBe(originalLiningMaterial)
     expect(lining.material.color.getHexString()).toBe('ffffff')
@@ -101,7 +104,8 @@ describe('applyDesignOverrides', () => {
     expect(nextCloth).toBeInstanceOf(MeshStandardMaterial)
     expect(nextCloth).not.toBe(cloth)
     expect(nextCloth.color.getHexString()).toBe('112233')
-    expect(nextCloth.map).toBe(weave)
+    expect(nextCloth.map).toBeInstanceOf(Texture)
+    expect(nextCloth.map).not.toBe(weave)
     expect(nextTrim).toBe(trim)
   })
 })
@@ -167,6 +171,106 @@ describe('applyOverridesFromBases', () => {
       '112233',
     )
     expect(root.children).toHaveLength(0)
+  })
+})
+
+describe('name matching', () => {
+  test('paints hardware children from a group name override', () => {
+    const belt = createNamedMesh({ name: 'hardware-belt' })
+    const group = new Group()
+    group.name = 'hardware'
+    group.add(belt)
+    const root = new Group()
+    root.add(group)
+
+    applyDesignOverrides({
+      root,
+      overrides: [{ meshName: 'hardware', color: '#6b1d2a' }],
+    })
+
+    expect((belt.material as MeshStandardMaterial).color.getHexString()).toBe(
+      '6b1d2a',
+    )
+  })
+
+  test('paints detached hardware from stamped ancestors', () => {
+    const button = createNamedMesh({ name: 'Button01' })
+    const hardware = new Group()
+    hardware.name = 'hardware'
+    hardware.add(button)
+    const root = new Group()
+    root.add(hardware)
+    stampAncestorNames({ root })
+    hardware.remove(button)
+
+    applyDesignOverrides({
+      root: button,
+      overrides: [{ meshName: 'hardware', color: '#6b1d2a' }],
+    })
+
+    expect((button.material as MeshStandardMaterial).color.getHexString()).toBe(
+      '6b1d2a',
+    )
+  })
+
+  test('paints a prefixed child from the parent part name', () => {
+    const skirt = createNamedMesh({ name: 'body-skirt' })
+    const root = new Group()
+    root.add(skirt)
+
+    applyDesignOverrides({
+      root,
+      overrides: [{ meshName: 'body', color: '#112233' }],
+    })
+
+    expect((skirt.material as MeshStandardMaterial).color.getHexString()).toBe(
+      '112233',
+    )
+  })
+})
+
+describe('applyLiveOverrides', () => {
+  test('applies the final color immediately when animate is false', () => {
+    const body = createNamedMesh({ name: 'body' })
+    const root = new Group()
+    root.add(body)
+    cloneObjectMaterials({ root })
+    const baseMaterials = captureMeshMaterials({ root })
+    const meshes = listMeshes({ root })
+
+    applyLiveOverrides({
+      meshes,
+      baseMaterials,
+      overrides: [{ meshName: 'body', color: '#1a1c22' }],
+      animate: false,
+    })
+
+    expect((body.material as MeshStandardMaterial).color.getHexString()).toBe(
+      '1a1c22',
+    )
+  })
+
+  test('holds the prior cloth color when animate is true', () => {
+    const body = createNamedMesh({ name: 'body' })
+    const root = new Group()
+    root.add(body)
+    cloneObjectMaterials({ root })
+    const baseMaterials = captureMeshMaterials({ root })
+    const meshes = listMeshes({ root })
+    ;(body.material as MeshStandardMaterial).color.set('#c4a15a')
+
+    applyLiveOverrides({
+      meshes,
+      baseMaterials,
+      overrides: [{ meshName: 'body', color: '#1a1c22' }],
+      animate: true,
+    })
+
+    const material = body.material as MeshStandardMaterial
+    expect(material.color.getHexString()).toBe('c4a15a')
+    expect((material.userData.targetColor as { getHexString: () => string }).getHexString()).toBe(
+      '1a1c22',
+    )
   })
 })
 

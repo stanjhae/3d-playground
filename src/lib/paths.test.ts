@@ -7,8 +7,8 @@ describe('lookIdFromPathname', () => {
     expect(lookIdFromPathname({ pathname: '/look/silk-01' })).toBe('silk-01')
   })
 
-  test('falls back to preview off the look route', () => {
-    expect(lookIdFromPathname({ pathname: '/vote' })).toBe('preview')
+  test('returns null off the look route', () => {
+    expect(lookIdFromPathname({ pathname: '/vote' })).toBeNull()
   })
 })
 

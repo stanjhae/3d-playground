@@ -1,16 +1,56 @@
 import {
+  Color,
   Material,
   Mesh,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
+  RepeatWrapping,
   SRGBColorSpace,
   type Object3D,
   type Texture,
 } from 'three'
 
 import type { MaterialOverride } from './design-schema'
+import { getFabricForOverride } from './fabrics'
+import { overrideMatchesMesh } from './mesh-match'
 
 function isMesh(node: Object3D): node is Mesh {
   return node instanceof Mesh
+}
+
+function collectAncestorNames({ node }: { node: Object3D }) {
+  const names: string[] = []
+  let current = node.parent
+
+  while (current) {
+    if (current.name) {
+      names.push(current.name)
+    }
+
+    current = current.parent
+  }
+
+  return names
+}
+
+function ancestorNamesFor({ node }: { node: Object3D }) {
+  const stamped = node.userData.ancestorNames
+
+  if (Array.isArray(stamped) && stamped.every((name) => typeof name === 'string')) {
+    return stamped as string[]
+  }
+
+  return collectAncestorNames({ node })
+}
+
+export function stampAncestorNames({ root }: { root: Object3D }) {
+  root.traverse((node) => {
+    if (isMesh(node)) {
+      node.userData.ancestorNames = collectAncestorNames({ node })
+    }
+  })
+
+  return root
 }
 
 function cloneMaterialEntry({ material }: { material: Material }) {
@@ -40,6 +80,44 @@ export function cloneObjectMaterials({ root }: { root: Object3D }) {
   return root
 }
 
+function toPhysicalMaterial({
+  material,
+}: {
+  material: MeshStandardMaterial
+}) {
+  if (material instanceof MeshPhysicalMaterial) {
+    return material.clone()
+  }
+
+  const next = new MeshPhysicalMaterial({
+    color: material.color.clone(),
+    map: material.map,
+    metalness: material.metalness,
+    opacity: material.opacity,
+    roughness: material.roughness,
+    side: material.side,
+    transparent: material.transparent,
+  })
+  next.userData = { ...material.userData }
+  return next
+}
+
+function cloneFabricMap({
+  map,
+  repeat,
+}: {
+  map: Texture
+  repeat: number
+}) {
+  const cloned = map.clone()
+  cloned.colorSpace = SRGBColorSpace
+  cloned.wrapS = RepeatWrapping
+  cloned.wrapT = RepeatWrapping
+  cloned.repeat.set(repeat, repeat)
+  cloned.needsUpdate = true
+  return cloned
+}
+
 function applyOverrideToMaterial({
   material,
   override,
@@ -49,7 +127,11 @@ function applyOverrideToMaterial({
   override: MaterialOverride
   map?: Texture
 }) {
-  const nextMaterial = material.clone()
+  const nextMaterial = toPhysicalMaterial({ material })
+  const fabric = getFabricForOverride({
+    mapId: override.mapId,
+    color: override.color,
+  })
 
   if (override.color !== undefined) {
     nextMaterial.color.set(override.color)
@@ -67,9 +149,26 @@ function applyOverrideToMaterial({
     nextMaterial.userData.mapId = override.mapId
   }
 
+  if (fabric?.sheen !== undefined) {
+    nextMaterial.sheen = fabric.sheen
+    nextMaterial.sheenRoughness = fabric.sheenRoughness ?? 0.3
+    nextMaterial.sheenColor = new Color(fabric.sheenColor ?? '#ffffff')
+  } else {
+    nextMaterial.sheen = 0
+  }
+
+  if (fabric?.clearcoat !== undefined) {
+    nextMaterial.clearcoat = fabric.clearcoat
+    nextMaterial.clearcoatRoughness = fabric.clearcoatRoughness ?? 0.4
+  } else {
+    nextMaterial.clearcoat = 0
+  }
+
   if (map) {
-    map.colorSpace = SRGBColorSpace
-    nextMaterial.map = map
+    nextMaterial.map = cloneFabricMap({
+      map,
+      repeat: fabric?.mapRepeat ?? 3,
+    })
     nextMaterial.needsUpdate = true
   }
 
@@ -90,6 +189,33 @@ function applyOverrideToSlot({
   }
 
   return applyOverrideToMaterial({ material, override, map })
+}
+
+function findOverrideForMesh({
+  node,
+  overrides,
+}: {
+  node: Object3D
+  overrides: MaterialOverride[]
+}) {
+  const ancestorNames = ancestorNamesFor({ node })
+
+  for (let index = overrides.length - 1; index >= 0; index -= 1) {
+    const override = overrides[index]
+
+    if (
+      override &&
+      overrideMatchesMesh({
+        meshName: override.meshName,
+        nodeName: node.name,
+        ancestorNames,
+      })
+    ) {
+      return override
+    }
+  }
+
+  return undefined
 }
 
 export function listMeshes({ root }: { root: Object3D }) {
@@ -141,16 +267,12 @@ export function applyDesignOverrides({
   overrides: MaterialOverride[]
   maps?: Record<string, Texture>
 }) {
-  const overrideByMeshName = new Map(
-    overrides.map((override) => [override.meshName, override]),
-  )
-
   root.traverse((node) => {
     if (!isMesh(node)) {
       return
     }
 
-    const override = overrideByMeshName.get(node.name)
+    const override = findOverrideForMesh({ node, overrides })
 
     if (!override) {
       return
@@ -194,6 +316,63 @@ export function applyOverridesFromBases({
       overrides,
       maps,
     })
+  }
+
+  return meshes
+}
+
+function meshMaterials({ mesh }: { mesh: Mesh }) {
+  return Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+}
+
+export function applyLiveOverrides({
+  meshes,
+  baseMaterials,
+  overrides,
+  maps,
+  animate = true,
+}: {
+  meshes: Mesh[]
+  baseMaterials: Map<string, Mesh['material']>
+  overrides: MaterialOverride[]
+  maps?: Record<string, Texture>
+  animate?: boolean
+}) {
+  const priors = new Map<string, Color>()
+
+  if (animate) {
+    for (const mesh of meshes) {
+      for (const material of meshMaterials({ mesh })) {
+        if (material instanceof MeshStandardMaterial) {
+          priors.set(mesh.uuid, material.color.clone())
+          break
+        }
+      }
+    }
+  }
+
+  applyOverridesFromBases({
+    meshes,
+    baseMaterials,
+    overrides,
+    maps,
+  })
+
+  for (const mesh of meshes) {
+    const prior = priors.get(mesh.uuid)
+
+    for (const material of meshMaterials({ mesh })) {
+      if (!(material instanceof MeshStandardMaterial)) {
+        continue
+      }
+
+      material.userData.targetColor = material.color.clone()
+      material.userData.targetRoughness = material.roughness
+
+      if (animate && prior) {
+        material.color.copy(prior)
+      }
+    }
   }
 
   return meshes

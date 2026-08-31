@@ -1,5 +1,27 @@
+import { frameStill } from './capture-still'
 import type { Design } from './design-schema'
 import { MAX_THUMBNAIL_CHARS } from './designs-store'
+import { HOUSE_COPY } from './house-copy'
+
+async function readErrorMessage({
+  response,
+  fallback,
+}: {
+  response: Response
+  fallback: string
+}) {
+  try {
+    const body = (await response.json()) as { error?: unknown }
+
+    if (typeof body.error === 'string' && body.error.length > 0) {
+      return body.error
+    }
+  } catch {
+    // House copy still names the failure.
+  }
+
+  return fallback
+}
 
 export function voteRequestPath({ id }: { id: string }) {
   return `/api/designs/${encodeURIComponent(id)}/vote`
@@ -40,37 +62,7 @@ export async function shrinkThumbnail({
     return ''
   }
 
-  return new Promise((resolve) => {
-    const image = new Image()
-
-    image.onload = () => {
-      const canvas = document.createElement('canvas')
-      const width = 480
-      const height =
-        image.width > 0
-          ? Math.max(1, Math.round((image.height / image.width) * width))
-          : 600
-
-      canvas.width = width
-      canvas.height = height
-
-      const context = canvas.getContext('2d')
-
-      if (!context) {
-        resolve('')
-        return
-      }
-
-      context.drawImage(image, 0, 0, width, height)
-      resolve(canvas.toDataURL('image/jpeg', 0.72))
-    }
-
-    image.onerror = () => {
-      resolve('')
-    }
-
-    image.src = dataUrl
-  })
+  return frameStill({ dataUrl })
 }
 
 export async function createDesign({
@@ -93,7 +85,12 @@ export async function createDesign({
   })
 
   if (!response.ok) {
-    throw new Error('The look could not be published')
+    throw new Error(
+      await readErrorMessage({
+        response,
+        fallback: HOUSE_COPY.publishFailed,
+      }),
+    )
   }
 
   const body = (await response.json()) as { design: Design }
@@ -115,7 +112,12 @@ export async function voteOnDesign({
   }
 
   if (!response.ok) {
-    throw new Error('The vote could not be counted')
+    throw new Error(
+      await readErrorMessage({
+        response,
+        fallback: HOUSE_COPY.voteFailed,
+      }),
+    )
   }
 
   return (await response.json()) as { id: string; votes: number }

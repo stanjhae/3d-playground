@@ -1,3 +1,5 @@
+export type GarmentId = 'column' | 'jacket'
+
 export type MaterialOverride = {
   meshName: string
   color?: string
@@ -13,6 +15,7 @@ export type Design = {
   votes: number
   thumbnailDataUrl: string
   overrides: MaterialOverride[]
+  garmentId?: GarmentId
 }
 
 export function createEmptyDesign({ id }: { id: string }): Design {
@@ -23,5 +26,14 @@ export function createEmptyDesign({ id }: { id: string }): Design {
     votes: 0,
     thumbnailDataUrl: '',
     overrides: [],
+    garmentId: 'column',
   }
+}
+
+export function resolveGarmentId({
+  garmentId,
+}: {
+  garmentId?: string | null
+}): GarmentId {
+  return garmentId === 'jacket' ? 'jacket' : 'column'
 }

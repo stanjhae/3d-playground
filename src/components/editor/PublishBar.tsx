@@ -2,24 +2,13 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { Design } from '../../lib/design-schema'
+import { captureFramedStill } from '../../lib/capture-still'
 import { useEditorStore } from '../../lib/editor-store'
 import { getFabricById } from '../../lib/fabrics'
+import { HOUSE_COPY } from '../../lib/house-copy'
 import { resolveDraftTitle } from '../../lib/look-title'
 
-let lookSerial = 1
 let studioCanvas: HTMLCanvasElement | null = null
-
-function captureCanvasThumbnail() {
-  if (!studioCanvas) {
-    return ''
-  }
-
-  try {
-    return studioCanvas.toDataURL('image/png')
-  } catch {
-    return ''
-  }
-}
 
 export function PublishThumbnailSync() {
   const gl = useThree((state) => state.gl)
@@ -53,7 +42,9 @@ export function PublishBar({
   const storeTitle = useEditorStore((state) => state.title)
   const author = useEditorStore((state) => state.author)
   const fabricId = useEditorStore((state) => state.fabricId)
+  const garmentId = useEditorStore((state) => state.garmentId)
   const overrides = useEditorStore((state) => state.overrides)
+  const lookSerial = useEditorStore((state) => state.lookSerial)
   const fabricName = getFabricById({ id: fabricId ?? '' })?.name ?? 'Look'
   const [titleTouched, setTitleTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -81,11 +72,11 @@ export function PublishBar({
         serial: lookSerial,
       }),
     )
-  }, [fabricName, storeTitle, title, titleTouched])
+  }, [fabricName, lookSerial, storeTitle, title, titleTouched])
 
   return (
     <form
-      className="flex flex-col gap-4 border border-atelier-line bg-atelier-raised p-5 sm:flex-row sm:items-end"
+      className="flex flex-col gap-3 border border-atelier-line bg-atelier/92 p-4 backdrop-blur-sm sm:flex-row sm:items-end"
       onSubmit={(event) => {
         event.preventDefault()
 
@@ -104,19 +95,19 @@ export function PublishBar({
 
         setSubmitting(true)
 
-        void Promise.resolve(
-          onPublish?.({
-            design: {
-              title: resolvedTitle,
-              author: author || 'Guest',
-              thumbnailDataUrl: captureCanvasThumbnail(),
-              overrides: [...overrides],
-            },
-          }),
+        void captureFramedStill({ canvas: studioCanvas }).then((thumbnailDataUrl) =>
+          Promise.resolve(
+            onPublish?.({
+              design: {
+                title: resolvedTitle,
+                author: author || 'Guest',
+                thumbnailDataUrl,
+                overrides: [...overrides],
+                garmentId,
+              },
+            }),
+          ),
         )
-          .then(() => {
-            lookSerial += 1
-          })
           .finally(() => {
             submittingRef.current = false
             setSubmitting(false)
@@ -134,18 +125,15 @@ export function PublishBar({
             setTitleTouched(true)
             setDraftTitle(event.target.value)
           }}
-          className="border border-atelier-line bg-atelier px-3 py-2 text-ivory disabled:opacity-50"
+          className="min-h-11 border border-atelier-line bg-atelier px-3 py-2 text-ivory disabled:opacity-50"
         />
       </label>
-      <p className="text-sm text-ivory-muted">
-        By {author || 'Guest'}
-      </p>
       <button
         type="submit"
         disabled={busy}
-        className="border border-brass px-5 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
+        className="min-h-11 border border-brass px-5 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
       >
-        {busy ? 'Entering the Vote' : 'Enter the Vote'}
+        {busy ? HOUSE_COPY.entering : HOUSE_COPY.enter}
       </button>
     </form>
   )

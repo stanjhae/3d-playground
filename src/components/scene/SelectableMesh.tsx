@@ -1,9 +1,10 @@
-import { Outlines, useCursor } from '@react-three/drei'
+import { Html, Outlines, useCursor } from '@react-three/drei'
 import { type ThreeEvent } from '@react-three/fiber'
 import { useState, type ReactNode } from 'react'
 import { type Mesh } from 'three'
 
 import { useEditorStore } from '../../lib/editor-store'
+import { partLabel } from '../../lib/garment-parts'
 
 export function SelectableMesh({
   name,
@@ -17,10 +18,15 @@ export function SelectableMesh({
   picking?: boolean
 }) {
   const mode = useEditorStore((state) => state.mode)
-  const isSelected = useEditorStore((state) => state.selectedMeshName === name)
+  const selectedMeshName = useEditorStore((state) => state.selectedMeshName)
+  const isSelected = Boolean(
+    selectedMeshName &&
+      (selectedMeshName === name || name.startsWith(`${selectedMeshName}-`)),
+  )
   const selectMesh = useEditorStore((state) => state.selectMesh)
   const [hovered, setHovered] = useState(false)
   const canPick = picking && mode === 'design'
+  const showCaption = canPick && hovered && !name.includes('-')
 
   useCursor(canPick && hovered)
 
@@ -34,7 +40,7 @@ export function SelectableMesh({
         }
 
         event.stopPropagation()
-        selectMesh({ selectedMeshName: name })
+        selectMesh({ selectedMeshName: name.split('-')[0] ?? name })
       }}
       onPointerOver={(event: ThreeEvent<PointerEvent>) => {
         if (!canPick) {
@@ -48,8 +54,15 @@ export function SelectableMesh({
         setHovered(false)
       }}
     >
-      {canPick && isSelected ? (
-        <Outlines color="#c4a15a" thickness={0.012} />
+      {canPick && (isSelected || hovered) ? (
+        <Outlines color="#c4a15a" thickness={isSelected ? 0.006 : 0.003} />
+      ) : null}
+      {showCaption ? (
+        <Html center distanceFactor={4} style={{ pointerEvents: 'none' }}>
+          <p className="-translate-y-10 font-display text-[10px] tracking-[0.22em] text-brass uppercase">
+            {partLabel({ meshName: name })}
+          </p>
+        </Html>
       ) : null}
       {children}
     </primitive>

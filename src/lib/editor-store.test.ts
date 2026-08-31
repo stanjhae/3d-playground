@@ -8,16 +8,18 @@ describe('useEditorStore', () => {
     useEditorStore.getState().reset()
   })
 
-  test('starts in design mode with no selection', () => {
+  test('starts in design mode with the body live', () => {
     const state = useEditorStore.getState()
 
     expect(state.mode).toBe('design')
-    expect(state.selectedMeshName).toBeNull()
+    expect(state.selectedMeshName).toBe('body')
+    expect(state.garmentId).toBe('column')
     expect(state.fabricId).toBeNull()
     expect(state.colorId).toBeNull()
     expect(state.overrides).toEqual([])
     expect(state.title).toBe('')
     expect(state.author).toBe('Guest')
+    expect(state.lookSerial).toBe(1)
   })
 
   test('setMode and selectMesh use named parameters', () => {
@@ -31,6 +33,7 @@ describe('useEditorStore', () => {
   })
 
   test('applyFabric is a no-op without a selection or known preset', () => {
+    useEditorStore.getState().selectMesh({ selectedMeshName: null })
     useEditorStore.getState().applyFabric({
       fabricId: 'ivory-silk',
       colorId: 'ivory-silk',
@@ -60,7 +63,7 @@ describe('useEditorStore', () => {
       {
         meshName: 'collar',
         color: '#f4ead4',
-        roughness: 0.2,
+        roughness: 0.18,
         metalness: 0.04,
         mapId: 'silk-shine',
       },
@@ -105,7 +108,8 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().overrides).not.toBe(design.overrides)
     expect(useEditorStore.getState().fabricId).toBeNull()
     expect(useEditorStore.getState().colorId).toBeNull()
-    expect(useEditorStore.getState().selectedMeshName).toBeNull()
+    expect(useEditorStore.getState().selectedMeshName).toBe('body')
+    expect(useEditorStore.getState().garmentId).toBe('column')
   })
 
   test('publishLook keeps the design for later vote wiring', () => {
@@ -125,5 +129,6 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().lastPublished?.thumbnailDataUrl).toContain(
       'image/png',
     )
+    expect(useEditorStore.getState().lookSerial).toBe(2)
   })
 })

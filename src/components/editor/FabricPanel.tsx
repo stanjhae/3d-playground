@@ -1,31 +1,30 @@
 import { listFabrics } from '../../lib/fabrics'
+import { GARMENT_PARTS, partLabel } from '../../lib/garment-parts'
 import { useEditorStore } from '../../lib/editor-store'
 
-function partLabel({ meshName }: { meshName: string }) {
-  const [head] = meshName.split('-')
-  return head.charAt(0).toUpperCase() + head.slice(1)
-}
-
-export function FabricPanel({ selectedMeshName }: { selectedMeshName?: string }) {
+export function FabricPanel({
+  selectedMeshName,
+}: {
+  selectedMeshName?: string
+}) {
   const storeSelection = useEditorStore((state) => state.selectedMeshName)
   const fabricId = useEditorStore((state) => state.fabricId)
   const applyFabric = useEditorStore((state) => state.applyFabric)
+  const selectMesh = useEditorStore((state) => state.selectMesh)
   const undoLast = useEditorStore((state) => state.undoLast)
   const canUndo = useEditorStore((state) => state.overrides.length > 0)
-  const selected = selectedMeshName ?? storeSelection ?? undefined
+  const selected = selectedMeshName ?? storeSelection ?? 'body'
   const fabrics = listFabrics()
 
   return (
-    <aside className="flex w-full max-w-72 flex-col gap-5 border border-atelier-line bg-atelier-raised p-5">
+    <aside className="flex max-h-[36vh] w-full flex-col gap-4 overflow-y-auto border border-atelier-line bg-atelier/92 p-4 backdrop-blur-sm lg:max-h-[min(72vh,38rem)] lg:max-w-72">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
             Cloth
           </p>
           <p className="text-sm text-ivory">
-            {selected
-              ? `For the ${partLabel({ meshName: selected })}`
-              : 'Pick a part of the gown'}
+            For the {partLabel({ meshName: selected })}
           </p>
         </div>
         <button
@@ -34,10 +33,28 @@ export function FabricPanel({ selectedMeshName }: { selectedMeshName?: string })
           onClick={() => {
             undoLast()
           }}
-          className="font-display text-xs tracking-[0.16em] text-ivory-muted uppercase disabled:opacity-30 hover:text-brass disabled:hover:text-ivory-muted"
+          className="min-h-11 font-display text-xs tracking-[0.16em] text-ivory-muted uppercase hover:text-brass disabled:opacity-30 disabled:hover:text-ivory-muted"
         >
           Undo
         </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {GARMENT_PARTS.map((part) => (
+          <button
+            key={part.id}
+            type="button"
+            onClick={() => {
+              selectMesh({ selectedMeshName: part.id })
+            }}
+            className={
+              selected === part.id || selected.startsWith(`${part.id}-`)
+                ? 'min-h-11 border border-brass px-3 py-1.5 font-display text-[10px] tracking-[0.16em] text-brass uppercase'
+                : 'min-h-11 border border-atelier-line px-3 py-1.5 font-display text-[10px] tracking-[0.16em] text-ivory-muted uppercase hover:text-brass'
+            }
+          >
+            {part.label}
+          </button>
+        ))}
       </div>
       <ul className="grid grid-cols-2 gap-2">
         {fabrics.map((fabric) => {
@@ -47,14 +64,13 @@ export function FabricPanel({ selectedMeshName }: { selectedMeshName?: string })
             <li key={fabric.id}>
               <button
                 type="button"
-                disabled={!selected}
                 onClick={() => {
                   applyFabric({ fabricId: fabric.id, colorId: fabric.id })
                 }}
                 className={
                   isActive
-                    ? 'flex w-full items-center gap-3 border border-brass bg-atelier px-3 py-2 text-left disabled:opacity-40'
-                    : 'flex w-full items-center gap-3 border border-atelier-line bg-atelier px-3 py-2 text-left disabled:opacity-40 hover:border-brass'
+                    ? 'flex min-h-11 w-full items-center gap-3 border border-brass bg-atelier px-3 py-2 text-left'
+                    : 'flex min-h-11 w-full items-center gap-3 border border-atelier-line bg-atelier px-3 py-2 text-left hover:border-brass'
                 }
               >
                 <span

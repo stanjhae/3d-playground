@@ -1,6 +1,6 @@
 export function lookIdFromPathname({ pathname }: { pathname: string }) {
   const match = /^\/look\/([^/]+)/.exec(pathname)
-  return match?.[1] ?? 'preview'
+  return match?.[1] ?? null
 }
 
 export async function resolveVoteId({

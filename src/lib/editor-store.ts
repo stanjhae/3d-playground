@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
-import type { Design, MaterialOverride } from './design-schema'
+import type { Design, GarmentId, MaterialOverride } from './design-schema'
+import { resolveGarmentId } from './design-schema'
 import { getFabricById } from './fabrics'
 
 export type EditorMode = 'design' | 'atelier'
@@ -10,12 +11,15 @@ type EditorState = {
   selectedMeshName: string | null
   fabricId: string | null
   colorId: string | null
+  garmentId: GarmentId
   overrides: MaterialOverride[]
   title: string
   author: string
   lastPublished: Omit<Design, 'id' | 'votes'> | null
+  lookSerial: number
   setMode: ({ mode }: { mode: EditorMode }) => void
   selectMesh: ({ selectedMeshName }: { selectedMeshName: string | null }) => void
+  setGarmentId: ({ garmentId }: { garmentId: GarmentId }) => void
   applyFabric: ({
     fabricId,
     colorId,
@@ -35,13 +39,15 @@ type EditorState = {
 
 const INITIAL_EDITOR_STATE = {
   mode: 'design' as const,
-  selectedMeshName: null,
-  fabricId: null,
-  colorId: null,
+  selectedMeshName: 'body' as string | null,
+  fabricId: null as string | null,
+  colorId: null as string | null,
+  garmentId: 'column' as GarmentId,
   overrides: [] as MaterialOverride[],
   title: '',
   author: 'Guest',
-  lastPublished: null,
+  lastPublished: null as Omit<Design, 'id' | 'votes'> | null,
+  lookSerial: 1,
 }
 
 export const useEditorStore = create<EditorState>()((set) => ({
@@ -51,6 +57,12 @@ export const useEditorStore = create<EditorState>()((set) => ({
   },
   selectMesh: ({ selectedMeshName }) => {
     set({ selectedMeshName })
+  },
+  setGarmentId: ({ garmentId }) => {
+    set({
+      garmentId: resolveGarmentId({ garmentId }),
+      selectedMeshName: 'body',
+    })
   },
   applyFabric: ({ fabricId, colorId }) => {
     set((state) => {
@@ -97,22 +109,31 @@ export const useEditorStore = create<EditorState>()((set) => ({
       overrides: [...design.overrides],
       fabricId: null,
       colorId: null,
-      selectedMeshName: null,
+      selectedMeshName: 'body',
+      garmentId: resolveGarmentId({ garmentId: design.garmentId }),
     })
   },
   publishLook: ({ design }) => {
-    set({
+    set((state) => ({
       title: design.title,
       author: design.author,
+      lookSerial: state.lookSerial + 1,
       lastPublished: {
         title: design.title,
         author: design.author,
         thumbnailDataUrl: design.thumbnailDataUrl,
         overrides: [...design.overrides],
+        garmentId: resolveGarmentId({ garmentId: design.garmentId }),
       },
-    })
+    }))
   },
   reset: () => {
-    set({ ...INITIAL_EDITOR_STATE, overrides: [], lastPublished: null })
+    set({
+      ...INITIAL_EDITOR_STATE,
+      overrides: [],
+      lastPublished: null,
+      selectedMeshName: 'body',
+      garmentId: 'column',
+    })
   },
 }))
