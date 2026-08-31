@@ -121,27 +121,31 @@ export async function handleDesignsRequest({
 }: {
   request: Request
 }) {
-  return withDesignsLock({
-    run: async () => {
-      await hydrateDesignsStore()
+  try {
+    return await withDesignsLock({
+      run: async () => {
+        await hydrateDesignsStore()
 
-      const { pathname } = new URL(request.url)
-      const normalizedPath = pathname.replace(/\/+$/, '') || '/'
-      const isVote = isVoteRequest({ request })
+        const { pathname } = new URL(request.url)
+        const normalizedPath = pathname.replace(/\/+$/, '') || '/'
+        const isVote = isVoteRequest({ request })
 
-      if (request.method === 'GET' && !isVote) {
-        return listDesignsResponse()
-      }
+        if (request.method === 'GET' && !isVote) {
+          return listDesignsResponse()
+        }
 
-      if (request.method === 'POST' && isVote) {
-        return voteDesignsResponse({ request })
-      }
+        if (request.method === 'POST' && isVote) {
+          return voteDesignsResponse({ request })
+        }
 
-      if (request.method === 'POST' && normalizedPath.endsWith('/api/designs')) {
-        return createDesignsResponse({ request })
-      }
+        if (request.method === 'POST' && normalizedPath.endsWith('/api/designs')) {
+          return createDesignsResponse({ request })
+        }
 
-      return Response.json({ error: 'Not found' }, { status: 404 })
-    },
-  })
+        return Response.json({ error: 'Not found' }, { status: 404 })
+      },
+    })
+  } catch {
+    return Response.json({ error: HOUSE_COPY.boardFailed }, { status: 500 })
+  }
 }
