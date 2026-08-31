@@ -95,8 +95,12 @@ export function parseDesignDraft({
   return {
     title: cappedTitle,
     author: cappedAuthor || 'Guest',
-    thumbnailDataUrl:
-      typeof record.thumbnailDataUrl === 'string' ? record.thumbnailDataUrl : '',
+    thumbnailDataUrl: capThumbnail({
+      thumbnailDataUrl:
+        typeof record.thumbnailDataUrl === 'string'
+          ? record.thumbnailDataUrl
+          : '',
+    }),
     overrides: record.overrides.slice(0, MAX_OVERRIDE_COUNT).map((override) => ({
       meshName: override.meshName.slice(0, 64),
       ...(typeof override.color === 'string' ? { color: override.color.slice(0, 32) } : {}),

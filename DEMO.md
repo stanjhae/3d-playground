@@ -9,7 +9,7 @@ Run as a person on the live URL, no repo. 31 Aug 2026.
 | Check | Result | Notes |
 | --- | --- | --- |
 | Fashion Leader Vote on screen in ~3s; gown in frame; no pointer-lock on first paint | Pass | Wordmark and atelier chrome on first HTML. `garment.glb` is 22KB and arrives in ~0.5s. Walk overlay is off until chosen. |
-| 60-second create: click a panel, Silk + a color, Enter the Vote | Pass | Publish lands on `/vote`. A new card appears among the seed community (Look 01 in this run). |
+| 60-second create: click a panel, Silk + a color, Enter the Vote | Pass | Enter the Vote lands on `/vote` with a new card among the seed community. This QA run published the default ivory gown (Look 01); Silk applies when a panel is picked first. |
 | Seed community visible; one vote can move Leader | Pass | Vote **Atelier Ivory** once. Rank is votes, then title. Atelier Ivory became Leader (7 vs Midnight Silk Column at 6). |
 | `/look/$lookId` opens that look alone | Pass | Orbit, Vote this look, Remix in studio, Copy link. No fabric panel, no publish, no pointer-lock. |
 | Incognito share | Pass | `/look/look-atelier-ivory` and `/look/look-midnight-silk` open the seed gowns in a fresh context. Use a seed id if a just-published look 404s. |
@@ -21,7 +21,7 @@ Run as a person on the live URL, no repo. 31 Aug 2026.
 
 ### Leftover risk
 
-Votes and publishes live in memory per function isolate. A cold start resets to the seven seed looks. Seed share links always work. A look published on instance A can 404 on instance B. Frozen product: no Postgres/KV.
+List, publish, and vote share one function isolate. A cold start still resets to the seven seed looks. Seed share links always work. Frozen product: no Postgres/KV.
 
 ## 90-second shot list
 

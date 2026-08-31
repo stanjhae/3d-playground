@@ -107,6 +107,19 @@ describe('designs store', () => {
     expect(parsed?.overrides).toHaveLength(MAX_OVERRIDE_COUNT)
   })
 
+  test('parseDesignDraft caps an oversized thumbnail', () => {
+    const parsed = parseDesignDraft({
+      body: {
+        title: 'Huge Still',
+        author: 'Guest',
+        thumbnailDataUrl: `data:image/png;base64,${'a'.repeat(MAX_THUMBNAIL_CHARS)}`,
+        overrides: [{ meshName: 'body' }],
+      },
+    })
+
+    expect(parsed?.thumbnailDataUrl).toBe('')
+  })
+
   test('votes increment and missing ids stay gone', () => {
     const before = getStoredDesign({ id: 'look-atelier-ivory' })
 
