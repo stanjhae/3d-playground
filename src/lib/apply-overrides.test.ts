@@ -8,7 +8,13 @@ import {
 } from 'three'
 import { describe, expect, test } from 'vitest'
 
-import { applyDesignOverrides, cloneObjectMaterials } from './apply-overrides'
+import {
+  applyDesignOverrides,
+  applyOverridesFromBases,
+  captureMeshMaterials,
+  cloneObjectMaterials,
+  listMeshes,
+} from './apply-overrides'
 
 function createNamedMesh({ name }: { name: string }) {
   const mesh = new Mesh(
@@ -97,6 +103,70 @@ describe('applyDesignOverrides', () => {
     expect(nextCloth.color.getHexString()).toBe('112233')
     expect(nextCloth.map).toBe(weave)
     expect(nextTrim).toBe(trim)
+  })
+})
+
+describe('applyOverridesFromBases', () => {
+  test('restores an undone mesh after the override list shrinks', () => {
+    const collar = createNamedMesh({ name: 'collar' })
+    const lining = createNamedMesh({ name: 'lining' })
+    const root = new Group()
+    root.add(collar, lining)
+    cloneObjectMaterials({ root })
+
+    const baseMaterials = captureMeshMaterials({ root })
+    const meshes = listMeshes({ root })
+    const originalCollarHex = (collar.material as MeshStandardMaterial).color.getHexString()
+
+    applyOverridesFromBases({
+      meshes,
+      baseMaterials,
+      overrides: [
+        { meshName: 'collar', color: '#c45c26', roughness: 0.2 },
+        { meshName: 'lining', color: '#6b1d2a' },
+      ],
+    })
+
+    expect((collar.material as MeshStandardMaterial).color.getHexString()).toBe(
+      'c45c26',
+    )
+    expect((lining.material as MeshStandardMaterial).color.getHexString()).toBe(
+      '6b1d2a',
+    )
+
+    applyOverridesFromBases({
+      meshes,
+      baseMaterials,
+      overrides: [{ meshName: 'lining', color: '#6b1d2a' }],
+    })
+
+    expect((collar.material as MeshStandardMaterial).color.getHexString()).toBe(
+      originalCollarHex,
+    )
+    expect((lining.material as MeshStandardMaterial).color.getHexString()).toBe(
+      '6b1d2a',
+    )
+  })
+
+  test('still applies after children are detached from the group', () => {
+    const collar = createNamedMesh({ name: 'collar' })
+    const root = new Group()
+    root.add(collar)
+    cloneObjectMaterials({ root })
+    const baseMaterials = captureMeshMaterials({ root })
+    const meshes = listMeshes({ root })
+    root.remove(collar)
+
+    applyOverridesFromBases({
+      meshes,
+      baseMaterials,
+      overrides: [{ meshName: 'collar', color: '#112233' }],
+    })
+
+    expect((collar.material as MeshStandardMaterial).color.getHexString()).toBe(
+      '112233',
+    )
+    expect(root.children).toHaveLength(0)
   })
 })
 

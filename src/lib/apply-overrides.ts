@@ -92,6 +92,46 @@ function applyOverrideToSlot({
   return applyOverrideToMaterial({ material, override, map })
 }
 
+export function listMeshes({ root }: { root: Object3D }) {
+  const meshes: Mesh[] = []
+
+  root.traverse((node) => {
+    if (isMesh(node)) {
+      meshes.push(node)
+    }
+  })
+
+  return meshes
+}
+
+export function captureMeshMaterials({ root }: { root: Object3D }) {
+  const materials = new Map<string, Mesh['material']>()
+
+  root.traverse((node) => {
+    if (isMesh(node)) {
+      materials.set(node.uuid, node.material)
+    }
+  })
+
+  return materials
+}
+
+export function restoreMeshMaterials({
+  meshes,
+  baseMaterials,
+}: {
+  meshes: Mesh[]
+  baseMaterials: Map<string, Mesh['material']>
+}) {
+  for (const mesh of meshes) {
+    const base = baseMaterials.get(mesh.uuid)
+
+    if (base) {
+      mesh.material = base
+    }
+  }
+}
+
 export function applyDesignOverrides({
   root,
   overrides,
@@ -133,4 +173,28 @@ export function applyDesignOverrides({
   })
 
   return root
+}
+
+export function applyOverridesFromBases({
+  meshes,
+  baseMaterials,
+  overrides,
+  maps,
+}: {
+  meshes: Mesh[]
+  baseMaterials: Map<string, Mesh['material']>
+  overrides: MaterialOverride[]
+  maps?: Record<string, Texture>
+}) {
+  restoreMeshMaterials({ meshes, baseMaterials })
+
+  for (const mesh of meshes) {
+    applyDesignOverrides({
+      root: mesh,
+      overrides,
+      maps,
+    })
+  }
+
+  return meshes
 }
