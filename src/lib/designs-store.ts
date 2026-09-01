@@ -7,10 +7,7 @@ import {
   type DesignsPersist,
   type PersistLoadResult,
 } from './designs-persist.ts'
-import {
-  MAX_THUMBNAIL_CHARS,
-  sanitizeThumbnail,
-} from './look-thumbnail.ts'
+import { sanitizeThumbnail } from './look-thumbnail.ts'
 
 export { MAX_THUMBNAIL_CHARS, isSafeThumbnail } from './look-thumbnail.ts'
 
