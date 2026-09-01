@@ -8,7 +8,7 @@ Local: `pnpm dev` → http://127.0.0.1:5173/
 
 Run as a person who has never seen the repo. Phone and laptop. House voice only.
 
-Checks below are against **this checkout**. The public live URL still serves the previous slice until it is redeployed.
+Checks below are against the live URL. Production is this house.
 
 | Check | Local | Notes |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Checks below are against **this checkout**. The public live URL still serves the
 | First paint is full-bleed studio; gown in frame; wordmark only | Pass | No manifesto. Wordmark floats. |
 | Silk without a tutorial | Pass | Body is preselected. Silk is live on first tap. |
 | Stills match the 3D look | Pass | Board cards are `/stills/*.png` studio cards, not SVG clip-art. Publish captures a 4:5 JPEG. |
-| Publish survives reload | Fail | Needs Redis/KV env on Vercel. Memory fallback keeps the seven house looks. Seed ids always work. |
+| Publish survives reload | Pass | Production KV is on. `Ivory Silk Proof 20260901T065652Z` (`look-7df357c7-4d02-4643-9a64-a8f283bd2d0b`) stayed on the board after reload and a second fetch. |
 | Look nav never 404s | Pass | Look is the current look or the Leader. Never `/look/preview`. |
 | iMessage / Slack unfurl | Pass | PNG card at `/og-default.png`. Look URLs serve `/api/og?lookId=` stills to crawlers. |
 | 390px studio is usable | Pass | Cloth sheet, sticky enter, 44px targets. Gown stays in the upper frame. |
@@ -44,7 +44,6 @@ I did not build CAD, pattern grading, cloth simulation, or AI. There is no login
 
 ## Leftover risk
 
-- Redeploy before sending the live URL. This checkout is the house; production may still be the previous slice.
-- The board persists when `KV_REST_API_URL` and `KV_REST_API_TOKEN` are set (Vercel Redis / Upstash). Without them the isolate falls back to the seven house looks. The live board caps at 24 looks.
+- The live board persists on Upstash when the Production KV env pair is set. Memory fallback still keeps the seven house looks locally and in tests. The live board caps at 24 looks.
 - Seed share links always work.
 - The look route loads Three (~270KB gzip). Campus GLBs load only in The house.
