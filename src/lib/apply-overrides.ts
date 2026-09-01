@@ -53,9 +53,25 @@ export function stampAncestorNames({ root }: { root: Object3D }) {
   return root
 }
 
+export function sealClothMaterial<T extends Material>({
+  material,
+}: {
+  material: T
+}) {
+  if (!(material instanceof MeshStandardMaterial)) {
+    return material
+  }
+
+  material.transparent = false
+  material.opacity = 1
+  material.depthWrite = true
+
+  return material
+}
+
 function cloneMaterialEntry({ material }: { material: Material }) {
   if (material instanceof MeshStandardMaterial) {
-    return material.clone()
+    return sealClothMaterial({ material: material.clone() })
   }
 
   return material
@@ -86,20 +102,21 @@ function toPhysicalMaterial({
   material: MeshStandardMaterial
 }) {
   if (material instanceof MeshPhysicalMaterial) {
-    return material.clone()
+    return sealClothMaterial({ material: material.clone() })
   }
 
   const next = new MeshPhysicalMaterial({
     color: material.color.clone(),
     map: material.map,
     metalness: material.metalness,
-    opacity: material.opacity,
+    opacity: 1,
     roughness: material.roughness,
     side: material.side,
-    transparent: material.transparent,
+    transparent: false,
+    depthWrite: true,
   })
   next.userData = { ...material.userData }
-  return next
+  return sealClothMaterial({ material: next })
 }
 
 function cloneFabricMap({
@@ -172,7 +189,7 @@ function applyOverrideToMaterial({
     nextMaterial.needsUpdate = true
   }
 
-  return nextMaterial
+  return sealClothMaterial({ material: nextMaterial })
 }
 
 function applyOverrideToSlot({

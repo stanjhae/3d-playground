@@ -245,7 +245,12 @@ const outPath = join(
   '..',
   'public',
   'models',
-  'garment.glb',
+  'garment-house.glb',
 )
 writeFileSync(outPath, Buffer.from(glb))
-console.log('wrote', outPath, glb.byteLength)
+console.log(
+  'wrote',
+  outPath,
+  glb.byteLength,
+  '(does not replace the credited column at public/models/garment.glb)',
+)

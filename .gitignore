@@ -7,3 +7,4 @@ dist
 .tanstack
 .vercel
 .qa
+public/models/garment-house.glb
