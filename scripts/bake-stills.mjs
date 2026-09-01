@@ -1,95 +1,152 @@
-import { deflateSync } from 'node:zlib'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const WIDTH = 480
-const HEIGHT = 600
+import puppeteer from 'puppeteer-core'
 
-const LOOKS = [
-  { id: 'look-midnight-silk', fill: [26, 28, 34], gown: [196, 161, 90] },
-  { id: 'look-atelier-ivory', fill: [43, 36, 28], gown: [244, 234, 212] },
-  { id: 'look-oxblood-evening', fill: [36, 16, 20], gown: [107, 29, 42] },
-  { id: 'look-meadow-walk', fill: [28, 34, 24], gown: [107, 124, 74] },
-  { id: 'look-slate-denim', fill: [26, 30, 34], gown: [61, 74, 85] },
-  { id: 'look-wool-hour', fill: [28, 24, 20], gown: [43, 36, 28] },
-  { id: 'look-blush-first', fill: [42, 32, 28], gown: [232, 196, 184] },
-]
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const stillsDir = join(root, 'public', 'stills')
+const looks = JSON.parse(readFileSync(join(root, 'data/designs.json'), 'utf8'))
+const port = 5198
+const base = `http://127.0.0.1:${port}`
 
-function crc32(bytes) {
-  let crc = 0xffffffff
+function findChrome() {
+  const fromEnv = process.env.CHROME_PATH
 
-  for (const value of bytes) {
-    crc ^= value
+  if (fromEnv && existsSync(fromEnv)) {
+    return fromEnv
+  }
 
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1
+  const candidates = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+  ]
+
+  return candidates.find((path) => existsSync(path)) ?? ''
+}
+
+function startVite() {
+  const child = spawn(
+    'pnpm',
+    ['dev', '--host', '127.0.0.1', '--port', String(port)],
+    {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        KV_REST_API_URL: '',
+        KV_REST_API_TOKEN: '',
+      },
+    },
+  )
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM')
+      reject(new Error('The studio did not open'))
+    }, 20000)
+
+    function onChunk(chunk) {
+      if (!String(chunk).includes('Local:')) {
+        return
+      }
+
+      clearTimeout(timer)
+      resolve(child)
     }
-  }
 
-  return (crc ^ 0xffffffff) >>> 0
+    child.stdout.on('data', onChunk)
+    child.stderr.on('data', onChunk)
+    child.on('error', (error) => {
+      clearTimeout(timer)
+      child.kill('SIGTERM')
+      reject(error)
+    })
+  })
 }
 
-function chunk(type, data) {
-  const header = Buffer.from(type, 'ascii')
-  const length = Buffer.alloc(4)
-  length.writeUInt32BE(data.length)
-  const crcBytes = Buffer.concat([header, data])
-  const crc = Buffer.alloc(4)
-  crc.writeUInt32BE(crc32(crcBytes))
-  return Buffer.concat([length, crcBytes, crc])
+async function framedStill({ page }) {
+  return page.evaluate(async () => {
+    const { captureFramedStill } = await import('/src/lib/capture-still.ts')
+
+    return captureFramedStill({
+      canvas: document.querySelector('canvas'),
+      type: 'image/png',
+    })
+  })
 }
 
-function insideGown(x, y) {
-  const nx = (x - WIDTH / 2) / (WIDTH * 0.18)
-  const ny = y / HEIGHT
+mkdirSync(stillsDir, { recursive: true })
 
-  if (ny < 0.12 || ny > 0.9) {
-    return false
-  }
+const chrome = findChrome()
 
-  const waist = 0.38 + Math.sin((ny - 0.35) * Math.PI) * 0.18
-  const flare = ny > 0.55 ? (ny - 0.55) * 0.7 : 0
-
-  return Math.abs(nx) < waist + flare
+if (!chrome) {
+  throw new Error('Chrome is not installed. Set CHROME_PATH.')
 }
 
-function writePng(fill, gown) {
-  const raw = Buffer.alloc((WIDTH * 3 + 1) * HEIGHT)
+let vite
+let browser
 
-  for (let y = 0; y < HEIGHT; y += 1) {
-    const row = y * (WIDTH * 3 + 1)
-    raw[row] = 0
+try {
+  vite = await startVite()
+  browser = await puppeteer.launch({
+    executablePath: chrome,
+    headless: true,
+    defaultViewport: { width: 1280, height: 800 },
+    args: [
+      '--use-angle=metal',
+      '--ignore-gpu-blocklist',
+      '--enable-webgl',
+      '--enable-webgl2',
+    ],
+  })
 
-    for (let x = 0; x < WIDTH; x += 1) {
-      const vignette = 1 - Math.hypot(x / WIDTH - 0.5, y / HEIGHT - 0.45) * 0.45
-      const glow = insideGown(x, y) ? gown : fill
-      const i = row + 1 + x * 3
-      raw[i] = Math.min(255, glow[0] * vignette)
-      raw[i + 1] = Math.min(255, glow[1] * vignette)
-      raw[i + 2] = Math.min(255, glow[2] * vignette)
+  const page = await browser.newPage()
+  page.setDefaultTimeout(40000)
+
+  for (const look of looks) {
+    await page.goto(`${base}/?design=${encodeURIComponent(look.id)}`, {
+      waitUntil: 'domcontentloaded',
+    })
+    await page.waitForSelector('canvas')
+
+    try {
+      await page.waitForFunction(
+        (title) =>
+          document.body.innerText
+            .toLowerCase()
+            .includes(`remixing ${title}`.toLowerCase()),
+        { timeout: 20000 },
+        look.title,
+      )
+    } catch (error) {
+      const text = await page.evaluate(() => document.body.innerText)
+      throw new Error(
+        `Remix for ${look.id} did not land.\n${text.slice(0, 800)}\n${error}`,
+      )
     }
+
+    await new Promise((resolve) => setTimeout(resolve, 3200))
+
+    const dataUrl = await framedStill({ page })
+
+    if (!dataUrl.startsWith('data:image/png')) {
+      throw new Error(`The still for ${look.id} did not capture`)
+    }
+
+    const path = join(stillsDir, `${look.id}.png`)
+    writeFileSync(path, Buffer.from(dataUrl.split(',')[1] ?? '', 'base64'))
+    console.log('wrote', path)
+  }
+} finally {
+  if (browser) {
+    await browser.close()
   }
 
-  const ihdr = Buffer.alloc(13)
-  ihdr.writeUInt32BE(WIDTH, 0)
-  ihdr.writeUInt32BE(HEIGHT, 4)
-  ihdr[8] = 8
-  ihdr[9] = 2
-
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw)),
-    chunk('IEND', Buffer.alloc(0)),
-  ])
-}
-
-const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'stills')
-mkdirSync(outDir, { recursive: true })
-
-for (const look of LOOKS) {
-  const path = join(outDir, `${look.id}.png`)
-  writeFileSync(path, writePng(look.fill, look.gown))
-  console.log('wrote', path)
+  vite?.kill('SIGTERM')
 }

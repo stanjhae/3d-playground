@@ -191,15 +191,17 @@ export function StudioStage({
 
 export function StudioOrbit({
   intro = false,
+  turntable = false,
 }: {
   intro?: boolean
+  turntable?: boolean
 }) {
-  const [enabled, setEnabled] = useState(
-    () => !intro || prefersReducedMotion(),
-  )
+  const reducedMotion = prefersReducedMotion()
+  const [enabled, setEnabled] = useState(() => !intro || reducedMotion)
+  const [spinning, setSpinning] = useState(turntable && !reducedMotion)
 
   useEffect(() => {
-    if (!intro || prefersReducedMotion()) {
+    if (!intro || reducedMotion) {
       setEnabled(true)
       return
     }
@@ -212,16 +214,30 @@ export function StudioOrbit({
     return () => {
       window.clearTimeout(timer)
     }
-  }, [intro])
+  }, [intro, reducedMotion])
+
+  useEffect(() => {
+    setSpinning(turntable && !reducedMotion)
+  }, [reducedMotion, turntable])
 
   return (
     <OrbitControls
+      autoRotate={turntable && spinning && enabled}
+      autoRotateSpeed={0.35}
       enabled={enabled}
       enablePan={false}
       maxDistance={6.5}
       maxPolarAngle={Math.PI / 2.05}
       minDistance={3.2}
       minPolarAngle={Math.PI / 4}
+      onStart={() => {
+        setSpinning(false)
+      }}
+      onEnd={() => {
+        if (turntable && !reducedMotion) {
+          setSpinning(true)
+        }
+      }}
       target={[...STUDIO_CAMERA.target]}
     />
   )

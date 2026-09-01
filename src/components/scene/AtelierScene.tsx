@@ -4,18 +4,28 @@ import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { listDesigns } from '../../lib/designs-api'
 import type { Design } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
+import { lookRecipe } from '../../lib/look-recipe'
 import { rankDesigns } from '../../lib/rank-designs'
 import { FashionLoader } from './FashionLoader'
 import { Garment } from './Garment'
 import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
 
-function HouseCaption({ title }: { title: string }) {
+function HouseCaption({
+  title,
+  recipe,
+}: {
+  title: string
+  recipe: string
+}) {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-gradient-to-t from-atelier via-atelier/40 to-transparent p-6 pt-16">
       <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
         The Leader
       </p>
       <p className="font-display text-3xl text-ivory">{title}</p>
+      {recipe ? (
+        <p className="text-sm text-ivory-muted">{recipe}</p>
+      ) : null}
     </div>
   )
 }
@@ -53,7 +63,10 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
   return (
     <div className="relative h-full min-h-80 w-full">
       {isHouse ? (
-        <HouseCaption title={leader?.title ?? 'The Leader'} />
+        <HouseCaption
+          title={leader?.title ?? 'The Leader'}
+          recipe={leader ? lookRecipe({ design: leader }) : ''}
+        />
       ) : null}
       <Canvas
         shadows
@@ -84,7 +97,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
             )}
           </Suspense>
         </StudioStage>
-        <StudioOrbit intro />
+        <StudioOrbit intro turntable={isHouse} />
       </Canvas>
     </div>
   )

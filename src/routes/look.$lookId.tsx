@@ -7,6 +7,7 @@ import { getDesign, voteOnDesign } from '../lib/designs-api'
 import { type Design } from '../lib/design-schema'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY } from '../lib/house-copy'
+import { lookRecipe } from '../lib/look-recipe'
 
 export const Route = createFileRoute('/look/$lookId')({
   component: LookPage,
@@ -121,6 +122,7 @@ function LookPage() {
           <h1 className="font-display text-4xl text-ivory md:text-5xl">
             {look.title}
           </h1>
+          <p className="text-sm text-ivory-muted">{lookRecipe({ design: look })}</p>
           <p className="text-sm text-ivory-muted">
             By {look.author} · {look.votes}{' '}
             {look.votes === 1 ? 'vote' : 'votes'}

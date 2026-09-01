@@ -7,8 +7,9 @@ import {
 } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { cn } from '../lib/cn'
 import { listDesigns } from '../lib/designs-api'
-import { lookIdFromPathname } from '../lib/paths'
+import { HOUSE_LOOK_FALLBACK_ID, lookIdFromPathname } from '../lib/paths'
 import { rankDesigns } from '../lib/rank-designs'
 
 export const Route = createRootRoute({
@@ -65,33 +66,48 @@ function RootShell() {
         >
           Fashion Leader Vote
         </Link>
-        <nav className="flex items-center gap-6 text-xs tracking-[0.18em] text-ivory-muted uppercase">
+        <nav className="flex items-center gap-3 text-xs tracking-[0.18em] uppercase">
           <Link
             to="/"
             search={{}}
-            className="hover:text-brass"
-            activeProps={{ className: 'text-brass' }}
+            className={cn(
+              'inline-flex min-h-11 items-center px-1',
+              {
+                'text-brass': location.pathname === '/',
+                'text-ivory-muted hover:text-brass': location.pathname !== '/',
+              },
+            )}
           >
             Atelier
           </Link>
           <Link
             to="/vote"
             search={{}}
-            className="hover:text-brass"
-            activeProps={{ className: 'text-brass' }}
+            className={cn(
+              'inline-flex min-h-11 items-center px-1',
+              {
+                'text-brass': location.pathname === '/vote',
+                'text-ivory-muted hover:text-brass':
+                  location.pathname !== '/vote',
+              },
+            )}
           >
             Vote
           </Link>
-          {lookId ? (
-            <Link
-              to="/look/$lookId"
-              params={{ lookId }}
-              className="hover:text-brass"
-              activeProps={{ className: 'text-brass' }}
-            >
-              Look
-            </Link>
-          ) : null}
+          <Link
+            to="/look/$lookId"
+            params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
+            className={cn(
+              'inline-flex min-h-11 items-center px-1',
+              {
+                'text-brass': location.pathname.startsWith('/look/'),
+                'text-ivory-muted hover:text-brass':
+                  !location.pathname.startsWith('/look/'),
+              },
+            )}
+          >
+            Look
+          </Link>
         </nav>
       </header>
       <main className="relative min-h-dvh bg-atelier text-ivory">

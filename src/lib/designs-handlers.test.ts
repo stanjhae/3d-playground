@@ -41,7 +41,7 @@ describe('designs HTTP handlers', () => {
 
     expect(response.status).toBe(200)
     expect(body.designs[0]?.id).toBe('look-midnight-silk')
-    expect(body.designs).toHaveLength(7)
+    expect(body.designs).toHaveLength(8)
   })
 
   test('create and vote share one board', async () => {
@@ -243,7 +243,7 @@ describe('designs HTTP handlers', () => {
 
     expect(created.status).toBe(503)
     expect(createdBody.error).toBe(HOUSE_COPY.boardPersistFailed)
-    expect(listedBody.designs).toHaveLength(7)
+    expect(listedBody.designs).toHaveLength(8)
     expect(
       listedBody.designs.some((design) => design.title === 'Studio Guest'),
     ).toBe(false)

@@ -1,3 +1,8 @@
+import {
+  getStoredDesign,
+  hydrateDesignsStore,
+} from '../src/lib/designs-store.ts'
+import { imageFromDataUrl, isSafeThumbnail } from '../src/lib/look-thumbnail.ts'
 import { ogDefaultRelativePath, ogStillRelativePath } from '../src/lib/og-card.ts'
 
 function processCwd() {
@@ -6,7 +11,7 @@ function processCwd() {
   )
 }
 
-async function readPng({ relativePath }: { relativePath: string }) {
+async function readFileBytes({ relativePath }: { relativePath: string }) {
   const { readFile } = (await import(
     // @ts-expect-error Node built-in; the OG function runs on Node
     'node:fs/promises'
@@ -25,18 +30,45 @@ export async function GET(request?: Request) {
   const stillPath = ogStillRelativePath({ lookId })
   const fallbackPath = ogDefaultRelativePath()
 
-  let bytes: Uint8Array
+  if (stillPath) {
+    try {
+      const bytes = await readFileBytes({ relativePath: stillPath })
+      const payload = new Uint8Array(bytes.byteLength)
+      payload.set(bytes)
 
-  try {
-    bytes = stillPath
-      ? await readPng({ relativePath: stillPath })
-      : await readPng({ relativePath: fallbackPath })
-  } catch {
-    bytes = await readPng({ relativePath: fallbackPath })
+      return new Response(payload, {
+        headers: {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      })
+    } catch {
+      // Guest looks have no house still file.
+    }
   }
 
-  const payload = new Uint8Array(bytes.byteLength)
-  payload.set(bytes)
+  if (lookId) {
+    await hydrateDesignsStore()
+    const design = getStoredDesign({ id: lookId })
+    const thumb = design?.thumbnailDataUrl ?? ''
+
+    if (isSafeThumbnail({ thumbnailDataUrl: thumb }) && thumb.startsWith('data:')) {
+      const image = imageFromDataUrl({ dataUrl: thumb })
+
+      if (image) {
+        return new Response(image.bytes, {
+          headers: {
+            'Content-Type': image.type,
+            'Cache-Control': 'public, max-age=300',
+          },
+        })
+      }
+    }
+  }
+
+  const fallback = await readFileBytes({ relativePath: fallbackPath })
+  const payload = new Uint8Array(fallback.byteLength)
+  payload.set(fallback)
 
   return new Response(payload, {
     headers: {

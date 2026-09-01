@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import type { Design } from '../../lib/design-schema'
+import { lookRecipe } from '../../lib/look-recipe'
 import { isSafeThumbnail } from '../../lib/look-thumbnail'
 
 export function LookCard({
@@ -59,6 +60,7 @@ export function LookCard({
           ) : null}
         </div>
         <h2 className="font-display text-2xl text-ivory">{design.title}</h2>
+        <p className="text-sm text-ivory-muted">{lookRecipe({ design })}</p>
         <p className="text-sm text-ivory-muted">By {design.author}</p>
       </Link>
       <div className="flex items-center justify-between gap-3">

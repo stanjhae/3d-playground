@@ -255,14 +255,38 @@
         "metalness": 0.04,
         "mapId": "silk-shine"
       },
-      {
-        "meshName": "hardware",
-        "color": "#4a2f22",
-        "roughness": 0.42,
-        "metalness": 0.08,
-        "mapId": "leather-grain"
-      }
-    ],
-    "garmentId": "column"
-  }
-]
+        {
+          "meshName": "hardware",
+          "color": "#4a2f22",
+          "roughness": 0.42,
+          "metalness": 0.08,
+          "mapId": "leather-grain"
+        }
+      ],
+      "garmentId": "column"
+    },
+    {
+      "id": "look-cotton-leather",
+      "title": "Cotton and Leather",
+      "author": "Ada Voss",
+      "votes": 2,
+      "thumbnailDataUrl": "/stills/look-cotton-leather.png",
+      "overrides": [
+        {
+          "meshName": "body",
+          "color": "#f3efe6",
+          "roughness": 0.86,
+          "metalness": 0,
+          "mapId": "cotton-weave"
+        },
+        {
+          "meshName": "skirt",
+          "color": "#4a2f22",
+          "roughness": 0.38,
+          "metalness": 0.08,
+          "mapId": "leather-grain"
+        }
+      ],
+      "garmentId": "mixed"
+    }
+  ]

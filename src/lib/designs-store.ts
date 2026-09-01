@@ -263,10 +263,12 @@ export async function hydrateDesignsStore() {
       .map((value) => normalizeLoadedDesign({ value }))
       .filter((design): design is Design => design !== null)
 
-    liveDesigns =
-      designs.length === 0 && loaded.designs.length > 0
-        ? cloneSeed()
-        : designs
+    liveDesigns = capBoard({
+      designs: mergeDesigns({
+        local: cloneSeed(),
+        remote: designs,
+      }),
+    })
     persistRevision = loaded.revision
     hydratedFromPersist = true
     return
@@ -308,7 +310,12 @@ export async function persistDesignsStore() {
     return
   }
 
-  let local = liveDesigns.map((design) => cloneDesign({ design }))
+  let local = capBoard({
+    designs: mergeDesigns({
+      local: cloneSeed(),
+      remote: liveDesigns.map((design) => cloneDesign({ design })),
+    }),
+  })
 
   for (let attempt = 0; attempt < PERSIST_ATTEMPTS; attempt += 1) {
     const loaded = await readPersist()

@@ -351,8 +351,8 @@ describe('designs store', () => {
     resetDesignsStore({ persist })
     await hydrateDesignsStore()
 
-    expect(bucket.value).toHaveLength(7)
-    expect(listStoredDesigns()).toHaveLength(7)
+    expect(bucket.value).toHaveLength(8)
+    expect(listStoredDesigns()).toHaveLength(8)
   })
 
   test('hydrate does not save when load errors', async () => {
@@ -376,7 +376,7 @@ describe('designs store', () => {
     )
   })
 
-  test('hydrate keeps a persisted guest and does not replace it with seed', async () => {
+  test('hydrate keeps a persisted guest and fills missing house looks', async () => {
     const guest = {
       ...createEmptyDesign({ id: 'look-guest-keep' }),
       title: 'Kept Look',
@@ -404,8 +404,53 @@ describe('designs store', () => {
     await hydrateDesignsStore()
 
     expect(writes).toHaveLength(0)
-    expect(listStoredDesigns()).toHaveLength(1)
-    expect(listStoredDesigns()[0]?.id).toBe('look-guest-keep')
+    expect(listStoredDesigns().some((design) => design.id === 'look-guest-keep')).toBe(
+      true,
+    )
+    expect(
+      listStoredDesigns().some((design) => design.id === 'look-midnight-silk'),
+    ).toBe(true)
+    expect(
+      listStoredDesigns().some((design) => design.id === 'look-cotton-leather'),
+    ).toBe(true)
+  })
+
+  test('hydrate adds a new house look without dropping votes', async () => {
+    const staleHouse = listStoredDesigns()
+      .filter((design) => design.id !== 'look-cotton-leather')
+      .map((design) =>
+        design.id === 'look-midnight-silk'
+          ? { ...design, votes: 12 }
+          : design,
+      )
+    const guest = {
+      ...createEmptyDesign({ id: 'look-guest-keep' }),
+      title: 'Kept Look',
+      author: 'Guest',
+      votes: 2,
+      thumbnailDataUrl: 'data:image/png;base64,abc',
+      overrides: [{ meshName: 'body' }],
+    }
+    resetDesignsStore({
+      persist: {
+        async load() {
+          return {
+            status: 'ok',
+            designs: [...staleHouse, guest],
+            revision: 4,
+          }
+        },
+        async save() {},
+      },
+    })
+
+    await hydrateDesignsStore()
+
+    expect(getStoredDesign({ id: 'look-cotton-leather' })?.title).toBe(
+      'Cotton and Leather',
+    )
+    expect(getStoredDesign({ id: 'look-midnight-silk' })?.votes).toBe(12)
+    expect(getStoredDesign({ id: 'look-guest-keep' })?.title).toBe('Kept Look')
   })
 
   test('hydrate does not overwrite a corrupt board', async () => {

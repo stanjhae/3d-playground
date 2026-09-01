@@ -1,15 +1,20 @@
 export async function captureFramedStill({
   canvas,
+  type = 'image/jpeg',
 }: {
   canvas: HTMLCanvasElement | null
+  type?: 'image/jpeg' | 'image/png'
 }): Promise<string> {
   if (!canvas) {
     return ''
   }
 
   try {
-    const source = canvas.toDataURL('image/jpeg', 0.82)
-    return await frameStill({ dataUrl: source })
+    const source =
+      type === 'image/png'
+        ? canvas.toDataURL('image/png')
+        : canvas.toDataURL('image/jpeg', 0.82)
+    return await frameStill({ dataUrl: source, type })
   } catch {
     return ''
   }
@@ -17,8 +22,10 @@ export async function captureFramedStill({
 
 export async function frameStill({
   dataUrl,
+  type = 'image/jpeg',
 }: {
   dataUrl: string
+  type?: 'image/jpeg' | 'image/png'
 }): Promise<string> {
   if (!dataUrl || typeof document === 'undefined') {
     return dataUrl
@@ -62,7 +69,11 @@ export async function frameStill({
       }
 
       context.drawImage(image, drawX, drawY, drawWidth, drawHeight)
-      resolve(frame.toDataURL('image/jpeg', 0.72))
+      resolve(
+        type === 'image/png'
+          ? frame.toDataURL('image/png')
+          : frame.toDataURL('image/jpeg', 0.72),
+      )
     }
 
     image.onerror = () => {

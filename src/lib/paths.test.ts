@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 
-import { lookIdFromPathname, resolveVoteId } from './paths'
+import {
+  HOUSE_LOOK_FALLBACK_ID,
+  lookIdFromPathname,
+  resolveVoteId,
+} from './paths'
 
 describe('lookIdFromPathname', () => {
   test('reads the current look id', () => {
@@ -9,6 +13,10 @@ describe('lookIdFromPathname', () => {
 
   test('returns null off the look route', () => {
     expect(lookIdFromPathname({ pathname: '/vote' })).toBeNull()
+  })
+
+  test('names the house fallback look', () => {
+    expect(HOUSE_LOOK_FALLBACK_ID).toBe('look-midnight-silk')
   })
 })
 

@@ -15,11 +15,11 @@ Checks below are against the live URL. Production is this house.
 | Gown reads as clothing from ~2 meters | Pass | Style3D White Evening Gown Dress: floor-length, criss-cross halter, keyhole bust. Credited CC BY 4.0. |
 | First paint is full-bleed studio; gown in frame; wordmark only | Pass | No manifesto. Wordmark floats. |
 | Silk without a tutorial | Pass | Body is preselected. Silk is live on first tap. Title becomes Silk 01. |
-| Stills match the 3D look | Pass | Publish captures a 4:5 JPEG of the live gown. House board cards are still the painted column stills. |
+| Stills match the 3D look | Pass | Publish captures a 4:5 JPEG of the live look. House cards are studio stills, including Cotton and Leather. |
 | Publish survives reload | Pass | Production KV is on. `Ivory Silk Proof 20260901T065652Z` stayed. This run entered `look-0b08a0a7-fcbf-485d-87c0-6606cb78e37a`. |
 | Look nav never 404s | Pass | Look is the current look or the Leader. Never `/look/preview`. |
-| iMessage / Slack unfurl | Pass | Crawler HTML says Fashion Leader Vote. Home uses `/og-default.png`. House looks use `/api/og?lookId=`. A human Slack paste is still #52. |
-| 390px studio is usable | Pass | Live 390×844: Silk and Enter the Vote are 44px. Look never goes to `/look/preview`. |
+| iMessage / Slack unfurl | Pass | Crawler HTML names the look, the recipe, and the author. House stills stay `/stills/{id}.png`. A guest look uses that look’s still. A human Slack paste is still #52. |
+| 390px studio is usable | Pass | Header Atelier / Vote / Look and card Vote are 44px. Look never goes to `/look/preview`. |
 | Would you text this URL to a fashion person? | Pass | The live studio is evening-wear. The leftover that would have stopped the forward was #39. |
 
 ## 90-second shot list
@@ -28,9 +28,9 @@ Checks below are against the live URL. Production is this house.
 2. Tap **Silk**. The cloth takes sheen. The title becomes Silk 01.
 3. **Enter the Vote**. Your still sits on the board. **Just entered** marks it.
 4. Vote **Atelier Ivory**. The Leader stamp can move.
-5. Open **Midnight Silk Column**. Orbit. Remix in studio. The caption says what you are remixing.
-6. Optional: **The house** — the Leader in the studio.
-7. Optional: **Jacket** — the house has a second form.
+5. Open **Midnight Silk Column**. Recipe under the title. Slow spin. Drag pauses it. Remix in studio.
+6. Optional: **The house** — the Leader, the recipe, the same spin. No walk.
+7. Optional: **Shirt & skirt** — Cotton on the body, Leather on the skirt, Enter the Vote. The card names both cloths.
 
 ## Cover note
 
@@ -45,8 +45,6 @@ I did not build CAD, pattern grading, cloth simulation, or AI. There is no login
 ## Leftover risk
 
 - #52 needs a human Slack or iMessage paste. Crawler meta is not that paste.
-- House board cards are still the painted column stills. Publish captures the live gown.
-- The live board caps at 24 looks. Memory fallback still keeps the seven house looks locally and in tests.
+- The live board caps at 24 looks. Memory fallback still keeps the house looks locally and in tests.
 - The look route loads Three (~270KB gzip).
-- Header Atelier / Vote / Look measure under 44px. Card Vote buttons do not.
 - #54 is optional polish and does not change the forward.

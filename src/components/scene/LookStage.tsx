@@ -35,7 +35,7 @@ export function LookStage({
             />
           </Suspense>
         </StudioStage>
-        <StudioOrbit />
+        <StudioOrbit turntable />
       </Canvas>
     </div>
   )
