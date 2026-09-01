@@ -18,9 +18,9 @@ Checks below are against the live URL. Production is this house.
 | Stills match the 3D look | Pass | Board cards are `/stills/*.png` studio cards, not SVG clip-art. Publish captures a 4:5 JPEG. |
 | Publish survives reload | Pass | Production KV is on. `Ivory Silk Proof 20260901T065652Z` (`look-7df357c7-4d02-4643-9a64-a8f283bd2d0b`) stayed on the board after reload and a second fetch. |
 | Look nav never 404s | Pass | Look is the current look or the Leader. Never `/look/preview`. |
-| iMessage / Slack unfurl | Pass | PNG card at `/og-default.png`. Look URLs serve `/api/og?lookId=` stills to crawlers. |
-| 390px studio is usable | Pass | Cloth sheet, sticky enter, 44px targets. Gown stays in the upper frame. |
-| Would you text this URL to a fashion person? | Fail | Honest Pass only after the live URL is this checkout and KV is on. Locally it is a house. |
+| iMessage / Slack unfurl | Pass | Crawler HTML says Fashion Leader Vote. Home uses `/og-default.png`. Seed looks use `/api/og?lookId=`. A human Slack paste is still #52. |
+| 390px studio is usable | Pass | Live 390×844: Silk and Enter the Vote are 44px. Look never goes to `/look/preview`. |
+| Would you text this URL to a fashion person? | Fail | KV is on and the loop works. The hero is still a house-authored column (#39). A Slack paste was not done (#52). |
 
 ## 90-second shot list
 
@@ -44,6 +44,8 @@ I did not build CAD, pattern grading, cloth simulation, or AI. There is no login
 
 ## Leftover risk
 
-- The live board persists on Upstash when the Production KV env pair is set. Memory fallback still keeps the seven house looks locally and in tests. The live board caps at 24 looks.
-- Seed share links always work.
+- #39 is still the authored column. A fashion person may still say vase. That is the leftover that would change Max’s mind.
+- #52 needs a human Slack or iMessage paste. Crawler meta is not that paste.
+- The live board caps at 24 looks. Memory fallback still keeps the seven house looks locally and in tests.
 - The look route loads Three (~270KB gzip). Campus GLBs load only in The house.
+- Header Atelier / Vote / Look measure under 44px. Card Vote buttons do not.
