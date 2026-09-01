@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import type { Design } from '../../lib/design-schema'
+import { isSafeThumbnail } from '../../lib/look-thumbnail'
 
 export function LookCard({
   design,
@@ -33,7 +34,9 @@ export function LookCard({
         className="flex flex-col gap-3"
       >
         <div className="relative overflow-hidden border border-atelier-line bg-atelier">
-          {design.thumbnailDataUrl ? (
+          {isSafeThumbnail({
+            thumbnailDataUrl: design.thumbnailDataUrl,
+          }) ? (
             <img
               alt=""
               src={design.thumbnailDataUrl}

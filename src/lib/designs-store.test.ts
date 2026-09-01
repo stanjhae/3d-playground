@@ -9,20 +9,27 @@ import {
   MAX_TITLE_CHARS,
 } from './designs-store'
 import {
+  capBoard,
   capThumbnail,
   createStoredDesign,
   getStoredDesign,
+  hydrateDesignsStore,
   listStoredDesigns,
+  mergeDesigns,
+  normalizeLoadedDesign,
   parseDesignDraft,
+  persistDesignsStore,
   resetDesignsStore,
   voteStoredDesign,
 } from './designs-store'
+import type { DesignsPersist } from './designs-persist'
+import { createEmptyDesign } from './design-schema'
 import { rankDesigns } from './rank-designs'
 
 const DRAFT = {
   title: 'Guest Silk 01',
   author: 'Guest',
-  thumbnailDataUrl: 'data:image/svg+xml;utf8,<svg></svg>',
+  thumbnailDataUrl: 'data:image/png;base64,abc',
   overrides: [{ meshName: 'collar', color: '#f4ead4' }],
 }
 
@@ -57,9 +64,13 @@ describe('designs store', () => {
         thumbnailDataUrl: `data:image/png;base64,${'a'.repeat(MAX_THUMBNAIL_CHARS)}`,
       }),
     ).toBe('')
-    expect(capThumbnail({ thumbnailDataUrl: 'data:image/svg+xml,ok' })).toBe(
-      'data:image/svg+xml,ok',
+    expect(capThumbnail({ thumbnailDataUrl: 'data:image/png;base64,ok' })).toBe(
+      'data:image/png;base64,ok',
     )
+    expect(capThumbnail({ thumbnailDataUrl: 'data:image/svg+xml,ok' })).toBe('')
+    expect(
+      capThumbnail({ thumbnailDataUrl: '/stills/look-midnight-silk.png' }),
+    ).toBe('/stills/look-midnight-silk.png')
   })
 
   test('createStoredDesign drops an oversized thumbnail', () => {
@@ -162,5 +173,256 @@ describe('designs store', () => {
     expect(() => {
       createStoredDesign({ draft: DRAFT })
     }).toThrow(DesignsBoardFullError)
+  })
+
+  test('normalizeLoadedDesign drops corrupt and unsafe records', () => {
+    expect(normalizeLoadedDesign({ value: { title: 'No id' } })).toBeNull()
+    expect(
+      normalizeLoadedDesign({
+        value: {
+          id: 'look-bad',
+          title: 'No panels',
+          author: 'Guest',
+          votes: 3,
+        },
+      }),
+    ).toBeNull()
+
+    const loaded = normalizeLoadedDesign({
+      value: {
+        id: 'look-safe',
+        title: 'Safe',
+        author: 'Guest',
+        votes: 2.8,
+        thumbnailDataUrl: 'javascript:alert(1)',
+        overrides: [{ meshName: 'body', color: '#111111' }],
+      },
+    })
+
+    expect(loaded).toMatchObject({
+      id: 'look-safe',
+      title: 'Safe',
+      votes: 2,
+      thumbnailDataUrl: '',
+    })
+  })
+
+  test('mergeDesigns unions looks and keeps the higher vote', () => {
+    const remote = [
+      {
+        ...createEmptyDesign({ id: 'look-midnight-silk' }),
+        title: 'Midnight Silk Column',
+        votes: 6,
+        thumbnailDataUrl: '/stills/look-midnight-silk.png',
+        overrides: [{ meshName: 'body' }],
+      },
+      {
+        ...createEmptyDesign({ id: 'look-guest-a' }),
+        title: 'Guest A',
+        votes: 1,
+        thumbnailDataUrl: 'data:image/png;base64,a',
+        overrides: [{ meshName: 'body' }],
+      },
+    ]
+    const local = [
+      {
+        ...createEmptyDesign({ id: 'look-midnight-silk' }),
+        title: 'Midnight Silk Column',
+        votes: 7,
+        thumbnailDataUrl: '/stills/look-midnight-silk.png',
+        overrides: [{ meshName: 'body' }],
+      },
+      {
+        ...createEmptyDesign({ id: 'look-guest-b' }),
+        title: 'Guest B',
+        votes: 0,
+        thumbnailDataUrl: 'data:image/png;base64,b',
+        overrides: [{ meshName: 'body' }],
+      },
+    ]
+    const merged = mergeDesigns({ local, remote })
+
+    expect(merged).toHaveLength(3)
+    expect(
+      merged.find((design) => design.id === 'look-midnight-silk')?.votes,
+    ).toBe(7)
+    expect(merged.some((design) => design.id === 'look-guest-a')).toBe(true)
+    expect(merged.some((design) => design.id === 'look-guest-b')).toBe(true)
+  })
+
+  test('capBoard keeps house looks and the highest guests', () => {
+    const seeds = listStoredDesigns()
+    const guests = Array.from({ length: 20 }, (_, index) => ({
+      ...createEmptyDesign({ id: `look-guest-${index}` }),
+      title: `Guest ${index}`,
+      votes: index,
+      thumbnailDataUrl: 'data:image/png;base64,a',
+      overrides: [{ meshName: 'body' }],
+    }))
+    const capped = capBoard({ designs: [...seeds, ...guests] })
+
+    expect(capped).toHaveLength(MAX_LIVE_DESIGNS)
+    expect(
+      seeds.every((seed) =>
+        capped.some((design) => design.id === seed.id),
+      ),
+    ).toBe(true)
+    expect(capped.some((design) => design.id === 'look-guest-19')).toBe(true)
+    expect(capped.some((design) => design.id === 'look-guest-0')).toBe(false)
+  })
+
+  test('hydrate seeds only when the key is missing', async () => {
+    const bucket: { value: ReturnType<typeof createEmptyDesign>[] | null } = {
+      value: null,
+    }
+    const persist: DesignsPersist = {
+      async load() {
+        if (bucket.value == null) {
+          return { status: 'missing' }
+        }
+
+        return {
+          status: 'ok',
+          designs: bucket.value.map((design) => ({ ...design })),
+          revision: 1,
+        }
+      },
+      async save({ designs }) {
+        bucket.value = designs.map((design) => ({ ...design }))
+      },
+    }
+
+    resetDesignsStore({ persist })
+    await hydrateDesignsStore()
+
+    expect(bucket.value).toHaveLength(7)
+    expect(listStoredDesigns()).toHaveLength(7)
+  })
+
+  test('hydrate does not save when load errors', async () => {
+    const writes: unknown[] = []
+    resetDesignsStore({
+      persist: {
+        async load() {
+          return { status: 'error' }
+        },
+        async save({ designs }) {
+          writes.push(designs)
+        },
+      },
+    })
+
+    await hydrateDesignsStore()
+
+    expect(writes).toHaveLength(0)
+    expect(listStoredDesigns().some((design) => design.id === 'look-midnight-silk')).toBe(
+      true,
+    )
+  })
+
+  test('hydrate keeps a persisted guest and does not replace it with seed', async () => {
+    const guest = {
+      ...createEmptyDesign({ id: 'look-guest-keep' }),
+      title: 'Kept Look',
+      author: 'Guest',
+      votes: 2,
+      thumbnailDataUrl: 'data:image/png;base64,abc',
+      overrides: [{ meshName: 'body' }],
+    }
+    const writes: unknown[] = []
+    resetDesignsStore({
+      persist: {
+        async load() {
+          return {
+            status: 'ok',
+            designs: [guest],
+            revision: 3,
+          }
+        },
+        async save({ designs }) {
+          writes.push(designs)
+        },
+      },
+    })
+
+    await hydrateDesignsStore()
+
+    expect(writes).toHaveLength(0)
+    expect(listStoredDesigns()).toHaveLength(1)
+    expect(listStoredDesigns()[0]?.id).toBe('look-guest-keep')
+  })
+
+  test('hydrate does not overwrite a corrupt board', async () => {
+    const writes: unknown[] = []
+    resetDesignsStore({
+      persist: {
+        async load() {
+          return {
+            status: 'ok',
+            designs: [{ title: 'broken' } as never],
+            revision: 8,
+          }
+        },
+        async save({ designs }) {
+          writes.push(designs)
+        },
+      },
+    })
+
+    await hydrateDesignsStore()
+
+    expect(writes).toHaveLength(0)
+    expect(
+      listStoredDesigns().some((design) => design.id === 'look-midnight-silk'),
+    ).toBe(true)
+  })
+
+  test('persistDesignsStore retries after a lost write', async () => {
+    const seed = listStoredDesigns()
+    const remoteOnly = {
+      ...createEmptyDesign({ id: 'look-remote-only' }),
+      title: 'Remote Only',
+      author: 'Guest',
+      votes: 1,
+      thumbnailDataUrl: 'data:image/png;base64,abc',
+      overrides: [{ meshName: 'body' }],
+    }
+    let saved = seed.map((design) => ({ ...design }))
+    let revision = 1
+    let saves = 0
+
+    resetDesignsStore({
+      persist: {
+        async load() {
+          return {
+            status: 'ok',
+            designs: saved.map((design) => ({ ...design })),
+            revision,
+          }
+        },
+        async save({ designs, revision: nextRevision }) {
+          saves += 1
+
+          if (saves === 1) {
+            saved = [...seed, remoteOnly]
+            revision = 2
+            return
+          }
+
+          saved = designs.map((design) => ({ ...design }))
+          revision = nextRevision
+        },
+      },
+    })
+
+    const created = createStoredDesign({ draft: DRAFT })
+    await persistDesignsStore()
+
+    expect(saves).toBeGreaterThan(1)
+    expect(saved.some((design) => design.id === created.id)).toBe(true)
+    expect(saved.some((design) => design.id === 'look-remote-only')).toBe(true)
+    expect(listStoredDesigns().some((design) => design.id === created.id)).toBe(
+      true,
+    )
   })
 })

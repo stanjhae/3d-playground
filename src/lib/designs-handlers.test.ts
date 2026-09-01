@@ -159,9 +159,15 @@ describe('designs HTTP handlers', () => {
     const persist: DesignsPersist = {
       async load() {
         await delay({ ms: 20 })
-        return bucket.value
-          ? bucket.value.map((design) => ({ ...design }))
-          : null
+        if (bucket.value == null) {
+          return { status: 'missing' }
+        }
+
+        return {
+          status: 'ok',
+          designs: bucket.value.map((design) => ({ ...design })),
+          revision: 1,
+        }
       },
       async save({ designs }) {
         await delay({ ms: 40 })
@@ -212,7 +218,7 @@ describe('designs HTTP handlers', () => {
     resetDesignsStore({
       persist: {
         async load() {
-          return null
+          return { status: 'missing' }
         },
         async save() {
           throw new Error('kv down')
