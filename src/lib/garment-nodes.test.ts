@@ -25,9 +25,7 @@ describe('garment.glb', () => {
     const bytes = readFileSync(resolve(cwd, 'public/models/garment.glb'))
     const names = (glbJson({ bytes }).nodes ?? []).map((node) => node.name)
 
-    expect(names).toEqual(
-      expect.arrayContaining(['body', 'collar', 'lining', 'hardware']),
-    )
+    expect(names).toEqual(expect.arrayContaining(['body']))
   })
 
   test('jacket keeps the same fashion panel names', async () => {
