@@ -13,6 +13,8 @@ pnpm stills
 pnpm dev
 ```
 
+`pnpm garments` rebuilds the jacket only. The live column is the credited evening gown and must stay `public/models/garment.glb`.
+
 Open the local URL. You should see a gown in frame and **Fashion Leader Vote**.
 
 ```bash
@@ -28,7 +30,7 @@ The one dashboard step: in the Vercel project, add a Redis store (Marketplace �
 
 ## Assets
 
-- `public/models/garment.glb` — White Evening Gown Dress by [Style3D CG](https://sketchfab.com/Style3DMeta), [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). [Source](https://sketchfab.com/3d-models/white-evening-gown-dress-1f77c65b1542428f89b10f538b771ce4). Nodes renamed so Silk still hits `body`. House authoring stays `pnpm garments`.
+- `public/models/garment.glb` — White Evening Gown Dress by [Style3D CG](https://sketchfab.com/Style3DMeta), [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). [Source](https://sketchfab.com/3d-models/white-evening-gown-dress-1f77c65b1542428f89b10f538b771ce4). Nodes renamed so Silk still hits `body`. Draco + WebP, root matrix locked so the studio camera still frames it. Do not overwrite this file. The house lathe, if you need it, is `node scripts/build-garment.mjs` → `garment-house.glb`.
 - `public/models/jacket.glb` — original evening jacket. Same panel names. CC0.
 - Campus GLBs stay in `public/models/` and load only in **The house**.
 - Board stills live in `public/stills/`. `pnpm stills`

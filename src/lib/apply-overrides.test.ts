@@ -15,6 +15,7 @@ import {
   captureMeshMaterials,
   cloneObjectMaterials,
   listMeshes,
+  sealClothMaterial,
   stampAncestorNames,
 } from './apply-overrides'
 
@@ -32,6 +33,50 @@ function createNamedMesh({ name }: { name: string }) {
 }
 
 describe('applyDesignOverrides', () => {
+  test('seals blended cloth so overlapping pieces stay opaque', () => {
+    const ghost = createNamedMesh({ name: 'body' })
+    ghost.material.transparent = true
+    ghost.material.opacity = 0.95
+    ghost.material.depthWrite = false
+
+    sealClothMaterial({ material: ghost.material })
+
+    expect(ghost.material.transparent).toBe(false)
+    expect(ghost.material.opacity).toBe(1)
+    expect(ghost.material.depthWrite).toBe(true)
+  })
+
+  test('cloning a blended gown material makes it opaque cloth', () => {
+    const skirt = createNamedMesh({ name: 'body-1' })
+    skirt.material.transparent = true
+    skirt.material.opacity = 0.95
+    const root = new Group()
+    root.add(skirt)
+
+    cloneObjectMaterials({ root })
+
+    expect(skirt.material.transparent).toBe(false)
+    expect(skirt.material.opacity).toBe(1)
+    expect(skirt.material.depthWrite).toBe(true)
+  })
+
+  test('fabric apply does not keep the source alpha', () => {
+    const body = createNamedMesh({ name: 'body' })
+    body.material.transparent = true
+    body.material.opacity = 0.95
+    const root = new Group()
+    root.add(body)
+
+    applyDesignOverrides({
+      root,
+      overrides: [{ meshName: 'body', color: '#112233' }],
+    })
+
+    expect(body.material.transparent).toBe(false)
+    expect(body.material.opacity).toBe(1)
+    expect(body.material.depthWrite).toBe(true)
+  })
+
   test('returns the same root reference', () => {
     const root = new Group()
     root.name = 'garment'

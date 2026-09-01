@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { FabricPanel } from '../components/editor/FabricPanel'
+import { GownCredit } from '../components/editor/GownCredit'
 import { ModeToggle } from '../components/editor/ModeToggle'
 import {
   PublishBar,
@@ -31,6 +32,7 @@ function AtelierHome() {
   const navigate = useNavigate()
   const { design: remixId } = Route.useSearch()
   const mode = useEditorStore((state) => state.mode)
+  const garmentId = useEditorStore((state) => state.garmentId)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [enteredLabel, setEnteredLabel] = useState<string | null>(null)
@@ -90,6 +92,7 @@ function AtelierHome() {
         <div className="pointer-events-auto absolute top-20 left-4 flex flex-wrap items-center gap-6 lg:left-6">
           <ModeToggle mode={mode} />
           {mode === 'design' ? <SilhouetteSwitch /> : null}
+          {garmentId !== 'jacket' ? <GownCredit /> : null}
           {remixStatus === 'loaded' && remixTitle ? (
             <p className="font-display text-xs tracking-[0.18em] text-brass uppercase">
               {remixCaption({ title: remixTitle })}

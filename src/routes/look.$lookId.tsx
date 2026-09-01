@@ -1,9 +1,10 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
+import { GownCredit } from '../components/editor/GownCredit'
 import { LookStage } from '../components/scene/LookStage'
 import { getDesign, voteOnDesign } from '../lib/designs-api'
-import type { Design } from '../lib/design-schema'
+import { resolveGarmentId, type Design } from '../lib/design-schema'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY } from '../lib/house-copy'
 
@@ -124,6 +125,9 @@ function LookPage() {
             By {look.author} · {look.votes}{' '}
             {look.votes === 1 ? 'vote' : 'votes'}
           </p>
+          {resolveGarmentId({ garmentId: look.garmentId }) !== 'jacket' ? (
+            <GownCredit />
+          ) : null}
           {voteError ? (
             <p className="text-sm text-ivory-muted">{voteError}</p>
           ) : null}

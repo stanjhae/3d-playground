@@ -13,7 +13,13 @@ export const HOUSE_COPY = {
   publishFailed: 'The look could not enter the vote.',
   boardFull: 'The house is full tonight.',
   boardPersistFailed: 'The look could not be kept. Try again.',
+  gownCredit: 'Gown by Style3D CG',
+  gownLicense: 'CC BY 4.0',
 } as const
+
+export const GOWN_CREDIT_HREF =
+  'https://sketchfab.com/3d-models/white-evening-gown-dress-1f77c65b1542428f89b10f538b771ce4'
+export const GOWN_LICENSE_HREF = 'https://creativecommons.org/licenses/by/4.0/'
 
 export function remixCaption({ title }: { title: string }) {
   return `Remixing ${title}`

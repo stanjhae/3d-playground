@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "generate": "node scripts/generate-routes.mjs",
-    "garments": "node scripts/build-garment.mjs && node scripts/build-jacket.mjs",
+    "garments": "node scripts/build-jacket.mjs",
     "stills": "node scripts/bake-stills.mjs",
     "og": "node scripts/bake-og.mjs",
     "build": "pnpm generate && tsc --noEmit && vite build",

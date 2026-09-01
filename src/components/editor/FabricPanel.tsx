@@ -1,5 +1,6 @@
+import { cn } from '../../lib/cn'
 import { listFabrics } from '../../lib/fabrics'
-import { GARMENT_PARTS, partLabel } from '../../lib/garment-parts'
+import { garmentParts, partLabel } from '../../lib/garment-parts'
 import { useEditorStore } from '../../lib/editor-store'
 
 export function FabricPanel({
@@ -8,12 +9,14 @@ export function FabricPanel({
   selectedMeshName?: string
 }) {
   const storeSelection = useEditorStore((state) => state.selectedMeshName)
+  const garmentId = useEditorStore((state) => state.garmentId)
   const fabricId = useEditorStore((state) => state.fabricId)
   const applyFabric = useEditorStore((state) => state.applyFabric)
   const selectMesh = useEditorStore((state) => state.selectMesh)
   const undoLast = useEditorStore((state) => state.undoLast)
   const canUndo = useEditorStore((state) => state.overrides.length > 0)
   const selected = selectedMeshName ?? storeSelection ?? 'body'
+  const parts = garmentParts({ garmentId })
   const fabrics = listFabrics()
 
   return (
@@ -38,24 +41,34 @@ export function FabricPanel({
           Undo
         </button>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {GARMENT_PARTS.map((part) => (
-          <button
-            key={part.id}
-            type="button"
-            onClick={() => {
-              selectMesh({ selectedMeshName: part.id })
-            }}
-            className={
+      {parts.length > 1 ? (
+        <div className="flex flex-wrap gap-2">
+          {parts.map((part) => {
+            const isSelected =
               selected === part.id || selected.startsWith(`${part.id}-`)
-                ? 'min-h-11 border border-brass px-3 py-1.5 font-display text-[10px] tracking-[0.16em] text-brass uppercase'
-                : 'min-h-11 border border-atelier-line px-3 py-1.5 font-display text-[10px] tracking-[0.16em] text-ivory-muted uppercase hover:text-brass'
-            }
-          >
-            {part.label}
-          </button>
-        ))}
-      </div>
+
+            return (
+              <button
+                key={part.id}
+                type="button"
+                onClick={() => {
+                  selectMesh({ selectedMeshName: part.id })
+                }}
+                className={cn(
+                  'min-h-11 border px-3 py-1.5 font-display text-[10px] tracking-[0.16em] uppercase',
+                  {
+                    'border-brass text-brass': isSelected,
+                    'border-atelier-line text-ivory-muted hover:text-brass':
+                      !isSelected,
+                  },
+                )}
+              >
+                {part.label}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
       <ul className="grid grid-cols-2 gap-2">
         {fabrics.map((fabric) => {
           const isActive = fabricId === fabric.id
@@ -67,11 +80,13 @@ export function FabricPanel({
                 onClick={() => {
                   applyFabric({ fabricId: fabric.id, colorId: fabric.id })
                 }}
-                className={
-                  isActive
-                    ? 'flex min-h-11 w-full items-center gap-3 border border-brass bg-atelier px-3 py-2 text-left'
-                    : 'flex min-h-11 w-full items-center gap-3 border border-atelier-line bg-atelier px-3 py-2 text-left hover:border-brass'
-                }
+                className={cn(
+                  'flex min-h-11 w-full items-center gap-3 border bg-atelier px-3 py-2 text-left',
+                  {
+                    'border-brass': isActive,
+                    'border-atelier-line hover:border-brass': !isActive,
+                  },
+                )}
               >
                 <span
                   aria-hidden

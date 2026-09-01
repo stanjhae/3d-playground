@@ -12,12 +12,22 @@ export const GARMENT_PARTS = [
   { id: 'hardware', label: 'Hardware' },
 ] as const
 
+const COLUMN_PARTS = GARMENT_PARTS.filter((part) => part.id === 'body')
+
 export function garmentSrc({
   garmentId,
 }: {
   garmentId?: GarmentId | null
 }) {
   return garmentId === 'jacket' ? GARMENT_SRC.jacket : GARMENT_SRC.column
+}
+
+export function garmentParts({
+  garmentId,
+}: {
+  garmentId?: GarmentId | null
+}) {
+  return garmentId === 'jacket' ? GARMENT_PARTS : COLUMN_PARTS
 }
 
 export function partLabel({ meshName }: { meshName: string }) {
