@@ -8,6 +8,7 @@ import { type Design } from '../lib/design-schema'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY } from '../lib/house-copy'
 import { lookRecipe } from '../lib/look-recipe'
+import { lookSheetBodyClass, lookSheetFrameClass } from '../lib/studio-chrome'
 
 export const Route = createFileRoute('/look/$lookId')({
   component: LookPage,
@@ -115,52 +116,56 @@ function LookPage() {
         </div>
       )}
       {status === 'ready' && look ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-4 bg-gradient-to-t from-atelier via-atelier/70 to-transparent p-6 pt-20">
-          <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
-            Shared look
-          </p>
-          <h1 className="font-display text-4xl text-ivory md:text-5xl">
-            {look.title}
-          </h1>
-          <p className="text-sm text-ivory-muted">{lookRecipe({ design: look })}</p>
-          <p className="text-sm text-ivory-muted">
-            By {look.author} · {look.votes}{' '}
-            {look.votes === 1 ? 'vote' : 'votes'}
-          </p>
-          <GownCredit garmentId={look.garmentId} />
-          {voteError ? (
-            <p className="text-sm text-ivory-muted">{voteError}</p>
-          ) : null}
-          {copyStatus === 'error' ? (
-            <p className="text-sm text-ivory-muted">{HOUSE_COPY.copyFailed}</p>
-          ) : null}
-          <div className="pointer-events-auto flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <button
-              type="button"
-              disabled={voting}
-              onClick={() => {
-                void handleVote()
-              }}
-              className="min-h-11 border border-brass px-5 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
-            >
-              {voting ? 'Voting' : 'Vote this look'}
-            </button>
-            <Link
-              to="/"
-              search={{ design: look.id }}
-              className="min-h-11 border border-atelier-line px-5 py-2 text-center font-display text-xs tracking-[0.18em] text-ivory uppercase hover:text-brass"
-            >
-              Remix in studio
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                void handleCopy()
-              }}
-              className="min-h-11 border border-atelier-line px-5 py-2 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass"
-            >
-              {copyStatus === 'copied' ? 'Link copied' : 'Copy link'}
-            </button>
+        <div className={lookSheetFrameClass()}>
+          <div className={lookSheetBodyClass()}>
+            <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
+              Shared look
+            </p>
+            <h1 className="font-display text-3xl text-ivory sm:text-4xl md:text-5xl">
+              {look.title}
+            </h1>
+            <p className="text-sm text-ivory-muted">
+              {lookRecipe({ design: look })}
+            </p>
+            <p className="text-sm text-ivory-muted">
+              By {look.author} · {look.votes}{' '}
+              {look.votes === 1 ? 'vote' : 'votes'}
+            </p>
+            <GownCredit garmentId={look.garmentId} />
+            {voteError ? (
+              <p className="text-sm text-ivory-muted">{voteError}</p>
+            ) : null}
+            {copyStatus === 'error' ? (
+              <p className="text-sm text-ivory-muted">{HOUSE_COPY.copyFailed}</p>
+            ) : null}
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                disabled={voting}
+                onClick={() => {
+                  void handleVote()
+                }}
+                className="min-h-11 border border-brass px-5 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
+              >
+                {voting ? 'Voting' : 'Vote this look'}
+              </button>
+              <Link
+                to="/"
+                search={{ design: look.id }}
+                className="min-h-11 border border-atelier-line px-5 py-2 text-center font-display text-xs tracking-[0.18em] text-ivory uppercase hover:text-brass"
+              >
+                Remix in studio
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleCopy()
+                }}
+                className="min-h-11 border border-atelier-line px-5 py-2 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass"
+              >
+                {copyStatus === 'copied' ? 'Link copied' : 'Copy link'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

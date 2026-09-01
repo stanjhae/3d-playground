@@ -88,11 +88,11 @@ function VotePage() {
   const rest = looks.slice(1)
 
   return (
-    <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pt-24 pb-16">
+    <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-8 pb-16 sm:gap-8 sm:px-6 sm:pt-10">
       <p className="font-display text-xs tracking-[0.32em] text-brass uppercase">
         Fashion Leader Vote
       </p>
-      <h1 className="font-display text-5xl text-ivory">The board</h1>
+      <h1 className="font-display text-4xl text-ivory sm:text-5xl">The board</h1>
       {status === 'loading' ? (
         <div className="grid gap-5 sm:grid-cols-2">
           {Array.from({ length: 4 }, (_, index) => (

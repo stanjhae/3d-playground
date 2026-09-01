@@ -76,7 +76,7 @@ export function PublishBar({
 
   return (
     <form
-      className="flex flex-col gap-3 border border-atelier-line bg-atelier/92 p-4 backdrop-blur-sm sm:flex-row sm:items-end"
+      className="flex flex-row flex-wrap items-end gap-2 border border-atelier-line bg-atelier/92 p-3 backdrop-blur-sm sm:gap-3 sm:p-4"
       onSubmit={(event) => {
         event.preventDefault()
 
@@ -131,7 +131,7 @@ export function PublishBar({
       <button
         type="submit"
         disabled={busy}
-        className="min-h-11 border border-brass px-5 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
+        className="min-h-11 shrink-0 border border-brass px-4 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50 sm:px-5"
       >
         {busy ? HOUSE_COPY.entering : HOUSE_COPY.enter}
       </button>

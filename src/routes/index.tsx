@@ -14,6 +14,7 @@ import { createDesign, getDesign } from '../lib/designs-api'
 import { useEditorStore } from '../lib/editor-store'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
+import { coverHeaderSpacerClass } from '../lib/studio-chrome'
 
 export const Route = createFileRoute('/')({
   validateSearch: (
@@ -88,8 +89,12 @@ function AtelierHome() {
       <AtelierScene>
         <PublishThumbnailSync />
       </AtelierScene>
-      <div className="pointer-events-none absolute inset-0 z-20">
-        <div className="pointer-events-auto absolute top-20 left-4 flex flex-wrap items-center gap-6 lg:left-6">
+      <div className="pointer-events-none absolute inset-0 z-20 flex flex-col lg:block">
+        <div
+          aria-hidden
+          className={coverHeaderSpacerClass()}
+        />
+        <div className="pointer-events-auto flex shrink-0 flex-col gap-2 bg-gradient-to-b from-atelier/80 to-transparent px-4 pt-1 pb-3 lg:absolute lg:top-20 lg:left-6 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:bg-none lg:px-0 lg:pt-0 lg:pb-0">
           <ModeToggle mode={mode} />
           {mode === 'design' ? <SilhouetteSwitch /> : null}
           {mode === 'design' ? (
@@ -111,12 +116,13 @@ function AtelierHome() {
             </p>
           ) : null}
         </div>
+        <div className="min-h-0 flex-1 lg:hidden" />
         {mode === 'design' ? (
-          <div className="pointer-events-auto absolute inset-x-4 bottom-4 flex flex-col gap-3 lg:contents">
+          <div className="pointer-events-auto flex shrink-0 flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:contents">
             <div className="lg:absolute lg:top-24 lg:right-6 lg:w-72">
               <FabricPanel />
             </div>
-            <div className="flex flex-col gap-3 lg:absolute lg:bottom-4 lg:left-6 lg:w-[28rem]">
+            <div className="flex flex-col gap-2 lg:absolute lg:bottom-4 lg:left-6 lg:w-[28rem] lg:gap-3">
               {publishError ? (
                 <p className="text-sm text-ivory-muted">{publishError}</p>
               ) : null}

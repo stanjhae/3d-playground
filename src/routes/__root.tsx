@@ -53,20 +53,24 @@ function RootShell() {
   return (
     <>
       <header
-        className={
-          isCover
-            ? 'absolute inset-x-0 top-0 z-30 flex items-center justify-between px-6 py-5 text-ivory'
-            : 'flex items-center justify-between border-b border-atelier-line bg-atelier px-6 py-5 text-ivory'
-        }
+        className={cn(
+          'z-30 flex items-center justify-between gap-3 text-ivory',
+          {
+            'absolute inset-x-0 top-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-5 sm:pb-5':
+              isCover,
+            'border-b border-atelier-line bg-atelier px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-5 sm:pb-5':
+              !isCover,
+          },
+        )}
       >
         <Link
           to="/"
           search={{}}
-          className="font-display text-sm tracking-[0.28em] text-ivory uppercase"
+          className="shrink-0 whitespace-nowrap font-display text-[11px] tracking-[0.16em] text-ivory uppercase sm:text-sm sm:tracking-[0.28em]"
         >
           Fashion Leader Vote
         </Link>
-        <nav className="flex items-center gap-3 text-xs tracking-[0.18em] uppercase">
+        <nav className="flex items-center gap-1 text-[10px] tracking-[0.12em] uppercase sm:gap-3 sm:text-xs sm:tracking-[0.18em]">
           <Link
             to="/"
             search={{}}
