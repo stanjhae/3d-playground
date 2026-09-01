@@ -1,6 +1,6 @@
-import type { MaterialOverride } from './design-schema'
-import { getFabricForOverride } from './fabrics'
-import { getGarment } from './garments'
+import type { MaterialOverride } from './design-schema.ts'
+import { getFabricForOverride } from './fabrics.ts'
+import { getGarment } from './garments.ts'
 
 function partIdForOverride({
   meshName,

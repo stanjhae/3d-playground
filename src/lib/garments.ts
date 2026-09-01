@@ -1,10 +1,10 @@
-import type { GarmentId } from './design-schema'
-import { resolveGarmentId } from './design-schema'
+import type { GarmentId } from './design-schema.ts'
+import { resolveGarmentId } from './design-schema.ts'
 import {
   GOWN_CREDIT_HREF,
   GOWN_LICENSE_HREF,
   HOUSE_COPY,
-} from './house-copy'
+} from './house-copy.ts'
 
 export type GarmentPartId =
   | 'body'

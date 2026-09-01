@@ -3,7 +3,7 @@ import {
   isSafeStillPath,
   isSafeThumbnail,
   stillImageType,
-} from './look-thumbnail'
+} from './look-thumbnail.ts'
 
 const LOOK_ID_PATTERN = /^[A-Za-z0-9-]+$/
 
