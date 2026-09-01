@@ -45,6 +45,9 @@ describe('designs store', () => {
     expect(designs.some((design) => design.id === 'look-midnight-silk')).toBe(
       true,
     )
+    expect(
+      designs.find((design) => design.id === 'look-midnight-silk')?.garmentId,
+    ).toBe('gown')
   })
 
   test('creates a look with an id and zero votes', () => {
@@ -85,6 +88,59 @@ describe('designs store', () => {
     expect(getStoredDesign({ id: created.id })?.thumbnailDataUrl).toBe('')
   })
 
+  test('parseDesignDraft keeps house forms and aliases live column looks', () => {
+    expect(
+      parseDesignDraft({
+        body: {
+          title: 'Midnight',
+          author: 'Guest',
+          overrides: [{ meshName: 'body' }],
+          garmentId: 'column',
+        },
+      })?.garmentId,
+    ).toBe('gown')
+    expect(
+      parseDesignDraft({
+        body: {
+          title: 'Mixed',
+          author: 'Guest',
+          overrides: [{ meshName: 'skirt' }],
+          garmentId: 'mixed',
+        },
+      })?.garmentId,
+    ).toBe('mixed')
+    expect(
+      parseDesignDraft({
+        body: {
+          title: 'Jacket',
+          author: 'Guest',
+          overrides: [{ meshName: 'collar' }],
+          garmentId: 'jacket',
+        },
+      })?.garmentId,
+    ).toBe('jacket')
+    expect(
+      parseDesignDraft({
+        body: {
+          title: 'Unknown',
+          author: 'Guest',
+          overrides: [{ meshName: 'body' }],
+          garmentId: 'lathe',
+        },
+      })?.garmentId,
+    ).toBe('gown')
+
+    const created = createStoredDesign({
+      draft: {
+        ...DRAFT,
+        garmentId: 'suit',
+      },
+    })
+
+    expect(created.garmentId).toBe('suit')
+    expect(getStoredDesign({ id: created.id })?.garmentId).toBe('suit')
+  })
+
   test('rejects a draft without a title or overrides', () => {
     expect(parseDesignDraft({ body: { title: '', overrides: [] } })).toBeNull()
     expect(parseDesignDraft({ body: { title: 'Look', overrides: [{}] } })).toBeNull()
@@ -101,7 +157,7 @@ describe('designs store', () => {
       author: 'Guest',
       thumbnailDataUrl: '',
       overrides: [{ meshName: 'body' }],
-      garmentId: 'column',
+      garmentId: 'gown',
     })
 
     const longTitle = 'M'.repeat(MAX_TITLE_CHARS + 12)

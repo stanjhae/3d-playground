@@ -1,4 +1,19 @@
-export type GarmentId = 'column' | 'jacket'
+export const GARMENT_IDS = [
+  'gown',
+  'slip',
+  'mixed',
+  'coat',
+  'suit',
+  'jacket',
+] as const
+
+export type GarmentId = (typeof GARMENT_IDS)[number]
+
+const GARMENT_ID_SET = new Set<string>(GARMENT_IDS)
+
+const GARMENT_ALIASES: Record<string, GarmentId> = {
+  column: 'gown',
+}
 
 export type MaterialOverride = {
   meshName: string
@@ -26,7 +41,7 @@ export function createEmptyDesign({ id }: { id: string }): Design {
     votes: 0,
     thumbnailDataUrl: '',
     overrides: [],
-    garmentId: 'column',
+    garmentId: 'gown',
   }
 }
 
@@ -35,5 +50,19 @@ export function resolveGarmentId({
 }: {
   garmentId?: string | null
 }): GarmentId {
-  return garmentId === 'jacket' ? 'jacket' : 'column'
+  if (!garmentId) {
+    return 'gown'
+  }
+
+  const aliased = GARMENT_ALIASES[garmentId]
+
+  if (aliased) {
+    return aliased
+  }
+
+  if (GARMENT_ID_SET.has(garmentId)) {
+    return garmentId as GarmentId
+  }
+
+  return 'gown'
 }

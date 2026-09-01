@@ -13,7 +13,7 @@ describe('useEditorStore', () => {
 
     expect(state.mode).toBe('design')
     expect(state.selectedMeshName).toBe('body')
-    expect(state.garmentId).toBe('column')
+    expect(state.garmentId).toBe('gown')
     expect(state.fabricId).toBeNull()
     expect(state.colorId).toBeNull()
     expect(state.overrides).toEqual([])
@@ -109,7 +109,39 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().fabricId).toBeNull()
     expect(useEditorStore.getState().colorId).toBeNull()
     expect(useEditorStore.getState().selectedMeshName).toBe('body')
-    expect(useEditorStore.getState().garmentId).toBe('column')
+    expect(useEditorStore.getState().garmentId).toBe('gown')
+  })
+
+  test('setGarmentId clears cloth when the form changes', () => {
+    useEditorStore.getState().selectMesh({ selectedMeshName: 'body' })
+    useEditorStore.getState().applyFabric({
+      fabricId: 'ivory-silk',
+      colorId: 'ivory-silk',
+    })
+    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
+
+    expect(useEditorStore.getState().overrides).toHaveLength(1)
+    expect(useEditorStore.getState().fabricId).toBe('ivory-silk')
+
+    useEditorStore.getState().setGarmentId({ garmentId: 'slip' })
+
+    expect(useEditorStore.getState().garmentId).toBe('slip')
+    expect(useEditorStore.getState().selectedMeshName).toBe('body')
+    expect(useEditorStore.getState().overrides).toEqual([])
+    expect(useEditorStore.getState().fabricId).toBeNull()
+    expect(useEditorStore.getState().colorId).toBeNull()
+  })
+
+  test('loadDesign maps a live column look onto the gown', () => {
+    useEditorStore.getState().loadDesign({
+      design: {
+        ...createEmptyDesign({ id: 'look-column' }),
+        // Live board still writes column.
+        garmentId: 'column' as never,
+      },
+    })
+
+    expect(useEditorStore.getState().garmentId).toBe('gown')
   })
 
   test('publishLook keeps the design for later vote wiring', () => {

@@ -1,24 +1,34 @@
-import { GOWN_CREDIT_HREF, GOWN_LICENSE_HREF, HOUSE_COPY } from '../../lib/house-copy'
+import { garmentCredit } from '../../lib/garments'
 
-export function GownCredit() {
+export function GownCredit({
+  garmentId,
+}: {
+  garmentId?: string | null
+}) {
+  const credit = garmentCredit({ garmentId })
+
+  if (!credit) {
+    return null
+  }
+
   return (
     <p className="font-display text-[10px] tracking-[0.16em] text-ivory-muted uppercase">
       <a
-        href={GOWN_CREDIT_HREF}
+        href={credit.href}
         rel="noopener noreferrer"
         target="_blank"
         className="hover:text-brass"
       >
-        {HOUSE_COPY.gownCredit}
+        {credit.label}
       </a>
       {' · '}
       <a
-        href={GOWN_LICENSE_HREF}
+        href={credit.licenseHref}
         rel="license noopener noreferrer"
         target="_blank"
         className="hover:text-brass"
       >
-        {HOUSE_COPY.gownLicense}
+        {credit.license}
       </a>
     </p>
   )

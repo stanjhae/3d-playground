@@ -14,6 +14,9 @@ function glbJson({ bytes }: { bytes: Uint8Array }) {
       name?: string
       mesh?: number
       matrix?: number[]
+      translation?: number[]
+      rotation?: number[]
+      scale?: number[]
     }[]
   }
 }
@@ -31,6 +34,53 @@ async function readGlb({ path }: { path: string }) {
     globalThis as unknown as { process: { cwd: () => string } }
   ).process.cwd()
   return readFileSync(resolve(cwd, path))
+}
+
+function composeNodeMatrix({
+  node,
+}: {
+  node: {
+    matrix?: number[]
+    translation?: number[]
+    rotation?: number[]
+    scale?: number[]
+  }
+}) {
+  if (node.matrix) {
+    return node.matrix
+  }
+
+  const [tx = 0, ty = 0, tz = 0] = node.translation ?? []
+  const [qx = 0, qy = 0, qz = 0, qw = 1] = node.rotation ?? []
+  const [sx = 1, sy = 1, sz = 1] = node.scale ?? []
+  const xx = qx * qx
+  const yy = qy * qy
+  const zz = qz * qz
+  const xy = qx * qy
+  const xz = qx * qz
+  const yz = qy * qz
+  const wx = qw * qx
+  const wy = qw * qy
+  const wz = qw * qz
+
+  return [
+    (1 - 2 * (yy + zz)) * sx,
+    2 * (xy + wz) * sx,
+    2 * (xz - wy) * sx,
+    0,
+    2 * (xy - wz) * sy,
+    (1 - 2 * (xx + zz)) * sy,
+    2 * (yz + wx) * sy,
+    0,
+    2 * (xz + wy) * sz,
+    2 * (yz - wx) * sz,
+    (1 - 2 * (xx + yy)) * sz,
+    0,
+    tx,
+    ty,
+    tz,
+    1,
+  ]
 }
 
 function transformPoint({
@@ -56,7 +106,9 @@ function heightBounds({
 }: {
   json: ReturnType<typeof glbJson>
 }) {
-  const matrix = json.nodes?.[0]?.matrix ?? [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+  const matrix = composeNodeMatrix({
+    node: json.nodes?.[0] ?? {},
+  })
   const positions = (json.accessors ?? []).filter(
     (accessor) => accessor.type === 'VEC3' && accessor.min && accessor.max,
   )
@@ -117,5 +169,72 @@ describe('garment.glb', () => {
     expect(names).toEqual(
       expect.arrayContaining(['body', 'collar', 'lining', 'hardware']),
     )
+  })
+})
+
+async function expectSeatedStyle3d({
+  path,
+  title,
+  parts,
+}: {
+  path: string
+  title: string
+  parts: string[]
+}) {
+  const bytes = await readGlb({ path })
+  const json = glbJson({ bytes })
+  const meshNames = (json.nodes ?? [])
+    .filter((node) => node.mesh !== undefined)
+    .map((node) => node.name ?? '')
+  const { yMin, yMax } = heightBounds({ json })
+
+  expect(json.asset?.extras?.author).toMatch(/Style3D/)
+  expect(json.asset?.extras?.title).toBe(title)
+  expect(json.asset?.extras?.license).toMatch(/CC-BY-4.0/)
+  expect(meshNames.some((name) => name === 'body' || name.startsWith('body-'))).toBe(
+    true,
+  )
+  for (const part of parts) {
+    expect(meshNames.some((name) => name === part || name.startsWith(`${part}-`))).toBe(
+      true,
+    )
+  }
+  expect(yMin).toBeGreaterThanOrEqual(-0.08)
+  expect(yMax).toBeGreaterThan(1.2)
+  expect(yMax).toBeLessThan(2.3)
+  expect(bytes.byteLength).toBeLessThan(1_500_000)
+}
+
+describe('house forms', () => {
+  test('slip is credited and framed', async () => {
+    await expectSeatedStyle3d({
+      path: 'public/models/slip.glb',
+      title: 'Black Dress',
+      parts: ['body'],
+    })
+  })
+
+  test('shirt and skirt expose two panels', async () => {
+    await expectSeatedStyle3d({
+      path: 'public/models/mixed.glb',
+      title: 'White shirt black leather skirt outfit',
+      parts: ['body', 'skirt'],
+    })
+  })
+
+  test('coat keeps tailoring panels', async () => {
+    await expectSeatedStyle3d({
+      path: 'public/models/coat.glb',
+      title: 'Black jacket coat',
+      parts: ['body', 'hardware'],
+    })
+  })
+
+  test('suit keeps tailoring panels', async () => {
+    await expectSeatedStyle3d({
+      path: 'public/models/suit.glb',
+      title: 'White Suit Set',
+      parts: ['body', 'hardware'],
+    })
   })
 })
