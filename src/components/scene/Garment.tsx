@@ -25,7 +25,7 @@ import { garmentSrc } from '../../lib/garment-parts'
 import { SelectableMesh } from './SelectableMesh'
 
 const DRACO_DECODER_PATH = '/draco/'
-const DEFAULT_GARMENT_SRC = '/models/garment.glb'
+const DEFAULT_GARMENT_SRC = garmentSrc({ garmentId: 'gown' })
 
 const FABRIC_MAP_SRC = {
   'cotton-weave': '/fabrics/cotton-weave.png',
@@ -37,7 +37,6 @@ const FABRIC_MAP_SRC = {
 
 useGLTF.setDecoderPath(DRACO_DECODER_PATH)
 useGLTF.preload(DEFAULT_GARMENT_SRC)
-useGLTF.preload('/models/jacket.glb')
 
 type DetachedNode = {
   object: Object3D

@@ -42,7 +42,7 @@ const INITIAL_EDITOR_STATE = {
   selectedMeshName: 'body' as string | null,
   fabricId: null as string | null,
   colorId: null as string | null,
-  garmentId: 'column' as GarmentId,
+  garmentId: 'gown' as GarmentId,
   overrides: [] as MaterialOverride[],
   title: '',
   author: 'Guest',
@@ -59,9 +59,20 @@ export const useEditorStore = create<EditorState>()((set) => ({
     set({ selectedMeshName })
   },
   setGarmentId: ({ garmentId }) => {
-    set({
-      garmentId: resolveGarmentId({ garmentId }),
-      selectedMeshName: 'body',
+    const resolved = resolveGarmentId({ garmentId })
+
+    set((state) => {
+      if (state.garmentId === resolved) {
+        return state
+      }
+
+      return {
+        garmentId: resolved,
+        selectedMeshName: 'body',
+        fabricId: null,
+        colorId: null,
+        overrides: [],
+      }
     })
   },
   applyFabric: ({ fabricId, colorId }) => {
@@ -133,7 +144,7 @@ export const useEditorStore = create<EditorState>()((set) => ({
       overrides: [],
       lastPublished: null,
       selectedMeshName: 'body',
-      garmentId: 'column',
+      garmentId: 'gown',
     })
   },
 }))

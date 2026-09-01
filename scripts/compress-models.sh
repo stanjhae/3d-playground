@@ -24,5 +24,3 @@ compress_model() {
 }
 
 compress_model "$models/garment.glb" --flatten false --join false
-compress_model "$models/informatics_5_4.glb"
-compress_model "$models/tree_tut2.glb"

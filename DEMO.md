@@ -29,7 +29,7 @@ Checks below are against the live URL. Production is this house.
 3. **Enter the Vote**. Your still sits on the board. **Just entered** marks it.
 4. Vote **Atelier Ivory**. The Leader stamp can move.
 5. Open **Midnight Silk Column**. Orbit. Remix in studio. The caption says what you are remixing.
-6. Optional: **The house** — the Leader on a plinth. **Walk the rooms** only if you want it.
+6. Optional: **The house** — the Leader in the studio.
 7. Optional: **Jacket** — the house has a second form.
 
 ## Cover note
@@ -47,6 +47,6 @@ I did not build CAD, pattern grading, cloth simulation, or AI. There is no login
 - #52 needs a human Slack or iMessage paste. Crawler meta is not that paste.
 - House board cards are still the painted column stills. Publish captures the live gown.
 - The live board caps at 24 looks. Memory fallback still keeps the seven house looks locally and in tests.
-- The look route loads Three (~270KB gzip). The house rooms load only when you walk them.
+- The look route loads Three (~270KB gzip).
 - Header Atelier / Vote / Look measure under 44px. Card Vote buttons do not.
 - #54 is optional polish and does not change the forward.

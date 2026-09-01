@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { createEmptyDesign } from './design-schema'
+import { createEmptyDesign, resolveGarmentId } from './design-schema'
 
 describe('createEmptyDesign', () => {
   test('fills the frozen Design shape', () => {
@@ -13,7 +13,24 @@ describe('createEmptyDesign', () => {
       votes: 0,
       thumbnailDataUrl: '',
       overrides: [],
-      garmentId: 'column',
+      garmentId: 'gown',
     })
+  })
+})
+
+describe('resolveGarmentId', () => {
+  test('keeps live column looks on the gown', () => {
+    expect(resolveGarmentId({ garmentId: 'column' })).toBe('gown')
+    expect(resolveGarmentId({ garmentId: 'gown' })).toBe('gown')
+    expect(resolveGarmentId({})).toBe('gown')
+    expect(resolveGarmentId({ garmentId: 'missing' })).toBe('gown')
+  })
+
+  test('keeps jacket and the new house forms', () => {
+    expect(resolveGarmentId({ garmentId: 'jacket' })).toBe('jacket')
+    expect(resolveGarmentId({ garmentId: 'slip' })).toBe('slip')
+    expect(resolveGarmentId({ garmentId: 'mixed' })).toBe('mixed')
+    expect(resolveGarmentId({ garmentId: 'coat' })).toBe('coat')
+    expect(resolveGarmentId({ garmentId: 'suit' })).toBe('suit')
   })
 })

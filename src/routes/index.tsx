@@ -92,7 +92,9 @@ function AtelierHome() {
         <div className="pointer-events-auto absolute top-20 left-4 flex flex-wrap items-center gap-6 lg:left-6">
           <ModeToggle mode={mode} />
           {mode === 'design' ? <SilhouetteSwitch /> : null}
-          {garmentId !== 'jacket' ? <GownCredit /> : null}
+          {mode === 'design' ? (
+            <GownCredit garmentId={garmentId} />
+          ) : null}
           {remixStatus === 'loaded' && remixTitle ? (
             <p className="font-display text-xs tracking-[0.18em] text-brass uppercase">
               {remixCaption({ title: remixTitle })}

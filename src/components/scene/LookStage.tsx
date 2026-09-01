@@ -1,24 +1,10 @@
-import { Html, useProgress } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
+import { FashionLoader } from './FashionLoader'
 import { Garment } from './Garment'
 import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
-
-function FashionLoader() {
-  const { errors, progress } = useProgress()
-
-  return (
-    <Html center>
-      <p className="font-display text-xs tracking-[0.28em] text-ivory-muted uppercase">
-        {errors.length > 0
-          ? 'The look could not open'
-          : `Opening the look ${Math.round(progress)}`}
-      </p>
-    </Html>
-  )
-}
 
 export function LookStage({
   overrides,
