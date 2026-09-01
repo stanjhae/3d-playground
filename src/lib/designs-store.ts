@@ -1,11 +1,11 @@
 import seedDesigns from '../../data/designs.json' with { type: 'json' }
 
-import type { Design, GarmentId, MaterialOverride } from './design-schema'
-import { resolveGarmentId } from './design-schema'
+import type { Design, GarmentId, MaterialOverride } from './design-schema.ts'
+import { resolveGarmentId } from './design-schema.ts'
 import {
   createDesignsPersist,
   type DesignsPersist,
-} from './designs-persist'
+} from './designs-persist.ts'
 
 export const MAX_THUMBNAIL_CHARS = 180_000
 export const MAX_TITLE_CHARS = 80
