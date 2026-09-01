@@ -1,15 +1,31 @@
-import type { Design } from './design-schema'
+import type { Design } from './design-schema.ts'
 
 export const DESIGNS_KV_KEY = 'flv:designs'
 
+export type PersistLoadResult =
+  | { status: 'missing' }
+  | { status: 'ok'; designs: Design[]; revision: number }
+  | { status: 'error' }
+
 export type DesignsPersist = {
-  load: () => Promise<Design[] | null>
-  save: ({ designs }: { designs: Design[] }) => Promise<void>
+  load: () => Promise<PersistLoadResult>
+  save: ({
+    designs,
+    revision,
+  }: {
+    designs: Design[]
+    revision: number
+  }) => Promise<void>
 }
 
 type KvClient = {
-  get: (key: string) => Promise<Design[] | null>
-  set: (key: string, value: Design[]) => Promise<unknown>
+  get: (key: string) => Promise<unknown>
+  set: (key: string, value: string) => Promise<unknown>
+}
+
+type BoardRecord = {
+  revision: number
+  designs: Design[]
 }
 
 function envSource({
@@ -35,42 +51,69 @@ export function isKvConfigured({
   return Boolean(source.KV_REST_API_URL && source.KV_REST_API_TOKEN)
 }
 
-export function createMemoryPersist({
-  store,
+export function parseBoardResult({
+  result,
 }: {
-  store?: { value: Design[] | null }
-} = {}): DesignsPersist {
-  const memory = store ?? { value: null }
+  result: unknown
+}): PersistLoadResult {
+  if (result == null) {
+    return { status: 'missing' }
+  }
+
+  let parsed: unknown = result
+
+  if (typeof result === 'string') {
+    try {
+      parsed = JSON.parse(result)
+    } catch {
+      return { status: 'error' }
+    }
+  }
+
+  if (Array.isArray(parsed)) {
+    return { status: 'ok', designs: parsed as Design[], revision: 0 }
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    return { status: 'error' }
+  }
+
+  const record = parsed as { designs?: unknown; revision?: unknown }
+
+  if (!Array.isArray(record.designs)) {
+    return { status: 'error' }
+  }
 
   return {
-    async load() {
-      return memory.value ? memory.value.map((design) => ({ ...design })) : null
-    },
-    async save({ designs }) {
-      memory.value = designs.map((design) => ({ ...design }))
-    },
+    status: 'ok',
+    designs: record.designs as Design[],
+    revision: typeof record.revision === 'number' ? record.revision : 0,
   }
 }
 
-function parseKvResult({ result }: { result: unknown }): Design[] | null {
-  if (result == null) {
-    return null
-  }
+export function createMemoryPersist({
+  store,
+}: {
+  store?: { value: Design[] | null; revision?: number }
+} = {}): DesignsPersist {
+  const memory = store ?? { value: null, revision: 0 }
 
-  if (Array.isArray(result)) {
-    return result as Design[]
-  }
+  return {
+    async load() {
+      if (memory.value == null) {
+        return { status: 'missing' }
+      }
 
-  if (typeof result !== 'string') {
-    return null
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(result)
-
-    return Array.isArray(parsed) ? (parsed as Design[]) : null
-  } catch {
-    return null
+      return {
+        status: 'ok',
+        designs: memory.value.map((design) => ({ ...design })),
+        revision: memory.revision ?? 0,
+      }
+    },
+    async save({ designs, revision }) {
+      memory.value = designs.map((design) => ({ ...design }))
+      memory.revision = revision
+    },
   }
 }
 
@@ -116,16 +159,28 @@ function createRestKvClient({
         command: ['GET', key],
       })
 
-      return parseKvResult({ result: body.result })
+      return body.result
     },
     async set(key, value) {
       await restCommand({
         url,
         token,
-        command: ['SET', key, JSON.stringify(value)],
+        command: ['SET', key, value],
       })
     },
   }
+}
+
+function encodeBoard({
+  designs,
+  revision,
+}: {
+  designs: Design[]
+  revision: number
+}) {
+  const record: BoardRecord = { revision, designs }
+
+  return JSON.stringify(record)
 }
 
 export function createKvPersist({
@@ -141,14 +196,18 @@ export function createKvPersist({
 
   return {
     async load() {
-      const kvClient = await resolveClient()
-      const value = await kvClient.get(DESIGNS_KV_KEY)
+      try {
+        const kvClient = await resolveClient()
+        const result = await kvClient.get(DESIGNS_KV_KEY)
 
-      return Array.isArray(value) ? value : null
+        return parseBoardResult({ result })
+      } catch {
+        return { status: 'error' }
+      }
     },
-    async save({ designs }) {
+    async save({ designs, revision }) {
       const kvClient = await resolveClient()
-      await kvClient.set(DESIGNS_KV_KEY, designs)
+      await kvClient.set(DESIGNS_KV_KEY, encodeBoard({ designs, revision }))
     },
   }
 }
@@ -159,7 +218,7 @@ export function createDesignsPersist({
   kvClient,
 }: {
   env?: Record<string, string | undefined>
-  memory?: { value: Design[] | null }
+  memory?: { value: Design[] | null; revision?: number }
   kvClient?: KvClient
 } = {}): DesignsPersist {
   if (isKvConfigured({ env })) {

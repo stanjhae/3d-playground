@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'vitest'
 
 import {
+  DESIGNS_KV_KEY,
   createDesignsPersist,
   createKvPersist,
   createMemoryPersist,
   isKvConfigured,
+  parseBoardResult,
 } from './designs-persist'
 import { createEmptyDesign } from './design-schema'
 
@@ -26,21 +28,57 @@ describe('designs persist', () => {
     ).toBe(true)
   })
 
+  test('parseBoardResult distinguishes missing, legacy arrays, and bad payloads', () => {
+    expect(parseBoardResult({ result: null })).toEqual({ status: 'missing' })
+    expect(parseBoardResult({ result: 'not-json' })).toEqual({
+      status: 'error',
+    })
+    expect(parseBoardResult({ result: { looks: [] } })).toEqual({
+      status: 'error',
+    })
+
+    const legacy = parseBoardResult({
+      result: [createEmptyDesign({ id: 'look-1' })],
+    })
+    expect(legacy).toMatchObject({
+      status: 'ok',
+      revision: 0,
+    })
+    if (legacy.status === 'ok') {
+      expect(legacy.designs[0]?.id).toBe('look-1')
+    }
+
+    const versioned = parseBoardResult({
+      result: JSON.stringify({
+        revision: 4,
+        designs: [createEmptyDesign({ id: 'look-2' })],
+      }),
+    })
+    expect(versioned).toMatchObject({
+      status: 'ok',
+      revision: 4,
+    })
+  })
+
   test('memory persist round-trips looks', async () => {
     const persist = createMemoryPersist()
     const design = createEmptyDesign({ id: 'look-1' })
 
-    expect(await persist.load()).toBeNull()
+    expect(await persist.load()).toEqual({ status: 'missing' })
 
-    await persist.save({ designs: [design] })
+    await persist.save({ designs: [design], revision: 1 })
 
     const loaded = await persist.load()
-    expect(loaded?.[0]?.id).toBe('look-1')
-    expect(loaded?.[0]).not.toBe(design)
+    expect(loaded.status).toBe('ok')
+    if (loaded.status === 'ok') {
+      expect(loaded.designs[0]?.id).toBe('look-1')
+      expect(loaded.designs[0]).not.toBe(design)
+      expect(loaded.revision).toBe(1)
+    }
   })
 
   test('kv persist uses the fake client', async () => {
-    const bucket = new Map<string, ReturnType<typeof createEmptyDesign>[]>()
+    const bucket = new Map<string, string>()
     const persist = createKvPersist({
       client: {
         async get(key) {
@@ -53,14 +91,20 @@ describe('designs persist', () => {
     })
     const design = createEmptyDesign({ id: 'look-kv' })
 
-    expect(await persist.load()).toBeNull()
-    await persist.save({ designs: [design] })
-    expect((await persist.load())?.[0]?.id).toBe('look-kv')
+    expect(await persist.load()).toEqual({ status: 'missing' })
+    await persist.save({ designs: [design], revision: 2 })
+    const loaded = await persist.load()
+    expect(loaded.status).toBe('ok')
+    if (loaded.status === 'ok') {
+      expect(loaded.designs[0]?.id).toBe('look-kv')
+      expect(loaded.revision).toBe(2)
+    }
+    expect(bucket.has(DESIGNS_KV_KEY)).toBe(true)
   })
 
   test('factory uses memory when KV is unset', async () => {
     const persist = createDesignsPersist({ env: {} })
-    expect(await persist.load()).toBeNull()
+    expect(await persist.load()).toEqual({ status: 'missing' })
   })
 
   test('kv persist talks REST when no client is passed', async () => {
@@ -95,12 +139,31 @@ describe('designs persist', () => {
       })
       const design = createEmptyDesign({ id: 'look-rest' })
 
-      await persist.save({ designs: [design] })
+      await persist.save({ designs: [design], revision: 1 })
 
       expect(calls[0]).toBe('https://kv.test')
-      expect((await persist.load())?.[0]?.id).toBe('look-rest')
+      const loaded = await persist.load()
+      expect(loaded.status).toBe('ok')
+      if (loaded.status === 'ok') {
+        expect(loaded.designs[0]?.id).toBe('look-rest')
+      }
     } finally {
       globalThis.fetch = originalFetch
     }
+  })
+
+  test('kv persist reports error when REST fails', async () => {
+    const persist = createKvPersist({
+      client: {
+        async get() {
+          throw new Error('down')
+        },
+        async set() {
+          throw new Error('down')
+        },
+      },
+    })
+
+    expect(await persist.load()).toEqual({ status: 'error' })
   })
 })

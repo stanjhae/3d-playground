@@ -1,4 +1,4 @@
-import type { Design } from './design-schema'
+import type { Design } from './design-schema.ts'
 
 export function rankDesigns({ designs }: { designs: Design[] }): Design[] {
   return [...designs].sort((left, right) => {

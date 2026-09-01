@@ -5,14 +5,26 @@ import { resolveGarmentId } from './design-schema.ts'
 import {
   createDesignsPersist,
   type DesignsPersist,
+  type PersistLoadResult,
 } from './designs-persist.ts'
+import {
+  MAX_THUMBNAIL_CHARS,
+  sanitizeThumbnail,
+} from './look-thumbnail.ts'
 
-export const MAX_THUMBNAIL_CHARS = 180_000
+export { MAX_THUMBNAIL_CHARS, isSafeThumbnail } from './look-thumbnail.ts'
+
 export const MAX_TITLE_CHARS = 80
 export const MAX_AUTHOR_CHARS = 40
 export const MAX_OVERRIDE_COUNT = 16
 export const MAX_LIVE_DESIGNS = 24
 export const MAX_BOARD_CHARS = 7_500_000
+export const PERSIST_ATTEMPTS = 5
+
+const LOOK_ID_PATTERN = /^[A-Za-z0-9-]+$/
+const SEED_IDS = new Set(
+  (seedDesigns as Design[]).map((design) => design.id),
+)
 
 export class DesignsBoardFullError extends Error {
   constructor() {
@@ -31,6 +43,7 @@ export class DesignsPersistError extends Error {
 let liveDesigns: Design[] | null = null
 let persistAdapter: DesignsPersist = createDesignsPersist()
 let hydratedFromPersist = false
+let persistRevision = 0
 let lockTail: Promise<void> = Promise.resolve()
 
 function cloneDesign({ design }: { design: Design }): Design {
@@ -39,7 +52,9 @@ function cloneDesign({ design }: { design: Design }): Design {
     title: design.title,
     author: design.author,
     votes: design.votes,
-    thumbnailDataUrl: design.thumbnailDataUrl,
+    thumbnailDataUrl: sanitizeThumbnail({
+      thumbnailDataUrl: design.thumbnailDataUrl,
+    }),
     overrides: design.overrides.map((override) => ({ ...override })),
     garmentId: resolveGarmentId({ garmentId: design.garmentId }),
   }
@@ -72,6 +87,7 @@ export function resetDesignsStore({
 } = {}) {
   liveDesigns = cloneSeed()
   hydratedFromPersist = false
+  persistRevision = 0
   persistAdapter = persist ?? createDesignsPersist()
   lockTail = Promise.resolve()
 }
@@ -97,21 +113,175 @@ export async function withDesignsLock<T>({
   }
 }
 
+async function readPersist(): Promise<PersistLoadResult> {
+  try {
+    return await persistAdapter.load()
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+function isMaterialOverride(value: unknown): value is MaterialOverride {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const record = value as Record<string, unknown>
+
+  return typeof record.meshName === 'string' && record.meshName.length > 0
+}
+
+export function normalizeLoadedDesign({
+  value,
+}: {
+  value: unknown
+}): Design | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  const id = typeof record.id === 'string' ? record.id.trim() : ''
+
+  if (!LOOK_ID_PATTERN.test(id)) {
+    return null
+  }
+
+  const draft = parseDesignDraft({
+    body: {
+      title: typeof record.title === 'string' ? record.title : '',
+      author: typeof record.author === 'string' ? record.author : 'Guest',
+      thumbnailDataUrl:
+        typeof record.thumbnailDataUrl === 'string'
+          ? record.thumbnailDataUrl
+          : '',
+      overrides: record.overrides,
+      garmentId: record.garmentId,
+    },
+  })
+
+  if (!draft) {
+    return null
+  }
+
+  const votes =
+    typeof record.votes === 'number' && Number.isFinite(record.votes)
+      ? Math.max(0, Math.floor(record.votes))
+      : 0
+
+  return cloneDesign({
+    design: {
+      id,
+      votes,
+      ...draft,
+    },
+  })
+}
+
+export function mergeDesigns({
+  local,
+  remote,
+}: {
+  local: Design[]
+  remote: Design[]
+}) {
+  const byId = new Map<string, Design>()
+
+  for (const design of remote) {
+    const normalized = normalizeLoadedDesign({ value: design })
+
+    if (normalized) {
+      byId.set(normalized.id, normalized)
+    }
+  }
+
+  for (const design of local) {
+    const incoming = cloneDesign({ design })
+    const existing = byId.get(incoming.id)
+
+    if (!existing) {
+      byId.set(incoming.id, incoming)
+      continue
+    }
+
+    byId.set(incoming.id, {
+      ...existing,
+      title: incoming.title || existing.title,
+      author: incoming.author || existing.author,
+      thumbnailDataUrl:
+        incoming.thumbnailDataUrl || existing.thumbnailDataUrl,
+      overrides:
+        incoming.overrides.length > 0 ? incoming.overrides : existing.overrides,
+      garmentId: incoming.garmentId,
+      votes: Math.max(existing.votes, incoming.votes),
+    })
+  }
+
+  return [...byId.values()]
+}
+
+export function capBoard({ designs }: { designs: Design[] }) {
+  if (designs.length <= MAX_LIVE_DESIGNS) {
+    return designs
+  }
+
+  const seeds = designs.filter((design) => SEED_IDS.has(design.id))
+  const guests = designs
+    .filter((design) => !SEED_IDS.has(design.id))
+    .sort((left, right) => {
+      if (right.votes !== left.votes) {
+        return right.votes - left.votes
+      }
+
+      return left.id.localeCompare(right.id)
+    })
+  const room = Math.max(0, MAX_LIVE_DESIGNS - seeds.length)
+
+  return [...seeds, ...guests.slice(0, room)]
+}
+
+function boardSatisfied({
+  expected,
+  actual,
+}: {
+  expected: Design[]
+  actual: Design[]
+}) {
+  return expected.every((design) => {
+    const found = actual.find((item) => item.id === design.id)
+
+    return Boolean(found && found.votes >= design.votes)
+  })
+}
+
 export async function hydrateDesignsStore() {
   if (hydratedFromPersist && liveDesigns) {
     return
   }
 
-  try {
-    const loaded = await persistAdapter.load()
+  const loaded = await readPersist()
 
-    if (loaded && loaded.length > 0) {
-      liveDesigns = loaded.map((design) => cloneDesign({ design }))
-      hydratedFromPersist = true
-      return
+  if (loaded.status === 'ok') {
+    const designs = loaded.designs
+      .map((value) => normalizeLoadedDesign({ value }))
+      .filter((design): design is Design => design !== null)
+
+    liveDesigns =
+      designs.length === 0 && loaded.designs.length > 0
+        ? cloneSeed()
+        : designs
+    persistRevision = loaded.revision
+    hydratedFromPersist = true
+    return
+  }
+
+  if (loaded.status === 'error') {
+    if (!liveDesigns) {
+      liveDesigns = cloneSeed()
     }
-  } catch {
-    // Seed still serves if the board cannot be read.
+
+    hydratedFromPersist = true
+    return
   }
 
   if (!liveDesigns) {
@@ -121,9 +291,10 @@ export async function hydrateDesignsStore() {
   hydratedFromPersist = true
 
   try {
-    await persistAdapter.save({ designs: liveDesigns })
+    await persistAdapter.save({ designs: liveDesigns, revision: 1 })
+    persistRevision = 1
   } catch {
-    // Local seed still serves.
+    persistRevision = 0
   }
 }
 
@@ -140,17 +311,53 @@ export async function persistDesignsStore() {
     return
   }
 
-  const designs = liveDesigns.map((design) => cloneDesign({ design }))
+  let local = liveDesigns.map((design) => cloneDesign({ design }))
 
-  if (boardPayloadChars({ designs }) > MAX_BOARD_CHARS) {
-    throw new DesignsPersistError()
+  for (let attempt = 0; attempt < PERSIST_ATTEMPTS; attempt += 1) {
+    const loaded = await readPersist()
+
+    if (loaded.status === 'error') {
+      throw new DesignsPersistError()
+    }
+
+    const remote = loaded.status === 'ok' ? loaded.designs : []
+    const remoteRevision = loaded.status === 'ok' ? loaded.revision : persistRevision
+    const merged = capBoard({
+      designs: mergeDesigns({ local, remote }),
+    })
+
+    if (boardPayloadChars({ designs: merged }) > MAX_BOARD_CHARS) {
+      throw new DesignsPersistError()
+    }
+
+    const nextRevision = remoteRevision + 1
+
+    try {
+      await persistAdapter.save({ designs: merged, revision: nextRevision })
+    } catch {
+      throw new DesignsPersistError()
+    }
+
+    const check = await readPersist()
+
+    if (check.status === 'error') {
+      throw new DesignsPersistError()
+    }
+
+    const actual = check.status === 'ok' ? check.designs : []
+
+    if (boardSatisfied({ expected: merged, actual })) {
+      liveDesigns = actual
+        .map((value) => normalizeLoadedDesign({ value }))
+        .filter((design): design is Design => design !== null)
+      persistRevision = check.status === 'ok' ? check.revision : nextRevision
+      return
+    }
+
+    local = mergeDesigns({ local: merged, remote: actual })
   }
 
-  try {
-    await persistAdapter.save({ designs })
-  } catch {
-    throw new DesignsPersistError()
-  }
+  throw new DesignsPersistError()
 }
 
 export function listStoredDesigns(): Design[] {
@@ -168,21 +375,7 @@ export function capThumbnail({
 }: {
   thumbnailDataUrl: string
 }) {
-  if (thumbnailDataUrl.length <= MAX_THUMBNAIL_CHARS) {
-    return thumbnailDataUrl
-  }
-
-  return ''
-}
-
-function isMaterialOverride(value: unknown): value is MaterialOverride {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const record = value as Record<string, unknown>
-
-  return typeof record.meshName === 'string' && record.meshName.length > 0
+  return sanitizeThumbnail({ thumbnailDataUrl })
 }
 
 export function parseDesignDraft({
