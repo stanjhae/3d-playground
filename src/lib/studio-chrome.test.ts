@@ -3,11 +3,13 @@ import { describe, expect, test } from 'vitest'
 import {
   CLOTH_LIST_ID,
   clothListVisibilityClass,
+  clothSheetHeightClass,
   coverHeaderSpacerClass,
   lookSheetBodyClass,
   lookSheetFrameClass,
   nextClothOpen,
-  studioPhoneRailClass,
+  studioPhonePublishClass,
+  studioPhoneToolsClass,
 } from './studio-chrome'
 
 describe('nextClothOpen', () => {
@@ -49,6 +51,17 @@ describe('clothListVisibilityClass', () => {
   })
 })
 
+describe('clothSheetHeightClass', () => {
+  test('keeps an open cloth list shorter than the tool scroll', () => {
+    expect(clothSheetHeightClass({ clothOpen: true })).toEqual({
+      'max-h-[min(28vh,16rem)] overflow-hidden': true,
+    })
+    expect(clothSheetHeightClass({ clothOpen: false })).toEqual({
+      'max-h-[min(28vh,16rem)] overflow-hidden': false,
+    })
+  })
+})
+
 describe('coverHeaderSpacerClass', () => {
   test('includes the header padding when there is no notch', () => {
     expect(coverHeaderSpacerClass()).toContain(
@@ -76,15 +89,29 @@ describe('look sheet chrome', () => {
     expect(lookSheetFrameClass()).not.toContain('sm:p-6')
   })
 
+  test('keeps a sheet cap on tablets', () => {
+    expect(lookSheetFrameClass()).toContain('max-h-[min(58vh,28rem)]')
+    expect(lookSheetFrameClass()).not.toContain('sm:max-h-none')
+  })
+
   test('keeps a stable id for the cloth list', () => {
     expect(CLOTH_LIST_ID).toBe('cloth-list')
   })
 })
 
-describe('studioPhoneRailClass', () => {
-  test('keeps one scrollable rail on a phone and splits on desktop', () => {
-    expect(studioPhoneRailClass()).toContain('max-h-[36vh]')
-    expect(studioPhoneRailClass()).toContain('overflow-y-auto')
-    expect(studioPhoneRailClass()).toContain('lg:contents')
+describe('studio phone chrome', () => {
+  test('lets tools scroll without pinning publish', () => {
+    expect(studioPhoneToolsClass()).toContain('max-h-[min(32vh,18rem)]')
+    expect(studioPhoneToolsClass()).toContain('overflow-y-auto')
+    expect(studioPhoneToolsClass()).toContain('lg:right-6')
+    expect(studioPhoneToolsClass()).toContain('lg:bottom-40')
+  })
+
+  test('pins publish on the cloth side at a readable width', () => {
+    expect(studioPhonePublishClass()).toContain('shrink-0')
+    expect(studioPhonePublishClass()).toContain('lg:right-6')
+    expect(studioPhonePublishClass()).toContain('lg:w-72')
+    expect(studioPhonePublishClass()).not.toContain('lg:left-6')
+    expect(studioPhonePublishClass()).not.toContain('calc(50%')
   })
 })

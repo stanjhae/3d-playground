@@ -1,28 +1,49 @@
 import { Link } from '@tanstack/react-router'
 
+import { cn } from '../../lib/cn'
 import type { Design } from '../../lib/design-schema'
+import { HOUSE_COPY } from '../../lib/house-copy'
+import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 
-export function Leaderboard({ looks }: { looks: Design[] }) {
+export function Leaderboard({
+  looks,
+  compact = false,
+}: {
+  looks: Design[]
+  compact?: boolean
+}) {
   return (
-    <aside className="flex flex-col gap-4 border border-atelier-line bg-atelier-raised p-5">
-      <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
-        The house
-      </p>
-      <ol className="flex flex-col gap-3">
+    <aside
+      className={cn('border border-atelier-line bg-atelier-raised', {
+        'flex flex-col gap-3 overflow-x-auto p-3': compact,
+        'flex flex-col gap-4 p-5': !compact,
+      })}
+    >
+      <p className={chromeKickerClass()}>{HOUSE_COPY.theHouse}</p>
+      <ol
+        className={cn({
+          'flex flex-row gap-4': compact,
+          'flex flex-col gap-3': !compact,
+        })}
+      >
         {looks.map((look, index) => (
-          <li key={look.id}>
+          <li key={look.id} className={cn({ 'shrink-0': compact })}>
             <Link
               to="/look/$lookId"
               params={{ lookId: look.id }}
               className="flex items-baseline justify-between gap-3 hover:text-brass"
             >
-              <span className="text-sm text-ivory">
-                <span className="mr-2 font-display text-xs tracking-[0.16em] text-brass uppercase">
-                  {index === 0 ? 'Leader' : `#${index + 1}`}
+              <span className="font-body text-sm text-ivory">
+                <span
+                  className={cn('mr-2 text-brass', chromeTextClass())}
+                >
+                  {index === 0 ? HOUSE_COPY.leader : `#${index + 1}`}
                 </span>
                 {look.title}
               </span>
-              <span className="text-xs text-ivory-muted">{look.votes}</span>
+              <span className="font-body text-xs text-ivory-muted">
+                {look.votes}
+              </span>
             </Link>
           </li>
         ))}

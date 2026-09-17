@@ -2,6 +2,7 @@ import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { layerVoice } from '../../lib/layer-hit'
+import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 
 export function LayerRail() {
   const layers = useEditorStore((state) => state.document.layers)
@@ -17,9 +18,7 @@ export function LayerRail() {
 
   return (
     <aside className="flex flex-col gap-2 border border-atelier-line bg-atelier/92 p-3">
-      <p className="font-display text-xs tracking-[0.22em] text-brass uppercase">
-        {HOUSE_COPY.onTheCloth}
-      </p>
+      <p className={chromeKickerClass()}>{HOUSE_COPY.onTheCloth}</p>
       <ul className="flex flex-col gap-2">
         {listed.map((layer) => {
           const selected = selectedLayerId === layer.id
@@ -34,7 +33,8 @@ export function LayerRail() {
                   })
                 }}
                 className={cn(
-                  'min-h-11 min-w-0 flex-1 truncate text-left font-display text-xs tracking-[0.14em] uppercase',
+                  'min-h-11 min-w-0 flex-1 truncate text-left',
+                  chromeTextClass(),
                   {
                     'text-brass': selected,
                     'text-ivory-muted hover:text-brass': !selected,
@@ -52,7 +52,10 @@ export function LayerRail() {
                     patch: { visible: !layer.visible },
                   })
                 }}
-                className="min-h-11 font-display text-[10px] tracking-[0.14em] text-ivory-muted uppercase hover:text-brass"
+                className={cn(
+                  'min-h-11 text-ivory-muted hover:text-brass',
+                  chromeTextClass(),
+                )}
               >
                 {layer.visible ? HOUSE_COPY.hideLayer : HOUSE_COPY.showLayer}
               </button>
@@ -62,7 +65,10 @@ export function LayerRail() {
                   onClick={() => {
                     removeLayer({ layerId: layer.id })
                   }}
-                  className="min-h-11 font-display text-[10px] tracking-[0.14em] text-ivory-muted uppercase hover:text-brass"
+                  className={cn(
+                    'min-h-11 text-ivory-muted hover:text-brass',
+                    chromeTextClass(),
+                  )}
                 >
                   {HOUSE_COPY.dismissLayer}
                 </button>

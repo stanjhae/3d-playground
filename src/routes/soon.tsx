@@ -33,13 +33,13 @@ function SoonPage() {
   return (
     <section className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-8 px-4 pt-24 pb-16">
       <header className="flex flex-col gap-4">
-        <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
-          Launch soon
+        <p className="font-display text-xs tracking-[0.22em] text-brass uppercase">
+          {HOUSE_COPY.launchSoon}
         </p>
         <h1 className="font-display text-4xl text-ivory sm:text-6xl">
           Fashion Leader Vote
         </h1>
-        <p className="max-w-xl text-ivory-muted">{HOUSE_COPY.soonLead}</p>
+        <p className="max-w-xl font-body text-ivory-muted">{HOUSE_COPY.soonLead}</p>
       </header>
       <ul className="grid gap-4 md:grid-cols-3">
         {looks.map((look) => (
@@ -84,13 +84,13 @@ function SoonPage() {
             onChange={(event) => {
               setEmail(event.target.value)
             }}
-            className="min-h-11 border border-atelier-line bg-atelier px-3 text-ivory"
-          />
+          className="min-h-11 border border-atelier-line bg-atelier px-3 font-body text-sm text-ivory"
+        />
         </label>
         <button
           type="submit"
           disabled={status === 'joining'}
-          className="min-h-11 border border-brass px-4 font-display text-xs tracking-[0.18em] text-brass uppercase disabled:opacity-50"
+          className="min-h-11 border border-brass px-4 font-body text-xs tracking-[0.08em] text-brass uppercase disabled:opacity-50"
         >
           {status === 'joining' ? HOUSE_COPY.joining : HOUSE_COPY.join}
         </button>

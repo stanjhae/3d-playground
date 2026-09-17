@@ -12,7 +12,7 @@ export function GownCredit({
   }
 
   return (
-    <p className="font-display text-[10px] tracking-[0.16em] text-ivory-muted uppercase">
+    <p className="font-body text-xs tracking-[0.08em] text-ivory-muted uppercase">
       <a
         href={credit.href}
         rel="noopener noreferrer"

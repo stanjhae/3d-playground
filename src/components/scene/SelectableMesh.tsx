@@ -284,7 +284,7 @@ export function SelectableMesh({
       ) : null}
       {showCaption ? (
         <Html center distanceFactor={4} style={{ pointerEvents: 'none' }}>
-          <p className="-translate-y-10 font-display text-[10px] tracking-[0.22em] text-brass uppercase">
+          <p className="-translate-y-10 font-body text-xs tracking-[0.08em] text-brass uppercase">
             {partLabel({ meshName: name })}
           </p>
         </Html>

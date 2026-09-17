@@ -6,6 +6,7 @@ import { FabricPanel } from '../components/editor/FabricPanel'
 import { LayerRail } from '../components/editor/LayerRail'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
+import { StudioViewToggle } from '../components/editor/StudioViewToggle'
 import { VersionRail } from '../components/editor/VersionRail'
 import { GownCredit } from '../components/editor/GownCredit'
 import { ModeToggle } from '../components/editor/ModeToggle'
@@ -21,7 +22,11 @@ import { useEditorStore } from '../lib/editor-store'
 import { garmentCanPaint } from '../lib/garments'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
-import { coverHeaderSpacerClass, studioPhoneRailClass } from '../lib/studio-chrome'
+import {
+  coverHeaderSpacerClass,
+  studioPhonePublishClass,
+  studioPhoneToolsClass,
+} from '../lib/studio-chrome'
 
 export const Route = createFileRoute('/')({
   validateSearch: (
@@ -139,29 +144,37 @@ function AtelierHome() {
         <div className="pointer-events-auto flex shrink-0 flex-col gap-2 bg-gradient-to-b from-atelier/80 to-transparent px-4 pt-1 pb-3 lg:absolute lg:top-20 lg:left-6 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:bg-none lg:px-0 lg:pt-0 lg:pb-0">
           <ModeToggle mode={mode} />
           {mode === 'design' ? <SilhouetteSwitch /> : null}
+          {mode === 'design' && garmentCanPaint({ garmentId }) ? (
+            <StudioViewToggle />
+          ) : null}
           {mode === 'design' ? (
             <GownCredit garmentId={garmentId} />
           ) : null}
+          {remixStatus === 'loading' ? (
+            <p className="font-body text-sm text-ivory-muted">
+              {HOUSE_COPY.lookLoading}
+            </p>
+          ) : null}
           {remixStatus === 'loaded' && remixTitle ? (
-            <p className="font-display text-xs tracking-[0.18em] text-brass uppercase">
+            <p className="font-body text-xs tracking-[0.08em] text-brass uppercase">
               {remixCaption({ title: remixTitle })}
             </p>
           ) : null}
           {remixStatus === 'missing' ? (
-            <p className="text-sm text-ivory-muted">
+            <p className="font-body text-sm text-ivory-muted">
               {HOUSE_COPY.lookGone} {HOUSE_COPY.studioOpen}
             </p>
           ) : null}
           {remixStatus === 'error' ? (
-            <p className="text-sm text-ivory-muted">
+            <p className="font-body text-sm text-ivory-muted">
               {HOUSE_COPY.lookFailed} {HOUSE_COPY.studioOpen}
             </p>
           ) : null}
         </div>
         <div className="min-h-0 flex-1 lg:hidden" />
         {mode === 'design' ? (
-          <div className={studioPhoneRailClass()}>
-            <div className="flex flex-col gap-2 lg:absolute lg:top-24 lg:right-6 lg:w-72">
+          <>
+            <div className={studioPhoneToolsClass()}>
               <FabricPanel />
               {garmentCanPaint({ garmentId }) ? (
                 <>
@@ -172,12 +185,14 @@ function AtelierHome() {
                 </>
               ) : null}
             </div>
-            <div className="flex flex-col gap-2 lg:absolute lg:bottom-4 lg:left-6 lg:w-[28rem] lg:gap-3">
+            <div className={studioPhonePublishClass()}>
               {publishError ? (
-                <p className="text-sm text-ivory-muted">{publishError}</p>
+                <p className="font-body text-sm text-ivory-muted">
+                  {publishError}
+                </p>
               ) : null}
               {enteredLabel ? (
-                <p className="font-display text-xs tracking-[0.18em] text-brass uppercase">
+                <p className="font-body text-xs tracking-[0.08em] text-brass uppercase">
                   {enteredLabel}
                 </p>
               ) : null}
@@ -207,7 +222,7 @@ function AtelierHome() {
                 }}
               />
             </div>
-          </div>
+          </>
         ) : null}
       </div>
     </section>

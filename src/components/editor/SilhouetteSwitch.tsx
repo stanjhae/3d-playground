@@ -3,6 +3,7 @@ import type { GarmentId } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { listRailGarments } from '../../lib/garments'
+import { chromeTextClass } from '../../lib/studio-chrome'
 
 export function SilhouetteSwitch({
   garmentId,
@@ -30,7 +31,8 @@ export function SilhouetteSwitch({
               setGarmentId({ garmentId: garment.id })
             }}
             className={cn(
-              'min-h-11 shrink-0 snap-start whitespace-nowrap font-display text-xs tracking-[0.18em] uppercase',
+              'min-h-11 shrink-0 snap-start whitespace-nowrap',
+              chromeTextClass(),
               {
                 'text-brass': isCurrent,
                 'text-ivory-muted hover:text-brass': !isCurrent,

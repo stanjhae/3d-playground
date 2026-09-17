@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { listDesigns } from '../../lib/designs-api'
 import type { Design } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
+import { HOUSE_COPY } from '../../lib/house-copy'
 import { lookRecipe } from '../../lib/look-recipe'
 import { rankDesigns } from '../../lib/rank-designs'
 import { FashionLoader } from './FashionLoader'
@@ -19,12 +20,12 @@ function HouseCaption({
 }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-gradient-to-t from-atelier via-atelier/40 to-transparent px-4 pt-16 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-16">
-      <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
-        The Leader
+      <p className="font-display text-xs tracking-[0.22em] text-brass uppercase">
+        {HOUSE_COPY.leader}
       </p>
       <p className="font-display text-2xl text-ivory sm:text-3xl">{title}</p>
       {recipe ? (
-        <p className="text-sm text-ivory-muted">{recipe}</p>
+        <p className="font-body text-sm text-ivory-muted">{recipe}</p>
       ) : null}
     </div>
   )
