@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { documentFromDesign } from './design-document'
 import {
   garmentCanPaint,
+  garmentPanels,
   garmentParts,
   garmentSrc,
   partLabel,
@@ -94,6 +95,13 @@ describe('garment paint', () => {
     expect(garmentCanPaint({ garmentId: 'tee' })).toBe(true)
     expect(garmentCanPaint({ garmentId: 'gown' })).toBe(false)
     expect(garmentCanPaint({ garmentId: 'slip' })).toBe(false)
+  })
+
+  test('the tee sheet has a sleeve', () => {
+    expect(garmentPanels({ garmentId: 'tee' }).map((panel) => panel.id)).toEqual(
+      ['front', 'back', 'sleeve'],
+    )
+    expect(garmentPanels({ garmentId: 'gown' })).toEqual([])
   })
 })
 

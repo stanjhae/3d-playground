@@ -288,5 +288,28 @@
         }
       ],
       "garmentId": "mixed"
+    },
+    {
+      "id": "look-house-ink",
+      "title": "Crop Silk",
+      "author": "Jules Hart",
+      "votes": 3,
+      "thumbnailDataUrl": "/stills/look-house-ink.png",
+      "garmentId": "tee",
+      "structural": {
+        "neck": "v",
+        "hem": "crop",
+        "sleeve": "long"
+      },
+      "overrides": [
+        {
+          "meshName": "body",
+          "color": "#f6e7d8",
+          "roughness": 0.2,
+          "metalness": 0.04,
+          "mapId": "silk-shine"
+        }
+      ],
+      "artMap": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAAzklEQVR42u3YQQ0AMAwDseKo9hp/SANTGJNSWwqDe6X63Ld5BQAAAAAreAIFIAABCEAAAhCAAAQgAAEIQAACEIAAAAAAACCJJ1AAAhCAAAQgAAEIQAACEIAABCAAAQgAAAAAACCGK1gAAhCAAAQgAAEIQAACEIAABCAAAQgAAAAAAJJ4AgUgAAEIQAACEIAABCAAAQhAAAIQgAAAAAAAIIknUAACEIAABCAAAQhAAAIQgAAEIAABCEAAAgAAAAAAAAAAAAAAAAAAAAAAgH8GTJYj00BxXNYAAAAASUVORK5CYII="
     }
   ]

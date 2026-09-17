@@ -121,6 +121,33 @@ describe('layer hit', () => {
     ).toBe('rotate')
   })
 
+  test('names a stripe you can move', () => {
+    const document = createEmptyDocument({ garmentId: 'tee' })
+    const layerId = createObjectId({ prefix: 'print' })
+    document.layers.push({
+      id: layerId,
+      kind: 'pattern',
+      patternId: 'stripe',
+      panel: 'front',
+      color: '#1a1c22',
+      x: 0.5,
+      y: 0.5,
+      scale: 0.4,
+      rotation: 0,
+      visible: true,
+    })
+
+    const hit = hitPlaceableLayer({
+      document,
+      panel: 'front',
+      x: 0.5,
+      y: 0.5,
+    })
+
+    expect(hit?.kind).toBe('pattern')
+    expect(layerVoice({ layer: hit! })).toBe('Stripe')
+  })
+
   test('type only places a word that was written', () => {
     expect(placedType({ typeDraft: '' })).toBeNull()
     expect(placedType({ typeDraft: '   ' })).toBeNull()

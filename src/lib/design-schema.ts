@@ -35,6 +35,8 @@ export type Design = {
   artMap?: string
   structural?: {
     neck?: 'crew' | 'v'
+    hem?: 'crop' | 'long'
+    sleeve?: 'short' | 'long'
   }
 }
 

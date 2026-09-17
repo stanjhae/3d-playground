@@ -8,7 +8,9 @@ import {
   MeshPhysicalMaterial,
 } from 'three'
 
-import type { NeckId } from './design-document'
+import type { HemId, NeckId, SleeveId } from './design-document'
+
+export const TORSO_V0 = 0.28
 
 function cotton() {
   return new MeshPhysicalMaterial({
@@ -25,18 +27,37 @@ type Ring = {
   halfD: number
 }
 
-function bodyRings() {
-  return [
-    { y: 0.5, halfW: 0.224, halfD: 0.086 },
-    { y: 0.62, halfW: 0.21, halfD: 0.08 },
-    { y: 0.76, halfW: 0.198, halfD: 0.076 },
-    { y: 0.92, halfW: 0.208, halfD: 0.088 },
-    { y: 1.06, halfW: 0.222, halfD: 0.092 },
-    { y: 1.16, halfW: 0.228, halfD: 0.088 },
-    { y: 1.22, halfW: 0.198, halfD: 0.08 },
-    { y: 1.27, halfW: 0.128, halfD: 0.072 },
-    { y: 1.31, halfW: 0.09, halfD: 0.066 },
-  ]
+const BODY_RINGS = [
+  { y: 0.5, halfW: 0.224, halfD: 0.086 },
+  { y: 0.62, halfW: 0.21, halfD: 0.08 },
+  { y: 0.76, halfW: 0.198, halfD: 0.076 },
+  { y: 0.92, halfW: 0.208, halfD: 0.088 },
+  { y: 1.06, halfW: 0.222, halfD: 0.092 },
+  { y: 1.16, halfW: 0.228, halfD: 0.088 },
+  { y: 1.22, halfW: 0.198, halfD: 0.08 },
+  { y: 1.27, halfW: 0.128, halfD: 0.072 },
+  { y: 1.31, halfW: 0.09, halfD: 0.066 },
+] as const
+
+function bodyRings({
+  hem,
+}: {
+  hem: HemId
+}) {
+  const y0 = hem === 'crop' ? 0.72 : 0.36
+  const y1 = 1.31
+  const base0 = BODY_RINGS[0]?.y ?? 0.5
+  const base1 = BODY_RINGS[BODY_RINGS.length - 1]?.y ?? 1.31
+
+  return BODY_RINGS.map((ring) => {
+    const t = (ring.y - base0) / Math.max(0.001, base1 - base0)
+
+    return {
+      y: y0 + t * (y1 - y0),
+      halfW: ring.halfW,
+      halfD: ring.halfD,
+    }
+  })
 }
 
 function unwrapUv({
@@ -50,7 +71,8 @@ function unwrapUv({
   y0: number
   y1: number
 }) {
-  const v = (y - y0) / Math.max(0.001, y1 - y0)
+  const vBody = (y - y0) / Math.max(0.001, y1 - y0)
+  const v = TORSO_V0 + vBody * (1 - TORSO_V0)
 
   if (theta <= Math.PI) {
     return { u: 0.5 * (1 - theta / Math.PI), v }
@@ -144,20 +166,24 @@ function mapOpenCylinder({
 
 function buildSleeve({
   side,
+  sleeve,
 }: {
   side: 'left' | 'right'
+  sleeve: SleeveId
 }) {
   const sign = side === 'left' ? -1 : 1
-  const geometry = new CylinderGeometry(0.06, 0.078, 0.24, 20, 4, true)
+  const length = sleeve === 'long' ? 0.42 : 0.14
+  const reach = sleeve === 'long' ? 0.42 : 0.28
+  const geometry = new CylinderGeometry(0.06, 0.078, length, 20, 4, true)
   mapOpenCylinder({
     geometry,
-    u0: side === 'left' ? 0.02 : 0.4,
-    u1: side === 'left' ? 0.1 : 0.48,
-    v0: 0.78,
-    v1: 0.96,
+    u0: 0,
+    u1: 1,
+    v0: 0,
+    v1: TORSO_V0 - 0.002,
   })
   geometry.rotateZ(sign * (Math.PI / 2 - 0.32))
-  geometry.translate(sign * 0.33, 1.14, 0)
+  geometry.translate(sign * reach, 1.14, 0)
   const mesh = new Mesh(geometry, cotton())
   mesh.name = side === 'left' ? 'body-sleeve-left' : 'body-sleeve-right'
   mesh.castShadow = true
@@ -189,15 +215,19 @@ function buildCollar({
 
 export function createClothingMesh({
   neck = 'crew',
+  hem = 'long',
+  sleeve = 'short',
 }: {
   neck?: NeckId
+  hem?: HemId
+  sleeve?: SleeveId
 } = {}) {
   const group = new Group()
   group.name = 'body'
 
   const body = new Mesh(
     buildBody({
-      rings: bodyRings(),
+      rings: bodyRings({ hem }),
       radial: 28,
       neck,
     }),
@@ -209,8 +239,8 @@ export function createClothingMesh({
   group.add(body)
 
   group.add(
-    buildSleeve({ side: 'left' }),
-    buildSleeve({ side: 'right' }),
+    buildSleeve({ side: 'left', sleeve }),
+    buildSleeve({ side: 'right', sleeve }),
     buildCollar({ neck }),
   )
   return group
@@ -218,10 +248,14 @@ export function createClothingMesh({
 
 export function createTeeMesh({
   neck = 'crew',
+  hem = 'long',
+  sleeve = 'short',
 }: {
   neck?: NeckId
+  hem?: HemId
+  sleeve?: SleeveId
 } = {}) {
-  return createClothingMesh({ neck })
+  return createClothingMesh({ neck, hem, sleeve })
 }
 
 export function isHouseForm({

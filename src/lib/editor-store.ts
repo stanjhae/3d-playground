@@ -18,6 +18,8 @@ import {
   type DesignDocument,
   type NeckId,
   type PanelId,
+  type PatternId,
+  type StructuralParams,
   type Stroke,
   type StrokePoint,
   type StrokeTool,
@@ -29,7 +31,11 @@ import {
 } from './layer-hit'
 import type { Design, GarmentId, MaterialOverride } from './design-schema'
 import { resolveGarmentId } from './design-schema'
-import { rememberSnapshot, type DesignSnapshot } from './design-snapshots'
+import {
+  listSnapshots,
+  rememberSnapshot,
+  type DesignSnapshot,
+} from './design-snapshots'
 import { getFabricById } from './fabrics'
 import { isSafeLayerSrc } from './look-thumbnail'
 import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from './paint-colors'
@@ -150,6 +156,18 @@ type EditorState = {
   setTypeDraft: ({ typeDraft }: { typeDraft: string }) => void
   removeLayer: ({ layerId }: { layerId: string }) => void
   setNeck: ({ neck }: { neck: NeckId }) => void
+  setStructural: ({ structural }: { structural: StructuralParams }) => void
+  addPattern: ({
+    patternId,
+    panel,
+    x,
+    y,
+  }: {
+    patternId: PatternId
+    panel?: PanelId
+    x?: number
+    y?: number
+  }) => void
   hydrateDocument: ({
     document,
     garmentId,
@@ -158,6 +176,17 @@ type EditorState = {
     garmentId?: GarmentId
   }) => void
   rememberMorning: ({ title }: { title: string }) => void
+  rememberEnteredLook: ({
+    title,
+    document,
+    still,
+    lookId,
+  }: {
+    title: string
+    document: DesignDocument
+    still?: string
+    lookId?: string
+  }) => void
   restoreMorning: ({ snapshot }: { snapshot: DesignSnapshot }) => void
 }
 
@@ -229,7 +258,7 @@ function layerPatchChanges({
     return patch.visible !== undefined && patch.visible !== layer.visible
   }
 
-  if (layer.kind !== 'graphic' && layer.kind !== 'text') {
+  if (layer.kind !== 'graphic' && layer.kind !== 'text' && layer.kind !== 'pattern') {
     return false
   }
 
@@ -289,7 +318,7 @@ const INITIAL_EDITOR_STATE = {
   textFace: 'display' as TextFace,
   textScale: TYPE_SIZES[1]?.scale ?? 0.12,
   typeDraft: '',
-  snapshots: [] as DesignSnapshot[],
+  snapshots: listSnapshots(),
   undoCount: 0,
   redoCount: 0,
 }
@@ -398,6 +427,14 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     const document = documentFromDesign({ design })
     commandStack = stackFromDocument({ document })
     shelfCurrent({ garmentId: resolveGarmentId({ garmentId: design.garmentId }) })
+    const { snapshots } = rememberSnapshot({
+      title: design.title,
+      document,
+      kind: 'entered',
+      still: design.thumbnailDataUrl,
+      lookId: design.id,
+      existing: get().snapshots,
+    })
 
     set({
       title: design.title,
@@ -413,13 +450,22 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       selectedLayerId: null,
       undoCount: 0,
       redoCount: 0,
+      snapshots,
     })
   },
   publishLook: ({ design }) => {
-    set((state) => ({
+    const { snapshots } = rememberSnapshot({
+      title: design.title,
+      document: get().document,
+      kind: 'entered',
+      still: design.thumbnailDataUrl,
+      existing: get().snapshots,
+    })
+
+    set({
       title: design.title,
       author: design.author,
-      lookSerial: state.lookSerial + 1,
+      lookSerial: get().lookSerial + 1,
       lastPublished: {
         title: design.title,
         author: design.author,
@@ -429,7 +475,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         ...(design.artMap ? { artMap: design.artMap } : {}),
         ...(design.structural ? { structural: design.structural } : {}),
       },
-    }))
+      snapshots,
+    })
   },
   reset: () => {
     garmentShelves.clear()
@@ -445,7 +492,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       activeStroke: null,
       activeLayerEdit: null,
       selectedLayerId: null,
-      snapshots: [],
+      snapshots: listSnapshots(),
     })
   },
   setPaintPanel: ({ paintPanel }) => {
@@ -599,7 +646,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
       if (
         layer &&
-        (layer.kind === 'graphic' || layer.kind === 'text') &&
+        (layer.kind === 'graphic' ||
+          layer.kind === 'text' ||
+          layer.kind === 'pattern') &&
         placeablePoseMatches({ layer, edit })
       ) {
         return {
@@ -671,6 +720,37 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       }),
     )
   },
+  setStructural: ({ structural }) => {
+    set(() =>
+      runCommand({
+        command: { type: 'setStructural', structural },
+      }),
+    )
+  },
+  addPattern: ({ patternId, panel, x, y }) => {
+    set((state) => {
+      const layerId = createObjectId({ prefix: 'print' })
+
+      return runCommand({
+        command: {
+          type: 'addPattern',
+          layer: {
+            id: layerId,
+            kind: 'pattern',
+            patternId,
+            panel: panel ?? state.paintPanel,
+            color: state.paintColor,
+            x: x ?? 0.5,
+            y: y ?? 0.48,
+            scale: 0.46,
+            rotation: 0,
+            visible: true,
+          },
+        },
+        extra: { selectedLayerId: layerId },
+      })
+    })
+  },
   hydrateDocument: ({ document, garmentId }) => {
     const resolved = resolveGarmentId({
       garmentId: garmentId ?? document.garmentId,
@@ -689,11 +769,24 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     })
   },
   rememberMorning: ({ title }) => {
-    const snapshot = rememberSnapshot({
+    const { snapshots } = rememberSnapshot({
       title,
       document: get().document,
+      kind: 'morning',
+      existing: get().snapshots,
     })
-    set((state) => ({ snapshots: [snapshot, ...state.snapshots].slice(0, 8) }))
+    set({ snapshots })
+  },
+  rememberEnteredLook: ({ title, document, still, lookId }) => {
+    const { snapshots } = rememberSnapshot({
+      title,
+      document,
+      kind: 'entered',
+      still,
+      lookId,
+      existing: get().snapshots,
+    })
+    set({ snapshots })
   },
   restoreMorning: ({ snapshot }) => {
     commandStack = stackFromDocument({ document: snapshot.document })

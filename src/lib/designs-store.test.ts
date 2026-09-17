@@ -387,8 +387,8 @@ describe('designs store', () => {
     resetDesignsStore({ persist })
     await hydrateDesignsStore()
 
-    expect(bucket.value).toHaveLength(8)
-    expect(listStoredDesigns()).toHaveLength(8)
+    expect(bucket.value).toHaveLength(9)
+    expect(listStoredDesigns()).toHaveLength(9)
   })
 
   test('hydrate does not save when load errors', async () => {

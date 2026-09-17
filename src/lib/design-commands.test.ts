@@ -126,6 +126,44 @@ describe('design commands', () => {
     expect(restored && restored.kind === 'text' ? restored.x : null).toBe(0.5)
   })
 
+  test('a stripe can sit and a crop can change as commands', () => {
+    let stack = createCommandStack({
+      document: createEmptyDocument({ garmentId: 'tee' }),
+    })
+    const layerId = createObjectId({ prefix: 'print' })
+    stack = applyCommand({
+      stack,
+      command: {
+        type: 'addPattern',
+        layer: {
+          id: layerId,
+          kind: 'pattern',
+          patternId: 'stripe',
+          panel: 'front',
+          color: '#1a1c22',
+          x: 0.5,
+          y: 0.48,
+          scale: 0.46,
+          rotation: 0,
+          visible: true,
+        },
+      },
+    })
+    stack = applyCommand({
+      stack,
+      command: {
+        type: 'setStructural',
+        structural: { hem: 'crop', sleeve: 'long' },
+      },
+    })
+
+    const print = stack.document.layers.find((layer) => layer.id === layerId)
+    expect(print && print.kind === 'pattern' ? print.patternId : null).toBe(
+      'stripe',
+    )
+    expect(stack.document.structural).toEqual({ hem: 'crop', sleeve: 'long' })
+  })
+
   test('cloth apply is a command', () => {
     let stack = createCommandStack({
       document: createEmptyDocument({ garmentId: 'tee' }),
