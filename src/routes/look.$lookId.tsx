@@ -97,6 +97,7 @@ function LookPage() {
         <LookStage
           garmentId={look.garmentId}
           overrides={look.overrides}
+          artMap={look.artMap}
         />
       ) : (
         <div className="flex h-full items-center justify-center px-6">

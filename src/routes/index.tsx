@@ -1,7 +1,11 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { DualStudio } from '../components/editor/DualStudio'
 import { FabricPanel } from '../components/editor/FabricPanel'
+import { PaintToolbar } from '../components/editor/PaintToolbar'
+import { StructureRail } from '../components/editor/StructureRail'
+import { VersionRail } from '../components/editor/VersionRail'
 import { GownCredit } from '../components/editor/GownCredit'
 import { ModeToggle } from '../components/editor/ModeToggle'
 import {
@@ -10,8 +14,10 @@ import {
 } from '../components/editor/PublishBar'
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
+import { loadDraft, saveDraft } from '../lib/design-draft'
 import { createDesign, getDesign } from '../lib/designs-api'
 import { useEditorStore } from '../lib/editor-store'
+import { garmentCanPaint } from '../lib/garments'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
 import { coverHeaderSpacerClass } from '../lib/studio-chrome'
@@ -41,6 +47,39 @@ function AtelierHome() {
   const [remixStatus, setRemixStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'missing' | 'error'
   >('idle')
+
+  useEffect(() => {
+    let cancelled = false
+
+    void loadDraft().then((draft) => {
+      if (cancelled || !draft || remixId) {
+        return
+      }
+
+      useEditorStore.getState().hydrateDocument({
+        document: draft.document,
+        garmentId: draft.garmentId,
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [remixId])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const state = useEditorStore.getState()
+      void saveDraft({
+        garmentId: state.garmentId,
+        document: state.document,
+      })
+    }, 800)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     if (!remixId) {
@@ -86,9 +125,11 @@ function AtelierHome() {
 
   return (
     <section className="relative h-dvh overflow-hidden">
-      <AtelierScene>
-        <PublishThumbnailSync />
-      </AtelierScene>
+      <DualStudio>
+        <AtelierScene>
+          <PublishThumbnailSync />
+        </AtelierScene>
+      </DualStudio>
       <div className="pointer-events-none absolute inset-0 z-20 flex flex-col lg:block">
         <div
           aria-hidden
@@ -119,8 +160,15 @@ function AtelierHome() {
         <div className="min-h-0 flex-1 lg:hidden" />
         {mode === 'design' ? (
           <div className="pointer-events-auto flex shrink-0 flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:contents">
-            <div className="lg:absolute lg:top-24 lg:right-6 lg:w-72">
+            <div className="flex flex-col gap-2 lg:absolute lg:top-24 lg:right-6 lg:w-72">
               <FabricPanel />
+              {garmentCanPaint({ garmentId }) ? (
+                <>
+                  <PaintToolbar />
+                  <StructureRail />
+                  <VersionRail />
+                </>
+              ) : null}
             </div>
             <div className="flex flex-col gap-2 lg:absolute lg:bottom-4 lg:left-6 lg:w-[28rem] lg:gap-3">
               {publishError ? (

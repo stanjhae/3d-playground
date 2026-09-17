@@ -1,9 +1,13 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+import { trackAssumption } from '../../lib/assumption-events'
+import { documentHasInk } from '../../lib/design-document'
 import type { Design } from '../../lib/design-schema'
 import { captureFramedStill } from '../../lib/capture-still'
 import { useEditorStore } from '../../lib/editor-store'
+import { decodeDocumentImages } from '../../lib/layer-images'
+import { bakePublishedArt } from '../../lib/paint-atlas'
 import { getFabricById } from '../../lib/fabrics'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { resolveDraftTitle } from '../../lib/look-title'
@@ -44,10 +48,12 @@ export function PublishBar({
   const fabricId = useEditorStore((state) => state.fabricId)
   const garmentId = useEditorStore((state) => state.garmentId)
   const overrides = useEditorStore((state) => state.overrides)
+  const designDocument = useEditorStore((state) => state.document)
   const lookSerial = useEditorStore((state) => state.lookSerial)
   const fabricName = getFabricById({ id: fabricId ?? '' })?.name ?? 'Look'
   const [titleTouched, setTitleTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [inkError, setInkError] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const busy = publishing || submitting
   const [draftTitle, setDraftTitle] = useState(() =>
@@ -85,6 +91,7 @@ export function PublishBar({
         }
 
         submittingRef.current = true
+        setInkError(null)
 
         const resolvedTitle =
           draftTitle.trim() ||
@@ -95,19 +102,45 @@ export function PublishBar({
 
         setSubmitting(true)
 
-        void captureFramedStill({ canvas: studioCanvas }).then((thumbnailDataUrl) =>
-          Promise.resolve(
-            onPublish?.({
-              design: {
-                title: resolvedTitle,
-                author: author || 'Guest',
-                thumbnailDataUrl,
-                overrides: [...overrides],
-                garmentId,
-              },
-            }),
-          ),
-        )
+        const ink = documentHasInk({ document: designDocument })
+
+        void decodeDocumentImages({ document: designDocument })
+          .then((images) => {
+            const artMap = ink
+              ? bakePublishedArt({
+                  document: designDocument,
+                  images,
+                })
+              : ''
+
+            if (ink && !artMap) {
+              setInkError(HOUSE_COPY.inkTooHeavy)
+              return
+            }
+
+            return captureFramedStill({ canvas: studioCanvas }).then(
+              (thumbnailDataUrl) =>
+                Promise.resolve(
+                  onPublish?.({
+                    design: {
+                      title: resolvedTitle,
+                      author: author || 'Guest',
+                      thumbnailDataUrl,
+                      overrides: [...overrides],
+                      garmentId,
+                      ...(artMap ? { artMap } : {}),
+                      ...(designDocument.structural.neck
+                        ? { structural: designDocument.structural }
+                        : {}),
+                    },
+                  }),
+                ).then(() => {
+                  if (ink) {
+                    void trackAssumption({ name: 'published' })
+                  }
+                }),
+            )
+          })
           .finally(() => {
             submittingRef.current = false
             setSubmitting(false)
@@ -128,6 +161,9 @@ export function PublishBar({
           className="min-h-11 border border-atelier-line bg-atelier px-3 py-2 text-ivory disabled:opacity-50"
         />
       </label>
+      {inkError ? (
+        <p className="w-full text-sm text-ivory-muted">{inkError}</p>
+      ) : null}
       <button
         type="submit"
         disabled={busy}

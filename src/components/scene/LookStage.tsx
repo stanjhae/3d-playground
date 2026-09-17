@@ -9,9 +9,11 @@ import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
 export function LookStage({
   overrides,
   garmentId,
+  artMap,
 }: {
   overrides: MaterialOverride[]
   garmentId?: GarmentId
+  artMap?: string
 }) {
   return (
     <div className="relative h-full min-h-80 w-full">
@@ -31,6 +33,7 @@ export function LookStage({
             <Garment
               garmentId={garmentId}
               overrides={overrides}
+              artMap={artMap}
               picking={false}
             />
           </Suspense>

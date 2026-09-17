@@ -30,6 +30,12 @@
     },
     "api/og-page.ts": {
       "includeFiles": "{src/lib/**,data/designs.json}"
+    },
+    "api/waitlist.ts": {
+      "includeFiles": "{src/lib/**}"
+    },
+    "api/events.ts": {
+      "includeFiles": "{src/lib/**}"
     }
   }
 }

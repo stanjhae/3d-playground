@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Leaderboard } from '../components/vote/Leaderboard'
 import { LookCard } from '../components/vote/LookCard'
+import { trackAssumption } from '../lib/assumption-events'
 import { listDesigns, voteOnDesign } from '../lib/designs-api'
 import type { Design } from '../lib/design-schema'
 import { HOUSE_COPY } from '../lib/house-copy'
@@ -67,6 +68,7 @@ function VotePage() {
 
     try {
       const result = await voteOnDesign({ id })
+      void trackAssumption({ name: 'voted' })
       setLooks((current) =>
         applyVoteResult({
           looks: current,

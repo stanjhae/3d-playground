@@ -56,6 +56,22 @@ async function dispatchApi({ request }: { request: Request }) {
     return GET(request)
   }
 
+  if (pathname === '/api/waitlist') {
+    const { POST } = await import('./api/waitlist.ts')
+
+    if (request.method === 'POST') {
+      return POST(request)
+    }
+  }
+
+  if (pathname === '/api/events') {
+    const { POST } = await import('./api/events.ts')
+
+    if (request.method === 'POST') {
+      return POST(request)
+    }
+  }
+
   if (
     pathname === '/api/designs' ||
     /^\/api\/designs\/[^/]+\/vote$/.test(pathname)

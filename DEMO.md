@@ -31,6 +31,8 @@ Checks below are against the live URL. Production is this house.
 5. Open **Midnight Silk Column**. Recipe under the title. Slow spin. Drag pauses it. Remix in studio.
 6. Optional: **The house** — the Leader, the recipe, the same spin. No walk.
 7. Optional: **Shirt & skirt** — Cotton on the body, Leather on the skirt, Enter the Vote. The card names both cloths.
+8. **Tee** — draw on the front. The mark is on the 3D body before you lift. Tap Silk. The ink stays. Enter the Vote. Remix restores the ink.
+9. Optional: **/soon** — three looks, then a plain join. Not six months free.
 
 ## Cover note
 
@@ -40,6 +42,8 @@ This is Create / Publish / Vote as a URL.
 
 You land on a gown, not a building. Cloth names, not sliders. Enter the vote and the board already looks like a house. One vote can name a Leader. The look link stands alone.
 
+The garment is the foundation. The design is ink. 2D and 3D are the same look.
+
 I did not build CAD, pattern grading, cloth simulation, or AI. There is no login.
 
 ## Leftover risk
@@ -47,4 +51,5 @@ I did not build CAD, pattern grading, cloth simulation, or AI. There is no login
 - #52 needs a human Slack or iMessage paste. Crawler meta is not that paste.
 - The live board caps at 24 looks. Memory fallback still keeps the house looks locally and in tests.
 - The look route loads Three (~270KB gzip).
-- #54 is optional polish and does not change the forward.
+- #54 closed. Campus path is gone.
+- Hybrid atelier is #75. Founder QA for ink is #92.

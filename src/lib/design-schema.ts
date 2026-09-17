@@ -5,6 +5,7 @@ export const GARMENT_IDS = [
   'coat',
   'suit',
   'jacket',
+  'tee',
 ] as const
 
 export type GarmentId = (typeof GARMENT_IDS)[number]
@@ -31,6 +32,10 @@ export type Design = {
   thumbnailDataUrl: string
   overrides: MaterialOverride[]
   garmentId?: GarmentId
+  artMap?: string
+  structural?: {
+    neck?: 'crew' | 'v'
+  }
 }
 
 export function createEmptyDesign({ id }: { id: string }): Design {
