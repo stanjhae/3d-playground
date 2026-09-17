@@ -66,11 +66,11 @@ function RootShell() {
         <Link
           to="/"
           search={{}}
-          className="shrink-0 whitespace-nowrap font-display text-[11px] tracking-[0.16em] text-ivory uppercase sm:text-sm sm:tracking-[0.28em]"
+          className="shrink-0 whitespace-nowrap font-display text-xs tracking-[0.14em] text-ivory uppercase sm:text-sm sm:tracking-[0.22em]"
         >
           Fashion Leader Vote
         </Link>
-        <nav className="flex items-center gap-1 text-[10px] tracking-[0.12em] uppercase sm:gap-3 sm:text-xs sm:tracking-[0.18em]">
+        <nav className="flex items-center gap-2 font-body text-xs tracking-[0.08em] uppercase sm:gap-3">
           <Link
             to="/"
             search={{}}

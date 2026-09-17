@@ -29,7 +29,7 @@ export function LookStage({
           far: STUDIO_CAMERA.far,
         }}
         gl={{ antialias: true }}
-        className="h-full min-h-80 w-full bg-atelier"
+        className="h-full min-h-80 w-full touch-none bg-atelier"
       >
         <StudioStage>
           <Suspense fallback={<FashionLoader />}>

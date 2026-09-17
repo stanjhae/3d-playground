@@ -19,6 +19,7 @@ import {
 import { rasterizeLayers } from '../../lib/paint-atlas'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { cn } from '../../lib/cn'
+import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 
 function panelFromEvent({
   event,
@@ -282,9 +283,7 @@ export function PaintCanvas() {
   return (
     <aside className="flex h-full min-h-80 flex-col gap-3 border border-atelier-line bg-atelier/92 p-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
-          {HOUSE_COPY.draw}
-        </p>
+        <p className={chromeKickerClass()}>{HOUSE_COPY.draw}</p>
         <nav className="flex gap-3">
           {panels.map((panel) => (
             <button
@@ -293,13 +292,10 @@ export function PaintCanvas() {
               onClick={() => {
                 setPaintPanel({ paintPanel: panel.id })
               }}
-              className={cn(
-                'min-h-11 font-display text-xs tracking-[0.16em] uppercase',
-                {
-                  'text-brass': paintPanel === panel.id,
-                  'text-ivory-muted hover:text-brass': paintPanel !== panel.id,
-                },
-              )}
+              className={cn('min-h-11', chromeTextClass(), {
+                'text-brass': paintPanel === panel.id,
+                'text-ivory-muted hover:text-brass': paintPanel !== panel.id,
+              })}
             >
               {panel.label}
             </button>
@@ -312,7 +308,7 @@ export function PaintCanvas() {
           width={360}
           height={420}
           role="img"
-          aria-label="Design panel"
+          aria-label={HOUSE_COPY.designPanel}
           className="h-full w-full cursor-crosshair touch-none bg-ivory"
           onPointerDown={(event) => {
             const node = canvasRef.current

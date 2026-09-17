@@ -311,7 +311,7 @@ const INITIAL_EDITOR_STATE = {
   paintTool: 'brush' as StrokeTool,
   paintColor: INK_COLORS[0]?.value ?? '#1a1c22',
   paintWidth: INK_WIDTHS[1],
-  studioView: 'draw' as StudioView,
+  studioView: 'cloth' as StudioView,
   activeStroke: null as Stroke | null,
   selectedLayerId: null as string | null,
   activeLayerEdit: null as LayerEdit | null,
@@ -351,7 +351,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             activeStroke: null,
             activeLayerEdit: null,
             selectedLayerId: null,
-            studioView: 'draw',
+            studioView: 'cloth',
           },
         })
       }
@@ -370,7 +370,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         activeStroke: null,
         activeLayerEdit: null,
         selectedLayerId: null,
-        studioView: 'draw',
+        studioView: 'cloth',
         undoCount: 0,
         redoCount: 0,
       }

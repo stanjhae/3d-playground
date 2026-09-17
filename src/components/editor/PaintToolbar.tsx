@@ -6,18 +6,27 @@ import { HOUSE_COPY } from '../../lib/house-copy'
 import { selectedTextLayer } from '../../lib/layer-hit'
 import { isSafeLayerSrc } from '../../lib/look-thumbnail'
 import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from '../../lib/paint-colors'
+import { chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
+
+function inkWidthLabel({ width }: { width: number }) {
+  if (width === INK_WIDTHS[0]) {
+    return HOUSE_COPY.fine
+  }
+
+  if (width === INK_WIDTHS[2]) {
+    return HOUSE_COPY.bold
+  }
+
+  return HOUSE_COPY.line
+}
 
 export function PaintToolbar() {
   const paintTool = useEditorStore((state) => state.paintTool)
   const paintColor = useEditorStore((state) => state.paintColor)
   const paintWidth = useEditorStore((state) => state.paintWidth)
-  const undoCount = useEditorStore((state) => state.undoCount)
-  const redoCount = useEditorStore((state) => state.redoCount)
   const setPaintTool = useEditorStore((state) => state.setPaintTool)
   const setPaintColor = useEditorStore((state) => state.setPaintColor)
   const setPaintWidth = useEditorStore((state) => state.setPaintWidth)
-  const undoLast = useEditorStore((state) => state.undoLast)
-  const redoLast = useEditorStore((state) => state.redoLast)
   const clearInk = useEditorStore((state) => state.clearInk)
   const addGraphic = useEditorStore((state) => state.addGraphic)
   const addPattern = useEditorStore((state) => state.addPattern)
@@ -38,14 +47,14 @@ export function PaintToolbar() {
   })
 
   return (
-    <aside className="flex w-full flex-col gap-3 border border-atelier-line bg-atelier/92 p-3">
+    <aside className={railFrameClass()}>
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => {
             setPaintTool({ paintTool: 'brush' })
           }}
-          className={cn('min-h-11 font-display text-xs tracking-[0.16em] uppercase', {
+          className={cn('min-h-11', chromeTextClass(), {
             'text-brass': paintTool === 'brush',
             'text-ivory-muted hover:text-brass': paintTool !== 'brush',
           })}
@@ -57,7 +66,7 @@ export function PaintToolbar() {
           onClick={() => {
             setPaintTool({ paintTool: 'eraser' })
           }}
-          className={cn('min-h-11 font-display text-xs tracking-[0.16em] uppercase', {
+          className={cn('min-h-11', chromeTextClass(), {
             'text-brass': paintTool === 'eraser',
             'text-ivory-muted hover:text-brass': paintTool !== 'eraser',
           })}
@@ -66,30 +75,13 @@ export function PaintToolbar() {
         </button>
         <button
           type="button"
-          disabled={undoCount === 0}
-          onClick={() => {
-            undoLast()
-          }}
-          className="min-h-11 font-display text-xs tracking-[0.16em] text-ivory-muted uppercase hover:text-brass disabled:opacity-30"
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          disabled={redoCount === 0}
-          onClick={() => {
-            redoLast()
-          }}
-          className="min-h-11 font-display text-xs tracking-[0.16em] text-ivory-muted uppercase hover:text-brass disabled:opacity-30"
-        >
-          Redo
-        </button>
-        <button
-          type="button"
           onClick={() => {
             clearInk()
           }}
-          className="min-h-11 font-display text-xs tracking-[0.16em] text-ivory-muted uppercase hover:text-brass"
+          className={cn(
+            'min-h-11 text-ivory-muted hover:text-brass',
+            chromeTextClass(),
+          )}
         >
           {HOUSE_COPY.clearInk}
         </button>
@@ -104,7 +96,7 @@ export function PaintToolbar() {
                 setPaintColor({ paintColor: color.value })
                 setPaintTool({ paintTool: 'brush' })
               }}
-              className={cn('size-8 border', {
+              className={cn('size-11 border', {
                 'border-brass': paintColor === color.value,
                 'border-atelier-line': paintColor !== color.value,
               })}
@@ -122,14 +114,15 @@ export function PaintToolbar() {
               setPaintWidth({ paintWidth: width })
             }}
             className={cn(
-              'min-h-11 flex-1 border font-display text-[10px] tracking-[0.14em] uppercase',
+              'min-h-11 flex-1 border',
+              chromeTextClass(),
               {
                 'border-brass text-brass': paintWidth === width,
                 'border-atelier-line text-ivory-muted': paintWidth !== width,
               },
             )}
           >
-            {width === INK_WIDTHS[0] ? 'Fine' : width === INK_WIDTHS[2] ? 'Bold' : 'Line'}
+            {inkWidthLabel({ width })}
           </button>
         ))}
       </div>
@@ -174,7 +167,10 @@ export function PaintToolbar() {
           onClick={() => {
             fileRef.current?.click()
           }}
-          className="min-h-11 border border-atelier-line px-3 font-display text-xs tracking-[0.16em] text-ivory uppercase hover:text-brass"
+          className={cn(
+            'min-h-11 border border-atelier-line px-3 text-ivory hover:text-brass',
+            chromeTextClass(),
+          )}
         >
           {HOUSE_COPY.artwork}
         </button>
@@ -186,7 +182,7 @@ export function PaintToolbar() {
               setTypeDraft({ typeDraft: event.target.value })
             }}
             placeholder={HOUSE_COPY.type}
-            className="min-h-11 min-w-0 flex-1 border border-atelier-line bg-atelier px-3 text-ivory"
+            className="min-h-11 min-w-0 flex-1 border border-atelier-line bg-atelier px-3 font-body text-sm text-ivory"
           />
         </label>
         <button
@@ -194,7 +190,10 @@ export function PaintToolbar() {
           onClick={() => {
             addPattern({ patternId: 'stripe' })
           }}
-          className="min-h-11 border border-atelier-line px-3 font-display text-xs tracking-[0.16em] text-ivory uppercase hover:text-brass"
+          className={cn(
+            'min-h-11 border border-atelier-line px-3 text-ivory hover:text-brass',
+            chromeTextClass(),
+          )}
         >
           {HOUSE_COPY.stripe}
         </button>
@@ -203,7 +202,10 @@ export function PaintToolbar() {
           onClick={() => {
             addPattern({ patternId: 'check' })
           }}
-          className="min-h-11 border border-atelier-line px-3 font-display text-xs tracking-[0.16em] text-ivory uppercase hover:text-brass"
+          className={cn(
+            'min-h-11 border border-atelier-line px-3 text-ivory hover:text-brass',
+            chromeTextClass(),
+          )}
         >
           {HOUSE_COPY.check}
         </button>
@@ -212,18 +214,16 @@ export function PaintToolbar() {
           onClick={() => {
             setPaintTool({ paintTool: 'type' })
           }}
-          className={cn(
-            'min-h-11 border px-3 font-display text-xs tracking-[0.16em] uppercase',
-            {
-              'border-brass text-brass': paintTool === 'type',
-              'border-atelier-line text-ivory hover:text-brass':
-                paintTool !== 'type',
-            },
-          )}
+          className={cn('min-h-11 border px-3', chromeTextClass(), {
+            'border-brass text-brass': paintTool === 'type',
+            'border-atelier-line text-ivory hover:text-brass':
+              paintTool !== 'type',
+          })}
         >
           {HOUSE_COPY.type}
         </button>
       </div>
+      <p className="font-body text-sm text-ivory-muted">{HOUSE_COPY.typeHint}</p>
       <div className="flex flex-wrap gap-2">
         {(['display', 'sans'] as const).map((face) => (
           <button
@@ -238,13 +238,10 @@ export function PaintToolbar() {
                 })
               }
             }}
-            className={cn(
-              'min-h-11 flex-1 border font-display text-[10px] tracking-[0.14em] uppercase',
-              {
-                'border-brass text-brass': textFace === face,
-                'border-atelier-line text-ivory-muted': textFace !== face,
-              },
-            )}
+            className={cn('min-h-11 flex-1 border', chromeTextClass(), {
+              'border-brass text-brass': textFace === face,
+              'border-atelier-line text-ivory-muted': textFace !== face,
+            })}
           >
             {face === 'display' ? HOUSE_COPY.displayFace : HOUSE_COPY.sansFace}
           </button>
@@ -262,20 +259,17 @@ export function PaintToolbar() {
                 })
               }
             }}
-            className={cn(
-              'min-h-11 flex-1 border font-display text-[10px] tracking-[0.14em] uppercase',
-              {
-                'border-brass text-brass': textScale === size.scale,
-                'border-atelier-line text-ivory-muted': textScale !== size.scale,
-              },
-            )}
+            className={cn('min-h-11 flex-1 border', chromeTextClass(), {
+              'border-brass text-brass': textScale === size.scale,
+              'border-atelier-line text-ivory-muted': textScale !== size.scale,
+            })}
           >
             {size.label}
           </button>
         ))}
       </div>
       {artworkError ? (
-        <p className="text-sm text-ivory-muted">{artworkError}</p>
+        <p className="font-body text-sm text-ivory-muted">{artworkError}</p>
       ) : null}
     </aside>
   )

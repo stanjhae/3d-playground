@@ -3,7 +3,6 @@ import { useEffect, type ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { garmentCanPaint } from '../../lib/garments'
 import { useEditorStore } from '../../lib/editor-store'
-import { HOUSE_COPY } from '../../lib/house-copy'
 import { PaintCanvas } from './PaintCanvas'
 
 export function DualStudio({
@@ -13,7 +12,6 @@ export function DualStudio({
 }) {
   const garmentId = useEditorStore((state) => state.garmentId)
   const studioView = useEditorStore((state) => state.studioView)
-  const setStudioView = useEditorStore((state) => state.setStudioView)
   const undoLast = useEditorStore((state) => state.undoLast)
   const redoLast = useEditorStore((state) => state.redoLast)
   const canPaint = garmentCanPaint({ garmentId })
@@ -88,38 +86,6 @@ export function DualStudio({
         })}
       >
         {children}
-      </div>
-      <div className="flex gap-3 px-3 lg:hidden">
-        <button
-          type="button"
-          onClick={() => {
-            setStudioView({ studioView: 'draw' })
-          }}
-          className={cn(
-            'min-h-11 flex-1 font-display text-xs tracking-[0.16em] uppercase',
-            {
-              'text-brass': studioView === 'draw',
-              'text-ivory-muted': studioView !== 'draw',
-            },
-          )}
-        >
-          {HOUSE_COPY.draw}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setStudioView({ studioView: 'cloth' })
-          }}
-          className={cn(
-            'min-h-11 flex-1 font-display text-xs tracking-[0.16em] uppercase',
-            {
-              'text-brass': studioView === 'cloth',
-              'text-ivory-muted': studioView !== 'cloth',
-            },
-          )}
-        >
-          {HOUSE_COPY.cloth}
-        </button>
       </div>
     </div>
   )

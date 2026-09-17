@@ -111,15 +111,23 @@ function LookPage() {
       ) : (
         <div className="flex h-full items-center justify-center px-6">
           {status === 'loading' ? (
-            <p className="text-sm text-ivory-muted">{HOUSE_COPY.lookLoading}</p>
+            <p className="font-body text-sm text-ivory-muted">
+              {HOUSE_COPY.lookLoading}
+            </p>
           ) : null}
           {status === 'error' || status === 'missing' ? (
             <div className="flex max-w-md flex-col gap-4">
               <h1 className="font-display text-4xl text-ivory">
-                {HOUSE_COPY.lookGone}
+                {status === 'error'
+                  ? HOUSE_COPY.lookFailed
+                  : HOUSE_COPY.lookGone}
               </h1>
-              <Link to="/vote" search={{}} className="text-brass hover:underline">
-                Back to the board
+              <Link
+                to="/vote"
+                search={{}}
+                className="font-body text-brass hover:underline"
+              >
+                {HOUSE_COPY.backToBoard}
               </Link>
             </div>
           ) : null}
@@ -128,53 +136,64 @@ function LookPage() {
       {status === 'ready' && look ? (
         <div className={lookSheetFrameClass()}>
           <div className={lookSheetBodyClass()}>
-            <p className="font-display text-xs tracking-[0.28em] text-brass uppercase">
-              Shared look
+            <p className="font-display text-xs tracking-[0.22em] text-brass uppercase">
+              {HOUSE_COPY.sharedLook}
             </p>
             <h1 className="font-display text-3xl text-ivory sm:text-4xl md:text-5xl">
               {look.title}
             </h1>
-            <p className="text-sm text-ivory-muted">
+            <p className="font-body text-base text-ivory">
               {lookRecipe({ design: look })}
             </p>
-            <p className="text-sm text-ivory-muted">
-              By {look.author} · {look.votes}{' '}
-              {look.votes === 1 ? 'vote' : 'votes'}
+            <p className="font-body text-sm text-ivory-muted">
+              {HOUSE_COPY.by} {look.author} · {look.votes}{' '}
+              {look.votes === 1 ? HOUSE_COPY.voteOne : HOUSE_COPY.votes}
             </p>
             <GownCredit garmentId={look.garmentId} />
             {voteError ? (
-              <p className="text-sm text-ivory-muted">{voteError}</p>
+              <p className="font-body text-sm text-ivory-muted">{voteError}</p>
             ) : null}
             {copyStatus === 'error' ? (
-              <p className="text-sm text-ivory-muted">{HOUSE_COPY.copyFailed}</p>
+              <p className="font-body text-sm text-ivory-muted">
+                {HOUSE_COPY.copyFailed}
+              </p>
             ) : null}
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="flex flex-row flex-wrap gap-3">
               <button
                 type="button"
                 disabled={voting}
                 onClick={() => {
                   void handleVote()
                 }}
-                className="min-h-11 border border-brass px-5 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
+                className="min-h-11 min-w-[10rem] flex-1 border border-brass px-5 py-2 font-body text-xs tracking-[0.08em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
               >
-                {voting ? 'Voting' : 'Vote this look'}
+                {voting ? HOUSE_COPY.voting : HOUSE_COPY.voteThisLook}
               </button>
               <Link
                 to="/"
                 search={{ design: look.id }}
-                className="min-h-11 border border-atelier-line px-5 py-2 text-center font-display text-xs tracking-[0.18em] text-ivory uppercase hover:text-brass"
+                className="min-h-11 min-w-[10rem] flex-1 border border-atelier-line px-5 py-2 text-center font-body text-xs tracking-[0.08em] text-ivory uppercase hover:text-brass"
               >
-                Remix in studio
+                {HOUSE_COPY.remix}
               </Link>
               <button
                 type="button"
                 onClick={() => {
                   void handleCopy()
                 }}
-                className="min-h-11 border border-atelier-line px-5 py-2 font-display text-xs tracking-[0.18em] text-ivory-muted uppercase hover:text-brass"
+                className="min-h-11 min-w-[10rem] flex-1 border border-atelier-line px-5 py-2 font-body text-xs tracking-[0.08em] text-ivory-muted uppercase hover:text-brass"
               >
-                {copyStatus === 'copied' ? 'Link copied' : 'Copy link'}
+                {copyStatus === 'copied'
+                  ? HOUSE_COPY.linkCopied
+                  : HOUSE_COPY.copyLink}
               </button>
+              <Link
+                to="/vote"
+                search={{}}
+                className="min-h-11 min-w-[10rem] flex-1 border border-atelier-line px-5 py-2 text-center font-body text-xs tracking-[0.08em] text-ivory uppercase hover:text-brass"
+              >
+                {HOUSE_COPY.backToBoard}
+              </Link>
             </div>
           </div>
         </div>

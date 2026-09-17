@@ -20,6 +20,7 @@ describe('useEditorStore', () => {
     expect(state.title).toBe('')
     expect(state.author).toBe('Guest')
     expect(state.lookSerial).toBe(1)
+    expect(state.studioView).toBe('cloth')
   })
 
   test('setMode and selectMesh use named parameters', () => {
@@ -130,6 +131,17 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().overrides).toEqual([])
     expect(useEditorStore.getState().fabricId).toBeNull()
     expect(useEditorStore.getState().colorId).toBeNull()
+    expect(useEditorStore.getState().studioView).toBe('cloth')
+  })
+
+  test('setGarmentId returns the next form to cloth', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().setStudioView({ studioView: 'draw' })
+    expect(useEditorStore.getState().studioView).toBe('draw')
+
+    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
+
+    expect(useEditorStore.getState().studioView).toBe('cloth')
   })
 
   test('loadDesign maps a live column look onto the gown', () => {

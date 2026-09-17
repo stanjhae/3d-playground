@@ -4,7 +4,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { trackAssumption } from '../../lib/assumption-events'
 import { documentHasInk } from '../../lib/design-document'
 import type { Design } from '../../lib/design-schema'
-import { captureFramedStill } from '../../lib/capture-still'
+import {
+  captureFramedStill,
+  shouldEnterLook,
+} from '../../lib/capture-still'
 import { useEditorStore } from '../../lib/editor-store'
 import { decodeDocumentImages } from '../../lib/layer-images'
 import { bakePublishedArt } from '../../lib/paint-atlas'
@@ -119,8 +122,13 @@ export function PublishBar({
             }
 
             return captureFramedStill({ canvas: studioCanvas }).then(
-              (thumbnailDataUrl) =>
-                Promise.resolve(
+              (thumbnailDataUrl) => {
+                if (!shouldEnterLook({ thumbnailDataUrl })) {
+                  setInkError(HOUSE_COPY.publishFailed)
+                  return
+                }
+
+                return Promise.resolve(
                   onPublish?.({
                     design: {
                       title: resolvedTitle,
@@ -138,7 +146,8 @@ export function PublishBar({
                   if (ink) {
                     void trackAssumption({ name: 'published' })
                   }
-                }),
+                })
+              },
             )
           })
           .finally(() => {
@@ -149,7 +158,7 @@ export function PublishBar({
     >
       <label className="flex min-w-0 flex-1 flex-col gap-2">
         <span className="font-display text-xs tracking-[0.22em] text-brass uppercase">
-          Look title
+          {HOUSE_COPY.lookTitle}
         </span>
         <input
           value={draftTitle}
@@ -158,16 +167,16 @@ export function PublishBar({
             setTitleTouched(true)
             setDraftTitle(event.target.value)
           }}
-          className="min-h-11 border border-atelier-line bg-atelier px-3 py-2 text-ivory disabled:opacity-50"
+          className="min-h-11 border border-atelier-line bg-atelier px-3 py-2 font-body text-sm text-ivory disabled:opacity-50"
         />
       </label>
       {inkError ? (
-        <p className="w-full text-sm text-ivory-muted">{inkError}</p>
+        <p className="w-full font-body text-sm text-ivory-muted">{inkError}</p>
       ) : null}
       <button
         type="submit"
         disabled={busy}
-        className="min-h-11 shrink-0 border border-brass px-4 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50 sm:px-5"
+        className="min-h-11 shrink-0 border border-brass px-4 py-2 font-body text-xs tracking-[0.08em] text-brass uppercase hover:bg-atelier disabled:opacity-50 sm:px-5"
       >
         {busy ? HOUSE_COPY.entering : HOUSE_COPY.enter}
       </button>

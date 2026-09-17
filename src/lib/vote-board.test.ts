@@ -4,6 +4,8 @@ import { createEmptyDesign } from './design-schema'
 import {
   applyOptimisticVote,
   applyVoteResult,
+  isLiveBoardLoad,
+  nextBoardLoadId,
   revertOptimisticVote,
 } from './vote-board'
 
@@ -74,5 +76,15 @@ describe('vote board updates', () => {
     })
 
     expect(after[0]?.votes).toBe(0)
+  })
+})
+
+describe('board load generation', () => {
+  test('a late failure is not live after a newer load starts', () => {
+    const first = nextBoardLoadId({ current: 0 })
+    const second = nextBoardLoadId({ current: first })
+
+    expect(isLiveBoardLoad({ loadId: first, current: second })).toBe(false)
+    expect(isLiveBoardLoad({ loadId: second, current: second })).toBe(true)
   })
 })

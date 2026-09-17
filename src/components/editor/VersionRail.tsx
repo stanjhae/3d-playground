@@ -1,5 +1,11 @@
+import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
+import {
+  chromeKickerClass,
+  chromeTextClass,
+  railFrameClass,
+} from '../../lib/studio-chrome'
 
 export function VersionRail() {
   const snapshots = useEditorStore((state) => state.snapshots)
@@ -7,17 +13,18 @@ export function VersionRail() {
   const restoreMorning = useEditorStore((state) => state.restoreMorning)
 
   return (
-    <aside className="flex flex-col gap-3">
-      <p className="font-display text-xs tracking-[0.22em] text-brass uppercase">
-        {HOUSE_COPY.thisHouse}
-      </p>
-      <nav className="flex flex-wrap items-center gap-3">
+    <aside className={railFrameClass()}>
+      <p className={chromeKickerClass()}>{HOUSE_COPY.thisHouse}</p>
+      <nav className="flex flex-nowrap items-center gap-3 overflow-x-auto overscroll-x-contain">
         <button
           type="button"
           onClick={() => {
-            rememberMorning({ title: 'Morning' })
+            rememberMorning({ title: HOUSE_COPY.restoreMorning })
           }}
-          className="min-h-11 font-display text-xs tracking-[0.16em] text-ivory-muted uppercase hover:text-brass"
+          className={cn(
+            'min-h-11 shrink-0 text-ivory-muted hover:text-brass',
+            chromeTextClass(),
+          )}
         >
           {HOUSE_COPY.morning}
         </button>
@@ -28,13 +35,16 @@ export function VersionRail() {
             onClick={() => {
               restoreMorning({ snapshot })
             }}
-            className="flex min-h-11 items-center gap-2 font-display text-xs tracking-[0.16em] text-brass uppercase"
+            className={cn(
+              'flex min-h-11 shrink-0 items-center gap-2 text-brass',
+              chromeTextClass(),
+            )}
           >
             {snapshot.still ? (
               <img
                 src={snapshot.still}
                 alt=""
-                className="size-8 border border-atelier-line object-cover"
+                className="size-11 border border-atelier-line object-cover"
               />
             ) : null}
             {snapshot.title}

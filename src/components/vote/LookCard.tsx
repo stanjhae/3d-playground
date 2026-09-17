@@ -1,8 +1,11 @@
 import { Link } from '@tanstack/react-router'
 
+import { cn } from '../../lib/cn'
 import type { Design } from '../../lib/design-schema'
+import { HOUSE_COPY } from '../../lib/house-copy'
 import { lookRecipe } from '../../lib/look-recipe'
 import { isSafeThumbnail } from '../../lib/look-thumbnail'
+import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 
 export function LookCard({
   design,
@@ -21,13 +24,11 @@ export function LookCard({
 }) {
   return (
     <article
-      className={
-        isLeader || featured
-          ? 'flex flex-col gap-4 border border-brass bg-atelier-raised p-4'
-          : isEntered
-            ? 'flex flex-col gap-4 border border-brass/70 bg-atelier-raised p-4'
-            : 'flex flex-col gap-4 border border-atelier-line bg-atelier-raised p-4'
-      }
+      className={cn('flex flex-col gap-4 bg-atelier-raised p-4', {
+        'border border-brass': isLeader || featured,
+        'border border-brass/70': isEntered && !isLeader && !featured,
+        'border border-atelier-line': !isLeader && !featured && !isEntered,
+      })}
     >
       <Link
         to="/look/$lookId"
@@ -44,28 +45,38 @@ export function LookCard({
               className="aspect-[4/5] w-full object-cover"
             />
           ) : (
-            <div className="flex aspect-[4/5] w-full items-center justify-center text-sm text-ivory-muted">
-              Opening the still
+            <div className="flex aspect-[4/5] w-full items-center justify-center font-body text-sm text-ivory-muted">
+              {HOUSE_COPY.openingStill}
             </div>
           )}
           {isLeader ? (
-            <p className="absolute top-3 left-3 border border-brass bg-atelier px-3 py-1 font-display text-xs tracking-[0.22em] text-brass uppercase">
-              Leader
+            <p
+              className={cn(
+                'absolute top-3 left-3 border border-brass bg-atelier px-3 py-1',
+                chromeKickerClass(),
+              )}
+            >
+              {HOUSE_COPY.leader}
             </p>
           ) : null}
           {isEntered && !isLeader ? (
-            <p className="absolute top-3 left-3 border border-atelier-line bg-atelier px-3 py-1 font-display text-xs tracking-[0.22em] text-ivory uppercase">
-              Just entered
+            <p className="absolute top-3 left-3 border border-atelier-line bg-atelier px-3 py-1 font-body text-xs tracking-[0.08em] text-ivory uppercase">
+              {HOUSE_COPY.justEntered}
             </p>
           ) : null}
         </div>
         <h2 className="font-display text-2xl text-ivory">{design.title}</h2>
-        <p className="text-sm text-ivory-muted">{lookRecipe({ design })}</p>
-        <p className="text-sm text-ivory-muted">By {design.author}</p>
+        <p className="line-clamp-2 font-body text-sm text-ivory-muted">
+          {lookRecipe({ design })}
+        </p>
+        <p className="font-body text-sm text-ivory-muted">
+          {HOUSE_COPY.by} {design.author}
+        </p>
       </Link>
       <div className="flex items-center justify-between gap-3">
-        <p className="font-display text-xs tracking-[0.18em] text-ivory-muted uppercase">
-          {design.votes} {design.votes === 1 ? 'vote' : 'votes'}
+        <p className={cn('text-ivory-muted', chromeTextClass())}>
+          {design.votes}{' '}
+          {design.votes === 1 ? HOUSE_COPY.voteOne : HOUSE_COPY.votes}
         </p>
         <button
           type="button"
@@ -73,9 +84,12 @@ export function LookCard({
           onClick={() => {
             onVote?.({ id: design.id })
           }}
-          className="min-h-11 border border-brass px-4 py-2 font-display text-xs tracking-[0.18em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
+          className={cn(
+            'min-h-11 border border-brass px-4 py-2 text-brass hover:bg-atelier disabled:opacity-50',
+            chromeTextClass(),
+          )}
         >
-          {voting ? 'Voting' : 'Vote'}
+          {voting ? HOUSE_COPY.voting : HOUSE_COPY.vote}
         </button>
       </div>
     </article>
