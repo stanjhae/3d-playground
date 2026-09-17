@@ -1,5 +1,6 @@
 import seedDesigns from '../../data/designs.json' with { type: 'json' }
 
+import { parseStructural, type StructuralParams } from './design-document.ts'
 import type { Design, GarmentId, MaterialOverride } from './design-schema.ts'
 import { resolveGarmentId } from './design-schema.ts'
 import {
@@ -7,9 +8,14 @@ import {
   type DesignsPersist,
   type PersistLoadResult,
 } from './designs-persist.ts'
-import { sanitizeThumbnail } from './look-thumbnail.ts'
+import { sanitizeArtMap, sanitizeThumbnail } from './look-thumbnail.ts'
 
-export { MAX_THUMBNAIL_CHARS, isSafeThumbnail } from './look-thumbnail.ts'
+export {
+  MAX_ART_MAP_CHARS,
+  MAX_THUMBNAIL_CHARS,
+  isSafeThumbnail,
+  sanitizeArtMap,
+} from './look-thumbnail.ts'
 
 export const MAX_TITLE_CHARS = 80
 export const MAX_AUTHOR_CHARS = 40
@@ -54,6 +60,13 @@ function cloneDesign({ design }: { design: Design }): Design {
     }),
     overrides: design.overrides.map((override) => ({ ...override })),
     garmentId: resolveGarmentId({ garmentId: design.garmentId }),
+    ...(() => {
+      const artMap = design.artMap
+        ? sanitizeArtMap({ artMap: design.artMap })
+        : ''
+      return artMap ? { artMap } : {}
+    })(),
+    ...(design.structural ? { structural: { ...design.structural } } : {}),
   }
 }
 
@@ -154,6 +167,8 @@ export function normalizeLoadedDesign({
           : '',
       overrides: record.overrides,
       garmentId: record.garmentId,
+      artMap: record.artMap,
+      structural: record.structural,
     },
   })
 
@@ -211,6 +226,8 @@ export function mergeDesigns({
         incoming.overrides.length > 0 ? incoming.overrides : existing.overrides,
       garmentId: incoming.garmentId,
       votes: Math.max(existing.votes, incoming.votes),
+      artMap: incoming.artMap || existing.artMap,
+      structural: incoming.structural ?? existing.structural,
     })
   }
 
@@ -434,6 +451,19 @@ export function parseDesignDraft({
         : {}),
     })),
     garmentId,
+    ...(() => {
+      const artMap =
+        typeof record.artMap === 'string'
+          ? sanitizeArtMap({ artMap: record.artMap })
+          : ''
+      return artMap ? { artMap } : {}
+    })(),
+    ...(() => {
+      const structural: StructuralParams = parseStructural({
+        value: record.structural,
+      })
+      return Object.keys(structural).length > 0 ? { structural } : {}
+    })(),
   }
 }
 
@@ -456,6 +486,10 @@ export function createStoredDesign({
     }),
     overrides: draft.overrides.map((override) => ({ ...override })),
     garmentId: resolveGarmentId({ garmentId: draft.garmentId }),
+    ...(draft.artMap
+      ? { artMap: sanitizeArtMap({ artMap: draft.artMap }) }
+      : {}),
+    ...(draft.structural ? { structural: { ...draft.structural } } : {}),
   }
 
   getLiveDesigns().push(design)

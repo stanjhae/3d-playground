@@ -3,8 +3,9 @@ import { type ThreeEvent } from '@react-three/fiber'
 import { useState, type ReactNode } from 'react'
 import { type Mesh } from 'three'
 
+import { uvToPanelPoint } from '../../lib/panel-uv'
 import { useEditorStore } from '../../lib/editor-store'
-import { partLabel } from '../../lib/garment-parts'
+import { garmentCanPaint, partLabel } from '../../lib/garment-parts'
 
 export function SelectableMesh({
   name,
@@ -19,6 +20,10 @@ export function SelectableMesh({
 }) {
   const mode = useEditorStore((state) => state.mode)
   const selectedMeshName = useEditorStore((state) => state.selectedMeshName)
+  const garmentId = useEditorStore((state) => state.garmentId)
+  const startStroke = useEditorStore((state) => state.startStroke)
+  const appendStroke = useEditorStore((state) => state.appendStroke)
+  const endStroke = useEditorStore((state) => state.endStroke)
   const isSelected = Boolean(
     selectedMeshName &&
       (selectedMeshName === name || name.startsWith(`${selectedMeshName}-`)),
@@ -26,7 +31,8 @@ export function SelectableMesh({
   const selectMesh = useEditorStore((state) => state.selectMesh)
   const [hovered, setHovered] = useState(false)
   const canPick = picking && mode === 'design'
-  const showCaption = canPick && hovered && !name.includes('-')
+  const canPaint = canPick && garmentCanPaint({ garmentId })
+  const showCaption = canPick && hovered && !name.includes('-') && !canPaint
 
   useCursor(canPick && hovered)
 
@@ -35,12 +41,49 @@ export function SelectableMesh({
       object={mesh}
       name={name}
       onClick={(event: ThreeEvent<MouseEvent>) => {
-        if (!canPick) {
+        if (!canPick || canPaint) {
           return
         }
 
         event.stopPropagation()
         selectMesh({ selectedMeshName: name.split('-')[0] ?? name })
+      }}
+      onPointerDown={(event: ThreeEvent<PointerEvent>) => {
+        if (!canPaint || !event.uv) {
+          return
+        }
+
+        const point = uvToPanelPoint({ u: event.uv.x, v: event.uv.y })
+
+        if (!point) {
+          return
+        }
+
+        event.stopPropagation()
+        startStroke({
+          panel: point.panel,
+          point: { x: point.x, y: point.y },
+          pressure: event.nativeEvent.pressure || undefined,
+        })
+      }}
+      onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+        if (!canPaint || event.buttons === 0 || !event.uv) {
+          return
+        }
+
+        const point = uvToPanelPoint({ u: event.uv.x, v: event.uv.y })
+
+        if (!point) {
+          return
+        }
+
+        event.stopPropagation()
+        appendStroke({ point: { x: point.x, y: point.y } })
+      }}
+      onPointerUp={() => {
+        if (canPaint) {
+          endStroke()
+        }
       }}
       onPointerOver={(event: ThreeEvent<PointerEvent>) => {
         if (!canPick) {

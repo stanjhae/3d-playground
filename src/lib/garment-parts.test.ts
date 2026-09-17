@@ -56,6 +56,7 @@ describe('listRailGarments', () => {
   test('shows the five house names and hides the jacket', () => {
     expect(listRailGarments().map((garment) => garment.id)).toEqual([
       'gown',
+      'tee',
       'slip',
       'mixed',
       'coat',
@@ -91,6 +92,10 @@ describe('garmentSrc', () => {
     expect(garmentSrc({ garmentId: 'coat' })).toBe('/models/coat.glb')
     expect(garmentSrc({ garmentId: 'suit' })).toBe('/models/suit.glb')
     expect(garmentSrc({ garmentId: 'jacket' })).toBe('/models/jacket.glb')
+    expect(garmentSrc({ garmentId: 'tee' })).toBe('/models/tee.glb')
+    expect(
+      garmentSrc({ garmentId: 'tee', structural: { neck: 'v' } }),
+    ).toBe('/models/tee-v.glb')
     expect(garmentSrc({ garmentId: 'missing' })).toBe('/models/garment.glb')
   })
 })

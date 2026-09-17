@@ -99,6 +99,18 @@ function RootShell() {
             Vote
           </Link>
           <Link
+            to="/soon"
+            className={cn(
+              'inline-flex min-h-11 items-center px-1',
+              {
+                'text-brass': location.pathname === '/soon',
+                'text-ivory-muted hover:text-brass': location.pathname !== '/soon',
+              },
+            )}
+          >
+            Soon
+          </Link>
+          <Link
             to="/look/$lookId"
             params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
             className={cn(

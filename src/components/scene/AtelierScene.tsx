@@ -61,7 +61,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
   }, [isHouse])
 
   return (
-    <div className="relative h-full min-h-80 w-full">
+    <div className="relative h-full min-h-80 w-full min-h-0">
       {isHouse ? (
         <HouseCaption
           title={leader?.title ?? 'The Leader'}
@@ -86,6 +86,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
                 <Garment
                   garmentId={leader.garmentId}
                   overrides={leader.overrides}
+                  artMap={leader.artMap}
                   picking={false}
                 />
               ) : null

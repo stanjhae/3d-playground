@@ -103,6 +103,25 @@ describe('lookRecipe', () => {
     expect(lookRecipe({ design })).toBe('Gown · Silk')
   })
 
+  test('names ink on a painted tee', () => {
+    expect(
+      lookRecipe({
+        design: {
+          ...createEmptyDesign({ id: 'look-ink' }),
+          garmentId: 'tee',
+          overrides: [
+            {
+              meshName: 'body',
+              color: '#f6e7d8',
+              mapId: 'silk-shine',
+            },
+          ],
+          artMap: 'data:image/png;base64,abc',
+        },
+      }),
+    ).toBe('Tee · Silk · Ink')
+  })
+
   test('is the form alone when no cloth is applied', () => {
     expect(
       lookRecipe({

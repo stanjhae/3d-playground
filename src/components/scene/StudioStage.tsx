@@ -199,6 +199,7 @@ export function StudioOrbit({
   const reducedMotion = prefersReducedMotion()
   const [enabled, setEnabled] = useState(() => !intro || reducedMotion)
   const [spinning, setSpinning] = useState(turntable && !reducedMotion)
+  const painting = useEditorStore((state) => Boolean(state.activeStroke))
 
   useEffect(() => {
     if (!intro || reducedMotion) {
@@ -224,7 +225,7 @@ export function StudioOrbit({
     <OrbitControls
       autoRotate={turntable && spinning && enabled}
       autoRotateSpeed={0.35}
-      enabled={enabled}
+      enabled={enabled && !painting}
       enablePan={false}
       maxDistance={6.5}
       maxPolarAngle={Math.PI / 2.05}

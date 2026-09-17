@@ -1,4 +1,4 @@
-import type { MaterialOverride } from './design-schema.ts'
+import type { Design, MaterialOverride } from './design-schema.ts'
 import { getFabricForOverride } from './fabrics.ts'
 import { getGarment } from './garments.ts'
 
@@ -32,10 +32,22 @@ function joinClothNames({ names }: { names: string[] }) {
   return `${head} and ${last}`
 }
 
+export function lookHasInk({
+  design,
+}: {
+  design: Pick<Design, 'artMap'>
+}) {
+  return Boolean(design.artMap)
+}
+
 export function lookRecipe({
   design,
 }: {
-  design: { garmentId?: string; overrides: MaterialOverride[] }
+  design: {
+    garmentId?: string
+    overrides: MaterialOverride[]
+    artMap?: string
+  }
 }) {
   const garment = getGarment({ garmentId: design.garmentId })
   const partIds = garment.parts.map((part) => part.id)
@@ -74,12 +86,14 @@ export function lookRecipe({
   }
 
   const cloth = joinClothNames({ names })
+  const ink = lookHasInk({ design }) ? 'Ink' : ''
+  const extras = [cloth, ink].filter(Boolean).join(' · ')
 
-  if (!cloth) {
+  if (!extras) {
     return garment.label
   }
 
-  return `${garment.label} · ${cloth}`
+  return `${garment.label} · ${extras}`
 }
 
 export function lookShareLine({

@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SoonRouteImport } from './routes/soon'
 import { Route as VoteRouteImport } from './routes/vote'
 import { Route as LookLookIdRouteImport } from './routes/look.$lookId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SoonRoute = SoonRouteImport.update({
+  id: '/soon',
+  path: '/soon',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VoteRoute = VoteRouteImport.update({
@@ -31,30 +37,34 @@ const LookLookIdRoute = LookLookIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/soon': typeof SoonRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/soon': typeof SoonRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/soon': typeof SoonRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/vote' | '/look/$lookId'
+  fullPaths: '/' | '/soon' | '/vote' | '/look/$lookId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/vote' | '/look/$lookId'
-  id: '__root__' | '/' | '/vote' | '/look/$lookId'
+  to: '/' | '/soon' | '/vote' | '/look/$lookId'
+  id: '__root__' | '/' | '/soon' | '/vote' | '/look/$lookId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SoonRoute: typeof SoonRoute
   VoteRoute: typeof VoteRoute
   LookLookIdRoute: typeof LookLookIdRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/soon': {
+      id: '/soon'
+      path: '/soon'
+      fullPath: '/soon'
+      preLoaderRoute: typeof SoonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/vote': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SoonRoute: SoonRoute,
   VoteRoute: VoteRoute,
   LookLookIdRoute: LookLookIdRoute,
 }

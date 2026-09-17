@@ -21,7 +21,9 @@ export function FabricPanel({
   const applyFabric = useEditorStore((state) => state.applyFabric)
   const selectMesh = useEditorStore((state) => state.selectMesh)
   const undoLast = useEditorStore((state) => state.undoLast)
-  const canUndo = useEditorStore((state) => state.overrides.length > 0)
+  const redoLast = useEditorStore((state) => state.redoLast)
+  const canUndo = useEditorStore((state) => state.undoCount > 0)
+  const canRedo = useEditorStore((state) => state.redoCount > 0)
   const selected = selectedMeshName ?? storeSelection ?? 'body'
   const parts = garmentParts({ garmentId })
   const fabrics = listFabrics()
@@ -87,6 +89,16 @@ export function FabricPanel({
           className="min-h-11 shrink-0 font-display text-xs tracking-[0.16em] text-ivory-muted uppercase hover:text-brass disabled:opacity-30 disabled:hover:text-ivory-muted"
         >
           Undo
+        </button>
+        <button
+          type="button"
+          disabled={!canRedo}
+          onClick={() => {
+            redoLast()
+          }}
+          className="min-h-11 shrink-0 font-display text-xs tracking-[0.16em] text-ivory-muted uppercase hover:text-brass disabled:opacity-30 disabled:hover:text-ivory-muted"
+        >
+          Redo
         </button>
       </div>
       <div

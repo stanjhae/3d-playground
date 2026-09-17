@@ -1,3 +1,4 @@
+import type { NeckId, PanelId, StructuralParams } from './design-document.ts'
 import type { GarmentId } from './design-schema.ts'
 import { resolveGarmentId } from './design-schema.ts'
 import {
@@ -25,6 +26,17 @@ export type GarmentCredit = {
   licenseHref: string
 }
 
+export type GarmentPanel = {
+  id: PanelId
+  label: string
+}
+
+export type StructuralField = {
+  id: 'neck'
+  label: string
+  options: readonly { id: NeckId; label: string }[]
+}
+
 export type GarmentEntry = {
   id: GarmentId
   label: string
@@ -32,6 +44,9 @@ export type GarmentEntry = {
   parts: readonly GarmentPart[]
   rail: boolean
   credit?: GarmentCredit
+  panels?: readonly GarmentPanel[]
+  structural?: readonly StructuralField[]
+  variants?: Partial<Record<NeckId, string>>
 }
 
 export const GARMENT_PARTS: readonly GarmentPart[] = [
@@ -63,6 +78,22 @@ function partsNamed({
   })
 }
 
+const TEE_PANELS: readonly GarmentPanel[] = [
+  { id: 'front', label: 'Front' },
+  { id: 'back', label: 'Back' },
+]
+
+const TEE_STRUCTURE: readonly StructuralField[] = [
+  {
+    id: 'neck',
+    label: 'Neck',
+    options: [
+      { id: 'crew', label: 'Crew' },
+      { id: 'v', label: 'V' },
+    ],
+  },
+]
+
 export const GARMENTS: readonly GarmentEntry[] = [
   {
     id: 'gown',
@@ -75,6 +106,19 @@ export const GARMENTS: readonly GarmentEntry[] = [
       href: GOWN_CREDIT_HREF,
       license: HOUSE_COPY.gownLicense,
       licenseHref: GOWN_LICENSE_HREF,
+    },
+  },
+  {
+    id: 'tee',
+    label: 'Tee',
+    src: '/models/tee.glb',
+    parts: partsNamed({ ids: ['body'] }),
+    rail: true,
+    panels: TEE_PANELS,
+    structural: TEE_STRUCTURE,
+    variants: {
+      crew: '/models/tee.glb',
+      v: '/models/tee-v.glb',
     },
   },
   {
@@ -160,10 +204,43 @@ export function listRailGarments(): GarmentEntry[] {
 
 export function garmentSrc({
   garmentId,
+  structural,
+}: {
+  garmentId?: string | null
+  structural?: StructuralParams | null
+}) {
+  const garment = getGarment({ garmentId })
+  const neck = structural?.neck
+
+  if (neck && garment.variants?.[neck]) {
+    return garment.variants[neck]
+  }
+
+  return garment.src
+}
+
+export function garmentPanels({
+  garmentId,
 }: {
   garmentId?: string | null
 }) {
-  return getGarment({ garmentId }).src
+  return getGarment({ garmentId }).panels ?? []
+}
+
+export function garmentCanPaint({
+  garmentId,
+}: {
+  garmentId?: string | null
+}) {
+  return garmentPanels({ garmentId }).length > 0
+}
+
+export function garmentStructural({
+  garmentId,
+}: {
+  garmentId?: string | null
+}) {
+  return getGarment({ garmentId }).structural ?? []
 }
 
 export function garmentParts({

@@ -144,6 +144,32 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().garmentId).toBe('gown')
   })
 
+  test('ink undo and redo share the cloth stack', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().startStroke({
+      panel: 'front',
+      point: { x: 0.4, y: 0.5 },
+    })
+    useEditorStore.getState().appendStroke({ point: { x: 0.45, y: 0.5 } })
+    useEditorStore.getState().endStroke()
+
+    const paint = useEditorStore.getState().document.layers[0]
+    expect(paint && paint.kind === 'paint' ? paint.strokes : []).toHaveLength(1)
+    expect(useEditorStore.getState().undoCount).toBe(1)
+
+    useEditorStore.getState().undoLast()
+    const undone = useEditorStore.getState().document.layers[0]
+    expect(undone && undone.kind === 'paint' ? undone.strokes : []).toHaveLength(
+      0,
+    )
+
+    useEditorStore.getState().redoLast()
+    const redone = useEditorStore.getState().document.layers[0]
+    expect(redone && redone.kind === 'paint' ? redone.strokes : []).toHaveLength(
+      1,
+    )
+  })
+
   test('publishLook keeps the design for later vote wiring', () => {
     useEditorStore.getState().publishLook({
       design: {
@@ -162,5 +188,64 @@ describe('useEditorStore', () => {
       'image/png',
     )
     expect(useEditorStore.getState().lookSerial).toBe(2)
+  })
+
+  test('switching garments shelves the ink and restore clears undo', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().startStroke({
+      panel: 'front',
+      point: { x: 0.4, y: 0.5 },
+    })
+    useEditorStore.getState().endStroke()
+    useEditorStore.getState().rememberMorning({ title: 'Morning' })
+
+    expect(useEditorStore.getState().undoCount).toBe(1)
+
+    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
+    const gownPaint = useEditorStore.getState().document.layers[0]
+    expect(
+      gownPaint && gownPaint.kind === 'paint' ? gownPaint.strokes : [],
+    ).toHaveLength(0)
+
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    const teePaint = useEditorStore.getState().document.layers[0]
+    expect(
+      teePaint && teePaint.kind === 'paint' ? teePaint.strokes : [],
+    ).toHaveLength(1)
+
+    const snapshot = useEditorStore.getState().snapshots[0]
+    expect(snapshot).toBeTruthy()
+    if (!snapshot) {
+      return
+    }
+
+    useEditorStore.getState().restoreMorning({ snapshot })
+    expect(useEditorStore.getState().undoCount).toBe(0)
+    expect(useEditorStore.getState().redoCount).toBe(0)
+  })
+
+  test('clear ink is a single undo', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().startStroke({
+      panel: 'front',
+      point: { x: 0.2, y: 0.2 },
+    })
+    useEditorStore.getState().endStroke()
+    useEditorStore.getState().startStroke({
+      panel: 'front',
+      point: { x: 0.8, y: 0.8 },
+    })
+    useEditorStore.getState().endStroke()
+    useEditorStore.getState().clearInk()
+
+    const paint = useEditorStore.getState().document.layers[0]
+    expect(paint && paint.kind === 'paint' ? paint.strokes : []).toHaveLength(0)
+    expect(useEditorStore.getState().undoCount).toBe(3)
+
+    useEditorStore.getState().undoLast()
+    const restored = useEditorStore.getState().document.layers[0]
+    expect(
+      restored && restored.kind === 'paint' ? restored.strokes : [],
+    ).toHaveLength(2)
   })
 })

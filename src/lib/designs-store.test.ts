@@ -177,6 +177,42 @@ describe('designs store', () => {
     expect(parsed?.overrides).toHaveLength(MAX_OVERRIDE_COUNT)
   })
 
+  test('parseDesignDraft keeps a safe art map and drops a hostile one', () => {
+    expect(
+      parseDesignDraft({
+        body: {
+          title: 'Ink',
+          author: 'Guest',
+          thumbnailDataUrl: 'data:image/png;base64,abc',
+          overrides: [{ meshName: 'body' }],
+          artMap: 'data:image/png;base64,abc',
+        },
+      })?.artMap,
+    ).toBe('data:image/png;base64,abc')
+    expect(
+      parseDesignDraft({
+        body: {
+          title: 'Ink',
+          author: 'Guest',
+          thumbnailDataUrl: 'data:image/png;base64,abc',
+          overrides: [{ meshName: 'body' }],
+          artMap: 'data:image/svg+xml,<svg></svg>',
+        },
+      })?.artMap,
+    ).toBeUndefined()
+    expect(
+      parseDesignDraft({
+        body: {
+          title: 'Ink',
+          author: 'Guest',
+          thumbnailDataUrl: 'data:image/png;base64,abc',
+          overrides: [{ meshName: 'body' }],
+          artMap: `data:image/png;base64,${'a'.repeat(200_000)}`,
+        },
+      })?.artMap,
+    ).toBeUndefined()
+  })
+
   test('parseDesignDraft caps an oversized thumbnail', () => {
     const parsed = parseDesignDraft({
       body: {

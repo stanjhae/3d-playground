@@ -1,0 +1,465 @@
+import {
+  type Design,
+  type GarmentId,
+  type MaterialOverride,
+  resolveGarmentId,
+} from './design-schema.ts'
+import { isSafeLayerSrc, sanitizeArtMap } from './look-thumbnail.ts'
+
+export const PANEL_IDS = ['front', 'back'] as const
+
+export type PanelId = (typeof PANEL_IDS)[number]
+
+export const LAYER_KINDS = ['paint', 'graphic', 'text', 'art'] as const
+
+export type LayerKind = (typeof LAYER_KINDS)[number]
+
+export const STROKE_TOOLS = ['brush', 'eraser'] as const
+
+export type StrokeTool = (typeof STROKE_TOOLS)[number]
+
+export const TEXT_FACES = ['display', 'sans'] as const
+
+export type TextFace = (typeof TEXT_FACES)[number]
+
+export const NECK_IDS = ['crew', 'v'] as const
+
+export type NeckId = (typeof NECK_IDS)[number]
+
+export type StrokePoint = {
+  x: number
+  y: number
+  p?: number
+}
+
+export type Stroke = {
+  id: string
+  panel: PanelId
+  points: StrokePoint[]
+  color: string
+  width: number
+  tool: StrokeTool
+}
+
+export type PaintLayer = {
+  id: string
+  kind: 'paint'
+  visible: boolean
+  strokes: Stroke[]
+}
+
+export type GraphicLayer = {
+  id: string
+  kind: 'graphic'
+  panel: PanelId
+  src: string
+  x: number
+  y: number
+  scale: number
+  rotation: number
+  visible: boolean
+}
+
+export type TextLayer = {
+  id: string
+  kind: 'text'
+  panel: PanelId
+  content: string
+  face: TextFace
+  color: string
+  x: number
+  y: number
+  scale: number
+  rotation: number
+  visible: boolean
+}
+
+export type ArtLayer = {
+  id: string
+  kind: 'art'
+  src: string
+  locked: true
+  visible: boolean
+}
+
+export type DesignLayer = PaintLayer | GraphicLayer | TextLayer | ArtLayer
+
+export type StructuralParams = {
+  neck?: NeckId
+}
+
+export type DesignDocument = {
+  garmentId: GarmentId
+  garmentVersion: number
+  structural: StructuralParams
+  overrides: MaterialOverride[]
+  layers: DesignLayer[]
+}
+
+const PANEL_ID_SET = new Set<string>(PANEL_IDS)
+const LAYER_KIND_SET = new Set<string>(LAYER_KINDS)
+const STROKE_TOOL_SET = new Set<string>(STROKE_TOOLS)
+const TEXT_FACE_SET = new Set<string>(TEXT_FACES)
+const NECK_ID_SET = new Set<string>(NECK_IDS)
+
+export function createObjectId({ prefix }: { prefix: string }) {
+  const entropy =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+
+  return `${prefix}-${entropy}`
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object'
+}
+
+function asString({ value, fallback = '' }: { value: unknown; fallback?: string }) {
+  return typeof value === 'string' ? value : fallback
+}
+
+function asNumber({
+  value,
+  fallback,
+}: {
+  value: unknown
+  fallback: number
+}) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function asBoolean({
+  value,
+  fallback,
+}: {
+  value: unknown
+  fallback: boolean
+}) {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function parsePanelId({ value }: { value: unknown }): PanelId {
+  return PANEL_ID_SET.has(asString({ value })) ? (value as PanelId) : 'front'
+}
+
+function parseStrokePoint({ value }: { value: unknown }): StrokePoint | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const x = asNumber({ value: value.x, fallback: Number.NaN })
+  const y = asNumber({ value: value.y, fallback: Number.NaN })
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null
+  }
+
+  const point: StrokePoint = { x, y }
+  const pressure = asNumber({ value: value.p, fallback: Number.NaN })
+
+  if (Number.isFinite(pressure)) {
+    point.p = pressure
+  }
+
+  return point
+}
+
+function parseStroke({ value }: { value: unknown }): Stroke | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const id = asString({ value: value.id }).trim()
+  const color = asString({ value: value.color }).trim()
+  const tool = asString({ value: value.tool })
+
+  if (!id || !color || !Array.isArray(value.points)) {
+    return null
+  }
+
+  const points = value.points
+    .map((point) => parseStrokePoint({ value: point }))
+    .filter((point): point is StrokePoint => point !== null)
+
+  return {
+    id,
+    panel: parsePanelId({ value: value.panel }),
+    points,
+    color,
+    width: Math.max(0.002, asNumber({ value: value.width, fallback: 0.02 })),
+    tool: STROKE_TOOL_SET.has(tool) ? (tool as StrokeTool) : 'brush',
+  }
+}
+
+function parsePaintLayer({
+  record,
+  id,
+}: {
+  record: Record<string, unknown>
+  id: string
+}): PaintLayer {
+  const strokes = Array.isArray(record.strokes)
+    ? record.strokes
+        .map((value) => parseStroke({ value }))
+        .filter((stroke): stroke is Stroke => stroke !== null)
+    : []
+
+  return {
+    id,
+    kind: 'paint',
+    visible: asBoolean({ value: record.visible, fallback: true }),
+    strokes,
+  }
+}
+
+function parseGraphicLayer({
+  record,
+  id,
+}: {
+  record: Record<string, unknown>
+  id: string
+}): GraphicLayer | null {
+  const src = asString({ value: record.src }).trim()
+
+  if (!isSafeLayerSrc({ src })) {
+    return null
+  }
+
+  return {
+    id,
+    kind: 'graphic',
+    panel: parsePanelId({ value: record.panel }),
+    src,
+    x: asNumber({ value: record.x, fallback: 0.5 }),
+    y: asNumber({ value: record.y, fallback: 0.5 }),
+    scale: asNumber({ value: record.scale, fallback: 0.32 }),
+    rotation: asNumber({ value: record.rotation, fallback: 0 }),
+    visible: asBoolean({ value: record.visible, fallback: true }),
+  }
+}
+
+function parseTextLayer({
+  record,
+  id,
+}: {
+  record: Record<string, unknown>
+  id: string
+}): TextLayer | null {
+  const content = asString({ value: record.content })
+  const face = asString({ value: record.face, fallback: 'display' })
+
+  return {
+    id,
+    kind: 'text',
+    panel: parsePanelId({ value: record.panel }),
+    content,
+    face: TEXT_FACE_SET.has(face) ? (face as TextFace) : 'display',
+    color: asString({ value: record.color, fallback: '#1a1c22' }),
+    x: asNumber({ value: record.x, fallback: 0.5 }),
+    y: asNumber({ value: record.y, fallback: 0.42 }),
+    scale: asNumber({ value: record.scale, fallback: 0.12 }),
+    rotation: asNumber({ value: record.rotation, fallback: 0 }),
+    visible: asBoolean({ value: record.visible, fallback: true }),
+  }
+}
+
+function parseArtLayer({
+  record,
+  id,
+}: {
+  record: Record<string, unknown>
+  id: string
+}): ArtLayer | null {
+  const src = sanitizeArtMap({ artMap: asString({ value: record.src }).trim() })
+
+  if (!src) {
+    return null
+  }
+
+  return {
+    id,
+    kind: 'art',
+    src,
+    locked: true,
+    visible: asBoolean({ value: record.visible, fallback: true }),
+  }
+}
+
+export function parseLayer({ value }: { value: unknown }): DesignLayer | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const kind = asString({ value: value.kind })
+  const id = asString({ value: value.id }).trim()
+
+  if (!id || !LAYER_KIND_SET.has(kind)) {
+    return null
+  }
+
+  if (kind === 'paint') {
+    return parsePaintLayer({ record: value, id })
+  }
+
+  if (kind === 'graphic') {
+    return parseGraphicLayer({ record: value, id })
+  }
+
+  if (kind === 'text') {
+    return parseTextLayer({ record: value, id })
+  }
+
+  return parseArtLayer({ record: value, id })
+}
+
+export function parseStructural({
+  value,
+}: {
+  value: unknown
+}): StructuralParams {
+  if (!isRecord(value)) {
+    return {}
+  }
+
+  const neck = asString({ value: value.neck })
+
+  if (NECK_ID_SET.has(neck)) {
+    return { neck: neck as NeckId }
+  }
+
+  return {}
+}
+
+export function createEmptyPaintLayer(): PaintLayer {
+  return {
+    id: createObjectId({ prefix: 'paint' }),
+    kind: 'paint',
+    visible: true,
+    strokes: [],
+  }
+}
+
+export function createEmptyDocument({
+  garmentId,
+}: {
+  garmentId?: string | null
+} = {}): DesignDocument {
+  return {
+    garmentId: resolveGarmentId({ garmentId }),
+    garmentVersion: 1,
+    structural: {},
+    overrides: [],
+    layers: [createEmptyPaintLayer()],
+  }
+}
+
+export function cloneDocument({
+  document,
+}: {
+  document: DesignDocument
+}): DesignDocument {
+  return structuredClone(document)
+}
+
+export function parseDocument({
+  value,
+}: {
+  value: unknown
+}): DesignDocument | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const layers = Array.isArray(value.layers)
+    ? value.layers
+        .map((layer) => parseLayer({ value: layer }))
+        .filter((layer): layer is DesignLayer => layer !== null)
+    : []
+
+  const overrides = Array.isArray(value.overrides)
+    ? value.overrides.filter((override): override is MaterialOverride => {
+        return isRecord(override) && typeof override.meshName === 'string'
+      })
+    : []
+
+  return {
+    garmentId: resolveGarmentId({
+      garmentId:
+        typeof value.garmentId === 'string' ? value.garmentId : undefined,
+    }),
+    garmentVersion: Math.max(
+      1,
+      Math.floor(asNumber({ value: value.garmentVersion, fallback: 1 })),
+    ),
+    structural: parseStructural({ value: value.structural }),
+    overrides: overrides.map((override) => ({ ...override })),
+    layers: layers.length > 0 ? layers : [createEmptyPaintLayer()],
+  }
+}
+
+export function documentFromDesign({
+  design,
+}: {
+  design: Pick<Design, 'garmentId' | 'overrides' | 'artMap' | 'structural'>
+}): DesignDocument {
+  const document = createEmptyDocument({ garmentId: design.garmentId })
+  document.overrides = design.overrides.map((override) => ({ ...override }))
+  document.structural = parseStructural({ value: design.structural })
+
+  const artMap = design.artMap
+    ? sanitizeArtMap({ artMap: design.artMap })
+    : ''
+
+  if (artMap) {
+    document.layers.unshift({
+      id: createObjectId({ prefix: 'art' }),
+      kind: 'art',
+      src: artMap,
+      locked: true,
+      visible: true,
+    })
+  }
+
+  return document
+}
+
+export function documentHasInk({
+  document,
+}: {
+  document: DesignDocument
+}) {
+  return document.layers.some((layer) => {
+    if (!layer.visible) {
+      return false
+    }
+
+    if (layer.kind === 'paint') {
+      return layer.strokes.length > 0
+    }
+
+    if (layer.kind === 'text') {
+      return layer.content.trim().length > 0
+    }
+
+    return layer.kind === 'graphic' || layer.kind === 'art'
+  })
+}
+
+export function activePaintLayer({
+  document,
+}: {
+  document: DesignDocument
+}): PaintLayer {
+  const found = document.layers.find(
+    (layer): layer is PaintLayer => layer.kind === 'paint' && layer.visible,
+  )
+
+  if (found) {
+    return found
+  }
+
+  const created = createEmptyPaintLayer()
+  document.layers.push(created)
+  return created
+}

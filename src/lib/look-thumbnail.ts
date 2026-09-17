@@ -1,4 +1,6 @@
 export const MAX_THUMBNAIL_CHARS = 180_000
+export const MAX_ART_MAP_CHARS = 180_000
+export const MAX_LAYER_SRC_CHARS = 1_500_000
 
 const SAFE_DATA_IMAGE = /^data:image\/(?:jpeg|jpg|png|webp|gif);/i
 const SAFE_STILL_PATH = /^\/stills\/[A-Za-z0-9._-]+\.(?:png|jpe?g|webp|gif)$/i
@@ -12,6 +14,16 @@ export function isSafeStillPath({
   return SAFE_STILL_PATH.test(thumbnailDataUrl)
 }
 
+export function isSafeDataImage({
+  dataUrl,
+  maxChars,
+}: {
+  dataUrl: string
+  maxChars: number
+}) {
+  return Boolean(dataUrl) && dataUrl.length <= maxChars && SAFE_DATA_IMAGE.test(dataUrl)
+}
+
 export function isSafeThumbnail({
   thumbnailDataUrl,
 }: {
@@ -22,9 +34,25 @@ export function isSafeThumbnail({
   }
 
   return (
-    SAFE_DATA_IMAGE.test(thumbnailDataUrl) ||
+    isSafeDataImage({ dataUrl: thumbnailDataUrl, maxChars: MAX_THUMBNAIL_CHARS }) ||
     isSafeStillPath({ thumbnailDataUrl })
   )
+}
+
+export function isSafeLayerSrc({
+  src,
+  maxChars = MAX_LAYER_SRC_CHARS,
+}: {
+  src: string
+  maxChars?: number
+}) {
+  return isSafeDataImage({ dataUrl: src, maxChars })
+}
+
+export function sanitizeArtMap({ artMap }: { artMap: string }) {
+  return isSafeDataImage({ dataUrl: artMap, maxChars: MAX_ART_MAP_CHARS })
+    ? artMap
+    : ''
 }
 
 export function stillImageType({
