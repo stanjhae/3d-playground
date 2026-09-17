@@ -31,9 +31,10 @@ import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { garmentSrc } from '../../lib/garment-parts'
+import { applyLayerEdit } from '../../lib/layer-hit'
 import { useLayerImages } from '../../lib/layer-images'
 import { rasterizeLayers } from '../../lib/paint-atlas'
-import { createTeeMesh } from '../../lib/tee-geometry'
+import { createClothingMesh } from '../../lib/tee-geometry'
 import { SelectableMesh } from './SelectableMesh'
 
 const DRACO_DECODER_PATH = '/draco/'
@@ -141,12 +142,14 @@ function useInkDocument({
   overrides,
   picking,
   artMap,
+  structural,
   document: documentProp,
 }: {
   garmentId?: GarmentId | null
   overrides: MaterialOverride[]
   picking: boolean
   artMap?: string
+  structural?: DesignDocument['structural']
   document?: DesignDocument
 }) {
   const storeDocument = useEditorStore((state) => state.document)
@@ -156,12 +159,13 @@ function useInkDocument({
       return documentProp
     }
 
-    if (artMap) {
+    if (artMap || structural) {
       return documentFromDesign({
         design: {
           garmentId: garmentId ?? undefined,
           overrides,
           artMap,
+          structural,
         },
       })
     }
@@ -169,7 +173,15 @@ function useInkDocument({
     return picking
       ? storeDocument
       : createEmptyDocument({ garmentId })
-  }, [artMap, documentProp, garmentId, overrides, picking, storeDocument])
+  }, [
+    artMap,
+    documentProp,
+    garmentId,
+    overrides,
+    picking,
+    storeDocument,
+    structural,
+  ])
 }
 
 export function Garment({
@@ -178,6 +190,7 @@ export function Garment({
   overrides: overridesProp,
   picking = true,
   artMap,
+  structural,
   document: documentProp,
 }: {
   src?: string
@@ -185,6 +198,7 @@ export function Garment({
   overrides?: MaterialOverride[]
   picking?: boolean
   artMap?: string
+  structural?: DesignDocument['structural']
   document?: DesignDocument
 }) {
   const storeOverrides = useEditorStore((state) => state.overrides)
@@ -194,13 +208,14 @@ export function Garment({
     overrides,
     picking,
     artMap,
+    structural,
     document: documentProp,
   })
   const resolvedId = resolveGarmentId({ garmentId })
 
   if (resolvedId === 'tee') {
     return (
-      <TeeGarment
+      <HouseFormGarment
         inkDocument={inkDocument}
         overrides={overrides}
         picking={picking}
@@ -224,7 +239,7 @@ export function Garment({
   )
 }
 
-function TeeGarment({
+function HouseFormGarment({
   inkDocument,
   overrides,
   picking,
@@ -234,10 +249,9 @@ function TeeGarment({
   picking: boolean
 }) {
   const scene = useMemo(() => {
-    const mesh = createTeeMesh({
+    return createClothingMesh({
       neck: inkDocument.structural.neck ?? 'crew',
     })
-    return mesh
   }, [inkDocument.structural.neck])
 
   return (
@@ -285,6 +299,7 @@ function SeatedForm({
   picking: boolean
 }) {
   const activeStroke = useEditorStore((state) => state.activeStroke)
+  const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
   const loadedMaps = useTexture(FABRIC_MAP_SRC)
   const lerpClock = useRef(1)
   const atlasRef = useRef<CanvasTexture | null>(null)
@@ -338,7 +353,10 @@ function SeatedForm({
 
     const texture = atlasRef.current
     const buffer = rasterizeLayers({
-      document: inkDocument,
+      document: applyLayerEdit({
+        document: inkDocument,
+        edit: picking ? activeLayerEdit : null,
+      }),
       extraStroke: picking ? activeStroke : null,
       images: layerImages,
     })
@@ -363,7 +381,7 @@ function SeatedForm({
       meshes,
       inkMap: hasInk ? texture : null,
     })
-  }, [activeStroke, inkDocument, layerImages, meshes, picking])
+  }, [activeLayerEdit, activeStroke, inkDocument, layerImages, meshes, picking])
 
   useFrame((_, delta) => {
     if (!picking || lerpClock.current >= 1) {

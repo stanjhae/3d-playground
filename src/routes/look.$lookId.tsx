@@ -98,6 +98,7 @@ function LookPage() {
           garmentId={look.garmentId}
           overrides={look.overrides}
           artMap={look.artMap}
+          structural={look.structural}
         />
       ) : (
         <div className="flex h-full items-center justify-center px-6">

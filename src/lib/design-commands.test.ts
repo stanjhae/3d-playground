@@ -84,6 +84,48 @@ describe('design commands', () => {
     expect(redoCommand({ stack })).toBe(stack)
   })
 
+  test('a mark can move as one undo', () => {
+    let stack = createCommandStack({
+      document: createEmptyDocument({ garmentId: 'tee' }),
+    })
+    const layerId = createObjectId({ prefix: 'word' })
+    stack = applyCommand({
+      stack,
+      command: {
+        type: 'addText',
+        layer: {
+          id: layerId,
+          kind: 'text',
+          panel: 'front',
+          content: 'FLV',
+          face: 'display',
+          color: '#1a1c22',
+          x: 0.5,
+          y: 0.4,
+          scale: 0.12,
+          rotation: 0,
+          visible: true,
+        },
+      },
+    })
+    stack = applyCommand({
+      stack,
+      command: {
+        type: 'updateLayer',
+        layerId,
+        patch: { x: 0.3, y: 0.55, scale: 0.2, rotation: 0.2 },
+      },
+    })
+
+    const moved = stack.document.layers.find((layer) => layer.id === layerId)
+    expect(moved && moved.kind === 'text' ? moved.x : null).toBe(0.3)
+    expect(moved && moved.kind === 'text' ? moved.scale : null).toBe(0.2)
+
+    stack = undoCommand({ stack })
+    const restored = stack.document.layers.find((layer) => layer.id === layerId)
+    expect(restored && restored.kind === 'text' ? restored.x : null).toBe(0.5)
+  })
+
   test('cloth apply is a command', () => {
     let stack = createCommandStack({
       document: createEmptyDocument({ garmentId: 'tee' }),

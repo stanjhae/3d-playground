@@ -7,8 +7,19 @@ import {
   type GraphicLayer,
   type Stroke,
   type StructuralParams,
+  type TextFace,
   type TextLayer,
 } from './design-document'
+
+export type LayerPatch = {
+  x?: number
+  y?: number
+  scale?: number
+  rotation?: number
+  visible?: boolean
+  content?: string
+  face?: TextFace
+}
 import type { MaterialOverride } from './design-schema'
 
 export type DesignCommand =
@@ -19,6 +30,11 @@ export type DesignCommand =
   | { type: 'removeLayer'; layerId: string }
   | { type: 'addText'; layer: TextLayer }
   | { type: 'updateText'; layerId: string; content: string }
+  | {
+      type: 'updateLayer'
+      layerId: string
+      patch: LayerPatch
+    }
   | { type: 'setStructural'; structural: StructuralParams }
   | { type: 'applyFabric'; override: MaterialOverride }
 
@@ -91,6 +107,51 @@ function applyToDocument({
     for (const layer of next.layers) {
       if (layer.kind === 'text' && layer.id === command.layerId) {
         layer.content = command.content
+      }
+    }
+    return next
+  }
+
+  if (command.type === 'updateLayer') {
+    for (const layer of next.layers) {
+      if (layer.id !== command.layerId) {
+        continue
+      }
+
+      if (layer.kind === 'graphic' || layer.kind === 'text') {
+        if (command.patch.x !== undefined) {
+          layer.x = command.patch.x
+        }
+
+        if (command.patch.y !== undefined) {
+          layer.y = command.patch.y
+        }
+
+        if (command.patch.scale !== undefined) {
+          layer.scale = command.patch.scale
+        }
+
+        if (command.patch.rotation !== undefined) {
+          layer.rotation = command.patch.rotation
+        }
+
+        if (command.patch.visible !== undefined) {
+          layer.visible = command.patch.visible
+        }
+      }
+
+      if (layer.kind === 'text') {
+        if (command.patch.content !== undefined) {
+          layer.content = command.patch.content
+        }
+
+        if (command.patch.face !== undefined) {
+          layer.face = command.patch.face
+        }
+      }
+
+      if (layer.kind === 'paint' && command.patch.visible !== undefined) {
+        layer.visible = command.patch.visible
       }
     }
     return next

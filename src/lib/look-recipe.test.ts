@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { createEmptyDesign } from './design-schema'
-import { lookRecipe, lookShareLine } from './look-recipe'
+import { lookRecipe, lookShareLine, pickSoonLooks } from './look-recipe'
 
 describe('lookRecipe', () => {
   test('names only cloth that lives on the form', () => {
@@ -119,8 +119,9 @@ describe('lookRecipe', () => {
           artMap: 'data:image/png;base64,abc',
         },
       }),
-    ).toBe('Tee · Silk · Ink')
+      ).toBe('Tee · Silk · Ink')
   })
+
 
   test('is the form alone when no cloth is applied', () => {
     expect(
@@ -128,6 +129,43 @@ describe('lookRecipe', () => {
         design: createEmptyDesign({ id: 'look-plain' }),
       }),
     ).toBe('Gown')
+  })
+})
+
+describe('pickSoonLooks', () => {
+  test('keeps the house leader, then fills with painted looks', () => {
+    const painted = {
+      ...createEmptyDesign({ id: 'look-ink' }),
+      garmentId: 'tee' as const,
+      title: 'Ink 01',
+      votes: 1,
+      artMap: 'data:image/png;base64,abc',
+    }
+    const paintedTwo = {
+      ...createEmptyDesign({ id: 'look-ink-2' }),
+      garmentId: 'tee' as const,
+      title: 'Ink 02',
+      votes: 2,
+      artMap: 'data:image/png;base64,def',
+    }
+    const paintedThree = {
+      ...createEmptyDesign({ id: 'look-ink-3' }),
+      garmentId: 'tee' as const,
+      title: 'Ink 03',
+      votes: 3,
+      artMap: 'data:image/png;base64,ghi',
+    }
+    const gown = {
+      ...createEmptyDesign({ id: 'look-gown' }),
+      title: 'Silk 01',
+      votes: 8,
+    }
+
+    expect(
+      pickSoonLooks({
+        designs: [painted, paintedTwo, paintedThree, gown],
+      }).map((look) => look.id),
+    ).toEqual(['look-gown', 'look-ink-3', 'look-ink-2'])
   })
 })
 

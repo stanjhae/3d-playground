@@ -34,6 +34,12 @@ export const HOUSE_COPY = {
   inkTooHeavy: 'The mark is too heavy for the board.',
   artworkHeavy: 'That artwork is too heavy.',
   soonLead: 'Create a look. Show it. See if it leads.',
+  onTheCloth: 'On the cloth',
+  hideLayer: 'Hide',
+  showLayer: 'Show',
+  dismissLayer: 'Dismiss',
+  displayFace: 'Display',
+  sansFace: 'Sans',
 } as const
 
 export const GOWN_CREDIT_HREF =

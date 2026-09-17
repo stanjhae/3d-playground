@@ -7,6 +7,7 @@ import {
   lookSheetBodyClass,
   lookSheetFrameClass,
   nextClothOpen,
+  studioPhoneRailClass,
 } from './studio-chrome'
 
 describe('nextClothOpen', () => {
@@ -77,5 +78,13 @@ describe('look sheet chrome', () => {
 
   test('keeps a stable id for the cloth list', () => {
     expect(CLOTH_LIST_ID).toBe('cloth-list')
+  })
+})
+
+describe('studioPhoneRailClass', () => {
+  test('keeps one scrollable rail on a phone and splits on desktop', () => {
+    expect(studioPhoneRailClass()).toContain('max-h-[36vh]')
+    expect(studioPhoneRailClass()).toContain('overflow-y-auto')
+    expect(studioPhoneRailClass()).toContain('lg:contents')
   })
 })

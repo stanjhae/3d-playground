@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest'
 
-import { garmentParts, garmentSrc, partLabel } from './garment-parts'
+import { documentFromDesign } from './design-document'
+import {
+  garmentCanPaint,
+  garmentParts,
+  garmentSrc,
+  partLabel,
+} from './garment-parts'
 import { garmentCredit, listRailGarments } from './garments'
 
 describe('garmentParts', () => {
@@ -53,7 +59,7 @@ describe('partLabel', () => {
 })
 
 describe('listRailGarments', () => {
-  test('shows the five house names and hides the jacket', () => {
+  test('shows the house names and hides the jacket', () => {
     expect(listRailGarments().map((garment) => garment.id)).toEqual([
       'gown',
       'tee',
@@ -83,6 +89,14 @@ describe('garmentCredit', () => {
   })
 })
 
+describe('garment paint', () => {
+  test('only the house-authored forms take ink', () => {
+    expect(garmentCanPaint({ garmentId: 'tee' })).toBe(true)
+    expect(garmentCanPaint({ garmentId: 'gown' })).toBe(false)
+    expect(garmentCanPaint({ garmentId: 'slip' })).toBe(false)
+  })
+})
+
 describe('garmentSrc', () => {
   test('maps each form onto its seated file', () => {
     expect(garmentSrc({ garmentId: 'column' })).toBe('/models/garment.glb')
@@ -97,5 +111,23 @@ describe('garmentSrc', () => {
       garmentSrc({ garmentId: 'tee', structural: { neck: 'v' } }),
     ).toBe('/models/tee-v.glb')
     expect(garmentSrc({ garmentId: 'missing' })).toBe('/models/garment.glb')
+  })
+
+  test('a look with a V and no ink still seats a V', () => {
+    const document = documentFromDesign({
+      design: {
+        garmentId: 'tee',
+        overrides: [],
+        structural: { neck: 'v' },
+      },
+    })
+
+    expect(document.structural).toEqual({ neck: 'v' })
+    expect(
+      garmentSrc({
+        garmentId: 'tee',
+        structural: document.structural,
+      }),
+    ).toBe('/models/tee-v.glb')
   })
 })

@@ -60,10 +60,15 @@ export function SelectableMesh({
         }
 
         event.stopPropagation()
+        event.nativeEvent.preventDefault()
         startStroke({
           panel: point.panel,
           point: { x: point.x, y: point.y },
-          pressure: event.nativeEvent.pressure || undefined,
+          pressure:
+            event.nativeEvent.pressure > 0 &&
+            event.nativeEvent.pointerType !== 'mouse'
+              ? event.nativeEvent.pressure
+              : undefined,
         })
       }}
       onPointerMove={(event: ThreeEvent<PointerEvent>) => {
@@ -78,7 +83,15 @@ export function SelectableMesh({
         }
 
         event.stopPropagation()
-        appendStroke({ point: { x: point.x, y: point.y } })
+        event.nativeEvent.preventDefault()
+        appendStroke({
+          point: { x: point.x, y: point.y },
+          pressure:
+            event.nativeEvent.pressure > 0 &&
+            event.nativeEvent.pointerType !== 'mouse'
+              ? event.nativeEvent.pressure
+              : undefined,
+        })
       }}
       onPointerUp={() => {
         if (canPaint) {

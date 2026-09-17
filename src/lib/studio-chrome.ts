@@ -36,3 +36,7 @@ export function lookSheetFrameClass() {
 export function lookSheetBodyClass() {
   return 'pointer-events-auto flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto sm:flex-none sm:gap-4 sm:overflow-visible'
 }
+
+export function studioPhoneRailClass() {
+  return 'pointer-events-auto flex max-h-[36vh] min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-h-none lg:contents lg:overflow-visible lg:px-0 lg:pb-0'
+}

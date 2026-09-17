@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { DualStudio } from '../components/editor/DualStudio'
 import { FabricPanel } from '../components/editor/FabricPanel'
+import { LayerRail } from '../components/editor/LayerRail'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
 import { VersionRail } from '../components/editor/VersionRail'
@@ -20,7 +21,7 @@ import { useEditorStore } from '../lib/editor-store'
 import { garmentCanPaint } from '../lib/garments'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
-import { coverHeaderSpacerClass } from '../lib/studio-chrome'
+import { coverHeaderSpacerClass, studioPhoneRailClass } from '../lib/studio-chrome'
 
 export const Route = createFileRoute('/')({
   validateSearch: (
@@ -159,13 +160,14 @@ function AtelierHome() {
         </div>
         <div className="min-h-0 flex-1 lg:hidden" />
         {mode === 'design' ? (
-          <div className="pointer-events-auto flex shrink-0 flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:contents">
+          <div className={studioPhoneRailClass()}>
             <div className="flex flex-col gap-2 lg:absolute lg:top-24 lg:right-6 lg:w-72">
               <FabricPanel />
               {garmentCanPaint({ garmentId }) ? (
                 <>
                   <PaintToolbar />
                   <StructureRail />
+                  <LayerRail />
                   <VersionRail />
                 </>
               ) : null}

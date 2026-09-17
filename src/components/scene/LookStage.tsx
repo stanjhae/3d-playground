@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 
+import type { DesignDocument } from '../../lib/design-document'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
 import { FashionLoader } from './FashionLoader'
 import { Garment } from './Garment'
@@ -10,10 +11,12 @@ export function LookStage({
   overrides,
   garmentId,
   artMap,
+  structural,
 }: {
   overrides: MaterialOverride[]
   garmentId?: GarmentId
   artMap?: string
+  structural?: DesignDocument['structural']
 }) {
   return (
     <div className="relative h-full min-h-80 w-full">
@@ -34,6 +37,7 @@ export function LookStage({
               garmentId={garmentId}
               overrides={overrides}
               artMap={artMap}
+              structural={structural}
               picking={false}
             />
           </Suspense>
