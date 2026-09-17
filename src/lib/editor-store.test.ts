@@ -188,6 +188,75 @@ describe('useEditorStore', () => {
       'image/png',
     )
     expect(useEditorStore.getState().lookSerial).toBe(2)
+    expect(
+      useEditorStore.getState().snapshots.some(
+        (snapshot) => snapshot.title === 'Ivory Silk 01',
+      ),
+    ).toBe(true)
+  })
+
+  test('entered looks keep a morning on this house', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().rememberMorning({ title: 'Morning' })
+
+    for (let index = 0; index < 6; index += 1) {
+      useEditorStore.getState().rememberEnteredLook({
+        title: `Look ${index}`,
+        document: useEditorStore.getState().document,
+        still: '/stills/look-house-ink.png',
+        lookId: `look-${index}`,
+      })
+    }
+
+    const snapshots = useEditorStore.getState().snapshots
+    expect(snapshots.some((snapshot) => snapshot.title === 'Morning')).toBe(
+      true,
+    )
+    expect(
+      snapshots.filter((snapshot) => snapshot.kind === 'entered'),
+    ).toHaveLength(4)
+  })
+
+  test('publishLook still finishes when the shelf will not keep a still', () => {
+    const memory: Record<string, string> = {}
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem(key: string) {
+          return memory[key] ?? null
+        },
+        setItem() {
+          throw new Error('quota')
+        },
+        removeItem(key: string) {
+          delete memory[key]
+        },
+        clear() {
+          for (const key of Object.keys(memory)) {
+            delete memory[key]
+          }
+        },
+        key: () => null,
+        length: 0,
+      } satisfies Storage,
+    })
+
+    expect(() => {
+      useEditorStore.getState().publishLook({
+        design: {
+          title: 'Silk 02',
+          author: 'Guest',
+          thumbnailDataUrl: `data:image/png;base64,${'a'.repeat(200)}`,
+          overrides: [],
+        },
+      })
+    }).not.toThrow()
+    expect(useEditorStore.getState().title).toBe('Silk 02')
+    expect(useEditorStore.getState().lastPublished?.title).toBe('Silk 02')
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: undefined,
+    })
   })
 
   test('switching garments shelves the ink and restore clears undo', () => {
@@ -407,5 +476,35 @@ describe('useEditorStore', () => {
     expect(
       restored && restored.kind === 'paint' ? restored.strokes : [],
     ).toHaveLength(2)
+  })
+
+  test('crop keeps the word and a stripe can sit on the cloth', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().addText({
+      content: 'HOUSE',
+      x: 0.5,
+      y: 0.42,
+    })
+    useEditorStore.getState().addPattern({ patternId: 'check' })
+    useEditorStore.getState().setStructural({
+      structural: { neck: 'v', hem: 'crop', sleeve: 'long' },
+    })
+
+    const word = useEditorStore
+      .getState()
+      .document.layers.find((layer) => layer.kind === 'text')
+    const print = useEditorStore
+      .getState()
+      .document.layers.find((layer) => layer.kind === 'pattern')
+
+    expect(word && word.kind === 'text' ? word.content : null).toBe('HOUSE')
+    expect(print && print.kind === 'pattern' ? print.patternId : null).toBe(
+      'check',
+    )
+    expect(useEditorStore.getState().document.structural).toEqual({
+      neck: 'v',
+      hem: 'crop',
+      sleeve: 'long',
+    })
   })
 })

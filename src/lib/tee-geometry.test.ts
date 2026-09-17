@@ -1,7 +1,8 @@
 import { BoxGeometry, Mesh } from 'three'
 import { describe, expect, test } from 'vitest'
 
-import { createTeeMesh, isHouseForm } from './tee-geometry'
+import { uvToPanelPoint } from './panel-uv'
+import { TORSO_V0, createTeeMesh, isHouseForm } from './tee-geometry'
 
 function bodyMesh({
   group,
@@ -103,6 +104,100 @@ describe('createTeeMesh', () => {
     }
 
     expect(veeFront).toBeLessThan(crewFront - 0.02)
+  })
+
+  test('crop shortens the hem and long sleeve reaches further', () => {
+    const longHem = createTeeMesh({ hem: 'long', sleeve: 'short' })
+    const crop = createTeeMesh({ hem: 'crop', sleeve: 'long' })
+    const longBody = bodyMesh({ group: longHem })
+    const cropBody = bodyMesh({ group: crop })
+
+    if (!(longBody instanceof Mesh) || !(cropBody instanceof Mesh)) {
+      throw new Error('missing body')
+    }
+
+    let longMin = Number.POSITIVE_INFINITY
+    let cropMin = Number.POSITIVE_INFINITY
+    const longPos = longBody.geometry.attributes.position
+    const cropPos = cropBody.geometry.attributes.position
+
+    for (let index = 0; index < longPos.count; index += 1) {
+      longMin = Math.min(longMin, longPos.getY(index))
+    }
+
+    for (let index = 0; index < cropPos.count; index += 1) {
+      cropMin = Math.min(cropMin, cropPos.getY(index))
+    }
+
+    expect(cropMin).toBeGreaterThan(longMin + 0.2)
+
+    const shortSleeve = longHem.children.find(
+      (child) => child.name === 'body-sleeve-left' && child instanceof Mesh,
+    )
+    const longSleeve = crop.children.find(
+      (child) => child.name === 'body-sleeve-left' && child instanceof Mesh,
+    )
+
+    if (!(shortSleeve instanceof Mesh) || !(longSleeve instanceof Mesh)) {
+      throw new Error('missing sleeve')
+    }
+
+    let shortReach = 0
+    let longReach = 0
+    const shortPos = shortSleeve.geometry.attributes.position
+    const longPosSleeve = longSleeve.geometry.attributes.position
+
+    for (let index = 0; index < shortPos.count; index += 1) {
+      shortReach = Math.max(shortReach, Math.abs(shortPos.getX(index)))
+    }
+
+    for (let index = 0; index < longPosSleeve.count; index += 1) {
+      longReach = Math.max(longReach, Math.abs(longPosSleeve.getX(index)))
+    }
+
+    expect(longReach).toBeGreaterThan(shortReach + 0.08)
+  })
+
+  test('a sleeve hit is not a chest hit', () => {
+    const tee = createTeeMesh({ sleeve: 'short' })
+    const sleeve = tee.children.find(
+      (child) => child.name === 'body-sleeve-left' && child instanceof Mesh,
+    )
+    const body = bodyMesh({ group: tee })
+
+    if (!(sleeve instanceof Mesh) || !(body instanceof Mesh)) {
+      throw new Error('missing cloth')
+    }
+
+    const sleeveUv = sleeve.geometry.attributes.uv
+    const bodyUv = body.geometry.attributes.uv
+    let sleeveHits = 0
+    let bodyHits = 0
+
+    for (let index = 0; index < sleeveUv.count; index += 1) {
+      const hit = uvToPanelPoint({
+        u: sleeveUv.getX(index),
+        v: sleeveUv.getY(index),
+      })
+
+      expect(sleeveUv.getY(index)).toBeLessThanOrEqual(TORSO_V0 + 1e-6)
+      expect(hit?.panel).toBe('sleeve')
+      sleeveHits += 1
+    }
+
+    for (let index = 0; index < bodyUv.count; index += 1) {
+      const hit = uvToPanelPoint({
+        u: bodyUv.getX(index),
+        v: bodyUv.getY(index),
+      })
+
+      expect(bodyUv.getY(index)).toBeGreaterThanOrEqual(TORSO_V0 - 1e-6)
+      expect(hit?.panel).not.toBe('sleeve')
+      bodyHits += 1
+    }
+
+    expect(sleeveHits).toBeGreaterThan(20)
+    expect(bodyHits).toBeGreaterThan(40)
   })
 })
 

@@ -20,6 +20,7 @@ export function PaintToolbar() {
   const redoLast = useEditorStore((state) => state.redoLast)
   const clearInk = useEditorStore((state) => state.clearInk)
   const addGraphic = useEditorStore((state) => state.addGraphic)
+  const addPattern = useEditorStore((state) => state.addPattern)
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
   const typeDraft = useEditorStore((state) => state.typeDraft)
@@ -188,6 +189,24 @@ export function PaintToolbar() {
             className="min-h-11 min-w-0 flex-1 border border-atelier-line bg-atelier px-3 text-ivory"
           />
         </label>
+        <button
+          type="button"
+          onClick={() => {
+            addPattern({ patternId: 'stripe' })
+          }}
+          className="min-h-11 border border-atelier-line px-3 font-display text-xs tracking-[0.16em] text-ivory uppercase hover:text-brass"
+        >
+          {HOUSE_COPY.stripe}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            addPattern({ patternId: 'check' })
+          }}
+          className="min-h-11 border border-atelier-line px-3 font-display text-xs tracking-[0.16em] text-ivory uppercase hover:text-brass"
+        >
+          {HOUSE_COPY.check}
+        </button>
         <button
           type="button"
           onClick={() => {

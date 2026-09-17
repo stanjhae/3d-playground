@@ -1,4 +1,10 @@
-import type { NeckId, PanelId, StructuralParams } from './design-document.ts'
+import type {
+  HemId,
+  NeckId,
+  PanelId,
+  SleeveId,
+  StructuralParams,
+} from './design-document.ts'
 import type { GarmentId } from './design-schema.ts'
 import { resolveGarmentId } from './design-schema.ts'
 import {
@@ -31,10 +37,12 @@ export type GarmentPanel = {
   label: string
 }
 
+export type StructuralFieldId = 'neck' | 'hem' | 'sleeve'
+
 export type StructuralField = {
-  id: 'neck'
+  id: StructuralFieldId
   label: string
-  options: readonly { id: NeckId; label: string }[]
+  options: readonly { id: NeckId | HemId | SleeveId; label: string }[]
 }
 
 export type GarmentEntry = {
@@ -79,8 +87,9 @@ function partsNamed({
 }
 
 const TEE_PANELS: readonly GarmentPanel[] = [
-  { id: 'front', label: 'Front' },
-  { id: 'back', label: 'Back' },
+  { id: 'front', label: HOUSE_COPY.front },
+  { id: 'back', label: HOUSE_COPY.back },
+  { id: 'sleeve', label: HOUSE_COPY.sleeve },
 ]
 
 const TEE_STRUCTURE: readonly StructuralField[] = [
@@ -90,6 +99,22 @@ const TEE_STRUCTURE: readonly StructuralField[] = [
     options: [
       { id: 'crew', label: 'Crew' },
       { id: 'v', label: 'V' },
+    ],
+  },
+  {
+    id: 'hem',
+    label: 'Hem',
+    options: [
+      { id: 'crop', label: HOUSE_COPY.cropHem },
+      { id: 'long', label: HOUSE_COPY.longHem },
+    ],
+  },
+  {
+    id: 'sleeve',
+    label: HOUSE_COPY.sleeve,
+    options: [
+      { id: 'short', label: HOUSE_COPY.shortSleeve },
+      { id: 'long', label: HOUSE_COPY.longSleeve },
     ],
   },
 ]

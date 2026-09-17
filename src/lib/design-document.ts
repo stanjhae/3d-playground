@@ -6,11 +6,11 @@ import {
 } from './design-schema.ts'
 import { isSafeLayerSrc, sanitizeArtMap } from './look-thumbnail.ts'
 
-export const PANEL_IDS = ['front', 'back'] as const
+export const PANEL_IDS = ['front', 'back', 'sleeve'] as const
 
 export type PanelId = (typeof PANEL_IDS)[number]
 
-export const LAYER_KINDS = ['paint', 'graphic', 'text', 'art'] as const
+export const LAYER_KINDS = ['paint', 'graphic', 'text', 'art', 'pattern'] as const
 
 export type LayerKind = (typeof LAYER_KINDS)[number]
 
@@ -25,6 +25,18 @@ export type TextFace = (typeof TEXT_FACES)[number]
 export const NECK_IDS = ['crew', 'v'] as const
 
 export type NeckId = (typeof NECK_IDS)[number]
+
+export const HEM_IDS = ['crop', 'long'] as const
+
+export type HemId = (typeof HEM_IDS)[number]
+
+export const SLEEVE_IDS = ['short', 'long'] as const
+
+export type SleeveId = (typeof SLEEVE_IDS)[number]
+
+export const PATTERN_IDS = ['stripe', 'check'] as const
+
+export type PatternId = (typeof PATTERN_IDS)[number]
 
 export type StrokePoint = {
   x: number
@@ -82,10 +94,30 @@ export type ArtLayer = {
   visible: boolean
 }
 
-export type DesignLayer = PaintLayer | GraphicLayer | TextLayer | ArtLayer
+export type PatternLayer = {
+  id: string
+  kind: 'pattern'
+  patternId: PatternId
+  panel: PanelId
+  color: string
+  x: number
+  y: number
+  scale: number
+  rotation: number
+  visible: boolean
+}
+
+export type DesignLayer =
+  | PaintLayer
+  | GraphicLayer
+  | TextLayer
+  | ArtLayer
+  | PatternLayer
 
 export type StructuralParams = {
   neck?: NeckId
+  hem?: HemId
+  sleeve?: SleeveId
 }
 
 export type DesignDocument = {
@@ -101,6 +133,9 @@ const LAYER_KIND_SET = new Set<string>(LAYER_KINDS)
 const STROKE_TOOL_SET = new Set<string>(STROKE_TOOLS)
 const TEXT_FACE_SET = new Set<string>(TEXT_FACES)
 const NECK_ID_SET = new Set<string>(NECK_IDS)
+const HEM_ID_SET = new Set<string>(HEM_IDS)
+const SLEEVE_ID_SET = new Set<string>(SLEEVE_IDS)
+const PATTERN_ID_SET = new Set<string>(PATTERN_IDS)
 
 export function createObjectId({ prefix }: { prefix: string }) {
   const entropy =
@@ -310,7 +345,38 @@ export function parseLayer({ value }: { value: unknown }): DesignLayer | null {
     return parseTextLayer({ record: value, id })
   }
 
+  if (kind === 'pattern') {
+    return parsePatternLayer({ record: value, id })
+  }
+
   return parseArtLayer({ record: value, id })
+}
+
+function parsePatternLayer({
+  record,
+  id,
+}: {
+  record: Record<string, unknown>
+  id: string
+}): PatternLayer | null {
+  const patternId = asString({ value: record.patternId })
+
+  if (!PATTERN_ID_SET.has(patternId)) {
+    return null
+  }
+
+  return {
+    id,
+    kind: 'pattern',
+    patternId: patternId as PatternId,
+    panel: parsePanelId({ value: record.panel }),
+    color: asString({ value: record.color, fallback: '#1a1c22' }),
+    x: asNumber({ value: record.x, fallback: 0.5 }),
+    y: asNumber({ value: record.y, fallback: 0.5 }),
+    scale: asNumber({ value: record.scale, fallback: 0.42 }),
+    rotation: asNumber({ value: record.rotation, fallback: 0 }),
+    visible: asBoolean({ value: record.visible, fallback: true }),
+  }
 }
 
 export function parseStructural({
@@ -322,13 +388,24 @@ export function parseStructural({
     return {}
   }
 
+  const next: StructuralParams = {}
   const neck = asString({ value: value.neck })
+  const hem = asString({ value: value.hem })
+  const sleeve = asString({ value: value.sleeve })
 
   if (NECK_ID_SET.has(neck)) {
-    return { neck: neck as NeckId }
+    next.neck = neck as NeckId
   }
 
-  return {}
+  if (HEM_ID_SET.has(hem)) {
+    next.hem = hem as HemId
+  }
+
+  if (SLEEVE_ID_SET.has(sleeve)) {
+    next.sleeve = sleeve as SleeveId
+  }
+
+  return next
 }
 
 export function createEmptyPaintLayer(): PaintLayer {
@@ -347,7 +424,7 @@ export function createEmptyDocument({
 } = {}): DesignDocument {
   return {
     garmentId: resolveGarmentId({ garmentId }),
-    garmentVersion: 1,
+    garmentVersion: resolveGarmentId({ garmentId }) === 'tee' ? 2 : 1,
     structural: {},
     overrides: [],
     layers: [createEmptyPaintLayer()],
@@ -442,7 +519,11 @@ export function documentHasInk({
       return layer.content.trim().length > 0
     }
 
-    return layer.kind === 'graphic' || layer.kind === 'art'
+    return (
+      layer.kind === 'graphic' ||
+      layer.kind === 'art' ||
+      layer.kind === 'pattern'
+    )
   })
 }
 

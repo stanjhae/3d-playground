@@ -251,8 +251,14 @@ function HouseFormGarment({
   const scene = useMemo(() => {
     return createClothingMesh({
       neck: inkDocument.structural.neck ?? 'crew',
+      hem: inkDocument.structural.hem ?? 'long',
+      sleeve: inkDocument.structural.sleeve ?? 'short',
     })
-  }, [inkDocument.structural.neck])
+  }, [
+    inkDocument.structural.hem,
+    inkDocument.structural.neck,
+    inkDocument.structural.sleeve,
+  ])
 
   return (
     <SeatedForm

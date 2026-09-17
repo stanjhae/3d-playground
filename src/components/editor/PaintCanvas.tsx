@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { documentHasInk } from '../../lib/design-document'
 import { trackAssumption } from '../../lib/assumption-events'
 import { useEditorStore } from '../../lib/editor-store'
+import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { useLayerImages } from '../../lib/layer-images'
 import {
@@ -16,6 +17,7 @@ import {
   type PlaceableLayer,
 } from '../../lib/layer-hit'
 import { rasterizeLayers } from '../../lib/paint-atlas'
+import { atlasSourceRect } from '../../lib/panel-uv'
 import { cn } from '../../lib/cn'
 
 function panelFromEvent({
@@ -44,7 +46,12 @@ function selectedPlaceable({
 }): PlaceableLayer | null {
   const layer = document.layers.find((entry) => entry.id === selectedLayerId)
 
-  if (!layer || (layer.kind !== 'graphic' && layer.kind !== 'text')) {
+  if (
+    !layer ||
+    (layer.kind !== 'graphic' &&
+      layer.kind !== 'text' &&
+      layer.kind !== 'pattern')
+  ) {
     return null
   }
 
@@ -151,7 +158,9 @@ export function PaintCanvas() {
   const activeStroke = useEditorStore((state) => state.activeStroke)
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
+  const garmentId = useEditorStore((state) => state.garmentId)
   const paintPanel = useEditorStore((state) => state.paintPanel)
+  const panels = garmentPanels({ garmentId })
   const paintTool = useEditorStore((state) => state.paintTool)
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
@@ -212,13 +221,17 @@ export function PaintCanvas() {
     context.fillStyle = '#f3efe6'
     context.fillRect(0, 0, canvas.width, canvas.height)
 
-    const sourceX = paintPanel === 'front' ? 0 : buffer.width / 2
+    const source = atlasSourceRect({
+      panel: paintPanel,
+      width: buffer.width,
+      height: buffer.height,
+    })
     context.drawImage(
       scratch,
-      sourceX,
-      0,
-      buffer.width / 2,
-      buffer.height,
+      source.sourceX,
+      source.sourceY,
+      source.sourceWidth,
+      source.sourceHeight,
       0,
       0,
       canvas.width,
@@ -273,22 +286,22 @@ export function PaintCanvas() {
           {HOUSE_COPY.draw}
         </p>
         <nav className="flex gap-3">
-          {(['front', 'back'] as const).map((panel) => (
+          {panels.map((panel) => (
             <button
-              key={panel}
+              key={panel.id}
               type="button"
               onClick={() => {
-                setPaintPanel({ paintPanel: panel })
+                setPaintPanel({ paintPanel: panel.id })
               }}
               className={cn(
                 'min-h-11 font-display text-xs tracking-[0.16em] uppercase',
                 {
-                  'text-brass': paintPanel === panel,
-                  'text-ivory-muted hover:text-brass': paintPanel !== panel,
+                  'text-brass': paintPanel === panel.id,
+                  'text-ivory-muted hover:text-brass': paintPanel !== panel.id,
                 },
               )}
             >
-              {panel === 'front' ? HOUSE_COPY.front : HOUSE_COPY.back}
+              {panel.label}
             </button>
           ))}
         </nav>

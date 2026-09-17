@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
 import { LookStage } from '../components/scene/LookStage'
+import { documentFromDesign } from '../lib/design-document'
 import { getDesign, voteOnDesign } from '../lib/designs-api'
 import { type Design } from '../lib/design-schema'
+import { useEditorStore } from '../lib/editor-store'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY } from '../lib/house-copy'
 import { lookRecipe } from '../lib/look-recipe'
@@ -46,6 +48,12 @@ function LookPage() {
 
         if (resolved.design) {
           document.title = `${resolved.design.title} — Fashion Leader Vote`
+          useEditorStore.getState().rememberEnteredLook({
+            title: resolved.design.title,
+            document: documentFromDesign({ design: resolved.design }),
+            still: resolved.design.thumbnailDataUrl,
+            lookId: resolved.design.id,
+          })
         }
       })
       .catch(() => {

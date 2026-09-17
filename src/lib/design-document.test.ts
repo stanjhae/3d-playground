@@ -13,7 +13,7 @@ describe('createEmptyDocument', () => {
     const document = createEmptyDocument({ garmentId: 'tee' })
 
     expect(document.garmentId).toBe('tee')
-    expect(document.garmentVersion).toBe(1)
+    expect(document.garmentVersion).toBe(2)
     expect(document.structural).toEqual({})
     expect(document.overrides).toEqual([])
     expect(document.layers).toHaveLength(1)
@@ -42,7 +42,7 @@ describe('parseDocument', () => {
       value: {
         garmentId: 'tee',
         garmentVersion: 2,
-        structural: { neck: 'v', fake: 'no' },
+        structural: { neck: 'v', hem: 'crop', sleeve: 'long', fake: 'no' },
         overrides: [],
         layers: [
           { id: 'paint-1', kind: 'paint', strokes: [{ id: 'ink-1', panel: 'front', points: [{ x: 0.4, y: 0.5 }], color: '#1a1c22', width: 0.03, tool: 'brush' }] },
@@ -52,7 +52,11 @@ describe('parseDocument', () => {
     })
 
     expect(document?.garmentVersion).toBe(2)
-    expect(document?.structural).toEqual({ neck: 'v' })
+    expect(document?.structural).toEqual({
+      neck: 'v',
+      hem: 'crop',
+      sleeve: 'long',
+    })
     expect(document?.layers).toHaveLength(1)
     expect(document?.layers[0]).toMatchObject({
       id: 'paint-1',
@@ -61,6 +65,38 @@ describe('parseDocument', () => {
     if (document?.layers[0]?.kind === 'paint') {
       expect(document.layers[0].strokes[0]?.id).toBe('ink-1')
     }
+  })
+
+  test('keeps a stripe as a pattern layer', () => {
+    const document = parseDocument({
+      value: {
+        garmentId: 'tee',
+        garmentVersion: 2,
+        structural: {},
+        overrides: [],
+        layers: [
+          {
+            id: 'print-1',
+            kind: 'pattern',
+            patternId: 'stripe',
+            panel: 'front',
+            color: '#1a1c22',
+            x: 0.5,
+            y: 0.48,
+            scale: 0.46,
+            rotation: 0,
+            visible: true,
+          },
+        ],
+      },
+    })
+
+    expect(document?.layers[0]).toMatchObject({
+      id: 'print-1',
+      kind: 'pattern',
+      patternId: 'stripe',
+    })
+    expect(documentHasInk({ document: document! })).toBe(true)
   })
 })
 

@@ -122,6 +122,45 @@ describe('lookRecipe', () => {
       ).toBe('Tee · Silk · Ink')
   })
 
+  test('names the cut on a painted house tee', () => {
+    expect(
+      lookRecipe({
+        design: {
+          ...createEmptyDesign({ id: 'look-house-ink' }),
+          garmentId: 'tee',
+          structural: { neck: 'v', hem: 'crop', sleeve: 'long' },
+          overrides: [
+            {
+              meshName: 'body',
+              color: '#f6e7d8',
+              mapId: 'silk-shine',
+            },
+          ],
+          artMap: 'data:image/png;base64,abc',
+        },
+      }),
+    ).toBe('Tee · V · Crop · Long sleeve · Silk · Ink')
+  })
+
+  test('names a long hem without calling the sleeve Short', () => {
+    expect(
+      lookRecipe({
+        design: {
+          ...createEmptyDesign({ id: 'look-long-hem' }),
+          garmentId: 'tee',
+          structural: { hem: 'long', sleeve: 'short' },
+          overrides: [
+            {
+              meshName: 'body',
+              color: '#f6e7d8',
+              mapId: 'silk-shine',
+            },
+          ],
+        },
+      }),
+    ).toBe('Tee · Long hem · Silk')
+  })
+
 
   test('is the form alone when no cloth is applied', () => {
     expect(

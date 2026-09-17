@@ -5,6 +5,7 @@ import {
   type DesignDocument,
   type DesignLayer,
   type GraphicLayer,
+  type PatternLayer,
   type Stroke,
   type StructuralParams,
   type TextFace,
@@ -27,6 +28,7 @@ export type DesignCommand =
   | { type: 'eraseStroke'; strokeId: string }
   | { type: 'clearPaint' }
   | { type: 'addGraphic'; layer: GraphicLayer }
+  | { type: 'addPattern'; layer: PatternLayer }
   | { type: 'removeLayer'; layerId: string }
   | { type: 'addText'; layer: TextLayer }
   | { type: 'updateText'; layerId: string; content: string }
@@ -98,6 +100,11 @@ function applyToDocument({
     return next
   }
 
+  if (command.type === 'addPattern') {
+    next.layers.push({ ...command.layer })
+    return next
+  }
+
   if (command.type === 'addText') {
     next.layers.push({ ...command.layer })
     return next
@@ -118,7 +125,11 @@ function applyToDocument({
         continue
       }
 
-      if (layer.kind === 'graphic' || layer.kind === 'text') {
+      if (
+        layer.kind === 'graphic' ||
+        layer.kind === 'text' ||
+        layer.kind === 'pattern'
+      ) {
         if (command.patch.x !== undefined) {
           layer.x = command.patch.x
         }

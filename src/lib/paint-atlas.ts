@@ -408,6 +408,64 @@ function drawTextMark({
   }
 }
 
+function drawPatternMark({
+  buffer,
+  layer,
+}: {
+  buffer: AtlasBuffer
+  layer: Extract<DesignLayer, { kind: 'pattern' }>
+}) {
+  const tile = 64
+  const source = createAtlasBuffer({ width: tile, height: tile })
+  const { r, g, b, a } = hexToRgb({ color: layer.color })
+  const band = 8
+
+  for (let row = 0; row < tile; row += 1) {
+    for (let column = 0; column < tile; column += 1) {
+      const stripe = Math.floor(row / band) % 2 === 0
+      const check =
+        (Math.floor(column / band) + Math.floor(row / band)) % 2 === 0
+      const fill = layer.patternId === 'check' ? check : stripe
+
+      if (!fill) {
+        continue
+      }
+
+      writePixel({
+        buffer: source,
+        index: (row * tile + column) * 4,
+        r,
+        g,
+        b,
+        a,
+      })
+    }
+  }
+
+  const origin = panelPointToUv({
+    panel: layer.panel,
+    x: layer.x,
+    y: layer.y,
+  })
+  const pixel = atlasPixelForUv({
+    u: origin.u,
+    v: origin.v,
+    width: buffer.width,
+    height: buffer.height,
+  })
+  const size = Math.max(18, Math.round(layer.scale * buffer.width))
+
+  blitBuffer({
+    dest: buffer,
+    source,
+    destX: pixel.column - size / 2,
+    destY: pixel.row - size / 2,
+    destWidth: size,
+    destHeight: size,
+    rotation: layer.rotation,
+  })
+}
+
 function drawGraphicMark({
   buffer,
   layer,
@@ -503,6 +561,10 @@ export function rasterizeLayers({
         layer,
         image: images?.[layer.src],
       })
+    }
+
+    if (layer.kind === 'pattern') {
+      drawPatternMark({ buffer, layer })
     }
   }
 

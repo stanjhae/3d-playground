@@ -4,30 +4,55 @@ import {
   type DesignDocument,
 } from './design-document'
 import { createObjectId } from './design-document'
+import { isSafeThumbnail } from './look-thumbnail'
 
 export const SNAPSHOT_STORAGE_KEY = 'flv:draft:mornings'
+export const MAX_SNAPSHOTS = 8
+export const MAX_MORNINGS = 4
+export const MAX_ENTERED = 4
+
+export type SnapshotKind = 'morning' | 'entered'
 
 export type DesignSnapshot = {
   id: string
   title: string
   createdAt: string
   document: DesignDocument
+  kind: SnapshotKind
+  still?: string
+}
+
+function sanitizeStill({ still }: { still?: string }) {
+  if (!still || !isSafeThumbnail({ thumbnailDataUrl: still })) {
+    return undefined
+  }
+
+  return still
 }
 
 export function createSnapshot({
   title,
   document,
+  kind = 'morning',
+  still,
+  id,
 }: {
   title: string
   document: DesignDocument
+  kind?: SnapshotKind
+  still?: string
+  id?: string
 }): DesignSnapshot {
-  const trimmed = title.trim() || 'Morning'
+  const trimmed = title.trim() || (kind === 'entered' ? 'Look' : 'Morning')
+  const safeStill = sanitizeStill({ still })
 
   return {
-    id: createObjectId({ prefix: 'morning' }),
+    id: id ?? createObjectId({ prefix: kind }),
     title: trimmed.slice(0, 40),
     createdAt: new Date().toISOString(),
     document: cloneDocument({ document }),
+    kind,
+    ...(safeStill ? { still: safeStill } : {}),
   }
 }
 
@@ -61,6 +86,11 @@ export function parseSnapshots({ value }: { value: unknown }): DesignSnapshot[] 
         return null
       }
 
+      const kind = body.kind === 'entered' ? 'entered' : 'morning'
+      const still = sanitizeStill({
+        still: typeof body.still === 'string' ? body.still : undefined,
+      })
+
       return {
         id,
         title,
@@ -69,6 +99,8 @@ export function parseSnapshots({ value }: { value: unknown }): DesignSnapshot[] 
             ? body.createdAt
             : new Date().toISOString(),
         document,
+        kind,
+        ...(still ? { still } : {}),
       }
     })
     .filter((entry): entry is DesignSnapshot => entry !== null)
@@ -84,24 +116,133 @@ export function listSnapshots(): DesignSnapshot[] {
   })
 }
 
+function snapshotsWithoutStill({
+  snapshots,
+}: {
+  snapshots: DesignSnapshot[]
+}): DesignSnapshot[] {
+  return snapshots.map((entry) => {
+    if (!entry.still || entry.still.startsWith('/stills/')) {
+      return entry
+    }
+
+    const { still: _still, ...rest } = entry
+    return rest
+  })
+}
+
+function tryWrite({
+  store,
+  snapshots,
+}: {
+  store: Storage
+  snapshots: DesignSnapshot[]
+}) {
+  store.setItem(
+    SNAPSHOT_STORAGE_KEY,
+    JSON.stringify(snapshots.slice(0, MAX_SNAPSHOTS)),
+  )
+}
+
+export function mergeSnapshots({
+  next,
+  existing,
+}: {
+  next: DesignSnapshot
+  existing: DesignSnapshot[]
+}): DesignSnapshot[] {
+  const without = existing.filter((entry) => entry.id !== next.id)
+  const mornings = without.filter((entry) => entry.kind === 'morning')
+  const entered = without.filter((entry) => entry.kind === 'entered')
+
+  if (next.kind === 'morning') {
+    return [
+      next,
+      ...mornings.slice(0, MAX_MORNINGS - 1),
+      ...entered.slice(0, MAX_ENTERED),
+    ]
+  }
+
+  return [
+    ...mornings.slice(0, MAX_MORNINGS),
+    next,
+    ...entered.slice(0, MAX_ENTERED - 1),
+  ]
+}
+
 export function writeSnapshots({
   snapshots,
 }: {
   snapshots: DesignSnapshot[]
 }) {
-  memoryStore()?.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshots.slice(0, 8)))
+  const store = memoryStore()
+
+  if (!store) {
+    return
+  }
+
+  const capped = snapshots.slice(0, MAX_SNAPSHOTS)
+
+  try {
+    tryWrite({ store, snapshots: capped })
+    return
+  } catch {
+    // The stills from a guest publish can fill the house. Keep the documents.
+  }
+
+  const slim = snapshotsWithoutStill({ snapshots: capped })
+
+  try {
+    tryWrite({ store, snapshots: slim })
+    return
+  } catch {
+    // Keep mornings before we empty the shelf.
+  }
+
+  const mornings = slim
+    .filter((entry) => entry.kind === 'morning')
+    .slice(0, MAX_MORNINGS)
+
+  try {
+    tryWrite({ store, snapshots: mornings })
+  } catch {
+    try {
+      store.setItem(SNAPSHOT_STORAGE_KEY, '[]')
+    } catch {
+      return
+    }
+  }
 }
 
 export function rememberSnapshot({
   title,
   document,
+  kind = 'morning',
+  still,
+  lookId,
+  existing,
 }: {
   title: string
   document: DesignDocument
+  kind?: SnapshotKind
+  still?: string
+  lookId?: string
+  existing?: DesignSnapshot[]
 }) {
-  const snapshot = createSnapshot({ title, document })
-  writeSnapshots({ snapshots: [snapshot, ...listSnapshots()] })
-  return snapshot
+  const id = lookId ? `entered-${lookId}` : undefined
+  const snapshot = createSnapshot({
+    title,
+    document,
+    kind,
+    still,
+    id,
+  })
+  const snapshots = mergeSnapshots({
+    next: snapshot,
+    existing: existing ?? listSnapshots(),
+  })
+  writeSnapshots({ snapshots })
+  return { snapshot, snapshots }
 }
 
 export function restoreSnapshot({ id }: { id: string }) {

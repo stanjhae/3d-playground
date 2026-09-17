@@ -129,7 +129,7 @@ export function PublishBar({
                       overrides: [...overrides],
                       garmentId,
                       ...(artMap ? { artMap } : {}),
-                      ...(designDocument.structural.neck
+                      ...(Object.keys(designDocument.structural).length > 0
                         ? { structural: designDocument.structural }
                         : {}),
                     },

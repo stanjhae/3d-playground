@@ -72,6 +72,68 @@ describe('rasterizeLayers', () => {
     expect(buffer.pixels[index + 3]).toBeGreaterThan(0)
   })
 
+  test('a stripe sits on the front and misses the sleeve', () => {
+    const document = createEmptyDocument({ garmentId: 'tee' })
+    document.layers.push({
+      id: 'print-1',
+      kind: 'pattern',
+      patternId: 'stripe',
+      panel: 'front',
+      color: '#1a1c22',
+      x: 0.5,
+      y: 0.5,
+      scale: 0.4,
+      rotation: 0,
+      visible: true,
+    })
+
+    const buffer = rasterizeLayers({ document, width: 64, height: 64 })
+    const chest = atlasPixelAtPanel({
+      buffer,
+      panel: 'front',
+      x: 0.5,
+      y: 0.5,
+    })
+    const sleeve = atlasPixelAtPanel({
+      buffer,
+      panel: 'sleeve',
+      x: 0.5,
+      y: 0.5,
+    })
+
+    expect(chest.a).toBeGreaterThan(0)
+    expect(sleeve.a).toBe(0)
+  })
+
+  test('a front stroke does not land on a sleeve', () => {
+    const document = createEmptyDocument({ garmentId: 'tee' })
+    const paint = document.layers[0]
+
+    if (paint?.kind === 'paint') {
+      paint.strokes.push({
+        id: createObjectId({ prefix: 'ink' }),
+        panel: 'front',
+        points: [
+          { x: 0.5, y: 0.5 },
+          { x: 0.52, y: 0.5 },
+        ],
+        color: '#c41e3a',
+        width: 0.04,
+        tool: 'brush',
+      })
+    }
+
+    const buffer = rasterizeLayers({ document, width: 64, height: 64 })
+    const sleeve = atlasPixelAtPanel({
+      buffer,
+      panel: 'sleeve',
+      x: 0.5,
+      y: 0.5,
+    })
+
+    expect(sleeve.a).toBe(0)
+  })
+
   test('ink composites over cloth instead of replacing it', () => {
     expect(
       paintOverCloth({

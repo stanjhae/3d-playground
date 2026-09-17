@@ -1,7 +1,42 @@
+import type { StructuralParams } from './design-document.ts'
 import type { Design, MaterialOverride } from './design-schema.ts'
 import { getFabricForOverride } from './fabrics.ts'
 import { getGarment } from './garments.ts'
 import { rankDesigns } from './rank-designs.ts'
+
+function cutWords({
+  structural,
+}: {
+  structural?: StructuralParams
+}) {
+  if (!structural) {
+    return []
+  }
+
+  const words: string[] = []
+
+  if (structural.neck === 'v') {
+    words.push('V')
+  }
+
+  if (structural.neck === 'crew') {
+    words.push('Crew')
+  }
+
+  if (structural.hem === 'crop') {
+    words.push('Crop')
+  }
+
+  if (structural.hem === 'long') {
+    words.push('Long hem')
+  }
+
+  if (structural.sleeve === 'long') {
+    words.push('Long sleeve')
+  }
+
+  return words
+}
 
 function partIdForOverride({
   meshName,
@@ -72,6 +107,7 @@ export function lookRecipe({
     garmentId?: string
     overrides: MaterialOverride[]
     artMap?: string
+    structural?: StructuralParams
   }
 }) {
   const garment = getGarment({ garmentId: design.garmentId })
@@ -112,7 +148,13 @@ export function lookRecipe({
 
   const cloth = joinClothNames({ names })
   const ink = lookHasInk({ design }) ? 'Ink' : ''
-  const extras = [cloth, ink].filter(Boolean).join(' · ')
+  const extras = [
+    ...cutWords({ structural: design.structural }),
+    cloth,
+    ink,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   if (!extras) {
     return garment.label

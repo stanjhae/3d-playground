@@ -3,10 +3,11 @@ import type {
   DesignLayer,
   GraphicLayer,
   PanelId,
+  PatternLayer,
   TextLayer,
 } from './design-document'
 
-export type PlaceableLayer = GraphicLayer | TextLayer
+export type PlaceableLayer = GraphicLayer | TextLayer | PatternLayer
 
 export type LayerHandle = 'move' | 'scale' | 'rotate'
 
@@ -133,7 +134,11 @@ function isPlaceable({
 }: {
   layer: DesignLayer
 }) {
-  return layer.kind === 'graphic' || layer.kind === 'text'
+  return (
+    layer.kind === 'graphic' ||
+    layer.kind === 'text' ||
+    layer.kind === 'pattern'
+  )
 }
 
 function layerHalf({
@@ -187,7 +192,11 @@ export function hitPlaceableLayer({
       continue
     }
 
-    if (layer.kind !== 'graphic' && layer.kind !== 'text') {
+    if (
+      layer.kind !== 'graphic' &&
+      layer.kind !== 'text' &&
+      layer.kind !== 'pattern'
+    ) {
       continue
     }
 
@@ -255,7 +264,11 @@ export function applyLayerEdit({
         return layer
       }
 
-      if (layer.kind !== 'graphic' && layer.kind !== 'text') {
+      if (
+        layer.kind !== 'graphic' &&
+        layer.kind !== 'text' &&
+        layer.kind !== 'pattern'
+      ) {
         return layer
       }
 
@@ -285,6 +298,10 @@ export function layerVoice({
 
   if (layer.kind === 'text') {
     return layer.content.trim() || 'Word'
+  }
+
+  if (layer.kind === 'pattern') {
+    return layer.patternId === 'check' ? 'Check' : 'Stripe'
   }
 
   return 'Look'
