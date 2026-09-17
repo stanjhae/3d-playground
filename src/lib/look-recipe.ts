@@ -1,6 +1,7 @@
 import type { Design, MaterialOverride } from './design-schema.ts'
 import { getFabricForOverride } from './fabrics.ts'
 import { getGarment } from './garments.ts'
+import { rankDesigns } from './rank-designs.ts'
 
 function partIdForOverride({
   meshName,
@@ -38,6 +39,30 @@ export function lookHasInk({
   design: Pick<Design, 'artMap'>
 }) {
   return Boolean(design.artMap)
+}
+
+export function pickSoonLooks({
+  designs,
+}: {
+  designs: Design[]
+}) {
+  const ranked = rankDesigns({ designs })
+  const leader = ranked[0]
+  const painted = ranked.filter((look) => lookHasInk({ design: look }))
+  const rest = ranked.filter((look) => !lookHasInk({ design: look }))
+  const chosen: Design[] = []
+  const seen = new Set<string>()
+
+  for (const look of [leader, ...painted, ...rest]) {
+    if (!look || seen.has(look.id)) {
+      continue
+    }
+
+    seen.add(look.id)
+    chosen.push(look)
+  }
+
+  return chosen.slice(0, 3)
 }
 
 export function lookRecipe({

@@ -52,7 +52,9 @@ export function DualStudio({
     }
 
     function endPaintStroke() {
-      useEditorStore.getState().endStroke()
+      const state = useEditorStore.getState()
+      state.endStroke()
+      state.endLayerEdit()
     }
 
     window.addEventListener('keydown', onKey)

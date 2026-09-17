@@ -3,8 +3,9 @@ import { useRef, useState } from 'react'
 import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
+import { selectedTextLayer } from '../../lib/layer-hit'
 import { isSafeLayerSrc } from '../../lib/look-thumbnail'
-import { INK_COLORS, INK_WIDTHS } from '../../lib/paint-colors'
+import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from '../../lib/paint-colors'
 
 export function PaintToolbar() {
   const paintTool = useEditorStore((state) => state.paintTool)
@@ -19,10 +20,21 @@ export function PaintToolbar() {
   const redoLast = useEditorStore((state) => state.redoLast)
   const clearInk = useEditorStore((state) => state.clearInk)
   const addGraphic = useEditorStore((state) => state.addGraphic)
-  const addText = useEditorStore((state) => state.addText)
+  const textFace = useEditorStore((state) => state.textFace)
+  const textScale = useEditorStore((state) => state.textScale)
+  const typeDraft = useEditorStore((state) => state.typeDraft)
+  const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
+  const documentState = useEditorStore((state) => state.document)
+  const setTextFace = useEditorStore((state) => state.setTextFace)
+  const setTextScale = useEditorStore((state) => state.setTextScale)
+  const setTypeDraft = useEditorStore((state) => state.setTypeDraft)
+  const updateLayer = useEditorStore((state) => state.updateLayer)
   const fileRef = useRef<HTMLInputElement | null>(null)
-  const [word, setWord] = useState('')
   const [artworkError, setArtworkError] = useState<string | null>(null)
+  const selectedWord = selectedTextLayer({
+    document: documentState,
+    selectedLayerId,
+  })
 
   return (
     <aside className="flex w-full flex-col gap-3 border border-atelier-line bg-atelier/92 p-3">
@@ -168,9 +180,9 @@ export function PaintToolbar() {
         <label className="flex min-w-0 flex-1 items-center gap-2">
           <span className="sr-only">{HOUSE_COPY.type}</span>
           <input
-            value={word}
+            value={typeDraft}
             onChange={(event) => {
-              setWord(event.target.value)
+              setTypeDraft({ typeDraft: event.target.value })
             }}
             placeholder={HOUSE_COPY.type}
             className="min-h-11 min-w-0 flex-1 border border-atelier-line bg-atelier px-3 text-ivory"
@@ -179,13 +191,69 @@ export function PaintToolbar() {
         <button
           type="button"
           onClick={() => {
-            addText({ content: word })
-            setWord('')
+            setPaintTool({ paintTool: 'type' })
           }}
-          className="min-h-11 border border-atelier-line px-3 font-display text-xs tracking-[0.16em] text-ivory uppercase hover:text-brass"
+          className={cn(
+            'min-h-11 border px-3 font-display text-xs tracking-[0.16em] uppercase',
+            {
+              'border-brass text-brass': paintTool === 'type',
+              'border-atelier-line text-ivory hover:text-brass':
+                paintTool !== 'type',
+            },
+          )}
         >
           {HOUSE_COPY.type}
         </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {(['display', 'sans'] as const).map((face) => (
+          <button
+            key={face}
+            type="button"
+            onClick={() => {
+              setTextFace({ textFace: face })
+              if (selectedWord) {
+                updateLayer({
+                  layerId: selectedWord.id,
+                  patch: { face },
+                })
+              }
+            }}
+            className={cn(
+              'min-h-11 flex-1 border font-display text-[10px] tracking-[0.14em] uppercase',
+              {
+                'border-brass text-brass': textFace === face,
+                'border-atelier-line text-ivory-muted': textFace !== face,
+              },
+            )}
+          >
+            {face === 'display' ? HOUSE_COPY.displayFace : HOUSE_COPY.sansFace}
+          </button>
+        ))}
+        {TYPE_SIZES.map((size) => (
+          <button
+            key={size.id}
+            type="button"
+            onClick={() => {
+              setTextScale({ textScale: size.scale })
+              if (selectedWord) {
+                updateLayer({
+                  layerId: selectedWord.id,
+                  patch: { scale: size.scale },
+                })
+              }
+            }}
+            className={cn(
+              'min-h-11 flex-1 border font-display text-[10px] tracking-[0.14em] uppercase',
+              {
+                'border-brass text-brass': textScale === size.scale,
+                'border-atelier-line text-ivory-muted': textScale !== size.scale,
+              },
+            )}
+          >
+            {size.label}
+          </button>
+        ))}
       </div>
       {artworkError ? (
         <p className="text-sm text-ivory-muted">{artworkError}</p>

@@ -77,7 +77,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
           far: STUDIO_CAMERA.far,
         }}
         gl={{ antialias: true, preserveDrawingBuffer: true }}
-        className="h-full min-h-80 w-full bg-atelier"
+        className="h-full min-h-80 w-full touch-none bg-atelier"
       >
         <StudioStage picking={!isHouse} intro>
           <Suspense fallback={<FashionLoader />}>

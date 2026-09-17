@@ -9,6 +9,7 @@ import {
   undoCommand,
   type CommandStack,
   type DesignCommand,
+  type LayerPatch,
 } from './design-commands'
 import {
   createEmptyDocument,
@@ -20,16 +21,22 @@ import {
   type Stroke,
   type StrokePoint,
   type StrokeTool,
+  type TextFace,
 } from './design-document'
+import {
+  placeablePoseMatches,
+  type LayerEdit,
+} from './layer-hit'
 import type { Design, GarmentId, MaterialOverride } from './design-schema'
 import { resolveGarmentId } from './design-schema'
 import { rememberSnapshot, type DesignSnapshot } from './design-snapshots'
 import { getFabricById } from './fabrics'
 import { isSafeLayerSrc } from './look-thumbnail'
-import { INK_COLORS, INK_WIDTHS } from './paint-colors'
+import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from './paint-colors'
 
 export type EditorMode = 'design' | 'atelier'
 export type StudioView = 'draw' | 'cloth'
+export type EditorPaintTool = StrokeTool | 'type'
 
 type EditorState = {
   mode: EditorMode
@@ -44,11 +51,16 @@ type EditorState = {
   lastPublished: Omit<Design, 'id' | 'votes'> | null
   lookSerial: number
   paintPanel: PanelId
-  paintTool: StrokeTool
+  paintTool: EditorPaintTool
   paintColor: string
   paintWidth: number
   studioView: StudioView
   activeStroke: Stroke | null
+  selectedLayerId: string | null
+  activeLayerEdit: LayerEdit | null
+  textFace: TextFace
+  textScale: number
+  typeDraft: string
   snapshots: DesignSnapshot[]
   undoCount: number
   redoCount: number
@@ -74,7 +86,7 @@ type EditorState = {
   }) => void
   reset: () => void
   setPaintPanel: ({ paintPanel }: { paintPanel: PanelId }) => void
-  setPaintTool: ({ paintTool }: { paintTool: StrokeTool }) => void
+  setPaintTool: ({ paintTool }: { paintTool: EditorPaintTool }) => void
   setPaintColor: ({ paintColor }: { paintColor: string }) => void
   setPaintWidth: ({ paintWidth }: { paintWidth: number }) => void
   setStudioView: ({ studioView }: { studioView: StudioView }) => void
@@ -87,7 +99,13 @@ type EditorState = {
     point: StrokePoint
     pressure?: number
   }) => void
-  appendStroke: ({ point }: { point: StrokePoint }) => void
+  appendStroke: ({
+    point,
+    pressure,
+  }: {
+    point: StrokePoint
+    pressure?: number
+  }) => void
   endStroke: () => void
   clearInk: () => void
   addGraphic: ({
@@ -100,10 +118,37 @@ type EditorState = {
   addText: ({
     content,
     panel,
+    x,
+    y,
+    face,
+    scale,
   }: {
     content: string
     panel?: PanelId
+    x?: number
+    y?: number
+    face?: TextFace
+    scale?: number
   }) => void
+  selectLayer: ({
+    selectedLayerId,
+  }: {
+    selectedLayerId: string | null
+  }) => void
+  startLayerEdit: ({ edit }: { edit: LayerEdit }) => void
+  moveLayerEdit: ({ edit }: { edit: LayerEdit }) => void
+  endLayerEdit: () => void
+  updateLayer: ({
+    layerId,
+    patch,
+  }: {
+    layerId: string
+    patch: LayerPatch
+  }) => void
+  setTextFace: ({ textFace }: { textFace: TextFace }) => void
+  setTextScale: ({ textScale }: { textScale: number }) => void
+  setTypeDraft: ({ typeDraft }: { typeDraft: string }) => void
+  removeLayer: ({ layerId }: { layerId: string }) => void
   setNeck: ({ neck }: { neck: NeckId }) => void
   hydrateDocument: ({
     document,
@@ -173,6 +218,54 @@ function runCommand({
   return syncFromStack({ extra })
 }
 
+function layerPatchChanges({
+  layer,
+  patch,
+}: {
+  layer: DesignDocument['layers'][number]
+  patch: LayerPatch
+}) {
+  if (layer.kind === 'paint') {
+    return patch.visible !== undefined && patch.visible !== layer.visible
+  }
+
+  if (layer.kind !== 'graphic' && layer.kind !== 'text') {
+    return false
+  }
+
+  if (patch.x !== undefined && patch.x !== layer.x) {
+    return true
+  }
+
+  if (patch.y !== undefined && patch.y !== layer.y) {
+    return true
+  }
+
+  if (patch.scale !== undefined && patch.scale !== layer.scale) {
+    return true
+  }
+
+  if (patch.rotation !== undefined && patch.rotation !== layer.rotation) {
+    return true
+  }
+
+  if (patch.visible !== undefined && patch.visible !== layer.visible) {
+    return true
+  }
+
+  if (layer.kind === 'text') {
+    if (patch.content !== undefined && patch.content !== layer.content) {
+      return true
+    }
+
+    if (patch.face !== undefined && patch.face !== layer.face) {
+      return true
+    }
+  }
+
+  return false
+}
+
 const INITIAL_EDITOR_STATE = {
   mode: 'design' as const,
   selectedMeshName: 'body' as string | null,
@@ -191,6 +284,11 @@ const INITIAL_EDITOR_STATE = {
   paintWidth: INK_WIDTHS[1],
   studioView: 'draw' as StudioView,
   activeStroke: null as Stroke | null,
+  selectedLayerId: null as string | null,
+  activeLayerEdit: null as LayerEdit | null,
+  textFace: 'display' as TextFace,
+  textScale: TYPE_SIZES[1]?.scale ?? 0.12,
+  typeDraft: '',
   snapshots: [] as DesignSnapshot[],
   undoCount: 0,
   redoCount: 0,
@@ -222,6 +320,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             fabricId: null,
             colorId: null,
             activeStroke: null,
+            activeLayerEdit: null,
+            selectedLayerId: null,
             studioView: 'draw',
           },
         })
@@ -239,6 +339,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         overrides: [],
         document,
         activeStroke: null,
+        activeLayerEdit: null,
+        selectedLayerId: null,
         studioView: 'draw',
         undoCount: 0,
         redoCount: 0,
@@ -277,13 +379,17 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   undoLast: () => {
     set(() => {
       commandStack = undoCommand({ stack: commandStack })
-      return syncFromStack()
+      return syncFromStack({
+        extra: { activeLayerEdit: null, activeStroke: null },
+      })
     })
   },
   redoLast: () => {
     set(() => {
       commandStack = redoCommand({ stack: commandStack })
-      return syncFromStack()
+      return syncFromStack({
+        extra: { activeLayerEdit: null, activeStroke: null },
+      })
     })
   },
   canUndo: () => canUndo({ stack: commandStack }),
@@ -303,6 +409,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       selectedMeshName: 'body',
       garmentId: resolveGarmentId({ garmentId: design.garmentId }),
       activeStroke: null,
+      activeLayerEdit: null,
+      selectedLayerId: null,
       undoCount: 0,
       redoCount: 0,
     })
@@ -335,6 +443,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       selectedMeshName: 'body',
       garmentId: 'gown',
       activeStroke: null,
+      activeLayerEdit: null,
+      selectedLayerId: null,
       snapshots: [],
     })
   },
@@ -361,11 +471,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         points: [{ ...point, ...(pressure !== undefined ? { p: pressure } : {}) }],
         color: state.paintColor,
         width: state.paintWidth,
-        tool: state.paintTool,
+        tool: state.paintTool === 'eraser' ? 'eraser' : 'brush',
       },
     }))
   },
-  appendStroke: ({ point }) => {
+  appendStroke: ({ point, pressure }) => {
     set((state) => {
       if (!state.activeStroke) {
         return state
@@ -374,7 +484,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       return {
         activeStroke: {
           ...state.activeStroke,
-          points: [...state.activeStroke.points, point],
+          points: [
+            ...state.activeStroke.points,
+            {
+              ...point,
+              ...(pressure !== undefined ? { p: pressure } : {}),
+            },
+          ],
         },
       }
     })
@@ -408,12 +524,14 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       return
     }
 
-    set((state) =>
-      runCommand({
+    set((state) => {
+      const layerId = createObjectId({ prefix: 'mark' })
+
+      return runCommand({
         command: {
           type: 'addGraphic',
           layer: {
-            id: createObjectId({ prefix: 'mark' }),
+            id: layerId,
             kind: 'graphic',
             panel: panel ?? state.paintPanel,
             src,
@@ -424,33 +542,124 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             visible: true,
           },
         },
-      }),
-    )
+        extra: { selectedLayerId: layerId },
+      })
+    })
   },
-  addText: ({ content, panel }) => {
+  addText: ({ content, panel, x, y, face, scale }) => {
     const trimmed = content.trim()
 
     if (!trimmed) {
       return
     }
 
-    set((state) =>
-      runCommand({
+    set((state) => {
+      const layerId = createObjectId({ prefix: 'word' })
+
+      return runCommand({
         command: {
           type: 'addText',
           layer: {
-            id: createObjectId({ prefix: 'word' }),
+            id: layerId,
             kind: 'text',
             panel: panel ?? state.paintPanel,
             content: trimmed.slice(0, 32),
-            face: 'display',
+            face: face ?? state.textFace,
             color: state.paintColor,
-            x: 0.5,
-            y: 0.38,
-            scale: 0.1,
+            x: x ?? 0.5,
+            y: y ?? 0.38,
+            scale: scale ?? state.textScale,
             rotation: 0,
             visible: true,
           },
+        },
+        extra: { selectedLayerId: layerId, typeDraft: '' },
+      })
+    })
+  },
+  selectLayer: ({ selectedLayerId }) => {
+    set({ selectedLayerId, activeLayerEdit: null })
+  },
+  startLayerEdit: ({ edit }) => {
+    set({ selectedLayerId: edit.layerId, activeLayerEdit: edit })
+  },
+  moveLayerEdit: ({ edit }) => {
+    set({ activeLayerEdit: edit })
+  },
+  endLayerEdit: () => {
+    set((state) => {
+      if (!state.activeLayerEdit) {
+        return state
+      }
+
+      const edit = state.activeLayerEdit
+      const layer = state.document.layers.find(
+        (entry) => entry.id === edit.layerId,
+      )
+
+      if (
+        layer &&
+        (layer.kind === 'graphic' || layer.kind === 'text') &&
+        placeablePoseMatches({ layer, edit })
+      ) {
+        return {
+          ...state,
+          selectedLayerId: edit.layerId,
+          activeLayerEdit: null,
+        }
+      }
+
+      const next = runCommand({
+        command: {
+          type: 'updateLayer',
+          layerId: edit.layerId,
+          patch: {
+            x: edit.x,
+            y: edit.y,
+            scale: edit.scale,
+            rotation: edit.rotation,
+          },
+        },
+      })
+
+      return {
+        ...next,
+        selectedLayerId: edit.layerId,
+        activeLayerEdit: null,
+      }
+    })
+  },
+  updateLayer: ({ layerId, patch }) => {
+    set((state) => {
+      const layer = state.document.layers.find((entry) => entry.id === layerId)
+
+      if (!layer || !layerPatchChanges({ layer, patch })) {
+        return state
+      }
+
+      return runCommand({
+        command: { type: 'updateLayer', layerId, patch },
+        extra: { selectedLayerId: layerId },
+      })
+    })
+  },
+  setTextFace: ({ textFace }) => {
+    set({ textFace })
+  },
+  setTextScale: ({ textScale }) => {
+    set({ textScale })
+  },
+  setTypeDraft: ({ typeDraft }) => {
+    set({ typeDraft })
+  },
+  removeLayer: ({ layerId }) => {
+    set((state) =>
+      runCommand({
+        command: { type: 'removeLayer', layerId },
+        extra: {
+          selectedLayerId:
+            state.selectedLayerId === layerId ? null : state.selectedLayerId,
+          activeLayerEdit: null,
         },
       }),
     )
@@ -473,6 +682,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       overrides: document.overrides,
       garmentId: resolved,
       activeStroke: null,
+      activeLayerEdit: null,
+      selectedLayerId: null,
       undoCount: 0,
       redoCount: 0,
     })
@@ -491,6 +702,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       syncFromStack({
         extra: {
           activeStroke: null,
+          activeLayerEdit: null,
+          selectedLayerId: null,
         },
       }),
     )

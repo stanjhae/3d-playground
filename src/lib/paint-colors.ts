@@ -17,6 +17,12 @@ export const INK_COLORS: readonly InkColor[] = [
 
 export const INK_WIDTHS = [0.014, 0.024, 0.04] as const
 
+export const TYPE_SIZES = [
+  { id: 'small', label: 'Small', scale: 0.07 },
+  { id: 'look', label: 'Look', scale: 0.12 },
+  { id: 'banner', label: 'Banner', scale: 0.2 },
+] as const
+
 export function getInkColor({ id }: { id: string }) {
   return INK_COLORS.find((color) => color.id === id) ?? INK_COLORS[0]
 }

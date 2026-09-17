@@ -6,7 +6,7 @@ import { trackAssumption } from '../lib/assumption-events'
 import { listDesigns, voteOnDesign } from '../lib/designs-api'
 import type { Design } from '../lib/design-schema'
 import { HOUSE_COPY } from '../lib/house-copy'
-import { rankDesigns } from '../lib/rank-designs'
+import { pickSoonLooks } from '../lib/look-recipe'
 
 export const Route = createFileRoute('/soon')({
   component: SoonPage,
@@ -23,7 +23,7 @@ function SoonPage() {
     void trackAssumption({ name: 'viewed_demo' })
     void listDesigns()
       .then((designs) => {
-        setLooks(rankDesigns({ designs }).slice(0, 3))
+        setLooks(pickSoonLooks({ designs }))
       })
       .catch(() => {
         setLooks([])

@@ -224,6 +224,166 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().redoCount).toBe(0)
   })
 
+  test('a word can move and hide without flattening ink', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().addText({
+      content: 'FLV',
+      x: 0.5,
+      y: 0.4,
+    })
+
+    const word = useEditorStore
+      .getState()
+      .document.layers.find((layer) => layer.kind === 'text')
+    expect(word?.kind === 'text' ? word.content : null).toBe('FLV')
+    if (!word) {
+      return
+    }
+
+    useEditorStore.getState().startLayerEdit({
+      edit: {
+        layerId: word.id,
+        x: 0.3,
+        y: 0.55,
+        scale: 0.2,
+        rotation: 0,
+      },
+    })
+    useEditorStore.getState().endLayerEdit()
+
+    const moved = useEditorStore
+      .getState()
+      .document.layers.find((layer) => layer.id === word.id)
+    expect(moved && moved.kind === 'text' ? moved.x : null).toBe(0.3)
+
+    useEditorStore.getState().updateLayer({
+      layerId: word.id,
+      patch: { visible: false },
+    })
+    const hidden = useEditorStore
+      .getState()
+      .document.layers.find((layer) => layer.id === word.id)
+    expect(hidden?.visible).toBe(false)
+
+    useEditorStore.getState().removeLayer({ layerId: word.id })
+    expect(
+      useEditorStore
+        .getState()
+        .document.layers.some((layer) => layer.id === word.id),
+    ).toBe(false)
+  })
+
+  test('selecting a word is not an undo', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().addText({
+      content: 'FLV',
+      x: 0.5,
+      y: 0.4,
+    })
+
+    const word = useEditorStore
+      .getState()
+      .document.layers.find((layer) => layer.kind === 'text')
+    expect(word).toBeTruthy()
+    if (!word || word.kind !== 'text') {
+      return
+    }
+
+    expect(useEditorStore.getState().undoCount).toBe(1)
+
+    useEditorStore.getState().startLayerEdit({
+      edit: {
+        layerId: word.id,
+        x: word.x,
+        y: word.y,
+        scale: word.scale,
+        rotation: word.rotation,
+      },
+    })
+    useEditorStore.getState().endLayerEdit()
+
+    expect(useEditorStore.getState().undoCount).toBe(1)
+    expect(useEditorStore.getState().activeLayerEdit).toBeNull()
+    expect(useEditorStore.getState().selectedLayerId).toBe(word.id)
+  })
+
+  test('face and size do not write onto ink', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().startStroke({
+      panel: 'front',
+      point: { x: 0.4, y: 0.5 },
+    })
+    useEditorStore.getState().endStroke()
+
+    const paint = useEditorStore.getState().document.layers[0]
+    expect(paint?.kind).toBe('paint')
+    if (!paint) {
+      return
+    }
+
+    expect(useEditorStore.getState().undoCount).toBe(1)
+
+    useEditorStore.getState().selectLayer({ selectedLayerId: paint.id })
+    useEditorStore.getState().updateLayer({
+      layerId: paint.id,
+      patch: { face: 'sans', scale: 0.22 },
+    })
+
+    expect(useEditorStore.getState().undoCount).toBe(1)
+    expect(useEditorStore.getState().document.layers[0]).toBe(paint)
+  })
+
+  test('undo clears a live layer edit', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().addText({
+      content: 'FLV',
+      x: 0.5,
+      y: 0.4,
+    })
+
+    const word = useEditorStore
+      .getState()
+      .document.layers.find((layer) => layer.kind === 'text')
+    if (!word || word.kind !== 'text') {
+      return
+    }
+
+    useEditorStore.getState().startLayerEdit({
+      edit: {
+        layerId: word.id,
+        x: 0.2,
+        y: 0.2,
+        scale: word.scale,
+        rotation: word.rotation,
+      },
+    })
+    useEditorStore.getState().undoLast()
+
+    expect(useEditorStore.getState().activeLayerEdit).toBeNull()
+    expect(useEditorStore.getState().activeStroke).toBeNull()
+    expect(
+      useEditorStore
+        .getState()
+        .document.layers.some((layer) => layer.kind === 'text'),
+    ).toBe(false)
+  })
+
+  test('an empty type draft does not stamp a word', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().setTypeDraft({ typeDraft: '  ' })
+    useEditorStore.getState().addText({
+      content: useEditorStore.getState().typeDraft,
+    })
+
+    expect(
+      useEditorStore
+        .getState()
+        .document.layers.some((layer) => layer.kind === 'text'),
+    ).toBe(false)
+    expect(useEditorStore.getState().undoCount).toBe(0)
+    expect(useEditorStore.getState().typeDraft).toBe('  ')
+  })
+
   test('clear ink is a single undo', () => {
     useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
     useEditorStore.getState().startStroke({
