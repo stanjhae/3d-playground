@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Group } from 'three'
 
 import {
@@ -18,19 +18,33 @@ export function AvatarBody({
     garmentOffsetY: number
     garmentScale: number
   } | null>(null)
+  const mountRef = useRef(mount)
+  mountRef.current = mount
 
   useEffect(() => {
     const built = createProceduralAvatar({ measurements: avatarMeasurements })
-    setMount({
-      root: built.root,
-      garmentOffsetY: built.garmentOffsetY,
-      garmentScale: built.garmentScale,
-    })
+    setMount((previous) => {
+      if (previous) {
+        disposeAvatarGroup({ group: previous.root })
+      }
 
-    return () => {
-      disposeAvatarGroup({ group: built.root })
-    }
+      return {
+        root: built.root,
+        garmentOffsetY: built.garmentOffsetY,
+        garmentScale: built.garmentScale,
+      }
+    })
   }, [avatarMeasurements])
+
+  useEffect(() => {
+    return () => {
+      const current = mountRef.current
+
+      if (current) {
+        disposeAvatarGroup({ group: current.root })
+      }
+    }
+  }, [])
 
   if (!mount) {
     return null

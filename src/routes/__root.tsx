@@ -27,8 +27,9 @@ function RootShell() {
     lookMatch?.params.lookId ??
     lookIdFromPathname({ pathname: location.pathname }) ??
     leaderId
+  const isLanding = location.pathname === '/'
   const isCover =
-    location.pathname === '/' || location.pathname.startsWith('/look/')
+    location.pathname === '/create' || location.pathname.startsWith('/look/')
 
   useEffect(() => {
     let cancelled = false
@@ -54,81 +55,102 @@ function RootShell() {
     <>
       <header
         className={cn(
-          'z-30 flex items-center justify-between gap-3 text-ivory',
+          'z-30 flex items-center justify-between gap-3',
           {
-            'absolute inset-x-0 top-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-5 sm:pb-5':
+            'absolute inset-x-0 top-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-flv-ink sm:px-6 sm:pt-5 sm:pb-5':
+              isLanding,
+            'absolute inset-x-0 top-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-ivory sm:px-6 sm:pt-5 sm:pb-5':
               isCover,
-            'border-b border-atelier-line bg-atelier px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-5 sm:pb-5':
-              !isCover,
+            'border-b border-atelier-line bg-atelier px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-ivory sm:px-6 sm:pt-5 sm:pb-5':
+              !isLanding && !isCover,
           },
         )}
       >
         <Link
           to="/"
           search={{}}
-          className="shrink-0 whitespace-nowrap font-display text-xs tracking-[0.14em] text-ivory uppercase sm:text-sm sm:tracking-[0.22em]"
+          className={cn(
+            'shrink-0 whitespace-nowrap font-display text-xs tracking-[0.14em] uppercase sm:text-sm sm:tracking-[0.22em]',
+            {
+              'text-flv-ink': isLanding,
+              'text-ivory': !isLanding,
+            },
+          )}
         >
           Fashion Leader Vote
         </Link>
         <nav className="flex items-center gap-2 font-body text-xs tracking-[0.08em] uppercase sm:gap-3">
-          <Link
+          <NavLink
             to="/"
-            search={{}}
-            className={cn(
-              'inline-flex min-h-11 items-center px-1',
-              {
-                'text-brass': location.pathname === '/',
-                'text-ivory-muted hover:text-brass': location.pathname !== '/',
-              },
-            )}
-          >
-            Atelier
-          </Link>
-          <Link
+            label="Home"
+            active={isLanding}
+            flv={isLanding}
+          />
+          <NavLink
+            to="/create"
+            label="Create"
+            active={location.pathname === '/create'}
+            flv={isLanding}
+          />
+          <NavLink
             to="/vote"
-            search={{}}
-            className={cn(
-              'inline-flex min-h-11 items-center px-1',
-              {
-                'text-brass': location.pathname === '/vote',
-                'text-ivory-muted hover:text-brass':
-                  location.pathname !== '/vote',
-              },
-            )}
-          >
-            Vote
-          </Link>
-          <Link
-            to="/soon"
-            className={cn(
-              'inline-flex min-h-11 items-center px-1',
-              {
-                'text-brass': location.pathname === '/soon',
-                'text-ivory-muted hover:text-brass': location.pathname !== '/soon',
-              },
-            )}
-          >
-            Soon
-          </Link>
+            label="Vote"
+            active={location.pathname === '/vote'}
+            flv={isLanding}
+          />
           <Link
             to="/look/$lookId"
             params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
-            className={cn(
-              'inline-flex min-h-11 items-center px-1',
-              {
-                'text-brass': location.pathname.startsWith('/look/'),
-                'text-ivory-muted hover:text-brass':
-                  !location.pathname.startsWith('/look/'),
-              },
-            )}
+            className={cn('inline-flex min-h-11 items-center px-1', {
+              'text-flv-accent':
+                isLanding && location.pathname.startsWith('/look/'),
+              'text-flv-muted hover:text-flv-accent':
+                isLanding && !location.pathname.startsWith('/look/'),
+              'text-brass':
+                !isLanding && location.pathname.startsWith('/look/'),
+              'text-ivory-muted hover:text-brass':
+                !isLanding && !location.pathname.startsWith('/look/'),
+            })}
           >
             Look
           </Link>
         </nav>
       </header>
-      <main className="relative min-h-dvh bg-atelier text-ivory">
+      <main
+        className={cn('relative min-h-dvh', {
+          'bg-flv-paper text-flv-ink': isLanding,
+          'bg-atelier text-ivory': !isLanding,
+        })}
+      >
         <Outlet />
       </main>
     </>
+  )
+}
+
+function NavLink({
+  to,
+  label,
+  active,
+  flv,
+}: {
+  to: '/' | '/create' | '/vote'
+  label: string
+  active: boolean
+  flv: boolean
+}) {
+  return (
+    <Link
+      to={to}
+      search={{}}
+      className={cn('inline-flex min-h-11 items-center px-1', {
+        'text-flv-accent': flv && active,
+        'text-flv-muted hover:text-flv-accent': flv && !active,
+        'text-brass': !flv && active,
+        'text-ivory-muted hover:text-brass': !flv && !active,
+      })}
+    >
+      {label}
+    </Link>
   )
 }

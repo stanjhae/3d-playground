@@ -194,7 +194,7 @@ function LookPage() {
                 {voting ? HOUSE_COPY.voting : HOUSE_COPY.voteThisLook}
               </button>
               <Link
-                to="/"
+                to="/create"
                 search={{ design: look.id }}
                 className="min-h-11 min-w-[10rem] flex-1 border border-atelier-line px-5 py-2 text-center font-body text-xs tracking-[0.08em] text-ivory uppercase hover:text-brass"
               >

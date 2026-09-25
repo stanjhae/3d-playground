@@ -13,6 +13,36 @@
   --color-ivory: oklch(0.93 0.02 85);
   --color-ivory-muted: oklch(0.72 0.02 80);
   --color-brass: oklch(0.78 0.1 85);
+  --color-flv-paper: oklch(0.99 0.004 90);
+  --color-flv-ink: oklch(0.18 0.02 40);
+  --color-flv-muted: oklch(0.52 0.02 40);
+  --color-flv-line: oklch(0.88 0.01 40);
+  --color-flv-accent: oklch(0.58 0.22 35);
+  --color-flv-accent-hot: oklch(0.68 0.2 45);
+}
+
+.flv {
+  --flv-paper: var(--color-flv-paper);
+  --flv-ink: var(--color-flv-ink);
+  --flv-muted: var(--color-flv-muted);
+  --flv-line: var(--color-flv-line);
+  --flv-accent: var(--color-flv-accent);
+  --flv-accent-hot: var(--color-flv-accent-hot);
+  background-color: var(--flv-paper);
+  color: var(--flv-ink);
+}
+
+.flv-cta {
+  background-image: linear-gradient(
+    105deg,
+    var(--color-flv-accent),
+    var(--color-flv-accent-hot)
+  );
+  color: white;
+}
+
+.flv-cta:hover {
+  filter: brightness(1.05);
 }
 
 html,
