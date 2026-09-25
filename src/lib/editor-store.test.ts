@@ -254,18 +254,40 @@ describe('useEditorStore', () => {
     ).toBe(true)
 
     useEditorStore.getState().setBasePattern({ patternId: 'check' })
+    const checkFills = useEditorStore
+      .getState()
+      .document.layers.filter((layer) => layer.id.startsWith('base-fill-'))
+    expect(checkFills.length).toBe(4)
+    expect(checkFills.every((layer) => layer.kind === 'pattern')).toBe(true)
     expect(
-      useEditorStore
-        .getState()
-        .document.layers.find((layer) => layer.id === 'base-fill'),
-    ).toMatchObject({ patternId: 'check' })
+      checkFills.find((layer) => layer.id === 'base-fill-front'),
+    ).toMatchObject({ patternId: 'check', panel: 'front' })
 
     useEditorStore.getState().undoLast()
     expect(
       useEditorStore
         .getState()
-        .document.layers.find((layer) => layer.id === 'base-fill'),
+        .document.layers.find((layer) => layer.id === 'base-fill-front'),
     ).toMatchObject({ patternId: 'stripe' })
+  })
+
+  test('preview step auto-selects the first avatar for tee', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().setAvatarId({ avatarId: null })
+    useEditorStore.getState().setCreateStep({ createStep: 'preview' })
+
+    const state = useEditorStore.getState()
+    expect(state.avatarId).toBe('atelier-tall')
+    expect(state.avatarMeasurements.height).toBe(188)
+  })
+
+  test('paint panel can target each tee side', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+
+    for (const paintPanel of ['front', 'back', 'left', 'right'] as const) {
+      useEditorStore.getState().setPaintPanel({ paintPanel })
+      expect(useEditorStore.getState().paintPanel).toBe(paintPanel)
+    }
   })
 
   test('entered looks keep a morning on this house', () => {

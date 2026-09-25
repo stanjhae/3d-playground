@@ -1,5 +1,9 @@
 import { cn } from '../../lib/cn'
-import { listAvatars } from '../../lib/avatars'
+import {
+  listAvatars,
+  nextAvatarSelection,
+  type AvatarPreset,
+} from '../../lib/avatars'
 import { useEditorStore } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import {
@@ -8,8 +12,40 @@ import {
   railFrameClass,
 } from '../../lib/studio-chrome'
 
+function AvatarSilhouette({
+  avatar,
+}: {
+  avatar: AvatarPreset
+}) {
+  const soft = avatar.filters.includes('female') && !avatar.filters.includes('athletic')
+  const broad = avatar.filters.includes('athletic') || avatar.chestCm >= 108
+  const shoulder = broad ? 18 : soft ? 14 : 16
+  const hip = soft ? 15 : broad ? 14 : 13
+  const waistY = soft ? 42 : 40
+
+  return (
+    <svg
+      viewBox="0 0 40 64"
+      aria-hidden
+      className="h-10 w-6 fill-current text-ivory-muted"
+    >
+      <circle cx="20" cy="8" r="5.5" />
+      <path
+        d={`M${20 - shoulder} 16
+          C${20 - shoulder} 16 ${20 - shoulder - 2} 28 ${20 - hip} ${waistY}
+          L${20 - hip + 1} 58
+          L${20 + hip - 1} 58
+          L${20 + hip} ${waistY}
+          C${20 + shoulder + 2} 28 ${20 + shoulder} 16 ${20 + shoulder} 16
+          Z`}
+      />
+    </svg>
+  )
+}
+
 export function AvatarRail() {
   const avatarId = useEditorStore((state) => state.avatarId)
+  const createStep = useEditorStore((state) => state.createStep)
   const avatarMeasurements = useEditorStore((state) => state.avatarMeasurements)
   const setAvatarId = useEditorStore((state) => state.setAvatarId)
   const setAvatarMeasurements = useEditorStore(
@@ -33,8 +69,19 @@ export function AvatarRail() {
               type="button"
               aria-pressed={isCurrent}
               onClick={() => {
-                setAvatarId({ avatarId: isCurrent ? null : avatar.id })
-                if (!isCurrent) {
+                const nextId = nextAvatarSelection({
+                  currentId: avatarId,
+                  clickedId: avatar.id,
+                  createStep,
+                })
+
+                if (nextId === avatarId) {
+                  return
+                }
+
+                setAvatarId({ avatarId: nextId })
+
+                if (nextId) {
                   setAvatarMeasurements({
                     measurements: {
                       height: avatar.heightCm,
@@ -45,7 +92,7 @@ export function AvatarRail() {
                 }
               }}
               className={cn(
-                'flex min-h-14 flex-col items-start gap-1 border px-3 py-2 text-left',
+                'flex min-h-14 items-center gap-2 border px-2 py-2 text-left',
                 {
                   'border-brass text-brass': isCurrent,
                   'border-atelier-line text-ivory-muted hover:text-brass':
@@ -53,9 +100,12 @@ export function AvatarRail() {
                 },
               )}
             >
-              <span className={chromeTextClass()}>{avatar.label}</span>
-              <span className="font-body text-xs text-ivory-muted">
-                {avatar.heightCm} cm
+              <AvatarSilhouette avatar={avatar} />
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className={chromeTextClass()}>{avatar.label}</span>
+                <span className="font-body text-xs text-ivory-muted">
+                  {avatar.heightCm} cm
+                </span>
               </span>
             </button>
           )

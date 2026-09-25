@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 
 import { cn } from '../../lib/cn'
+import { showsDualStudio, showsPaintPane } from '../../lib/create-steps'
 import { garmentCanPaint } from '../../lib/garments'
 import { useEditorStore } from '../../lib/editor-store'
 import { PaintCanvas } from './PaintCanvas'
@@ -11,10 +12,13 @@ export function DualStudio({
   children: ReactNode
 }) {
   const garmentId = useEditorStore((state) => state.garmentId)
+  const createStep = useEditorStore((state) => state.createStep)
   const studioView = useEditorStore((state) => state.studioView)
   const undoLast = useEditorStore((state) => state.undoLast)
   const redoLast = useEditorStore((state) => state.redoLast)
   const canPaint = garmentCanPaint({ garmentId })
+  const dual = canPaint && showsDualStudio({ step: createStep })
+  const paintPane = canPaint && showsPaintPane({ step: createStep })
 
   useEffect(() => {
     function isTypingTarget({ target }: { target: EventTarget | null }) {
@@ -65,7 +69,7 @@ export function DualStudio({
     }
   }, [redoLast, undoLast])
 
-  if (!canPaint) {
+  if (!dual) {
     return <div className="relative h-full min-h-80 w-full">{children}</div>
   }
 
@@ -73,11 +77,11 @@ export function DualStudio({
     <div className="grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(20rem,1fr)] lg:grid-cols-2">
       <div
         className={cn('min-h-80 h-full', {
-          hidden: studioView === 'cloth',
-          'lg:block': true,
+          hidden: !paintPane || studioView === 'cloth',
+          'lg:block': paintPane,
         })}
       >
-        <PaintCanvas />
+        <PaintCanvas layout="quad" />
       </div>
       <div
         className={cn('relative h-full min-h-80', {

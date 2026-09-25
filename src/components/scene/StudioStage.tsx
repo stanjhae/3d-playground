@@ -26,6 +26,7 @@ export const CAMERA_PRESET_POSITIONS = {
   front: [0, 1.48, 4.1] as const,
   threeQuarter: STUDIO_CAMERA.position,
   back: [0.15, 1.48, -4.05] as const,
+  orbit: STUDIO_CAMERA.position,
 } as const
 
 export const INTRO_DURATION = 1.2
@@ -137,13 +138,22 @@ export function StudioCamera({
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
   const reducedMotion = prefersReducedMotion()
   const elapsed = useRef(reducedMotion || !intro ? INTRO_DURATION : 0)
-  const presetSeat = CAMERA_PRESET_POSITIONS[cameraPreset]
+  const freeOrbit = cameraPreset === 'orbit' && !capturingAngles
+  const presetSeat =
+    cameraPreset === 'orbit'
+      ? CAMERA_PRESET_POSITIONS.threeQuarter
+      : CAMERA_PRESET_POSITIONS[cameraPreset]
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
     camera.far = STUDIO_CAMERA.far
     camera.fov = STUDIO_CAMERA.fov
     camera.updateProjectionMatrix()
+
+    if (freeOrbit) {
+      return
+    }
+
     const seat = capturingAngles
       ? presetSeat
       : intro && !reducedMotion && elapsed.current < INTRO_DURATION
@@ -155,12 +165,17 @@ export function StudioCamera({
     camera,
     cameraPreset,
     capturingAngles,
+    freeOrbit,
     intro,
     presetSeat,
     reducedMotion,
   ])
 
   useFrame((_, delta) => {
+    if (freeOrbit) {
+      return
+    }
+
     if (capturingAngles) {
       camera.position.set(presetSeat[0], presetSeat[1], presetSeat[2])
       camera.lookAt(...STUDIO_CAMERA.target)
