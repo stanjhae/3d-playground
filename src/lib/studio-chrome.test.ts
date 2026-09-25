@@ -107,10 +107,12 @@ describe('studio phone chrome', () => {
     expect(studioPhoneToolsClass()).toContain('lg:bottom-40')
   })
 
-  test('pins publish on the cloth side at a readable width', () => {
+  test('pins publish on the cloth side at a readable scrollable width', () => {
     expect(studioPhonePublishClass()).toContain('shrink-0')
     expect(studioPhonePublishClass()).toContain('lg:right-6')
-    expect(studioPhonePublishClass()).toContain('lg:w-72')
+    expect(studioPhonePublishClass()).toContain('lg:w-80')
+    expect(studioPhonePublishClass()).toContain('overflow-y-auto')
+    expect(studioPhonePublishClass()).toContain('max-h-[min(72vh,42rem)]')
     expect(studioPhonePublishClass()).not.toContain('lg:left-6')
     expect(studioPhonePublishClass()).not.toContain('calc(50%')
   })

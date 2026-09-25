@@ -5,6 +5,7 @@ import {
 import { useEffect, useState } from 'react'
 
 import { LandingCloth } from '../components/landing/LandingCloth'
+import { LandingFlowOverview } from '../components/landing/LandingFlowOverview'
 import { LandingHero } from '../components/landing/LandingHero'
 import { LandingSoon } from '../components/landing/LandingSoon'
 import { LandingStageHost } from '../components/landing/LandingStageHost'
@@ -56,14 +57,58 @@ function LandingPage() {
       return
     }
 
-    if (window.location.hash !== '#waitlist') {
+    function applyHash() {
+      const hash = window.location.hash
+
+      if (hash === '#waitlist') {
+        document
+          .getElementById('waitlist')
+          ?.scrollIntoView({ behavior: 'smooth' })
+        return
+      }
+
+      if (hash === '#community') {
+        setActiveStage('vote')
+        return
+      }
+
+      if (hash === '#flow') {
+        document
+          .getElementById('flow')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
+
+      if (hash === '#product') {
+        document
+          .getElementById('product')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+
+    applyHash()
+    window.addEventListener('hashchange', applyHash)
+
+    return () => {
+      window.removeEventListener('hashchange', applyHash)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    if (window.location.hash !== '#community' || activeStage !== 'vote') {
       return
     }
 
     window.requestAnimationFrame(() => {
-      document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })
+      document
+        .getElementById('community')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
-  }, [])
+  }, [activeStage])
 
   return (
     <div className="flv min-h-dvh">
@@ -75,6 +120,16 @@ function LandingPage() {
             structural={structural}
           />
         }
+      />
+      <LandingFlowOverview
+        onSelect={({ stage }) => {
+          setActiveStage(stage)
+          window.requestAnimationFrame(() => {
+            document
+              .getElementById('product-stages')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          })
+        }}
       />
       <LandingStageRail
         activeStage={activeStage}

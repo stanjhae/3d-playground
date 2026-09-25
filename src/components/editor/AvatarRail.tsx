@@ -1,7 +1,11 @@
+import { useMemo, useState } from 'react'
+
 import { cn } from '../../lib/cn'
 import {
+  getAvatarById,
   listAvatars,
   nextAvatarSelection,
+  type AvatarFilter,
   type AvatarPreset,
 } from '../../lib/avatars'
 import { useEditorStore } from '../../lib/editor-store'
@@ -12,12 +16,20 @@ import {
   railFrameClass,
 } from '../../lib/studio-chrome'
 
+const FILTERS: { id: AvatarFilter | 'all'; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'male', label: 'Male' },
+  { id: 'female', label: 'Female' },
+  { id: 'athletic', label: 'Athletic' },
+]
+
 function AvatarSilhouette({
   avatar,
 }: {
   avatar: AvatarPreset
 }) {
-  const soft = avatar.filters.includes('female') && !avatar.filters.includes('athletic')
+  const soft =
+    avatar.filters.includes('female') && !avatar.filters.includes('athletic')
   const broad = avatar.filters.includes('athletic') || avatar.chestCm >= 108
   const shoulder = broad ? 18 : soft ? 14 : 16
   const hip = soft ? 15 : broad ? 14 : 13
@@ -29,7 +41,11 @@ function AvatarSilhouette({
       aria-hidden
       className="h-10 w-6 fill-current text-ivory-muted"
     >
-      <circle cx="20" cy="8" r="5.5" />
+      <circle
+        cx="20"
+        cy="8"
+        r="5.5"
+      />
       <path
         d={`M${20 - shoulder} 16
           C${20 - shoulder} 16 ${20 - shoulder - 2} 28 ${20 - hip} ${waistY}
@@ -43,6 +59,25 @@ function AvatarSilhouette({
   )
 }
 
+export function visibleAvatarsForFilter({
+  filter,
+  selectedId,
+}: {
+  filter: AvatarFilter | 'all'
+  selectedId?: string | null
+}): AvatarPreset[] {
+  const filtered = listAvatars({
+    filter: filter === 'all' ? undefined : filter,
+  })
+  const selected = getAvatarById({ avatarId: selectedId })
+
+  if (!selected || filtered.some((avatar) => avatar.id === selected.id)) {
+    return filtered
+  }
+
+  return [selected, ...filtered]
+}
+
 export function AvatarRail() {
   const avatarId = useEditorStore((state) => state.avatarId)
   const createStep = useEditorStore((state) => state.createStep)
@@ -54,11 +89,47 @@ export function AvatarRail() {
   const resetAvatarMeasurements = useEditorStore(
     (state) => state.resetAvatarMeasurements,
   )
-  const avatars = listAvatars()
+  const [filter, setFilter] = useState<AvatarFilter | 'all'>('all')
+  const avatars = useMemo(
+    () =>
+      visibleAvatarsForFilter({
+        filter,
+        selectedId: avatarId,
+      }),
+    [avatarId, filter],
+  )
+  const selectedOutsideFilter =
+    Boolean(avatarId) &&
+    filter !== 'all' &&
+    !listAvatars({ filter }).some((avatar) => avatar.id === avatarId)
 
   return (
     <aside className={railFrameClass()}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.avatar}</p>
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            aria-pressed={filter === entry.id}
+            onClick={() => {
+              setFilter(entry.id)
+            }}
+            className={cn('min-h-9 rounded-full border px-3', chromeTextClass(), {
+              'border-brass text-brass': filter === entry.id,
+              'border-atelier-line text-ivory-muted hover:text-brass':
+                filter !== entry.id,
+            })}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+      {selectedOutsideFilter ? (
+        <p className="font-body text-xs text-ivory-muted">
+          Current avatar is outside this filter — still selected above.
+        </p>
+      ) : null}
       <div className="grid grid-cols-2 gap-2">
         {avatars.map((avatar) => {
           const isCurrent = avatarId === avatar.id
@@ -92,7 +163,7 @@ export function AvatarRail() {
                 }
               }}
               className={cn(
-                'flex min-h-14 items-center gap-2 border px-2 py-2 text-left',
+                'flex min-h-14 items-center gap-2 rounded-xl border px-2 py-2 text-left',
                 {
                   'border-brass text-brass': isCurrent,
                   'border-atelier-line text-ivory-muted hover:text-brass':
@@ -112,60 +183,42 @@ export function AvatarRail() {
         })}
       </div>
       <p className={chromeKickerClass()}>{HOUSE_COPY.measurements}</p>
-      <label className="flex flex-col gap-1">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
-          {HOUSE_COPY.height}
-        </span>
-        <input
-          type="range"
-          min={150}
-          max={200}
-          step={1}
-          value={avatarMeasurements.height}
-          onChange={(event) => {
-            setAvatarMeasurements({
-              measurements: { height: Number(event.target.value) },
-            })
-          }}
-          className="accent-brass"
-        />
-      </label>
-      <label className="flex flex-col gap-1">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
-          {HOUSE_COPY.chest}
-        </span>
-        <input
-          type="range"
-          min={80}
-          max={120}
-          step={1}
-          value={avatarMeasurements.chest}
-          onChange={(event) => {
-            setAvatarMeasurements({
-              measurements: { chest: Number(event.target.value) },
-            })
-          }}
-          className="accent-brass"
-        />
-      </label>
-      <label className="flex flex-col gap-1">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
-          {HOUSE_COPY.waist}
-        </span>
-        <input
-          type="range"
-          min={60}
-          max={110}
-          step={1}
-          value={avatarMeasurements.waist}
-          onChange={(event) => {
-            setAvatarMeasurements({
-              measurements: { waist: Number(event.target.value) },
-            })
-          }}
-          className="accent-brass"
-        />
-      </label>
+      <MeasurementSlider
+        label={HOUSE_COPY.height}
+        value={avatarMeasurements.height}
+        unit="cm"
+        min={150}
+        max={200}
+        onChange={({ value }) => {
+          setAvatarMeasurements({
+            measurements: { height: value },
+          })
+        }}
+      />
+      <MeasurementSlider
+        label={HOUSE_COPY.chest}
+        value={avatarMeasurements.chest}
+        unit="cm"
+        min={80}
+        max={120}
+        onChange={({ value }) => {
+          setAvatarMeasurements({
+            measurements: { chest: value },
+          })
+        }}
+      />
+      <MeasurementSlider
+        label={HOUSE_COPY.waist}
+        value={avatarMeasurements.waist}
+        unit="cm"
+        min={60}
+        max={110}
+        onChange={({ value }) => {
+          setAvatarMeasurements({
+            measurements: { waist: value },
+          })
+        }}
+      />
       <button
         type="button"
         onClick={() => {
@@ -179,5 +232,45 @@ export function AvatarRail() {
         {HOUSE_COPY.resetAvatar}
       </button>
     </aside>
+  )
+}
+
+function MeasurementSlider({
+  label,
+  value,
+  unit,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  value: number
+  unit: string
+  min: number
+  max: number
+  onChange: ({ value }: { value: number }) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="flex items-center justify-between">
+        <span className={cn('text-ivory-muted', chromeTextClass())}>
+          {label}
+        </span>
+        <span className="font-body text-xs text-brass">
+          {value} {unit}
+        </span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={value}
+        onChange={(event) => {
+          onChange({ value: Number(event.target.value) })
+        }}
+        className="accent-brass"
+      />
+    </label>
   )
 }

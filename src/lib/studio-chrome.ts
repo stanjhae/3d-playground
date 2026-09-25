@@ -52,7 +52,7 @@ export function studioPhoneToolsClass() {
 }
 
 export function studioPhonePublishClass() {
-  return 'pointer-events-auto flex shrink-0 flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:absolute lg:right-6 lg:bottom-4 lg:w-72 lg:px-0 lg:pb-0'
+  return 'pointer-events-auto flex max-h-[min(72vh,42rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:absolute lg:right-6 lg:bottom-4 lg:w-80 lg:max-h-[min(78vh,44rem)] lg:px-0 lg:pb-0'
 }
 
 export function railFrameClass() {

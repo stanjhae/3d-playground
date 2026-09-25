@@ -1,11 +1,17 @@
+import { useState } from 'react'
+
 import { cn } from '../../lib/cn'
 import type { GarmentId } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
+import { FLV_COPY } from '../../lib/flv-copy'
+import { garmentCredit } from '../../lib/garments'
 import {
-  garmentCredit,
-  listRailGarments,
-} from '../../lib/garments'
+  GARMENT_CATEGORIES,
+  garmentCategory,
+  listGarmentsByCategory,
+  type GarmentCategoryId,
+} from '../../lib/landing-demo'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 
 function FormGlyph({
@@ -18,7 +24,7 @@ function FormGlyph({
       <svg
         viewBox="0 0 48 48"
         aria-hidden
-        className="h-10 w-10 fill-current"
+        className="h-12 w-12 fill-current"
       >
         <path d="M16 10 L8 16 L12 20 L16 16 L16 38 L32 38 L32 16 L36 20 L40 16 L32 10 L28 14 L20 14 Z" />
       </svg>
@@ -30,7 +36,7 @@ function FormGlyph({
       <svg
         viewBox="0 0 48 48"
         aria-hidden
-        className="h-10 w-10 fill-current"
+        className="h-12 w-12 fill-current"
       >
         <path d="M20 8 L18 14 L12 40 L36 40 L30 14 L28 8 Z M22 8 L26 8 L26 12 L22 12 Z" />
       </svg>
@@ -41,7 +47,7 @@ function FormGlyph({
     <svg
       viewBox="0 0 48 48"
       aria-hidden
-      className="h-10 w-10 fill-current"
+      className="h-12 w-12 fill-current"
     >
       <path d="M14 12 L8 18 L12 22 L16 18 L16 40 L32 40 L32 18 L36 22 L40 18 L34 12 L28 16 L20 16 Z" />
     </svg>
@@ -57,41 +63,82 @@ export function SilhouetteSwitch({
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
   const current = resolveGarmentId({ garmentId: garmentId ?? storeId })
   const credit = garmentCredit({ garmentId: current })
+  const [category, setCategory] = useState<GarmentCategoryId>(
+    garmentCategory({ garmentId: current }),
+  )
+  const garments = listGarmentsByCategory({ category })
 
   return (
-    <div className="flex w-full max-w-full flex-col gap-2 lg:max-w-[min(100%,42rem)]">
-      <nav
-        aria-label="House forms"
-        className="flex w-full gap-2 overflow-x-auto overscroll-x-contain snap-x snap-mandatory"
-      >
-        {listRailGarments().map((garment) => {
-          const isCurrent = current === garment.id
+    <div className="flex w-full max-w-full flex-col gap-3 lg:max-w-[min(100%,48rem)]">
+      <div className="flex flex-wrap gap-2">
+        {GARMENT_CATEGORIES.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            aria-pressed={category === entry.id}
+            onClick={() => {
+              setCategory(entry.id)
+              const first = listGarmentsByCategory({ category: entry.id })[0]
+              if (first) {
+                setGarmentId({ garmentId: first.id })
+              }
+            }}
+            className={cn(
+              'min-h-9 rounded-full border px-3',
+              chromeTextClass(),
+              {
+                'border-brass text-brass': category === entry.id,
+                'border-atelier-line text-ivory-muted hover:text-brass':
+                  category !== entry.id,
+              },
+            )}
+          >
+            {FLV_COPY[entry.labelKey]}
+          </button>
+        ))}
+      </div>
+      {garments.length === 0 ? (
+        <p className="font-body text-sm text-ivory-muted">
+          No house forms in this category yet.
+        </p>
+      ) : (
+        <nav
+          aria-label="House forms"
+          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+        >
+          {garments.map((garment) => {
+            const isCurrent = current === garment.id
 
-          return (
-            <button
-              key={garment.id}
-              type="button"
-              aria-pressed={isCurrent ? 'true' : 'false'}
-              onClick={() => {
-                setGarmentId({ garmentId: garment.id })
-              }}
-              className={cn(
-                'flex min-h-16 min-w-20 shrink-0 snap-start flex-col items-center justify-center gap-1 border px-3 py-2',
-                chromeTextClass(),
-                {
-                  'border-brass text-brass': isCurrent,
-                  'border-atelier-line text-ivory-muted hover:text-brass':
-                    !isCurrent,
-                },
-              )}
-            >
-              <FormGlyph garmentId={garment.id} />
-              <span>{garment.label}</span>
-            </button>
-          )
-        })}
-      </nav>
-      {credit ? (
+            return (
+              <button
+                key={garment.id}
+                type="button"
+                aria-pressed={isCurrent ? 'true' : 'false'}
+                onClick={() => {
+                  setGarmentId({ garmentId: garment.id })
+                  setCategory(garmentCategory({ garmentId: garment.id }))
+                }}
+                className={cn(
+                  'relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3',
+                  chromeTextClass(),
+                  {
+                    'border-brass text-brass': isCurrent,
+                    'border-atelier-line text-ivory-muted hover:text-brass':
+                      !isCurrent,
+                  },
+                )}
+              >
+                {isCurrent ? (
+                  <span className="absolute top-2 right-2 text-brass">✓</span>
+                ) : null}
+                <FormGlyph garmentId={garment.id} />
+                <span>{garment.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+      )}
+      {credit && garments.some((garment) => garment.id === current) ? (
         <p className={cn('text-ivory-muted', chromeKickerClass())}>
           <a
             href={credit.href}

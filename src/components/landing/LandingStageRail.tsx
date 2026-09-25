@@ -15,7 +15,7 @@ export function LandingStageRail({
   return (
     <nav
       aria-label={FLV_COPY.possibilities}
-      className="flex flex-wrap gap-2 border-b border-flv-line px-6 py-4 sm:px-10"
+      className="sticky top-0 z-20 flex flex-wrap gap-2 border-b border-flv-line bg-flv-paper/95 px-6 py-4 backdrop-blur-sm sm:px-10"
     >
       {LANDING_RAIL.map((entry, index) => {
         const active =
@@ -36,17 +36,27 @@ export function LandingStageRail({
             aria-pressed={active}
             onClick={() => {
               onSelect({ stage: entry.id })
+              document
+                .getElementById('product-stages')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
             className={cn(
-              'min-h-11 border px-4 font-body text-xs tracking-[0.1em] uppercase',
+              'min-h-11 rounded-full border px-4 font-body text-xs tracking-[0.1em] uppercase transition',
               {
-                'border-flv-accent text-flv-accent': active,
+                'border-flv-accent bg-flv-accent text-white': active,
                 'border-flv-line text-flv-muted hover:border-flv-accent hover:text-flv-accent':
                   !active,
               },
             )}
           >
-            <span className="mr-2 text-flv-accent">0{index + 1}</span>
+            <span
+              className={cn('mr-2', {
+                'text-white': active,
+                'text-flv-accent': !active,
+              })}
+            >
+              0{index + 1}
+            </span>
             {entry.label}
           </button>
         )
