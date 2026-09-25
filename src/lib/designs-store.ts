@@ -8,11 +8,17 @@ import {
 } from './design-document.ts'
 import type {
   Design,
+  DesignAttachmentId,
   DesignMethod,
+  DesignVisibility,
   GarmentId,
   MaterialOverride,
 } from './design-schema.ts'
-import { resolveGarmentId } from './design-schema.ts'
+import {
+  DESIGN_ATTACHMENT_IDS,
+  isBoardVisibleLook,
+  resolveGarmentId,
+} from './design-schema.ts'
 import {
   createDesignsPersist,
   type DesignsPersist,
@@ -30,6 +36,7 @@ export {
 
 export const MAX_TITLE_CHARS = 80
 export const MAX_AUTHOR_CHARS = 40
+export const MAX_DESCRIPTION_CHARS = 500
 export const MAX_OVERRIDE_COUNT = 16
 export const MAX_LIVE_DESIGNS = 24
 export const MAX_BOARD_CHARS = 7_500_000
@@ -97,6 +104,49 @@ function parseMethod({ value }: { value: unknown }): DesignMethod | undefined {
     : undefined
 }
 
+function parseDescription({ value }: { value: unknown }): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const description = value.trim().slice(0, MAX_DESCRIPTION_CHARS)
+  return description.length > 0 ? description : undefined
+}
+
+function parseVisibility({
+  value,
+}: {
+  value: unknown
+}): DesignVisibility | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  if (value === 'public' || value === 'private' || value === 'unlisted') {
+    return value
+  }
+
+  return undefined
+}
+
+function parseAttachments({
+  value,
+}: {
+  value: unknown
+}): DesignAttachmentId[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const allowed = new Set<string>(DESIGN_ATTACHMENT_IDS)
+  const attachments = value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .filter((entry): entry is DesignAttachmentId => allowed.has(entry))
+    .slice(0, DESIGN_ATTACHMENT_IDS.length)
+
+  return attachments.length > 0 ? attachments : undefined
+}
+
 function parseAngleStills({ value }: { value: unknown }): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined
@@ -123,6 +173,13 @@ function cloneDesignExtras({ design }: { design: Design }) {
     ...(design.avatarId ? { avatarId: design.avatarId } : {}),
     ...(design.angleStills && design.angleStills.length > 0
       ? { angleStills: [...design.angleStills] }
+      : {}),
+    ...(design.description ? { description: design.description } : {}),
+    ...(design.visibility && design.visibility !== 'public'
+      ? { visibility: design.visibility }
+      : {}),
+    ...(design.attachments && design.attachments.length > 0
+      ? { attachments: [...design.attachments] }
       : {}),
   }
 }
@@ -255,6 +312,9 @@ export function normalizeLoadedDesign({
       createdAt: record.createdAt,
       avatarId: record.avatarId,
       angleStills: record.angleStills,
+      description: record.description,
+      visibility: record.visibility,
+      attachments: record.attachments,
     },
   })
 
@@ -321,6 +381,9 @@ export function mergeDesigns({
       createdAt: incoming.createdAt ?? existing.createdAt,
       avatarId: incoming.avatarId ?? existing.avatarId,
       angleStills: incoming.angleStills ?? existing.angleStills,
+      description: incoming.description ?? existing.description,
+      visibility: incoming.visibility ?? existing.visibility,
+      attachments: incoming.attachments ?? existing.attachments,
     })
   }
 
@@ -477,8 +540,18 @@ export async function persistDesignsStore() {
   throw new DesignsPersistError()
 }
 
-export function listStoredDesigns(): Design[] {
-  return getLiveDesigns().map((design) => cloneDesign({ design }))
+export function listStoredDesigns({
+  boardOnly = false,
+}: {
+  boardOnly?: boolean
+} = {}): Design[] {
+  const designs = getLiveDesigns().map((design) => cloneDesign({ design }))
+
+  if (!boardOnly) {
+    return designs
+  }
+
+  return designs.filter((design) => isBoardVisibleLook({ design }))
 }
 
 export function getStoredDesign({ id }: { id: string }): Design | null {
@@ -589,6 +662,18 @@ export function parseDesignDraft({
       const angleStills = parseAngleStills({ value: record.angleStills })
       return angleStills ? { angleStills } : {}
     })(),
+    ...(() => {
+      const description = parseDescription({ value: record.description })
+      return description ? { description } : {}
+    })(),
+    ...(() => {
+      const visibility = parseVisibility({ value: record.visibility })
+      return visibility && visibility !== 'public' ? { visibility } : {}
+    })(),
+    ...(() => {
+      const attachments = parseAttachments({ value: record.attachments })
+      return attachments ? { attachments } : {}
+    })(),
   }
 }
 
@@ -623,6 +708,13 @@ export function createStoredDesign({
     ...(draft.avatarId ? { avatarId: draft.avatarId } : {}),
     ...(draft.angleStills && draft.angleStills.length > 0
       ? { angleStills: [...draft.angleStills] }
+      : {}),
+    ...(draft.description ? { description: draft.description } : {}),
+    ...(draft.visibility && draft.visibility !== 'public'
+      ? { visibility: draft.visibility }
+      : {}),
+    ...(draft.attachments && draft.attachments.length > 0
+      ? { attachments: [...draft.attachments] }
       : {}),
   }
 

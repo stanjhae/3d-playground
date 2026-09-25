@@ -12,12 +12,12 @@ export function GownCredit({
   }
 
   return (
-    <p className="font-body text-xs tracking-[0.08em] text-ivory-muted uppercase">
+    <p className="font-body text-xs tracking-[0.08em] text-flv-muted uppercase">
       <a
         href={credit.href}
         rel="noopener noreferrer"
         target="_blank"
-        className="hover:text-brass"
+        className="hover:text-flv-accent"
       >
         {credit.label}
       </a>
@@ -26,7 +26,7 @@ export function GownCredit({
         href={credit.licenseHref}
         rel="license noopener noreferrer"
         target="_blank"
-        className="hover:text-brass"
+        className="hover:text-flv-accent"
       >
         {credit.license}
       </a>

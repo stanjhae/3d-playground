@@ -14,7 +14,7 @@ export function Leaderboard({
 }) {
   return (
     <aside
-      className={cn('border border-atelier-line bg-atelier-raised', {
+      className={cn('flv-panel', {
         'flex flex-col gap-3 overflow-x-auto p-3': compact,
         'flex flex-col gap-4 p-5': !compact,
       })}
@@ -31,17 +31,17 @@ export function Leaderboard({
             <Link
               to="/look/$lookId"
               params={{ lookId: look.id }}
-              className="flex items-baseline justify-between gap-3 hover:text-brass"
+              className="flex items-baseline justify-between gap-3 hover:text-flv-accent"
             >
-              <span className="font-body text-sm text-ivory">
+              <span className="font-body text-sm text-flv-ink">
                 <span
-                  className={cn('mr-2 text-brass', chromeTextClass())}
+                  className={cn('mr-2 text-flv-accent', chromeTextClass())}
                 >
                   {index === 0 ? HOUSE_COPY.leader : `#${index + 1}`}
                 </span>
                 {look.title}
               </span>
-              <span className="font-body text-xs text-ivory-muted">
+              <span className="font-body text-xs text-flv-muted">
                 {look.votes}
               </span>
             </Link>

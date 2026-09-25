@@ -40,7 +40,7 @@ export function coverHeaderSpacerClass() {
 }
 
 export function lookSheetFrameClass() {
-  return 'pointer-events-none absolute inset-x-0 bottom-0 z-20 flex max-h-[min(58vh,28rem)] flex-col bg-gradient-to-t from-atelier via-atelier/80 to-transparent px-4 pt-16 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-20 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'
+  return 'pointer-events-none absolute inset-x-0 bottom-0 z-20 flex max-h-[min(58vh,28rem)] flex-col bg-gradient-to-t from-flv-paper via-flv-paper/80 to-transparent px-4 pt-16 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-20 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'
 }
 
 export function lookSheetBodyClass() {
@@ -56,13 +56,21 @@ export function studioPhonePublishClass() {
 }
 
 export function railFrameClass() {
-  return 'flex w-full flex-col gap-3 border border-atelier-line bg-atelier/92 p-3'
+  return 'flv-panel flex w-full flex-col gap-3 p-3'
 }
 
 export function chromeKickerClass() {
-  return 'font-display text-xs tracking-[0.22em] text-brass uppercase'
+  return 'font-body text-xs tracking-[0.18em] text-flv-accent uppercase'
 }
 
 export function chromeTextClass() {
-  return 'font-body text-xs tracking-[0.08em] uppercase'
+  return 'font-body text-xs tracking-[0.08em] text-flv-ink uppercase'
+}
+
+export function chromeMutedClass() {
+  return 'font-body text-xs tracking-[0.06em] text-flv-muted'
+}
+
+export function emptyStepClass() {
+  return 'flv-panel flex flex-col gap-2 p-4'
 }

@@ -44,9 +44,21 @@ export async function getDesign({
 }: {
   id: string
 }): Promise<Design | null> {
-  const designs = await listDesigns()
+  const response = await fetch(
+    `/api/designs?lookId=${encodeURIComponent(id)}`,
+  )
 
-  return designs.find((design) => design.id === id) ?? null
+  if (response.status === 404) {
+    return null
+  }
+
+  if (!response.ok) {
+    throw new Error('The look could not open')
+  }
+
+  const body = (await response.json()) as { design?: Design }
+
+  return body.design ?? null
 }
 
 export async function shrinkThumbnail({

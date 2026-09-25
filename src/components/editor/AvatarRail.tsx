@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 
+import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import {
   getAvatarById,
@@ -9,9 +10,11 @@ import {
   type AvatarPreset,
 } from '../../lib/avatars'
 import { useEditorStore } from '../../lib/editor-store'
+import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import {
   chromeKickerClass,
+  chromeMutedClass,
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
@@ -21,6 +24,13 @@ const FILTERS: { id: AvatarFilter | 'all'; label: string }[] = [
   { id: 'male', label: 'Male' },
   { id: 'female', label: 'Female' },
   { id: 'athletic', label: 'Athletic' },
+]
+
+type EnvPreview = 'studio' | 'outdoor'
+
+const ENV_OPTIONS: { id: EnvPreview; label: string }[] = [
+  { id: 'studio', label: 'Studio' },
+  { id: 'outdoor', label: 'Outdoor' },
 ]
 
 function AvatarSilhouette({
@@ -39,7 +49,7 @@ function AvatarSilhouette({
     <svg
       viewBox="0 0 40 64"
       aria-hidden
-      className="h-10 w-6 fill-current text-ivory-muted"
+      className="h-10 w-6 fill-current text-flv-muted"
     >
       <circle
         cx="20"
@@ -90,6 +100,7 @@ export function AvatarRail() {
     (state) => state.resetAvatarMeasurements,
   )
   const [filter, setFilter] = useState<AvatarFilter | 'all'>('all')
+  const [envPreview, setEnvPreview] = useState<EnvPreview>('studio')
   const avatars = useMemo(
     () =>
       visibleAvatarsForFilter({
@@ -106,18 +117,24 @@ export function AvatarRail() {
   return (
     <aside className={railFrameClass()}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.avatar}</p>
-      <div className="flex flex-wrap gap-2">
+      <p className={chromeMutedClass()}>{FLV_COPY.visualFitNote}</p>
+      <div
+        className="flex flex-wrap gap-2"
+        role="radiogroup"
+        aria-label="Avatar filter"
+      >
         {FILTERS.map((entry) => (
           <button
             key={entry.id}
             type="button"
-            aria-pressed={filter === entry.id}
+            role="radio"
+            aria-checked={filter === entry.id}
             onClick={() => {
               setFilter(entry.id)
             }}
             className={cn('min-h-9 rounded-full border px-3', chromeTextClass(), {
-              'border-brass text-brass': filter === entry.id,
-              'border-atelier-line text-ivory-muted hover:text-brass':
+              'border-flv-accent text-flv-accent': filter === entry.id,
+              'border-flv-line text-flv-muted hover:text-flv-accent':
                 filter !== entry.id,
             })}
           >
@@ -126,7 +143,7 @@ export function AvatarRail() {
         ))}
       </div>
       {selectedOutsideFilter ? (
-        <p className="font-body text-xs text-ivory-muted">
+        <p className={chromeMutedClass()}>
           Current avatar is outside this filter — still selected above.
         </p>
       ) : null}
@@ -165,8 +182,8 @@ export function AvatarRail() {
               className={cn(
                 'flex min-h-14 items-center gap-2 rounded-xl border px-2 py-2 text-left',
                 {
-                  'border-brass text-brass': isCurrent,
-                  'border-atelier-line text-ivory-muted hover:text-brass':
+                  'border-flv-accent text-flv-accent': isCurrent,
+                  'border-flv-line text-flv-muted hover:text-flv-accent':
                     !isCurrent,
                 },
               )}
@@ -174,13 +191,45 @@ export function AvatarRail() {
               <AvatarSilhouette avatar={avatar} />
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className={chromeTextClass()}>{avatar.label}</span>
-                <span className="font-body text-xs text-ivory-muted">
-                  {avatar.heightCm} cm
-                </span>
+                <span className={chromeMutedClass()}>{avatar.heightCm} cm</span>
               </span>
             </button>
           )
         })}
+      </div>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={chromeKickerClass()}>Environment</p>
+          <ConceptPreviewBadge />
+        </div>
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label="Environment preview"
+        >
+          {ENV_OPTIONS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              role="radio"
+              aria-checked={envPreview === entry.id}
+              onClick={() => {
+                setEnvPreview(entry.id)
+              }}
+              className={cn(
+                'min-h-9 rounded-full border px-3',
+                chromeTextClass(),
+                {
+                  'border-flv-accent text-flv-accent': envPreview === entry.id,
+                  'border-flv-line text-flv-muted hover:text-flv-accent':
+                    envPreview !== entry.id,
+                },
+              )}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
       </div>
       <p className={chromeKickerClass()}>{HOUSE_COPY.measurements}</p>
       <MeasurementSlider
@@ -225,7 +274,7 @@ export function AvatarRail() {
           resetAvatarMeasurements()
         }}
         className={cn(
-          'min-h-11 border border-atelier-line px-3 text-ivory-muted hover:text-brass',
+          'min-h-11 border border-flv-line px-3 text-flv-muted hover:text-flv-accent',
           chromeTextClass(),
         )}
       >
@@ -253,10 +302,8 @@ function MeasurementSlider({
   return (
     <label className="flex flex-col gap-1">
       <span className="flex items-center justify-between">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
-          {label}
-        </span>
-        <span className="font-body text-xs text-brass">
+        <span className={cn('text-flv-muted', chromeTextClass())}>{label}</span>
+        <span className="font-body text-xs text-flv-accent">
           {value} {unit}
         </span>
       </span>
@@ -269,7 +316,7 @@ function MeasurementSlider({
         onChange={(event) => {
           onChange({ value: Number(event.target.value) })
         }}
-        className="accent-brass"
+        className="accent-[var(--color-flv-accent)]"
       />
     </label>
   )

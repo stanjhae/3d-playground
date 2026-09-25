@@ -19,6 +19,9 @@
   --color-flv-line: oklch(0.88 0.01 40);
   --color-flv-accent: oklch(0.58 0.22 35);
   --color-flv-accent-hot: oklch(0.68 0.2 45);
+  --color-flv-soft: oklch(0.96 0.01 40);
+  --radius-flv: 1rem;
+  --shadow-flv: 0 12px 40px oklch(0.18 0.02 40 / 0.06);
 }
 
 .flv {
@@ -49,8 +52,21 @@
 .flv-panel {
   background-color: white;
   border: 1px solid var(--color-flv-line);
-  border-radius: 1rem;
-  box-shadow: 0 12px 40px oklch(0.18 0.02 40 / 0.06);
+  border-radius: var(--radius-flv);
+  box-shadow: var(--shadow-flv);
+}
+
+.flv-concept-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--color-flv-line);
+  background: white;
+  color: var(--color-flv-muted);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  padding: 0.25rem 0.65rem;
+  text-transform: uppercase;
 }
 
 .flv-live-badge {
@@ -124,13 +140,13 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--color-atelier);
-  color: var(--color-ivory);
+  background-color: var(--color-flv-paper);
+  color: var(--color-flv-ink);
   font-family: var(--font-body);
 }
 
 :focus-visible {
-  outline: 1px solid var(--color-brass);
+  outline: 1px solid var(--color-flv-accent);
   outline-offset: 3px;
 }
 

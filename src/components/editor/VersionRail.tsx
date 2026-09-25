@@ -22,7 +22,7 @@ export function VersionRail() {
             rememberMorning({ title: HOUSE_COPY.restoreMorning })
           }}
           className={cn(
-            'min-h-11 shrink-0 text-ivory-muted hover:text-brass',
+            'min-h-11 shrink-0 text-flv-muted hover:text-flv-accent',
             chromeTextClass(),
           )}
         >
@@ -36,7 +36,7 @@ export function VersionRail() {
               restoreMorning({ snapshot })
             }}
             className={cn(
-              'flex min-h-11 shrink-0 items-center gap-2 text-brass',
+              'flex min-h-11 shrink-0 items-center gap-2 text-flv-accent',
               chromeTextClass(),
             )}
           >
@@ -44,7 +44,7 @@ export function VersionRail() {
               <img
                 src={snapshot.still}
                 alt=""
-                className="size-11 border border-atelier-line object-cover"
+                className="size-11 border border-flv-line object-cover"
               />
             ) : null}
             {snapshot.title}

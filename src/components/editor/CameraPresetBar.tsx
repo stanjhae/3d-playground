@@ -20,19 +20,21 @@ export function CameraPresetBar() {
   return (
     <nav
       aria-label="Camera"
-      className="flex gap-3 border border-atelier-line bg-atelier/92 px-3 py-2"
+      className="flex gap-3 rounded-xl border border-flv-line bg-flv-paper/92 px-3 py-2"
+      role="radiogroup"
     >
       {PRESETS.map((preset) => (
         <button
           key={preset.id}
           type="button"
-          aria-pressed={cameraPreset === preset.id}
+          role="radio"
+          aria-checked={cameraPreset === preset.id}
           onClick={() => {
             setCameraPreset({ cameraPreset: preset.id })
           }}
           className={cn('min-h-11', chromeTextClass(), {
-            'text-brass': cameraPreset === preset.id,
-            'text-ivory-muted hover:text-brass': cameraPreset !== preset.id,
+            'text-flv-accent': cameraPreset === preset.id,
+            'text-flv-muted hover:text-flv-accent': cameraPreset !== preset.id,
           })}
         >
           {preset.label}

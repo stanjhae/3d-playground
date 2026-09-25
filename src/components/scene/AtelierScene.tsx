@@ -20,13 +20,13 @@ function HouseCaption({
   recipe: string
 }) {
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-gradient-to-t from-atelier via-atelier/40 to-transparent px-4 pt-16 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-16">
-      <p className="font-display text-xs tracking-[0.22em] text-brass uppercase">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-gradient-to-t from-flv-ink via-flv-ink/40 to-transparent px-4 pt-16 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-16">
+      <p className="font-display text-xs tracking-[0.22em] text-flv-accent-hot uppercase">
         {HOUSE_COPY.leader}
       </p>
-      <p className="font-display text-2xl text-ivory sm:text-3xl">{title}</p>
+      <p className="font-display text-2xl text-white sm:text-3xl">{title}</p>
       {recipe ? (
-        <p className="font-body text-sm text-ivory-muted">{recipe}</p>
+        <p className="font-body text-sm text-white/70">{recipe}</p>
       ) : null}
     </div>
   )
@@ -96,7 +96,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
           far: STUDIO_CAMERA.far,
         }}
         gl={{ antialias: true, preserveDrawingBuffer: true }}
-        className="h-full min-h-80 w-full touch-none bg-atelier"
+        className="h-full min-h-80 w-full touch-none bg-flv-ink"
       >
         <StudioStage picking={!isHouse} intro>
           <Suspense fallback={<FashionLoader />}>

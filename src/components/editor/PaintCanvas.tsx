@@ -228,7 +228,7 @@ function WordOnCloth({
           event.preventDefault()
           onClose()
         }}
-        className="min-h-11 w-full border border-brass bg-atelier px-3 text-ivory"
+        className="min-h-11 w-full border border-flv-accent bg-white px-3 text-flv-ink"
       />
     </label>
   )
@@ -542,9 +542,9 @@ function PaintSurface({
 
   return (
     <div
-      className={cn('relative min-h-0 flex-1 border bg-ivory', {
-        'border-brass': active,
-        'border-atelier-line': !active,
+      className={cn('relative min-h-0 flex-1 border bg-flv-soft', {
+        'border-flv-accent': active,
+        'border-flv-line': !active,
       })}
     >
       <canvas
@@ -706,7 +706,7 @@ export function PaintCanvas({
   }
 
   return (
-    <aside className="flex h-full min-h-80 flex-col gap-3 border border-atelier-line bg-atelier/92 p-3">
+    <aside className="flv-panel flex h-full min-h-80 flex-col gap-3 p-3">
       <div className="flex items-center justify-between gap-3">
         <p className={chromeKickerClass()}>{HOUSE_COPY.draw}</p>
         <nav
@@ -722,8 +722,8 @@ export function PaintCanvas({
                 setPaintPanel({ paintPanel: panel.id })
               }}
               className={cn('min-h-11', chromeTextClass(), {
-                'text-brass': paintPanel === panel.id,
-                'text-ivory-muted hover:text-brass': paintPanel !== panel.id,
+                'text-flv-accent': paintPanel === panel.id,
+                'text-flv-muted hover:text-flv-accent': paintPanel !== panel.id,
               })}
             >
               {panel.label}
@@ -740,8 +740,8 @@ export function PaintCanvas({
               <div key={panelId} className="flex min-h-0 flex-col gap-1">
                 <p
                   className={cn(chromeTextClass(), {
-                    'text-brass': paintPanel === panelId,
-                    'text-ivory-muted': paintPanel !== panelId,
+                    'text-flv-accent': paintPanel === panelId,
+                    'text-flv-muted': paintPanel !== panelId,
                   })}
                 >
                   {meta?.label ?? panelId}

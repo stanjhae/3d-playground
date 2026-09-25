@@ -37,14 +37,14 @@ export function FabricPanel({
   return (
     <aside
       className={cn(
-        'flex w-full flex-col gap-3 border border-atelier-line bg-atelier/92 p-3 backdrop-blur-sm lg:max-h-[min(72vh,38rem)] lg:max-w-72 lg:gap-4 lg:overflow-y-auto lg:p-4',
+        'flex w-full flex-col gap-3 border border-flv-line bg-white p-3 backdrop-blur-sm lg:max-h-[min(72vh,38rem)] lg:max-w-72 lg:gap-4 lg:overflow-y-auto lg:p-4',
         clothSheetHeightClass({ clothOpen }),
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="hidden min-w-0 flex-1 flex-col gap-1 lg:flex">
           <p className={chromeKickerClass()}>{HOUSE_COPY.cloth}</p>
-          <p className="font-body text-sm text-ivory">
+          <p className="font-body text-sm text-flv-ink">
             For the {partLabel({ meshName: selected })}
           </p>
         </div>
@@ -61,7 +61,7 @@ export function FabricPanel({
         >
           <span className="flex min-w-0 flex-col gap-1">
             <span className={chromeKickerClass()}>{HOUSE_COPY.cloth}</span>
-            <span className="font-body text-sm text-ivory">
+            <span className="font-body text-sm text-flv-ink">
               For the {partLabel({ meshName: selected })}
             </span>
           </span>
@@ -69,11 +69,11 @@ export function FabricPanel({
             {activeFabric ? (
               <span
                 aria-hidden
-                className="size-6 border border-atelier-line"
+                className="size-6 border border-flv-line"
                 style={{ backgroundColor: activeFabric.color }}
               />
             ) : null}
-            <span className={cn(chromeTextClass(), 'text-brass')}>
+            <span className={cn(chromeTextClass(), 'text-flv-accent')}>
               {clothOpen ? HOUSE_COPY.close : HOUSE_COPY.open}
             </span>
           </span>
@@ -85,7 +85,7 @@ export function FabricPanel({
             undoLast()
           }}
           className={cn(
-            'min-h-11 shrink-0 text-ivory-muted hover:text-brass disabled:opacity-30 disabled:hover:text-ivory-muted',
+            'min-h-11 shrink-0 text-flv-muted hover:text-flv-accent disabled:opacity-30 disabled:hover:text-flv-muted',
             chromeTextClass(),
           )}
         >
@@ -98,7 +98,7 @@ export function FabricPanel({
             redoLast()
           }}
           className={cn(
-            'min-h-11 shrink-0 text-ivory-muted hover:text-brass disabled:opacity-30 disabled:hover:text-ivory-muted',
+            'min-h-11 shrink-0 text-flv-muted hover:text-flv-accent disabled:opacity-30 disabled:hover:text-flv-muted',
             chromeTextClass(),
           )}
         >
@@ -135,8 +135,8 @@ export function FabricPanel({
                     'min-h-11 border px-3 py-1.5',
                     chromeTextClass(),
                     {
-                      'border-brass text-brass': isSelected,
-                      'border-atelier-line text-ivory-muted hover:text-brass':
+                      'border-flv-accent text-flv-accent': isSelected,
+                      'border-flv-line text-flv-muted hover:text-flv-accent':
                         !isSelected,
                     },
                   )}
@@ -165,19 +165,19 @@ export function FabricPanel({
                     )
                   }}
                   className={cn(
-                    'flex min-h-11 w-full items-center gap-3 border bg-atelier px-3 py-2 text-left',
+                    'flex min-h-11 w-full items-center gap-3 border bg-flv-paper px-3 py-2 text-left',
                     {
-                      'border-brass': isActive,
-                      'border-atelier-line hover:border-brass': !isActive,
+                      'border-flv-accent': isActive,
+                      'border-flv-line hover:border-flv-accent': !isActive,
                     },
                   )}
                 >
                   <span
                     aria-hidden
-                    className="size-6 shrink-0 border border-atelier-line"
+                    className="size-6 shrink-0 border border-flv-line"
                     style={{ backgroundColor: fabric.color }}
                   />
-                  <span className="font-body text-xs tracking-[0.08em] text-ivory">
+                  <span className="font-body text-xs tracking-[0.08em] text-flv-ink">
                     {fabric.name}
                   </span>
                 </button>

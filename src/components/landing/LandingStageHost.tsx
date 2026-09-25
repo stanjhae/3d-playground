@@ -1159,9 +1159,9 @@ function CommunityDemo({
               className={cn(
                 'absolute top-2 left-2 z-10 inline-flex size-6 items-center justify-center rounded-full font-body text-xs text-white',
                 {
-                  'bg-[#c9a227]': index === 0,
-                  'bg-[#9aa0a6]': index === 1,
-                  'bg-[#b08d57]': index === 2,
+                  'bg-flv-accent': index === 0,
+                  'bg-flv-muted': index === 1,
+                  'bg-flv-accent-hot': index === 2,
                   'bg-flv-ink': index > 2,
                 },
               )}

@@ -2,11 +2,16 @@ import { useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
+import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { selectedTextLayer } from '../../lib/layer-hit'
 import { isSafeLayerSrc } from '../../lib/look-thumbnail'
 import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from '../../lib/paint-colors'
-import { chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
+import {
+  chromeMutedClass,
+  chromeTextClass,
+  railFrameClass,
+} from '../../lib/studio-chrome'
 
 function inkWidthLabel({ width }: { width: number }) {
   if (width === INK_WIDTHS[0]) {
@@ -20,6 +25,13 @@ function inkWidthLabel({ width }: { width: number }) {
   return HOUSE_COPY.line
 }
 
+function toolButtonClass({ selected }: { selected: boolean }) {
+  return cn('min-h-11 border px-3', chromeTextClass(), {
+    'border-flv-accent text-flv-accent': selected,
+    'border-flv-line text-flv-muted hover:text-flv-accent': !selected,
+  })
+}
+
 export function PaintToolbar({
   tools = 'all',
 }: {
@@ -28,9 +40,13 @@ export function PaintToolbar({
   const paintTool = useEditorStore((state) => state.paintTool)
   const paintColor = useEditorStore((state) => state.paintColor)
   const paintWidth = useEditorStore((state) => state.paintWidth)
+  const paintOpacity = useEditorStore((state) => state.paintOpacity)
+  const paintHardness = useEditorStore((state) => state.paintHardness)
   const setPaintTool = useEditorStore((state) => state.setPaintTool)
   const setPaintColor = useEditorStore((state) => state.setPaintColor)
   const setPaintWidth = useEditorStore((state) => state.setPaintWidth)
+  const setPaintOpacity = useEditorStore((state) => state.setPaintOpacity)
+  const setPaintHardness = useEditorStore((state) => state.setPaintHardness)
   const clearInk = useEditorStore((state) => state.clearInk)
   const addGraphic = useEditorStore((state) => state.addGraphic)
   const addPattern = useEditorStore((state) => state.addPattern)
@@ -56,16 +72,13 @@ export function PaintToolbar({
     <aside className={railFrameClass()}>
       {showInk ? (
         <>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => {
                 setPaintTool({ paintTool: 'brush' })
               }}
-              className={cn('min-h-11', chromeTextClass(), {
-                'text-brass': paintTool === 'brush',
-                'text-ivory-muted hover:text-brass': paintTool !== 'brush',
-              })}
+              className={toolButtonClass({ selected: paintTool === 'brush' })}
             >
               {HOUSE_COPY.brush}
             </button>
@@ -74,12 +87,18 @@ export function PaintToolbar({
               onClick={() => {
                 setPaintTool({ paintTool: 'eraser' })
               }}
-              className={cn('min-h-11', chromeTextClass(), {
-                'text-brass': paintTool === 'eraser',
-                'text-ivory-muted hover:text-brass': paintTool !== 'eraser',
-              })}
+              className={toolButtonClass({ selected: paintTool === 'eraser' })}
             >
               {HOUSE_COPY.erase}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPaintTool({ paintTool: 'fill' })
+              }}
+              className={toolButtonClass({ selected: paintTool === 'fill' })}
+            >
+              {FLV_COPY.fillTool}
             </button>
             <button
               type="button"
@@ -87,7 +106,7 @@ export function PaintToolbar({
                 clearInk()
               }}
               className={cn(
-                'min-h-11 text-ivory-muted hover:text-brass',
+                'min-h-11 text-flv-muted hover:text-flv-accent',
                 chromeTextClass(),
               )}
             >
@@ -105,8 +124,8 @@ export function PaintToolbar({
                     setPaintTool({ paintTool: 'brush' })
                   }}
                   className={cn('size-11 border', {
-                    'border-brass': paintColor === color.value,
-                    'border-atelier-line': paintColor !== color.value,
+                    'border-flv-accent': paintColor === color.value,
+                    'border-flv-line': paintColor !== color.value,
                   })}
                   style={{ backgroundColor: color.value }}
                 />
@@ -121,19 +140,63 @@ export function PaintToolbar({
                 onClick={() => {
                   setPaintWidth({ paintWidth: width })
                 }}
-                className={cn(
-                  'min-h-11 flex-1 border',
-                  chromeTextClass(),
-                  {
-                    'border-brass text-brass': paintWidth === width,
-                    'border-atelier-line text-ivory-muted': paintWidth !== width,
-                  },
-                )}
+                className={cn('min-h-11 flex-1 border', chromeTextClass(), {
+                  'border-flv-accent text-flv-accent': paintWidth === width,
+                  'border-flv-line text-flv-muted': paintWidth !== width,
+                })}
               >
                 {inkWidthLabel({ width })}
               </button>
             ))}
           </div>
+          <label className="flex flex-col gap-1">
+            <span className={chromeMutedClass()}>{FLV_COPY.brushSize}</span>
+            <input
+              type="range"
+              min={0.01}
+              max={0.06}
+              step={0.002}
+              value={paintWidth}
+              onChange={(event) => {
+                setPaintWidth({
+                  paintWidth: Number.parseFloat(event.target.value),
+                })
+              }}
+              className="w-full accent-flv-accent"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={chromeMutedClass()}>{FLV_COPY.brushOpacity}</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={paintOpacity}
+              onChange={(event) => {
+                setPaintOpacity({
+                  paintOpacity: Number.parseFloat(event.target.value),
+                })
+              }}
+              className="w-full accent-flv-accent"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={chromeMutedClass()}>{FLV_COPY.brushHardness}</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={paintHardness}
+              onChange={(event) => {
+                setPaintHardness({
+                  paintHardness: Number.parseFloat(event.target.value),
+                })
+              }}
+              className="w-full accent-flv-accent"
+            />
+          </label>
         </>
       ) : null}
       {showPlaceables ? (
@@ -180,7 +243,7 @@ export function PaintToolbar({
                 fileRef.current?.click()
               }}
               className={cn(
-                'min-h-11 border border-atelier-line px-3 text-ivory hover:text-brass',
+                'min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent',
                 chromeTextClass(),
               )}
             >
@@ -194,7 +257,7 @@ export function PaintToolbar({
                   setTypeDraft({ typeDraft: event.target.value })
                 }}
                 placeholder={HOUSE_COPY.type}
-                className="min-h-11 min-w-0 flex-1 border border-atelier-line bg-atelier px-3 font-body text-sm text-ivory"
+                className="min-h-11 min-w-0 flex-1 border border-flv-line bg-flv-paper px-3 font-body text-sm text-flv-ink"
               />
             </label>
             <button
@@ -203,7 +266,7 @@ export function PaintToolbar({
                 addPattern({ patternId: 'stripe' })
               }}
               className={cn(
-                'min-h-11 border border-atelier-line px-3 text-ivory hover:text-brass',
+                'min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent',
                 chromeTextClass(),
               )}
             >
@@ -215,7 +278,7 @@ export function PaintToolbar({
                 addPattern({ patternId: 'check' })
               }}
               className={cn(
-                'min-h-11 border border-atelier-line px-3 text-ivory hover:text-brass',
+                'min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent',
                 chromeTextClass(),
               )}
             >
@@ -226,18 +289,12 @@ export function PaintToolbar({
               onClick={() => {
                 setPaintTool({ paintTool: 'type' })
               }}
-              className={cn('min-h-11 border px-3', chromeTextClass(), {
-                'border-brass text-brass': paintTool === 'type',
-                'border-atelier-line text-ivory hover:text-brass':
-                  paintTool !== 'type',
-              })}
+              className={toolButtonClass({ selected: paintTool === 'type' })}
             >
               {HOUSE_COPY.type}
             </button>
           </div>
-          <p className="font-body text-sm text-ivory-muted">
-            {HOUSE_COPY.typeHint}
-          </p>
+          <p className="font-body text-sm text-flv-muted">{HOUSE_COPY.typeHint}</p>
           <div className="flex flex-wrap gap-2">
             {(['display', 'sans'] as const).map((face) => (
               <button
@@ -253,8 +310,8 @@ export function PaintToolbar({
                   }
                 }}
                 className={cn('min-h-11 flex-1 border', chromeTextClass(), {
-                  'border-brass text-brass': textFace === face,
-                  'border-atelier-line text-ivory-muted': textFace !== face,
+                  'border-flv-accent text-flv-accent': textFace === face,
+                  'border-flv-line text-flv-muted': textFace !== face,
                 })}
               >
                 {face === 'display'
@@ -276,9 +333,8 @@ export function PaintToolbar({
                   }
                 }}
                 className={cn('min-h-11 flex-1 border', chromeTextClass(), {
-                  'border-brass text-brass': textScale === size.scale,
-                  'border-atelier-line text-ivory-muted':
-                    textScale !== size.scale,
+                  'border-flv-accent text-flv-accent': textScale === size.scale,
+                  'border-flv-line text-flv-muted': textScale !== size.scale,
                 })}
               >
                 {size.label}
@@ -288,7 +344,7 @@ export function PaintToolbar({
         </>
       ) : null}
       {artworkError ? (
-        <p className="font-body text-sm text-ivory-muted">{artworkError}</p>
+        <p className="font-body text-sm text-flv-muted">{artworkError}</p>
       ) : null}
     </aside>
   )

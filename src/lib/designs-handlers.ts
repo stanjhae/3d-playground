@@ -3,6 +3,7 @@ import {
   DesignsBoardFullError,
   DesignsPersistError,
   createStoredDesign,
+  getStoredDesign,
   hydrateDesignsStore,
   parseDesignDraft,
   persistDesignsStore,
@@ -12,6 +13,7 @@ import {
   listStoredDesigns,
   withDesignsLock,
 } from './designs-store.ts'
+import { isLinkVisibleLook } from './design-schema.ts'
 import { resolveVoteId } from './paths.ts'
 import { rankDesigns } from './rank-designs.ts'
 
@@ -29,9 +31,23 @@ function isVoteRequest({ request }: { request: Request }) {
   return designsIndex >= 0 && voteIndex === designsIndex + 2
 }
 
-function listDesignsResponse() {
+function listDesignsResponse({ request }: { request: Request }) {
+  const lookId = new URL(request.url).searchParams.get('lookId')?.trim()
+
+  if (lookId) {
+    const design = getStoredDesign({ id: lookId })
+
+    if (!design || !isLinkVisibleLook({ design })) {
+      return Response.json({ error: 'That look is gone' }, { status: 404 })
+    }
+
+    return Response.json({ design })
+  }
+
   return Response.json({
-    designs: rankDesigns({ designs: listStoredDesigns() }),
+    designs: rankDesigns({
+      designs: listStoredDesigns({ boardOnly: true }),
+    }),
   })
 }
 
@@ -88,7 +104,12 @@ async function createDesignsResponse({ request }: { request: Request }) {
 
 async function voteDesignsResponse({ request }: { request: Request }) {
   const id = await resolveVoteId({ request })
-  const before = listStoredDesigns().find((design) => design.id === id)
+  const before = getStoredDesign({ id })
+
+  if (!before || !isLinkVisibleLook({ design: before })) {
+    return Response.json({ error: 'That look is gone' }, { status: 404 })
+  }
+
   const design = voteStoredDesign({ id })
 
   if (!design) {
@@ -131,7 +152,7 @@ export async function handleDesignsRequest({
         const isVote = isVoteRequest({ request })
 
         if (request.method === 'GET' && !isVote) {
-          return listDesignsResponse()
+          return listDesignsResponse({ request })
         }
 
         if (request.method === 'POST' && isVote) {

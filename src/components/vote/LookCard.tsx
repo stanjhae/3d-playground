@@ -24,10 +24,9 @@ export function LookCard({
 }) {
   return (
     <article
-      className={cn('flex flex-col gap-4 bg-atelier-raised p-4', {
-        'border border-brass': isLeader || featured,
-        'border border-brass/70': isEntered && !isLeader && !featured,
-        'border border-atelier-line': !isLeader && !featured && !isEntered,
+      className={cn('flv-panel flex flex-col gap-4 p-4', {
+        'border-flv-accent': isLeader || featured,
+        'border-flv-accent/70': isEntered && !isLeader && !featured,
       })}
     >
       <Link
@@ -35,7 +34,7 @@ export function LookCard({
         params={{ lookId: design.id }}
         className="flex flex-col gap-3"
       >
-        <div className="relative overflow-hidden border border-atelier-line bg-atelier">
+        <div className="relative overflow-hidden rounded-xl border border-flv-line bg-flv-soft">
           {isSafeThumbnail({
             thumbnailDataUrl: design.thumbnailDataUrl,
           }) ? (
@@ -45,14 +44,14 @@ export function LookCard({
               className="aspect-[4/5] w-full object-cover"
             />
           ) : (
-            <div className="flex aspect-[4/5] w-full items-center justify-center font-body text-sm text-ivory-muted">
+            <div className="flex aspect-[4/5] w-full items-center justify-center font-body text-sm text-flv-muted">
               {HOUSE_COPY.openingStill}
             </div>
           )}
           {isLeader ? (
             <p
               className={cn(
-                'absolute top-3 left-3 border border-brass bg-atelier px-3 py-1',
+                'absolute top-3 left-3 rounded-full border border-flv-accent bg-flv-paper px-3 py-1',
                 chromeKickerClass(),
               )}
             >
@@ -60,33 +59,33 @@ export function LookCard({
             </p>
           ) : null}
           {isEntered && !isLeader ? (
-            <p className="absolute top-3 left-3 border border-atelier-line bg-atelier px-3 py-1 font-body text-xs tracking-[0.08em] text-ivory uppercase">
+            <p className="absolute top-3 left-3 rounded-full border border-flv-line bg-flv-paper px-3 py-1 font-body text-xs tracking-[0.08em] text-flv-ink uppercase">
               {HOUSE_COPY.justEntered}
             </p>
           ) : null}
         </div>
-        <h2 className="font-display text-2xl text-ivory">{design.title}</h2>
+        <h2 className="font-display text-2xl text-flv-ink">{design.title}</h2>
         {design.tags && design.tags.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {design.tags.map((tag) => (
               <span
                 key={tag}
-                className="border border-atelier-line px-2 py-1 font-body text-xs tracking-[0.08em] text-ivory-muted uppercase"
+                className="rounded-full border border-flv-line px-2 py-1 font-body text-xs tracking-[0.08em] text-flv-muted uppercase"
               >
                 {tag}
               </span>
             ))}
           </div>
         ) : null}
-        <p className="line-clamp-2 font-body text-sm text-ivory-muted">
+        <p className="line-clamp-2 font-body text-sm text-flv-muted">
           {lookRecipe({ design })}
         </p>
-        <p className="font-body text-sm text-ivory-muted">
+        <p className="font-body text-sm text-flv-muted">
           {HOUSE_COPY.by} {design.author}
         </p>
       </Link>
       <div className="flex items-center justify-between gap-3">
-        <p className={cn('text-ivory-muted', chromeTextClass())}>
+        <p className={cn('text-flv-muted', chromeTextClass())}>
           {design.votes}{' '}
           {design.votes === 1 ? HOUSE_COPY.voteOne : HOUSE_COPY.votes}
         </p>
@@ -97,7 +96,7 @@ export function LookCard({
             onVote?.({ id: design.id })
           }}
           className={cn(
-            'min-h-11 border border-brass px-4 py-2 text-brass hover:bg-atelier disabled:opacity-50',
+            'min-h-11 border border-flv-accent px-4 py-2 text-flv-accent hover:bg-flv-soft disabled:opacity-50',
             chromeTextClass(),
           )}
         >

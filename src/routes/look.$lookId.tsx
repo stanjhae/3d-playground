@@ -111,13 +111,13 @@ function LookPage() {
       ) : (
         <div className="flex h-full items-center justify-center px-6">
           {status === 'loading' ? (
-            <p className="font-body text-sm text-ivory-muted">
+            <p className="font-body text-sm text-flv-muted">
               {HOUSE_COPY.lookLoading}
             </p>
           ) : null}
           {status === 'error' || status === 'missing' ? (
             <div className="flex max-w-md flex-col gap-4">
-              <h1 className="font-display text-4xl text-ivory">
+              <h1 className="font-display text-4xl text-flv-ink">
                 {status === 'error'
                   ? HOUSE_COPY.lookFailed
                   : HOUSE_COPY.lookGone}
@@ -125,7 +125,7 @@ function LookPage() {
               <Link
                 to="/vote"
                 search={{}}
-                className="font-body text-brass hover:underline"
+                className="font-body text-flv-accent hover:underline"
               >
                 {HOUSE_COPY.backToBoard}
               </Link>
@@ -136,16 +136,21 @@ function LookPage() {
       {status === 'ready' && look ? (
         <div className={lookSheetFrameClass()}>
           <div className={lookSheetBodyClass()}>
-            <p className="font-display text-xs tracking-[0.22em] text-brass uppercase">
+            <p className="font-display text-xs tracking-[0.22em] text-flv-accent uppercase">
               {HOUSE_COPY.sharedLook}
             </p>
-            <h1 className="font-display text-3xl text-ivory sm:text-4xl md:text-5xl">
+            <h1 className="font-display text-3xl text-flv-ink sm:text-4xl md:text-5xl">
               {look.title}
             </h1>
-            <p className="font-body text-base text-ivory">
+            <p className="font-body text-base text-flv-ink">
               {lookRecipe({ design: look })}
             </p>
-            <p className="font-body text-sm text-ivory-muted">
+            {look.description ? (
+              <p className="font-body text-sm text-flv-muted">
+                {look.description}
+              </p>
+            ) : null}
+            <p className="font-body text-sm text-flv-muted">
               {HOUSE_COPY.by} {look.author} · {look.votes}{' '}
               {look.votes === 1 ? HOUSE_COPY.voteOne : HOUSE_COPY.votes}
             </p>
@@ -154,7 +159,7 @@ function LookPage() {
                 {look.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="border border-atelier-line px-2 py-1 font-body text-xs tracking-[0.08em] text-ivory-muted uppercase"
+                    className="border border-flv-line px-2 py-1 font-body text-xs tracking-[0.08em] text-flv-muted uppercase"
                   >
                     {tag}
                   </span>
@@ -168,17 +173,17 @@ function LookPage() {
                     key={`${look.id}-angle-${index}`}
                     alt=""
                     src={still}
-                    className="h-24 w-20 shrink-0 border border-atelier-line object-cover"
+                    className="h-24 w-20 shrink-0 border border-flv-line object-cover"
                   />
                 ))}
               </div>
             ) : null}
             <GownCredit garmentId={look.garmentId} />
             {voteError ? (
-              <p className="font-body text-sm text-ivory-muted">{voteError}</p>
+              <p className="font-body text-sm text-flv-muted">{voteError}</p>
             ) : null}
             {copyStatus === 'error' ? (
-              <p className="font-body text-sm text-ivory-muted">
+              <p className="font-body text-sm text-flv-muted">
                 {HOUSE_COPY.copyFailed}
               </p>
             ) : null}
@@ -189,14 +194,14 @@ function LookPage() {
                 onClick={() => {
                   void handleVote()
                 }}
-                className="min-h-11 min-w-[10rem] flex-1 border border-brass px-5 py-2 font-body text-xs tracking-[0.08em] text-brass uppercase hover:bg-atelier disabled:opacity-50"
+                className="flv-cta min-h-11 min-w-[10rem] flex-1 px-5 py-2 font-body text-xs tracking-[0.08em] uppercase disabled:opacity-50"
               >
                 {voting ? HOUSE_COPY.voting : HOUSE_COPY.voteThisLook}
               </button>
               <Link
                 to="/create"
                 search={{ design: look.id }}
-                className="min-h-11 min-w-[10rem] flex-1 border border-atelier-line px-5 py-2 text-center font-body text-xs tracking-[0.08em] text-ivory uppercase hover:text-brass"
+                className="min-h-11 min-w-[10rem] flex-1 border border-flv-line px-5 py-2 text-center font-body text-xs tracking-[0.08em] text-flv-ink uppercase hover:text-flv-accent"
               >
                 {HOUSE_COPY.remix}
               </Link>
@@ -205,7 +210,7 @@ function LookPage() {
                 onClick={() => {
                   void handleCopy()
                 }}
-                className="min-h-11 min-w-[10rem] flex-1 border border-atelier-line px-5 py-2 font-body text-xs tracking-[0.08em] text-ivory-muted uppercase hover:text-brass"
+                className="min-h-11 min-w-[10rem] flex-1 border border-flv-line px-5 py-2 font-body text-xs tracking-[0.08em] text-flv-muted uppercase hover:text-flv-accent"
               >
                 {copyStatus === 'copied'
                   ? HOUSE_COPY.linkCopied
@@ -214,7 +219,7 @@ function LookPage() {
               <Link
                 to="/vote"
                 search={{}}
-                className="min-h-11 min-w-[10rem] flex-1 border border-atelier-line px-5 py-2 text-center font-body text-xs tracking-[0.08em] text-ivory uppercase hover:text-brass"
+                className="min-h-11 min-w-[10rem] flex-1 border border-flv-line px-5 py-2 text-center font-body text-xs tracking-[0.08em] text-flv-ink uppercase hover:text-flv-accent"
               >
                 {HOUSE_COPY.backToBoard}
               </Link>

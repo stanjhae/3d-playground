@@ -288,6 +288,10 @@ export function layerVoice({
 }: {
   layer: DesignLayer
 }) {
+  if (layer.label?.trim()) {
+    return layer.label.trim()
+  }
+
   if (layer.kind === 'paint') {
     return 'Ink'
   }

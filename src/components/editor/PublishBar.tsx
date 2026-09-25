@@ -1,6 +1,7 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { trackAssumption } from '../../lib/assumption-events'
 import { listChallenges } from '../../lib/challenges'
 import { cn } from '../../lib/cn'
@@ -13,6 +14,7 @@ import {
   documentHasInk,
   sanitizePublishedDocument,
 } from '../../lib/design-document'
+import { saveDraft } from '../../lib/design-draft'
 import type { Design, DesignMethod } from '../../lib/design-schema'
 import { angleStripPreset } from '../../lib/paint-layout'
 import {
@@ -20,11 +22,16 @@ import {
   type AngleCameraPreset,
 } from '../../lib/editor-store'
 import { getFabricById } from '../../lib/fabrics'
+import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { decodeDocumentImages } from '../../lib/layer-images'
 import { resolveDraftTitle } from '../../lib/look-title'
 import { bakePublishedArt } from '../../lib/paint-atlas'
-import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
+import {
+  chromeKickerClass,
+  chromeMutedClass,
+  chromeTextClass,
+} from '../../lib/studio-chrome'
 import { trimAngleStillsForLook } from '../../lib/look-payload'
 
 let studioCanvas: HTMLCanvasElement | null = null
@@ -40,6 +47,26 @@ const ANGLE_STRIP: { id: AngleCameraPreset; label: string }[] = [
   { id: 'threeQuarter', label: HOUSE_COPY.angleThreeQuarter },
   { id: 'back', label: HOUSE_COPY.angleBack },
 ]
+
+type VisibilityOption = 'public' | 'private' | 'unlisted'
+
+const VISIBILITY_OPTIONS: {
+  id: VisibilityOption
+  label: string
+}[] = [
+  { id: 'public', label: FLV_COPY.visibilityPublic },
+  { id: 'private', label: FLV_COPY.visibilityPrivate },
+  { id: 'unlisted', label: FLV_COPY.visibilityUnlisted },
+]
+
+const ATTACHMENT_OPTIONS = [
+  { id: 'garment', label: FLV_COPY.attachGarment },
+  { id: 'avatar', label: FLV_COPY.attachAvatar },
+  { id: 'shoot', label: FLV_COPY.attachShoot },
+  { id: 'video', label: FLV_COPY.attachVideo },
+] as const
+
+type AttachmentId = (typeof ATTACHMENT_OPTIONS)[number]['id']
 
 const SUGGESTED_TAGS = ['night', 'ivory', 'mark', 'house', 'soft', 'bold']
 
@@ -94,8 +121,16 @@ export function PublishBar({
   const fabricName = getFabricById({ id: fabricId ?? '' })?.name ?? 'Look'
   const [titleTouched, setTitleTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [draftSaved, setDraftSaved] = useState(false)
   const [inkError, setInkError] = useState<string | null>(null)
   const [tagDraft, setTagDraft] = useState('')
+  const [description, setDescription] = useState('')
+  const [visibility, setVisibility] = useState<VisibilityOption>('public')
+  const [attachments, setAttachments] = useState<AttachmentId[]>([
+    'garment',
+    'avatar',
+  ])
   const submittingRef = useRef(false)
   const busy = publishing || submitting
   const challenges = listChallenges()
@@ -148,7 +183,7 @@ export function PublishBar({
 
   return (
     <form
-      className="flex w-full flex-col gap-3 rounded-2xl border border-atelier-line bg-atelier/92 p-3 backdrop-blur-sm"
+      className="flv-panel flex w-full flex-col gap-3 p-3"
       onSubmit={(event) => {
         event.preventDefault()
 
@@ -242,6 +277,17 @@ export function PublishBar({
                       ...(trimmedAngles.length > 0
                         ? { angleStills: trimmedAngles }
                         : {}),
+                      ...(description.trim()
+                        ? {
+                            description: description
+                              .trim()
+                              .slice(0, 500),
+                          }
+                        : {}),
+                      ...(visibility !== 'public' ? { visibility } : {}),
+                      ...(attachments.length > 0
+                        ? { attachments: [...attachments] }
+                        : {}),
                     },
                   }),
                 ).then(() => {
@@ -261,11 +307,13 @@ export function PublishBar({
       <div className="flex w-full flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <p className={chromeKickerClass()}>{HOUSE_COPY.angles}</p>
-          <p className="font-body text-xs tracking-[0.12em] text-brass uppercase">
-            Design details
-          </p>
+          <p className={chromeMutedClass()}>Design details</p>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div
+          className="grid grid-cols-3 gap-2"
+          role="radiogroup"
+          aria-label={HOUSE_COPY.angles}
+        >
           {ANGLE_STRIP.map((angle) => {
             const preview = anglePreviews[angle.id]
             const isCurrent = cameraPreset === angle.id
@@ -274,16 +322,17 @@ export function PublishBar({
               <button
                 key={angle.id}
                 type="button"
+                role="radio"
                 disabled={busy}
-                aria-pressed={isCurrent}
+                aria-checked={isCurrent}
                 onClick={() => {
                   setCameraPreset({ cameraPreset: angle.id })
                 }}
                 className={cn(
-                  'flex aspect-[4/5] flex-col overflow-hidden rounded-xl border bg-atelier',
+                  'flex aspect-[4/5] flex-col overflow-hidden rounded-xl border bg-flv-soft',
                   {
-                    'border-brass': isCurrent,
-                    'border-atelier-line': !isCurrent,
+                    'border-flv-accent': isCurrent,
+                    'border-flv-line': !isCurrent,
                   },
                 )}
               >
@@ -294,11 +343,11 @@ export function PublishBar({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="flex h-full items-end justify-center bg-ivory/10 p-2">
+                  <span className="flex h-full items-end justify-center bg-flv-line/30 p-2">
                     <span
                       className={cn(chromeTextClass(), {
-                        'text-brass': isCurrent,
-                        'text-ivory-muted': !isCurrent,
+                        'text-flv-accent': isCurrent,
+                        'text-flv-muted': !isCurrent,
                       })}
                     >
                       {angle.label}
@@ -311,9 +360,7 @@ export function PublishBar({
         </div>
       </div>
       <label className="flex min-w-0 flex-col gap-2">
-        <span className="font-display text-xs tracking-[0.22em] text-brass uppercase">
-          {HOUSE_COPY.lookTitle}
-        </span>
+        <span className={chromeKickerClass()}>{HOUSE_COPY.lookTitle}</span>
         <input
           value={draftTitle}
           disabled={busy}
@@ -321,11 +368,23 @@ export function PublishBar({
             setTitleTouched(true)
             setDraftTitle(event.target.value)
           }}
-          className="min-h-11 rounded-xl border border-atelier-line bg-atelier px-3 py-2 font-body text-sm text-ivory disabled:opacity-50"
+          className="min-h-11 rounded-xl border border-flv-line bg-flv-paper px-3 py-2 font-body text-sm text-flv-ink disabled:opacity-50"
         />
-        <span className="font-body text-xs text-ivory-muted">
-          {draftTitle.length}/100
+        <span className={chromeMutedClass()}>{draftTitle.length}/100</span>
+      </label>
+      <label className="flex min-w-0 flex-col gap-2">
+        <span className={chromeKickerClass()}>
+          {FLV_COPY.publishDescription}
         </span>
+        <textarea
+          value={description}
+          disabled={busy}
+          rows={3}
+          onChange={(event) => {
+            setDescription(event.target.value)
+          }}
+          className="min-h-20 rounded-xl border border-flv-line bg-flv-paper px-3 py-2 font-body text-sm text-flv-ink disabled:opacity-50"
+        />
       </label>
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.tags}</p>
@@ -346,11 +405,15 @@ export function PublishBar({
                       : [...publishTags, tag],
                   })
                 }}
-                className={cn('min-h-9 rounded-full border px-3', chromeTextClass(), {
-                  'border-brass text-brass': active,
-                  'border-atelier-line text-ivory-muted hover:text-brass':
-                    !active,
-                })}
+                className={cn(
+                  'min-h-9 rounded-full border px-3',
+                  chromeTextClass(),
+                  {
+                    'border-flv-accent text-flv-accent': active,
+                    'border-flv-line text-flv-muted hover:text-flv-accent':
+                      !active,
+                  },
+                )}
               >
                 {tag}
               </button>
@@ -380,29 +443,37 @@ export function PublishBar({
               setPublishTags({ tags: [...publishTags, next] })
               setTagDraft('')
             }}
-            className="min-h-11 flex-1 rounded-xl border border-atelier-line bg-atelier px-3 py-2 font-body text-sm text-ivory disabled:opacity-50"
+            className="min-h-11 flex-1 rounded-xl border border-flv-line bg-flv-paper px-3 py-2 font-body text-sm text-flv-ink disabled:opacity-50"
           />
         </div>
       </div>
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.method}</p>
-        <div className="flex flex-wrap gap-2">
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label={HOUSE_COPY.method}
+        >
           {METHOD_OPTIONS.map((method) => (
             <button
               key={method.id}
               type="button"
+              role="radio"
               disabled={busy}
-              aria-pressed={publishMethod === method.id}
+              aria-checked={publishMethod === method.id}
               onClick={() => {
-                setPublishMethod({
-                  method: publishMethod === method.id ? null : method.id,
-                })
+                setPublishMethod({ method: method.id })
               }}
-              className={cn('min-h-9 rounded-xl border px-3', chromeTextClass(), {
-                'border-brass text-brass': publishMethod === method.id,
-                'border-atelier-line text-ivory-muted hover:text-brass':
-                  publishMethod !== method.id,
-              })}
+              className={cn(
+                'min-h-9 rounded-xl border px-3',
+                chromeTextClass(),
+                {
+                  'border-flv-accent text-flv-accent':
+                    publishMethod === method.id,
+                  'border-flv-line text-flv-muted hover:text-flv-accent':
+                    publishMethod !== method.id,
+                },
+              )}
             >
               {method.label}
             </button>
@@ -410,20 +481,95 @@ export function PublishBar({
         </div>
       </div>
       <div className="flex w-full flex-col gap-2">
+        <p className={chromeKickerClass()}>Visibility</p>
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label="Visibility"
+        >
+          {VISIBILITY_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              disabled={busy}
+              aria-checked={visibility === option.id}
+              onClick={() => {
+                setVisibility(option.id)
+              }}
+              className={cn(
+                'min-h-9 rounded-full border px-3',
+                chromeTextClass(),
+                {
+                  'border-flv-accent text-flv-accent':
+                    visibility === option.id,
+                  'border-flv-line text-flv-muted hover:text-flv-accent':
+                    visibility !== option.id,
+                },
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex w-full flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={chromeKickerClass()}>Attachments</p>
+          <ConceptPreviewBadge />
+        </div>
+        <div className="flex flex-col gap-2">
+          {ATTACHMENT_OPTIONS.map((option) => {
+            const checked = attachments.includes(option.id)
+
+            return (
+              <label
+                key={option.id}
+                className="flex min-h-9 items-center gap-2"
+              >
+                <input
+                  type="checkbox"
+                  disabled={busy}
+                  checked={checked}
+                  onChange={() => {
+                    setAttachments((current) =>
+                      checked
+                        ? current.filter((entry) => entry !== option.id)
+                        : [...current, option.id],
+                    )
+                  }}
+                  className="accent-[var(--color-flv-accent)]"
+                />
+                <span className={chromeTextClass()}>{option.label}</span>
+              </label>
+            )
+          })}
+        </div>
+      </div>
+      <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.challenge}</p>
-        <div className="flex flex-wrap gap-2">
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label={HOUSE_COPY.challenge}
+        >
           <button
             type="button"
+            role="radio"
             disabled={busy}
-            aria-pressed={!challengeId}
+            aria-checked={!challengeId}
             onClick={() => {
               setChallengeId({ challengeId: null })
             }}
-            className={cn('min-h-9 rounded-full border px-3', chromeTextClass(), {
-              'border-brass text-brass': !challengeId,
-              'border-atelier-line text-ivory-muted hover:text-brass':
-                Boolean(challengeId),
-            })}
+            className={cn(
+              'min-h-9 rounded-full border px-3',
+              chromeTextClass(),
+              {
+                'border-flv-accent text-flv-accent': !challengeId,
+                'border-flv-line text-flv-muted hover:text-flv-accent':
+                  Boolean(challengeId),
+              },
+            )}
           >
             {HOUSE_COPY.allChallenges}
           </button>
@@ -431,19 +577,22 @@ export function PublishBar({
             <button
               key={challenge.id}
               type="button"
+              role="radio"
               disabled={busy}
-              aria-pressed={challengeId === challenge.id}
+              aria-checked={challengeId === challenge.id}
               onClick={() => {
-                setChallengeId({
-                  challengeId:
-                    challengeId === challenge.id ? null : challenge.id,
-                })
+                setChallengeId({ challengeId: challenge.id })
               }}
-              className={cn('min-h-9 rounded-full border px-3', chromeTextClass(), {
-                'border-brass text-brass': challengeId === challenge.id,
-                'border-atelier-line text-ivory-muted hover:text-brass':
-                  challengeId !== challenge.id,
-              })}
+              className={cn(
+                'min-h-9 rounded-full border px-3',
+                chromeTextClass(),
+                {
+                  'border-flv-accent text-flv-accent':
+                    challengeId === challenge.id,
+                  'border-flv-line text-flv-muted hover:text-flv-accent':
+                    challengeId !== challenge.id,
+                },
+              )}
             >
               {challenge.title}
             </button>
@@ -451,15 +600,41 @@ export function PublishBar({
         </div>
       </div>
       {inkError ? (
-        <p className="w-full font-body text-sm text-ivory-muted">{inkError}</p>
+        <p className="w-full font-body text-sm text-flv-muted">{inkError}</p>
       ) : null}
-      <button
-        type="submit"
-        disabled={busy}
-        className="flv-cta min-h-12 w-full shrink-0 px-4 py-2 font-body text-xs tracking-[0.08em] uppercase disabled:opacity-50 sm:px-5"
-      >
-        {busy ? HOUSE_COPY.entering : `${HOUSE_COPY.enter} →`}
-      </button>
+      <div className="flex w-full flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          disabled={busy || savingDraft}
+          onClick={() => {
+            setSavingDraft(true)
+            setDraftSaved(false)
+            void saveDraft({
+              garmentId,
+              document: designDocument,
+            }).then((payload) => {
+              setSavingDraft(false)
+              setDraftSaved(Boolean(payload))
+            })
+          }}
+          className={cn(
+            'min-h-12 w-full shrink-0 border border-flv-line px-4 py-2 text-flv-muted hover:text-flv-accent disabled:opacity-50 sm:w-auto sm:px-5',
+            chromeTextClass(),
+          )}
+        >
+          {savingDraft ? 'Saving…' : FLV_COPY.saveDraft}
+        </button>
+        <button
+          type="submit"
+          disabled={busy}
+          className="flv-cta min-h-12 w-full shrink-0 px-4 py-2 font-body text-xs tracking-[0.08em] uppercase disabled:opacity-50 sm:flex-1 sm:px-5"
+        >
+          {busy ? HOUSE_COPY.entering : `${HOUSE_COPY.enter} →`}
+        </button>
+      </div>
+      {draftSaved ? (
+        <p className={chromeMutedClass()}>Draft saved on this device.</p>
+      ) : null}
     </form>
   )
 }

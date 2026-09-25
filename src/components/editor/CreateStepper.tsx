@@ -24,9 +24,9 @@ export function CreateStepper() {
       className="flex w-full max-w-full flex-col gap-2"
     >
       <div className="flex items-center gap-2">
-        <div className="relative h-px min-w-0 flex-1 bg-atelier-line">
+        <div className="relative h-px min-w-0 flex-1 bg-flv-line">
           <div
-            className="absolute inset-y-0 left-0 bg-brass"
+            className="absolute inset-y-0 left-0 bg-flv-accent"
             style={{ width: `${progress * 100}%` }}
           />
         </div>
@@ -40,7 +40,7 @@ export function CreateStepper() {
               })
             }}
             className={cn(
-              'min-h-9 border border-atelier-line px-2.5 text-ivory-muted hover:text-brass disabled:opacity-40',
+              'min-h-9 border border-flv-line px-2.5 text-flv-muted hover:text-flv-accent disabled:opacity-40',
               chromeTextClass(),
             )}
           >
@@ -55,7 +55,7 @@ export function CreateStepper() {
               })
             }}
             className={cn(
-              'min-h-9 border border-brass px-2.5 text-brass hover:bg-atelier disabled:opacity-40',
+              'min-h-9 border border-flv-accent px-2.5 text-flv-accent hover:bg-flv-soft disabled:opacity-40',
               chromeTextClass(),
             )}
           >
@@ -77,12 +77,12 @@ export function CreateStepper() {
                 setCreateStep({ createStep: step.id })
               }}
               className={cn('min-h-9 shrink-0', chromeTextClass(), {
-                'text-brass': isCurrent,
-                'text-ivory': isPast && !isCurrent,
-                'text-ivory-muted hover:text-brass': !isCurrent && !isPast,
+                'text-flv-accent': isCurrent,
+                'text-flv-ink': isPast && !isCurrent,
+                'text-flv-muted hover:text-flv-accent': !isCurrent && !isPast,
               })}
             >
-              <span className="mr-1 text-[0.65rem] text-brass/70">
+              <span className="mr-1 text-[0.65rem] text-flv-accent/70">
                 {index + 1}
               </span>
               {step.label}

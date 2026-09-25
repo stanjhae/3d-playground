@@ -11,29 +11,32 @@ export function StudioViewToggle() {
     <nav
       aria-label={HOUSE_COPY.studioView}
       className="flex gap-3 lg:hidden"
+      role="radiogroup"
     >
       <button
         type="button"
-        aria-pressed={studioView === 'draw'}
+        role="radio"
+        aria-checked={studioView === 'draw'}
         onClick={() => {
           setStudioView({ studioView: 'draw' })
         }}
         className={cn('min-h-11', chromeTextClass(), {
-          'text-brass': studioView === 'draw',
-          'text-ivory-muted': studioView !== 'draw',
+          'text-flv-accent': studioView === 'draw',
+          'text-flv-muted': studioView !== 'draw',
         })}
       >
         {HOUSE_COPY.draw}
       </button>
       <button
         type="button"
-        aria-pressed={studioView === 'cloth'}
+        role="radio"
+        aria-checked={studioView === 'cloth'}
         onClick={() => {
           setStudioView({ studioView: 'cloth' })
         }}
         className={cn('min-h-11', chromeTextClass(), {
-          'text-brass': studioView === 'cloth',
-          'text-ivory-muted': studioView !== 'cloth',
+          'text-flv-accent': studioView === 'cloth',
+          'text-flv-muted': studioView !== 'cloth',
         })}
       >
         {HOUSE_COPY.cloth}

@@ -44,6 +44,89 @@ describe('designs HTTP handlers', () => {
     expect(body.designs).toHaveLength(9)
   })
 
+  test('private looks stay off the board but unlisted stay linkable', async () => {
+    const privateLook = createStoredDesign({
+      draft: {
+        ...GUEST_DRAFT,
+        title: 'Private Guest',
+        visibility: 'private',
+        description: 'Keep this off the board',
+      },
+    })
+    const unlistedLook = createStoredDesign({
+      draft: {
+        ...GUEST_DRAFT,
+        title: 'Unlisted Guest',
+        visibility: 'unlisted',
+      },
+    })
+
+    const listed = await GET(
+      new Request('http://localhost/api/designs', { method: 'GET' }),
+    )
+    const listedBody = (await listed.json()) as {
+      designs: { id: string }[]
+    }
+
+    expect(
+      listedBody.designs.some((design) => design.id === privateLook.id),
+    ).toBe(false)
+    expect(
+      listedBody.designs.some((design) => design.id === unlistedLook.id),
+    ).toBe(false)
+
+    const privateFetch = await GET(
+      new Request(
+        `http://localhost/api/designs?lookId=${encodeURIComponent(privateLook.id)}`,
+        { method: 'GET' },
+      ),
+    )
+    expect(privateFetch.status).toBe(404)
+
+    const unlistedFetch = await GET(
+      new Request(
+        `http://localhost/api/designs?lookId=${encodeURIComponent(unlistedLook.id)}`,
+        { method: 'GET' },
+      ),
+    )
+    const unlistedBody = (await unlistedFetch.json()) as {
+      design: { id: string; description?: string }
+    }
+    expect(unlistedFetch.status).toBe(200)
+    expect(unlistedBody.design.id).toBe(unlistedLook.id)
+  })
+
+  test('create persists description and visibility', async () => {
+    const created = await POST(
+      new Request('http://localhost/api/designs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Described Guest',
+          author: 'Guest',
+          thumbnailDataUrl: '',
+          overrides: [{ meshName: 'body' }],
+          description: 'Streetwear flame tee',
+          visibility: 'unlisted',
+          attachments: ['garment', 'shoot'],
+        }),
+      }),
+    )
+    const createdBody = (await created.json()) as {
+      design: {
+        id: string
+        description?: string
+        visibility?: string
+        attachments?: string[]
+      }
+    }
+
+    expect(created.status).toBe(201)
+    expect(createdBody.design.description).toBe('Streetwear flame tee')
+    expect(createdBody.design.visibility).toBe('unlisted')
+    expect(createdBody.design.attachments).toEqual(['garment', 'shoot'])
+  })
+
   test('create and vote share one board', async () => {
     const created = await POST(
       new Request('http://localhost/api/designs', {

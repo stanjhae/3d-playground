@@ -1,3 +1,4 @@
+import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import {
   BASE_FINISH_PRESETS,
@@ -21,6 +22,11 @@ const PATTERN_OPTIONS: { id: BasePatternId; label: string }[] = [
   { id: 'gradient', label: HOUSE_COPY.gradient },
 ]
 
+function finishLacksRealMap({ fabricId }: { fabricId: string }) {
+  const fabric = getFabricById({ id: fabricId })
+  return !fabric?.mapId
+}
+
 export function ColorPatternPanel() {
   const basePatternId = useEditorStore((state) => state.basePatternId)
   const baseFinishId = useEditorStore((state) => state.baseFinishId)
@@ -41,6 +47,9 @@ export function ColorPatternPanel() {
   const activeColor =
     overrides.find((entry) => entry.meshName === 'body')?.color ??
     activeFabric?.color
+  const conceptFinishes = BASE_FINISH_PRESETS.filter((entry) =>
+    finishLacksRealMap({ fabricId: entry.fabricId }),
+  )
 
   return (
     <aside className={cn(railFrameClass(), 'gap-4 lg:max-w-80')}>
@@ -60,8 +69,8 @@ export function ColorPatternPanel() {
                 applyBaseColor({ color: ink.value })
               }}
               className={cn('aspect-square rounded-full border-2', {
-                'border-brass': pressed,
-                'border-atelier-line': !pressed,
+                'border-flv-accent': pressed,
+                'border-flv-line': !pressed,
               })}
               style={{ backgroundColor: ink.value }}
             />
@@ -82,20 +91,24 @@ export function ColorPatternPanel() {
               'relative flex min-h-14 items-end rounded-xl border px-2 py-2',
               chromeTextClass(),
               {
-                'border-brass text-brass': basePatternId === pattern.id,
-                'border-atelier-line text-ivory-muted hover:text-brass':
+                'border-flv-accent text-flv-accent':
+                  basePatternId === pattern.id,
+                'border-flv-line text-flv-muted hover:text-flv-accent':
                   basePatternId !== pattern.id,
               },
             )}
           >
             {basePatternId === pattern.id ? (
-              <span className="absolute top-1 right-1 text-brass">✓</span>
+              <span className="absolute top-1 right-1 text-flv-accent">✓</span>
             ) : null}
             {pattern.label}
           </button>
         ))}
       </div>
-      <p className={chromeKickerClass()}>{HOUSE_COPY.finish}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={chromeKickerClass()}>{HOUSE_COPY.finish}</p>
+        {conceptFinishes.length > 0 ? <ConceptPreviewBadge /> : null}
+      </div>
       <div className="grid grid-cols-2 gap-2">
         {BASE_FINISH_PRESETS.map((finishOption) => (
           <button
@@ -109,28 +122,29 @@ export function ColorPatternPanel() {
               'relative flex min-h-12 items-end rounded-xl border px-2 py-2',
               chromeTextClass(),
               {
-                'border-brass text-brass': baseFinishId === finishOption.id,
-                'border-atelier-line text-ivory-muted hover:text-brass':
+                'border-flv-accent text-flv-accent':
+                  baseFinishId === finishOption.id,
+                'border-flv-line text-flv-muted hover:text-flv-accent':
                   baseFinishId !== finishOption.id,
               },
             )}
           >
             {baseFinishId === finishOption.id ? (
-              <span className="absolute top-1 right-1 text-brass">✓</span>
+              <span className="absolute top-1 right-1 text-flv-accent">✓</span>
             ) : null}
             {finishOption.label}
           </button>
         ))}
       </div>
       {activeFabric ? (
-        <div className="flex flex-col gap-2 rounded-xl border border-atelier-line p-3">
+        <div className="flex flex-col gap-2 rounded-xl border border-flv-line p-3">
           <div
-            className="aspect-[5/3] rounded-lg border border-atelier-line"
+            className="aspect-[5/3] rounded-lg border border-flv-line"
             style={{ backgroundColor: activeFabric.color }}
           />
           <p className={chromeKickerClass()}>{FLV_COPY.colorMaterial}</p>
-          <p className="font-body text-sm text-ivory">{activeFabric.name}</p>
-          <ul className="flex flex-col gap-1 font-body text-xs text-ivory-muted">
+          <p className="font-body text-sm text-flv-ink">{activeFabric.name}</p>
+          <ul className="flex flex-col gap-1 font-body text-xs text-flv-muted">
             <li>Roughness {activeFabric.roughness.toFixed(2)}</li>
             <li>Metalness {activeFabric.metalness.toFixed(2)}</li>
             {activeFabric.mapId ? <li>Map {activeFabric.mapId}</li> : null}
@@ -145,7 +159,7 @@ export function ColorPatternPanel() {
             undoLast()
           }}
           className={cn(
-            'min-h-11 text-ivory-muted hover:text-brass disabled:opacity-30',
+            'min-h-11 text-flv-muted hover:text-flv-accent disabled:opacity-30',
             chromeTextClass(),
           )}
         >
@@ -158,7 +172,7 @@ export function ColorPatternPanel() {
             redoLast()
           }}
           className={cn(
-            'min-h-11 text-ivory-muted hover:text-brass disabled:opacity-30',
+            'min-h-11 text-flv-muted hover:text-flv-accent disabled:opacity-30',
             chromeTextClass(),
           )}
         >
@@ -171,7 +185,7 @@ export function ColorPatternPanel() {
               applyFabric({ fabricId, colorId: fabricId })
             }}
             className={cn(
-              'min-h-11 text-ivory-muted hover:text-brass',
+              'min-h-11 text-flv-muted hover:text-flv-accent',
               chromeTextClass(),
             )}
           >

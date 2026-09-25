@@ -59,7 +59,7 @@ export function TechInspector() {
     return (
       <aside className={railFrameClass()}>
         <p className={chromeKickerClass()}>{HOUSE_COPY.inspector}</p>
-        <p className="font-body text-sm text-ivory-muted">
+        <p className="font-body text-sm text-flv-muted">
           {HOUSE_COPY.selectMark}
         </p>
       </aside>
@@ -108,7 +108,7 @@ export function TechInspector() {
     <aside className={railFrameClass()}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.inspector}</p>
       <label className="flex flex-col gap-1">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
+        <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.position} X
         </span>
         <input
@@ -116,12 +116,12 @@ export function TechInspector() {
           min={0}
           max={1}
           step={0.01}
-          className="accent-brass"
+          className="accent-[var(--color-flv-accent)]"
           {...bindRange({ key: 'x' })}
         />
       </label>
       <label className="flex flex-col gap-1">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
+        <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.position} Y
         </span>
         <input
@@ -129,12 +129,12 @@ export function TechInspector() {
           min={0}
           max={1}
           step={0.01}
-          className="accent-brass"
+          className="accent-[var(--color-flv-accent)]"
           {...bindRange({ key: 'y' })}
         />
       </label>
       <label className="flex flex-col gap-1">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
+        <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.size}
         </span>
         <input
@@ -142,12 +142,12 @@ export function TechInspector() {
           min={0.05}
           max={0.8}
           step={0.01}
-          className="accent-brass"
+          className="accent-[var(--color-flv-accent)]"
           {...bindRange({ key: 'scale' })}
         />
       </label>
       <label className="flex flex-col gap-1">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
+        <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.rotation}
         </span>
         <input
@@ -155,12 +155,12 @@ export function TechInspector() {
           min={-Math.PI}
           max={Math.PI}
           step={0.01}
-          className="accent-brass"
+          className="accent-[var(--color-flv-accent)]"
           {...bindRange({ key: 'rotation' })}
         />
       </label>
       <label className="flex flex-col gap-1">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
+        <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.opacity}
         </span>
         <input
@@ -168,12 +168,12 @@ export function TechInspector() {
           min={0}
           max={1}
           step={0.01}
-          className="accent-brass"
+          className="accent-[var(--color-flv-accent)]"
           {...bindRange({ key: 'opacity' })}
         />
       </label>
       <div className="flex flex-col gap-2">
-        <span className={cn('text-ivory-muted', chromeTextClass())}>
+        <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.baseColor}
         </span>
         <div className="flex flex-wrap gap-2">
@@ -186,8 +186,8 @@ export function TechInspector() {
               onClick={() => {
                 commitDraft({ patch: { color: ink.value } })
               }}
-              className={cn('h-8 w-8 border border-atelier-line', {
-                'ring-2 ring-brass ring-offset-1 ring-offset-atelier':
+              className={cn('h-8 w-8 border border-flv-line', {
+                'ring-2 ring-flv-accent ring-offset-1 ring-offset-flv-paper':
                   color.toLowerCase() === ink.value.toLowerCase(),
               })}
               style={{ backgroundColor: ink.value }}
@@ -201,7 +201,7 @@ export function TechInspector() {
           copyLayerToOpposite({ layerId: selected.id })
         }}
         className={cn(
-          'min-h-11 border border-atelier-line px-3 text-ivory-muted hover:text-brass',
+          'min-h-11 border border-flv-line px-3 text-flv-muted hover:text-flv-accent',
           chromeTextClass(),
         )}
       >
