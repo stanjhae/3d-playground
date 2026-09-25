@@ -1,3 +1,5 @@
+import type { DesignDocument } from './design-document.ts'
+
 export const GARMENT_IDS = [
   'gown',
   'slip',
@@ -24,6 +26,8 @@ export type MaterialOverride = {
   mapId?: string
 }
 
+export type DesignMethod = 'draw' | 'tech' | 'combined'
+
 export type Design = {
   id: string
   title: string
@@ -33,11 +37,18 @@ export type Design = {
   overrides: MaterialOverride[]
   garmentId?: GarmentId
   artMap?: string
+  document?: DesignDocument
   structural?: {
     neck?: 'crew' | 'v'
     hem?: 'crop' | 'long'
     sleeve?: 'short' | 'long'
   }
+  tags?: string[]
+  method?: DesignMethod
+  challengeId?: string
+  createdAt?: string
+  avatarId?: string
+  angleStills?: string[]
 }
 
 export function createEmptyDesign({ id }: { id: string }): Design {

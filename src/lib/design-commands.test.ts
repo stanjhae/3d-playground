@@ -104,6 +104,7 @@ describe('design commands', () => {
           y: 0.4,
           scale: 0.12,
           rotation: 0,
+          opacity: 1,
           visible: true,
         },
       },
@@ -145,6 +146,7 @@ describe('design commands', () => {
           y: 0.48,
           scale: 0.46,
           rotation: 0,
+          opacity: 1,
           visible: true,
         },
       },
@@ -183,5 +185,46 @@ describe('design commands', () => {
     expect(stack.document.overrides).toHaveLength(1)
     stack = undoCommand({ stack })
     expect(stack.document.overrides).toHaveLength(0)
+  })
+
+  test('updateLayer can set opacity and color', () => {
+    let stack = createCommandStack({
+      document: createEmptyDocument({ garmentId: 'tee' }),
+    })
+    const layerId = createObjectId({ prefix: 'word' })
+    stack = applyCommand({
+      stack,
+      command: {
+        type: 'addText',
+        layer: {
+          id: layerId,
+          kind: 'text',
+          panel: 'front',
+          content: 'FLV',
+          face: 'display',
+          color: '#1a1c22',
+          x: 0.5,
+          y: 0.4,
+          scale: 0.12,
+          rotation: 0,
+          opacity: 1,
+          visible: true,
+        },
+      },
+    })
+    stack = applyCommand({
+      stack,
+      command: {
+        type: 'updateLayer',
+        layerId,
+        patch: { opacity: 0.4, color: '#c4a15a' },
+      },
+    })
+
+    const updated = stack.document.layers.find((layer) => layer.id === layerId)
+    expect(updated && updated.kind === 'text' ? updated.opacity : null).toBe(0.4)
+    expect(updated && updated.kind === 'text' ? updated.color : null).toBe(
+      '#c4a15a',
+    )
   })
 })

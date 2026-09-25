@@ -97,9 +97,9 @@ describe('garment paint', () => {
     expect(garmentCanPaint({ garmentId: 'slip' })).toBe(false)
   })
 
-  test('the tee sheet has a sleeve', () => {
+  test('the tee sheet has four sides', () => {
     expect(garmentPanels({ garmentId: 'tee' }).map((panel) => panel.id)).toEqual(
-      ['front', 'back', 'sleeve'],
+      ['front', 'back', 'left', 'right'],
     )
     expect(garmentPanels({ garmentId: 'gown' })).toEqual([])
   })

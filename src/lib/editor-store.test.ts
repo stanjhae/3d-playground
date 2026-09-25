@@ -189,6 +189,10 @@ describe('useEditorStore', () => {
         author: 'Guest',
         thumbnailDataUrl: 'data:image/png;base64,abc',
         overrides: [{ meshName: 'collar', color: '#f4ead4' }],
+        tags: ['ivory'],
+        method: 'draw',
+        challengeId: 'tee-night',
+        avatarId: 'atelier-tall',
       },
     })
 
@@ -199,12 +203,69 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().lastPublished?.thumbnailDataUrl).toContain(
       'image/png',
     )
+    expect(useEditorStore.getState().lastPublished?.tags).toEqual(['ivory'])
+    expect(useEditorStore.getState().lastPublished?.method).toBe('draw')
+    expect(useEditorStore.getState().lastPublished?.challengeId).toBe(
+      'tee-night',
+    )
     expect(useEditorStore.getState().lookSerial).toBe(2)
     expect(
       useEditorStore.getState().snapshots.some(
         (snapshot) => snapshot.title === 'Ivory Silk 01',
       ),
     ).toBe(true)
+  })
+
+  test('create step and avatar fields use named setters', () => {
+    useEditorStore.getState().setCreateStep({ createStep: 'preview' })
+    useEditorStore.getState().setDesignEditMode({ designEditMode: 'tech' })
+    useEditorStore.getState().setPublishTags({ tags: ['night'] })
+    useEditorStore.getState().setPublishMethod({ method: 'combined' })
+    useEditorStore.getState().setChallengeId({ challengeId: 'tee-night' })
+    useEditorStore.getState().setAvatarId({ avatarId: 'atelier-tall' })
+    useEditorStore.getState().setCameraPreset({ cameraPreset: 'front' })
+    useEditorStore.getState().setCapturingAngles({ capturingAngles: true })
+    useEditorStore.getState().setAvatarMeasurements({
+      measurements: { height: 185 },
+    })
+
+    const state = useEditorStore.getState()
+    expect(state.createStep).toBe('preview')
+    expect(state.studioView).toBe('cloth')
+    expect(state.designEditMode).toBe('tech')
+    expect(state.publishTags).toEqual(['night'])
+    expect(state.publishMethod).toBe('combined')
+    expect(state.challengeId).toBe('tee-night')
+    expect(state.avatarId).toBe('atelier-tall')
+    expect(state.cameraPreset).toBe('front')
+    expect(state.capturingAngles).toBe(true)
+    expect(state.avatarMeasurements.height).toBe(185)
+  })
+
+  test('setBasePattern undo restores the previous fill', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
+    useEditorStore.getState().setBasePattern({ patternId: 'stripe' })
+    expect(
+      useEditorStore
+        .getState()
+        .document.layers.some(
+          (layer) => layer.kind === 'pattern' && layer.patternId === 'stripe',
+        ),
+    ).toBe(true)
+
+    useEditorStore.getState().setBasePattern({ patternId: 'check' })
+    expect(
+      useEditorStore
+        .getState()
+        .document.layers.find((layer) => layer.id === 'base-fill'),
+    ).toMatchObject({ patternId: 'check' })
+
+    useEditorStore.getState().undoLast()
+    expect(
+      useEditorStore
+        .getState()
+        .document.layers.find((layer) => layer.id === 'base-fill'),
+    ).toMatchObject({ patternId: 'stripe' })
   })
 
   test('entered looks keep a morning on this house', () => {

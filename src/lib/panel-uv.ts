@@ -11,7 +11,8 @@ export type UvRect = {
 export const DEFAULT_PANEL_UV: Record<PanelId, UvRect> = {
   front: { u0: 0, v0: TORSO_V0, u1: 0.5, v1: 1 },
   back: { u0: 0.5, v0: TORSO_V0, u1: 1, v1: 1 },
-  sleeve: { u0: 0, v0: 0, u1: 1, v1: TORSO_V0 },
+  left: { u0: 0, v0: 0, u1: 0.5, v1: TORSO_V0 },
+  right: { u0: 0.5, v0: 0, u1: 1, v1: TORSO_V0 },
 }
 
 export function clamp01({ value }: { value: number }) {

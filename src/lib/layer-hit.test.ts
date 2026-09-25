@@ -28,6 +28,7 @@ describe('layer hit', () => {
       y: 0.4,
       scale: 0.12,
       rotation: 0,
+      opacity: 1,
       visible: true,
     })
 
@@ -61,6 +62,7 @@ describe('layer hit', () => {
       y: 0.5,
       scale: 0.2,
       rotation: 0,
+      opacity: 1,
       visible: true,
     })
 
@@ -93,6 +95,7 @@ describe('layer hit', () => {
       y: 0.4,
       scale: 0.12,
       rotation: 0,
+      opacity: 1,
       visible: true,
     }
     const box = layerBox({ layer })
@@ -134,6 +137,7 @@ describe('layer hit', () => {
       y: 0.5,
       scale: 0.4,
       rotation: 0,
+      opacity: 1,
       visible: true,
     })
 

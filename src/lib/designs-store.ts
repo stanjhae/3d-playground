@@ -1,7 +1,17 @@
 import seedDesigns from '../../data/designs.json' with { type: 'json' }
 
-import { parseStructural, type StructuralParams } from './design-document.ts'
-import type { Design, GarmentId, MaterialOverride } from './design-schema.ts'
+import {
+  parseDocument,
+  parseStructural,
+  sanitizePublishedDocument,
+  type StructuralParams,
+} from './design-document.ts'
+import type {
+  Design,
+  DesignMethod,
+  GarmentId,
+  MaterialOverride,
+} from './design-schema.ts'
 import { resolveGarmentId } from './design-schema.ts'
 import {
   createDesignsPersist,
@@ -9,6 +19,7 @@ import {
   type PersistLoadResult,
 } from './designs-persist.ts'
 import { sanitizeArtMap, sanitizeThumbnail } from './look-thumbnail.ts'
+import { stripAngleStillsUntilFit } from './look-payload.ts'
 
 export {
   MAX_ART_MAP_CHARS,
@@ -22,9 +33,13 @@ export const MAX_AUTHOR_CHARS = 40
 export const MAX_OVERRIDE_COUNT = 16
 export const MAX_LIVE_DESIGNS = 24
 export const MAX_BOARD_CHARS = 7_500_000
+export const MAX_TAGS = 8
+export const MAX_TAG_CHARS = 24
+export const MAX_ANGLE_STILLS = 4
 export const PERSIST_ATTEMPTS = 5
 
 const LOOK_ID_PATTERN = /^[A-Za-z0-9-]+$/
+const METHOD_IDS = new Set<DesignMethod>(['draw', 'tech', 'combined'])
 const SEED_IDS = new Set(
   (seedDesigns as Design[]).map((design) => design.id),
 )
@@ -49,6 +64,69 @@ let hydratedFromPersist = false
 let persistRevision = 0
 let lockTail: Promise<void> = Promise.resolve()
 
+function cloneOptionalDocument({
+  document,
+}: {
+  document: Design['document']
+}) {
+  if (!document) {
+    return {}
+  }
+
+  const sanitized = sanitizePublishedDocument({ document })
+  return sanitized ? { document: structuredClone(sanitized) } : {}
+}
+
+function parseTags({ value }: { value: unknown }): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const tags = value
+    .filter((tag): tag is string => typeof tag === 'string')
+    .map((tag) => tag.trim().slice(0, MAX_TAG_CHARS))
+    .filter(Boolean)
+    .slice(0, MAX_TAGS)
+
+  return tags.length > 0 ? tags : undefined
+}
+
+function parseMethod({ value }: { value: unknown }): DesignMethod | undefined {
+  return typeof value === 'string' && METHOD_IDS.has(value as DesignMethod)
+    ? (value as DesignMethod)
+    : undefined
+}
+
+function parseAngleStills({ value }: { value: unknown }): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const stills = value
+    .filter((still): still is string => typeof still === 'string')
+    .map((still) => sanitizeThumbnail({ thumbnailDataUrl: still }))
+    .filter(Boolean)
+    .slice(0, MAX_ANGLE_STILLS)
+
+  return stills.length > 0 ? stills : undefined
+}
+
+function cloneDesignExtras({ design }: { design: Design }) {
+  return {
+    ...cloneOptionalDocument({ document: design.document }),
+    ...(design.tags && design.tags.length > 0
+      ? { tags: [...design.tags] }
+      : {}),
+    ...(design.method ? { method: design.method } : {}),
+    ...(design.challengeId ? { challengeId: design.challengeId } : {}),
+    ...(design.createdAt ? { createdAt: design.createdAt } : {}),
+    ...(design.avatarId ? { avatarId: design.avatarId } : {}),
+    ...(design.angleStills && design.angleStills.length > 0
+      ? { angleStills: [...design.angleStills] }
+      : {}),
+  }
+}
+
 function cloneDesign({ design }: { design: Design }): Design {
   return {
     id: design.id,
@@ -67,6 +145,7 @@ function cloneDesign({ design }: { design: Design }): Design {
       return artMap ? { artMap } : {}
     })(),
     ...(design.structural ? { structural: { ...design.structural } } : {}),
+    ...cloneDesignExtras({ design }),
   }
 }
 
@@ -169,6 +248,13 @@ export function normalizeLoadedDesign({
       garmentId: record.garmentId,
       artMap: record.artMap,
       structural: record.structural,
+      document: record.document,
+      tags: record.tags,
+      method: record.method,
+      challengeId: record.challengeId,
+      createdAt: record.createdAt,
+      avatarId: record.avatarId,
+      angleStills: record.angleStills,
     },
   })
 
@@ -228,6 +314,13 @@ export function mergeDesigns({
       votes: Math.max(existing.votes, incoming.votes),
       artMap: incoming.artMap || existing.artMap,
       structural: incoming.structural ?? existing.structural,
+      document: incoming.document ?? existing.document,
+      tags: incoming.tags ?? existing.tags,
+      method: incoming.method ?? existing.method,
+      challengeId: incoming.challengeId ?? existing.challengeId,
+      createdAt: incoming.createdAt ?? existing.createdAt,
+      avatarId: incoming.avatarId ?? existing.avatarId,
+      angleStills: incoming.angleStills ?? existing.angleStills,
     })
   }
 
@@ -343,8 +436,11 @@ export async function persistDesignsStore() {
 
     const remote = loaded.status === 'ok' ? loaded.designs : []
     const remoteRevision = loaded.status === 'ok' ? loaded.revision : persistRevision
-    const merged = capBoard({
-      designs: mergeDesigns({ local, remote }),
+    const merged = stripAngleStillsUntilFit({
+      designs: capBoard({
+        designs: mergeDesigns({ local, remote }),
+      }),
+      maxChars: MAX_BOARD_CHARS,
     })
 
     if (boardPayloadChars({ designs: merged }) > MAX_BOARD_CHARS) {
@@ -464,6 +560,35 @@ export function parseDesignDraft({
       })
       return Object.keys(structural).length > 0 ? { structural } : {}
     })(),
+    ...(() => {
+      const document = parseDocument({ value: record.document })
+      if (!document) {
+        return {}
+      }
+      const sanitized = sanitizePublishedDocument({ document })
+      return sanitized ? { document: sanitized } : {}
+    })(),
+    ...(() => {
+      const tags = parseTags({ value: record.tags })
+      return tags ? { tags } : {}
+    })(),
+    ...(() => {
+      const method = parseMethod({ value: record.method })
+      return method ? { method } : {}
+    })(),
+    ...(typeof record.challengeId === 'string' && record.challengeId.trim()
+      ? { challengeId: record.challengeId.trim().slice(0, 64) }
+      : {}),
+    ...(typeof record.createdAt === 'string' && record.createdAt.trim()
+      ? { createdAt: record.createdAt.trim().slice(0, 40) }
+      : {}),
+    ...(typeof record.avatarId === 'string' && record.avatarId.trim()
+      ? { avatarId: record.avatarId.trim().slice(0, 64) }
+      : {}),
+    ...(() => {
+      const angleStills = parseAngleStills({ value: record.angleStills })
+      return angleStills ? { angleStills } : {}
+    })(),
   }
 }
 
@@ -486,10 +611,19 @@ export function createStoredDesign({
     }),
     overrides: draft.overrides.map((override) => ({ ...override })),
     garmentId: resolveGarmentId({ garmentId: draft.garmentId }),
+    createdAt: draft.createdAt ?? new Date().toISOString(),
     ...(draft.artMap
       ? { artMap: sanitizeArtMap({ artMap: draft.artMap }) }
       : {}),
     ...(draft.structural ? { structural: { ...draft.structural } } : {}),
+    ...cloneOptionalDocument({ document: draft.document }),
+    ...(draft.tags && draft.tags.length > 0 ? { tags: [...draft.tags] } : {}),
+    ...(draft.method ? { method: draft.method } : {}),
+    ...(draft.challengeId ? { challengeId: draft.challengeId } : {}),
+    ...(draft.avatarId ? { avatarId: draft.avatarId } : {}),
+    ...(draft.angleStills && draft.angleStills.length > 0
+      ? { angleStills: [...draft.angleStills] }
+      : {}),
   }
 
   getLiveDesigns().push(design)

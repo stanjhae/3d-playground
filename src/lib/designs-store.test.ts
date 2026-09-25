@@ -213,6 +213,50 @@ describe('designs store', () => {
     ).toBeUndefined()
   })
 
+  test('parseDesignDraft keeps a published design document for remix', () => {
+    const parsed = parseDesignDraft({
+      body: {
+        title: 'Ink Keep',
+        author: 'Guest',
+        thumbnailDataUrl: 'data:image/png;base64,abc',
+        overrides: [{ meshName: 'body' }],
+        artMap: 'data:image/png;base64,abc',
+        document: {
+          garmentId: 'tee',
+          garmentVersion: 2,
+          structural: { neck: 'v' },
+          overrides: [{ meshName: 'body' }],
+          layers: [
+            {
+              id: 'paint-1',
+              kind: 'paint',
+              visible: true,
+              strokes: [
+                {
+                  id: 's1',
+                  panel: 'front',
+                  points: [{ x: 0.4, y: 0.4 }],
+                  color: '#111111',
+                  width: 0.02,
+                  tool: 'brush',
+                },
+              ],
+            },
+          ],
+        },
+        tags: ['night'],
+        method: 'combined',
+      },
+    })
+
+    expect(parsed?.document?.layers[0]).toMatchObject({
+      kind: 'paint',
+      strokes: [{ id: 's1' }],
+    })
+    expect(parsed?.tags).toEqual(['night'])
+    expect(parsed?.method).toBe('combined')
+  })
+
   test('parseDesignDraft caps an oversized thumbnail', () => {
     const parsed = parseDesignDraft({
       body: {
@@ -512,6 +556,58 @@ describe('designs store', () => {
     expect(
       listStoredDesigns().some((design) => design.id === 'look-midnight-silk'),
     ).toBe(true)
+  })
+
+  test('createStoredDesign keeps a sanitized published document', () => {
+    const created = createStoredDesign({
+      draft: {
+        ...DRAFT,
+        garmentId: 'tee',
+        tags: ['night', 'mark'],
+        method: 'draw',
+        challengeId: 'tee-night',
+        avatarId: 'atelier-tall',
+        createdAt: '2026-09-25T00:00:00.000Z',
+        document: {
+          garmentId: 'tee',
+          garmentVersion: 1,
+          structural: { neck: 'crew' },
+          overrides: [{ meshName: 'body', color: '#f4ead4' }],
+          layers: [
+            {
+              id: 'paint-1',
+              kind: 'paint',
+              visible: true,
+              strokes: [],
+            },
+            {
+              id: 'word-1',
+              kind: 'text',
+              panel: 'sleeve',
+              content: 'FLV',
+              face: 'display',
+              color: '#1a1c22',
+              x: 0.5,
+              y: 0.4,
+              scale: 0.12,
+              rotation: 0,
+              opacity: 0.8,
+              visible: true,
+            },
+          ],
+        } as never,
+      },
+    })
+
+    expect(created.document?.layers.some((layer) => layer.kind === 'text')).toBe(
+      true,
+    )
+    const text = created.document?.layers.find((layer) => layer.kind === 'text')
+    expect(text && text.kind === 'text' ? text.panel : null).toBe('left')
+    expect(created.tags).toEqual(['night', 'mark'])
+    expect(created.method).toBe('draw')
+    expect(created.challengeId).toBe('tee-night')
+    expect(created.avatarId).toBe('atelier-tall')
   })
 
   test('persistDesignsStore retries after a lost write', async () => {

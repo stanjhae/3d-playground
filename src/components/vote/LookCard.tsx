@@ -66,6 +66,18 @@ export function LookCard({
           ) : null}
         </div>
         <h2 className="font-display text-2xl text-ivory">{design.title}</h2>
+        {design.tags && design.tags.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {design.tags.map((tag) => (
+              <span
+                key={tag}
+                className="border border-atelier-line px-2 py-1 font-body text-xs tracking-[0.08em] text-ivory-muted uppercase"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <p className="line-clamp-2 font-body text-sm text-ivory-muted">
           {lookRecipe({ design })}
         </p>

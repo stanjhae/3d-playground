@@ -130,4 +130,76 @@ describe('documentFromDesign', () => {
 
     expect(document.layers.some((layer) => layer.kind === 'art')).toBe(false)
   })
+
+  test('restores editable layers from a stored document', () => {
+    const document = documentFromDesign({
+      design: {
+        garmentId: 'tee',
+        overrides: [],
+        artMap: 'data:image/png;base64,abc',
+        document: {
+          garmentId: 'tee',
+          garmentVersion: 2,
+          structural: { neck: 'v' },
+          overrides: [],
+          layers: [
+            {
+              id: 'paint-1',
+              kind: 'paint',
+              visible: true,
+              strokes: [
+                {
+                  id: 'stroke-1',
+                  panel: 'front',
+                  points: [{ x: 0.5, y: 0.5 }],
+                  color: '#111111',
+                  width: 0.02,
+                  tool: 'brush',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    })
+
+    expect(document.layers[0]).toMatchObject({
+      kind: 'paint',
+      strokes: [{ id: 'stroke-1' }],
+    })
+    expect(document.structural.neck).toBe('v')
+  })
+})
+
+describe('legacy panel migration', () => {
+  test('migrates a sleeve panel to left', () => {
+    const document = parseDocument({
+      value: {
+        garmentId: 'tee',
+        garmentVersion: 2,
+        structural: {},
+        overrides: [],
+        layers: [
+          {
+            id: 'text-1',
+            kind: 'text',
+            panel: 'sleeve',
+            content: 'FLV',
+            face: 'display',
+            color: '#111',
+            x: 0.5,
+            y: 0.5,
+            scale: 0.1,
+            rotation: 0,
+            visible: true,
+          },
+        ],
+      },
+    })
+
+    expect(document?.layers[0]).toMatchObject({
+      kind: 'text',
+      panel: 'left',
+    })
+  })
 })

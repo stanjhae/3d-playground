@@ -7,6 +7,7 @@ import { useEditorStore } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { lookRecipe } from '../../lib/look-recipe'
 import { rankDesigns } from '../../lib/rank-designs'
+import { AvatarBody } from './AvatarBody'
 import { FashionLoader } from './FashionLoader'
 import { Garment } from './Garment'
 import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
@@ -31,9 +32,26 @@ function HouseCaption({
   )
 }
 
+function DesignGarment() {
+  const garmentId = useEditorStore((state) => state.garmentId)
+  const createStep = useEditorStore((state) => state.createStep)
+  const avatarId = useEditorStore((state) => state.avatarId)
+  const tryOn =
+    createStep === 'preview' && Boolean(avatarId) && garmentId === 'tee'
+
+  if (tryOn) {
+    return (
+      <AvatarBody>
+        <Garment garmentId={garmentId} />
+      </AvatarBody>
+    )
+  }
+
+  return <Garment garmentId={garmentId} />
+}
+
 export function AtelierScene({ children }: { children?: ReactNode }) {
   const mode = useEditorStore((state) => state.mode)
-  const garmentId = useEditorStore((state) => state.garmentId)
   const isHouse = mode === 'atelier'
   const [leader, setLeader] = useState<Design | null>(null)
 
@@ -93,7 +111,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
               ) : null
             ) : (
               <>
-                <Garment garmentId={garmentId} />
+                <DesignGarment />
                 {children}
               </>
             )}

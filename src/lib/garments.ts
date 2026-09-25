@@ -89,7 +89,8 @@ function partsNamed({
 const TEE_PANELS: readonly GarmentPanel[] = [
   { id: 'front', label: HOUSE_COPY.front },
   { id: 'back', label: HOUSE_COPY.back },
-  { id: 'sleeve', label: HOUSE_COPY.sleeve },
+  { id: 'left', label: HOUSE_COPY.left },
+  { id: 'right', label: HOUSE_COPY.right },
 ]
 
 const TEE_STRUCTURE: readonly StructuralField[] = [

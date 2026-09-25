@@ -17,9 +17,16 @@ describe('panelPointToUv', () => {
     })
   })
 
-  test('puts a sleeve mark on the shared strip', () => {
-    expect(panelPointToUv({ panel: 'sleeve', x: 0.5, y: 0.5 })).toEqual({
-      u: 0.5,
+  test('puts a left mark on the left sleeve strip', () => {
+    expect(panelPointToUv({ panel: 'left', x: 0.5, y: 0.5 })).toEqual({
+      u: 0.25,
+      v: 0.14,
+    })
+  })
+
+  test('puts a right mark on the right sleeve strip', () => {
+    expect(panelPointToUv({ panel: 'right', x: 0.5, y: 0.5 })).toEqual({
+      u: 0.75,
       v: 0.14,
     })
   })
@@ -35,11 +42,20 @@ describe('uvToPanelPoint', () => {
     expect(point?.y).toBeCloseTo(0.8)
   })
 
-  test('round-trips a sleeve mark', () => {
-    const uv = panelPointToUv({ panel: 'sleeve', x: 0.2, y: 0.8 })
+  test('round-trips a left mark', () => {
+    const uv = panelPointToUv({ panel: 'left', x: 0.2, y: 0.8 })
     const point = uvToPanelPoint({ u: uv.u, v: uv.v })
 
-    expect(point?.panel).toBe('sleeve')
+    expect(point?.panel).toBe('left')
+    expect(point?.x).toBeCloseTo(0.2)
+    expect(point?.y).toBeCloseTo(0.8)
+  })
+
+  test('round-trips a right mark', () => {
+    const uv = panelPointToUv({ panel: 'right', x: 0.2, y: 0.8 })
+    const point = uvToPanelPoint({ u: uv.u, v: uv.v })
+
+    expect(point?.panel).toBe('right')
     expect(point?.x).toBeCloseTo(0.2)
     expect(point?.y).toBeCloseTo(0.8)
   })
@@ -50,12 +66,12 @@ describe('uvToPanelPoint', () => {
 })
 
 describe('uvOnPanel', () => {
-  test('reads a sleeve UV as the chest hem, not a new panel', () => {
-    const sleeve = panelPointToUv({ panel: 'sleeve', x: 0.2, y: 0.8 })
+  test('reads a left UV as the chest hem, not a new panel', () => {
+    const left = panelPointToUv({ panel: 'left', x: 0.2, y: 0.8 })
     const onFront = uvOnPanel({
       panel: 'front',
-      u: sleeve.u,
-      v: sleeve.v,
+      u: left.u,
+      v: left.v,
     })
 
     expect(onFront.y).toBe(0)

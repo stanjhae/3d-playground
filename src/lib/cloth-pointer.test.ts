@@ -13,7 +13,7 @@ describe('cloth pointer', () => {
     resetClothPointer()
   })
 
-  test('a move onto the sleeve stays in the chest panel', () => {
+  test('a move onto another panel stays in the chest panel', () => {
     const origin = panelPointToUv({ panel: 'front', x: 0.5, y: 0.5 })
 
     startClothDrag({
@@ -29,12 +29,12 @@ describe('cloth pointer', () => {
       },
     })
 
-    const sleeve = panelPointToUv({ panel: 'sleeve', x: 0.5, y: 0.5 })
-    const jumped = moveClothDragOnUv({ u: sleeve.u, v: sleeve.v })
+    const other = panelPointToUv({ panel: 'back', x: 0.5, y: 0.5 })
+    const jumped = moveClothDragOnUv({ u: other.u, v: other.v })
     const stayed = moveClothDragOnUv({ u: origin.u, v: origin.v })
 
     expect(jumped?.x).toBeCloseTo(1)
-    expect(jumped?.y).toBe(0)
+    expect(jumped?.y).toBeCloseTo(0.5)
     expect(stayed?.x).toBeCloseTo(0.5)
     expect(stayed?.y).toBeCloseTo(0.5)
     expect(endClothDrag()).toBe(true)
