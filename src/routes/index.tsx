@@ -1,12 +1,18 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { AvatarRail } from '../components/editor/AvatarRail'
+import { CameraPresetBar } from '../components/editor/CameraPresetBar'
+import { ColorPatternPanel } from '../components/editor/ColorPatternPanel'
+import { CreateStepper } from '../components/editor/CreateStepper'
+import { DesignModeToggle } from '../components/editor/DesignModeToggle'
 import { DualStudio } from '../components/editor/DualStudio'
 import { FabricPanel } from '../components/editor/FabricPanel'
 import { LayerRail } from '../components/editor/LayerRail'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
 import { StudioViewToggle } from '../components/editor/StudioViewToggle'
+import { TechInspector } from '../components/editor/TechInspector'
 import { VersionRail } from '../components/editor/VersionRail'
 import { GownCredit } from '../components/editor/GownCredit'
 import { ModeToggle } from '../components/editor/ModeToggle'
@@ -16,6 +22,15 @@ import {
 } from '../components/editor/PublishBar'
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
+import {
+  allowsDrawView,
+  showsColorRail,
+  showsDesignRails,
+  showsPreviewRails,
+  showsShareRail,
+  showsSilhouetteRail,
+  showsStructureRail,
+} from '../lib/create-steps'
 import { loadDraft, saveDraft } from '../lib/design-draft'
 import { createDesign, getDesign } from '../lib/designs-api'
 import { useEditorStore } from '../lib/editor-store'
@@ -46,6 +61,9 @@ function AtelierHome() {
   const { design: remixId } = Route.useSearch()
   const mode = useEditorStore((state) => state.mode)
   const garmentId = useEditorStore((state) => state.garmentId)
+  const createStep = useEditorStore((state) => state.createStep)
+  const designEditMode = useEditorStore((state) => state.designEditMode)
+  const canPaint = garmentCanPaint({ garmentId })
   const [publishError, setPublishError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [enteredLabel, setEnteredLabel] = useState<string | null>(null)
@@ -143,9 +161,20 @@ function AtelierHome() {
         />
         <div className="pointer-events-auto flex shrink-0 flex-col gap-2 bg-gradient-to-b from-atelier/80 to-transparent px-4 pt-1 pb-3 lg:absolute lg:top-20 lg:left-6 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:bg-none lg:px-0 lg:pt-0 lg:pb-0">
           <ModeToggle mode={mode} />
-          {mode === 'design' ? <SilhouetteSwitch /> : null}
-          {mode === 'design' && garmentCanPaint({ garmentId }) ? (
+          {mode === 'design' ? <CreateStepper /> : null}
+          {mode === 'design' && showsSilhouetteRail({ step: createStep }) ? (
+            <SilhouetteSwitch />
+          ) : null}
+          {mode === 'design' &&
+          canPaint &&
+          allowsDrawView({ step: createStep }) ? (
             <StudioViewToggle />
+          ) : null}
+          {mode === 'design' && showsDesignRails({ step: createStep }) ? (
+            <DesignModeToggle />
+          ) : null}
+          {mode === 'design' && showsPreviewRails({ step: createStep }) ? (
+            <CameraPresetBar />
           ) : null}
           {mode === 'design' ? (
             <GownCredit garmentId={garmentId} />
@@ -175,15 +204,22 @@ function AtelierHome() {
         {mode === 'design' ? (
           <>
             <div className={studioPhoneToolsClass()}>
-              <FabricPanel />
-              {garmentCanPaint({ garmentId }) ? (
+              {showsColorRail({ step: createStep }) ? (
+                <ColorPatternPanel />
+              ) : null}
+              {showsStructureRail({ step: createStep }) && canPaint ? (
+                <StructureRail />
+              ) : null}
+              {showsDesignRails({ step: createStep }) && canPaint ? (
                 <>
-                  <PaintToolbar />
-                  <StructureRail />
+                  {designEditMode === 'draw' ? <PaintToolbar /> : null}
+                  {designEditMode === 'draw' ? <FabricPanel /> : null}
                   <LayerRail />
+                  {designEditMode === 'tech' ? <TechInspector /> : null}
                   <VersionRail />
                 </>
               ) : null}
+              {showsPreviewRails({ step: createStep }) ? <AvatarRail /> : null}
             </div>
             <div className={studioPhonePublishClass()}>
               {publishError ? (
@@ -196,31 +232,33 @@ function AtelierHome() {
                   {enteredLabel}
                 </p>
               ) : null}
-              <PublishBar
-                publishing={publishing}
-                onPublish={async ({ design }) => {
-                  setPublishError(null)
-                  setPublishing(true)
+              {showsShareRail({ step: createStep }) ? (
+                <PublishBar
+                  publishing={publishing}
+                  onPublish={async ({ design }) => {
+                    setPublishError(null)
+                    setPublishing(true)
 
-                  try {
-                    const created = await createDesign({ design })
-                    useEditorStore.getState().publishLook({ design })
-                    setEnteredLabel(HOUSE_COPY.entered)
-                    await navigate({
-                      to: '/vote',
-                      search: { entered: created.id },
-                    })
-                  } catch (error) {
-                    setPublishError(
-                      error instanceof Error
-                        ? error.message
-                        : HOUSE_COPY.publishFailed,
-                    )
-                  } finally {
-                    setPublishing(false)
-                  }
-                }}
-              />
+                    try {
+                      const created = await createDesign({ design })
+                      useEditorStore.getState().publishLook({ design })
+                      setEnteredLabel(HOUSE_COPY.entered)
+                      await navigate({
+                        to: '/vote',
+                        search: { entered: created.id },
+                      })
+                    } catch (error) {
+                      setPublishError(
+                        error instanceof Error
+                          ? error.message
+                          : HOUSE_COPY.publishFailed,
+                      )
+                    } finally {
+                      setPublishing(false)
+                    }
+                  }}
+                />
+              ) : null}
             </div>
           </>
         ) : null}

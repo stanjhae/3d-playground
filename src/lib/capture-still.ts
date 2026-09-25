@@ -1,3 +1,5 @@
+type CameraPreset = 'front' | 'threeQuarter' | 'back'
+
 export type StudioCanvasProbe = {
   width: number
   height: number
@@ -161,6 +163,74 @@ export async function captureFramedStill({
   } catch {
     return ''
   }
+}
+
+function waitFrames({ count }: { count: number }) {
+  return new Promise<void>((resolve) => {
+    let remaining = count
+
+    function tick() {
+      remaining -= 1
+
+      if (remaining <= 0) {
+        resolve()
+        return
+      }
+
+      requestAnimationFrame(tick)
+    }
+
+    requestAnimationFrame(tick)
+  })
+}
+
+export async function captureAngleStills({
+  canvas,
+  setCameraPreset,
+  setCapturingAngles,
+  restorePreset,
+  settleMs = 220,
+}: {
+  canvas: HTMLCanvasElement | null
+  setCameraPreset: ({
+    cameraPreset,
+  }: {
+    cameraPreset: CameraPreset
+  }) => void
+  setCapturingAngles: ({
+    capturingAngles,
+  }: {
+    capturingAngles: boolean
+  }) => void
+  restorePreset: CameraPreset
+  settleMs?: number
+}): Promise<string[]> {
+  const presets: CameraPreset[] = ['front', 'threeQuarter', 'back']
+  const stills: string[] = []
+
+  setCapturingAngles({ capturingAngles: true })
+
+  try {
+    for (const cameraPreset of presets) {
+      setCameraPreset({ cameraPreset })
+      await waitFrames({ count: 3 })
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, settleMs)
+      })
+      await waitFrames({ count: 1 })
+      const still = await captureFramedStill({ canvas })
+
+      if (still) {
+        stills.push(still)
+      }
+    }
+  } finally {
+    setCameraPreset({ cameraPreset: restorePreset })
+    setCapturingAngles({ capturingAngles: false })
+    await waitFrames({ count: 1 })
+  }
+
+  return stills.slice(0, 4)
 }
 
 export async function frameStill({

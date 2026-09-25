@@ -149,6 +149,30 @@ function LookPage() {
               {HOUSE_COPY.by} {look.author} · {look.votes}{' '}
               {look.votes === 1 ? HOUSE_COPY.voteOne : HOUSE_COPY.votes}
             </p>
+            {look.tags && look.tags.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {look.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="border border-atelier-line px-2 py-1 font-body text-xs tracking-[0.08em] text-ivory-muted uppercase"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {look.angleStills && look.angleStills.length > 0 ? (
+              <div className="flex gap-2 overflow-x-auto">
+                {look.angleStills.map((still, index) => (
+                  <img
+                    key={`${look.id}-angle-${index}`}
+                    alt=""
+                    src={still}
+                    className="h-24 w-20 shrink-0 border border-atelier-line object-cover"
+                  />
+                ))}
+              </div>
+            ) : null}
             <GownCredit garmentId={look.garmentId} />
             {voteError ? (
               <p className="font-body text-sm text-ivory-muted">{voteError}</p>

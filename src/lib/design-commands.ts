@@ -17,6 +17,8 @@ export type LayerPatch = {
   y?: number
   scale?: number
   rotation?: number
+  opacity?: number
+  color?: string
   visible?: boolean
   content?: string
   face?: TextFace
@@ -148,6 +150,20 @@ function applyToDocument({
 
         if (command.patch.visible !== undefined) {
           layer.visible = command.patch.visible
+        }
+
+        if (command.patch.opacity !== undefined) {
+          layer.opacity = Math.min(1, Math.max(0, command.patch.opacity))
+        }
+
+        if (command.patch.color !== undefined) {
+          if (layer.kind === 'text' || layer.kind === 'pattern') {
+            layer.color = command.patch.color
+          }
+
+          if (layer.kind === 'graphic') {
+            layer.color = command.patch.color
+          }
         }
       }
 

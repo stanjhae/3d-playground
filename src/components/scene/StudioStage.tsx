@@ -22,6 +22,12 @@ export const STUDIO_CAMERA = {
   far: 2000,
 }
 
+export const CAMERA_PRESET_POSITIONS = {
+  front: [0, 1.48, 4.1] as const,
+  threeQuarter: STUDIO_CAMERA.position,
+  back: [0.15, 1.48, -4.05] as const,
+} as const
+
 export const INTRO_DURATION = 1.2
 const INTRO_FROM = [3.05, 1.82, 4.25] as const
 
@@ -127,32 +133,58 @@ export function StudioCamera({
   intro?: boolean
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
+  const cameraPreset = useEditorStore((state) => state.cameraPreset)
+  const capturingAngles = useEditorStore((state) => state.capturingAngles)
   const reducedMotion = prefersReducedMotion()
   const elapsed = useRef(reducedMotion || !intro ? INTRO_DURATION : 0)
+  const presetSeat = CAMERA_PRESET_POSITIONS[cameraPreset]
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
     camera.far = STUDIO_CAMERA.far
     camera.fov = STUDIO_CAMERA.fov
     camera.updateProjectionMatrix()
-    const seat = intro && !reducedMotion ? INTRO_FROM : STUDIO_CAMERA.position
+    const seat = capturingAngles
+      ? presetSeat
+      : intro && !reducedMotion && elapsed.current < INTRO_DURATION
+        ? INTRO_FROM
+        : presetSeat
     camera.position.set(seat[0], seat[1], seat[2])
     camera.lookAt(...STUDIO_CAMERA.target)
-  }, [camera, intro, reducedMotion])
+  }, [
+    camera,
+    cameraPreset,
+    capturingAngles,
+    intro,
+    presetSeat,
+    reducedMotion,
+  ])
 
   useFrame((_, delta) => {
-    if (!intro || reducedMotion || elapsed.current >= INTRO_DURATION) {
+    if (capturingAngles) {
+      camera.position.set(presetSeat[0], presetSeat[1], presetSeat[2])
+      camera.lookAt(...STUDIO_CAMERA.target)
       return
     }
 
-    elapsed.current = Math.min(INTRO_DURATION, elapsed.current + delta)
-    const t = 1 - (1 - elapsed.current / INTRO_DURATION) ** 3
+    if (intro && !reducedMotion && elapsed.current < INTRO_DURATION) {
+      elapsed.current = Math.min(INTRO_DURATION, elapsed.current + delta)
+      const t = 1 - (1 - elapsed.current / INTRO_DURATION) ** 3
 
-    camera.position.set(
-      INTRO_FROM[0] + (STUDIO_CAMERA.position[0] - INTRO_FROM[0]) * t,
-      INTRO_FROM[1] + (STUDIO_CAMERA.position[1] - INTRO_FROM[1]) * t,
-      INTRO_FROM[2] + (STUDIO_CAMERA.position[2] - INTRO_FROM[2]) * t,
-    )
+      camera.position.set(
+        INTRO_FROM[0] + (presetSeat[0] - INTRO_FROM[0]) * t,
+        INTRO_FROM[1] + (presetSeat[1] - INTRO_FROM[1]) * t,
+        INTRO_FROM[2] + (presetSeat[2] - INTRO_FROM[2]) * t,
+      )
+      camera.lookAt(...STUDIO_CAMERA.target)
+      return
+    }
+
+    const current = camera.position
+    const blend = reducedMotion ? 1 : Math.min(1, delta * 4)
+    current.x += (presetSeat[0] - current.x) * blend
+    current.y += (presetSeat[1] - current.y) * blend
+    current.z += (presetSeat[2] - current.z) * blend
     camera.lookAt(...STUDIO_CAMERA.target)
   })
 
@@ -200,6 +232,7 @@ export function StudioOrbit({
   const [enabled, setEnabled] = useState(() => !intro || reducedMotion)
   const [spinning, setSpinning] = useState(turntable && !reducedMotion)
   const painting = useEditorStore((state) => Boolean(state.activeStroke))
+  const capturingAngles = useEditorStore((state) => state.capturingAngles)
 
   useEffect(() => {
     if (!intro || reducedMotion) {
@@ -223,9 +256,9 @@ export function StudioOrbit({
 
   return (
     <OrbitControls
-      autoRotate={turntable && spinning && enabled}
+      autoRotate={turntable && spinning && enabled && !capturingAngles}
       autoRotateSpeed={0.35}
-      enabled={enabled && !painting}
+      enabled={enabled && !painting && !capturingAngles}
       enablePan={false}
       maxDistance={6.5}
       maxPolarAngle={Math.PI / 2.05}

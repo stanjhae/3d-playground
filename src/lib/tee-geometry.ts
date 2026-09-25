@@ -177,8 +177,8 @@ function buildSleeve({
   const geometry = new CylinderGeometry(0.06, 0.078, length, 20, 4, true)
   mapOpenCylinder({
     geometry,
-    u0: 0,
-    u1: 1,
+    u0: side === 'left' ? 0 : 0.5,
+    u1: side === 'left' ? 0.5 : 1,
     v0: 0,
     v1: TORSO_V0 - 0.002,
   })

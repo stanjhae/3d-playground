@@ -6,9 +6,25 @@ import {
 } from './design-schema.ts'
 import { isSafeLayerSrc, sanitizeArtMap } from './look-thumbnail.ts'
 
-export const PANEL_IDS = ['front', 'back', 'sleeve'] as const
+export const PANEL_IDS = ['front', 'back', 'left', 'right'] as const
 
 export type PanelId = (typeof PANEL_IDS)[number]
+
+/** Legacy panel id from drafts published before four-sided panels. */
+const LEGACY_PANEL_ALIASES: Record<string, PanelId> = {
+  sleeve: 'left',
+}
+
+const OPPOSITE_PANELS: Record<PanelId, PanelId> = {
+  front: 'back',
+  back: 'front',
+  left: 'right',
+  right: 'left',
+}
+
+export function oppositePanel({ panel }: { panel: PanelId }): PanelId {
+  return OPPOSITE_PANELS[panel]
+}
 
 export const LAYER_KINDS = ['paint', 'graphic', 'text', 'art', 'pattern'] as const
 
@@ -34,7 +50,7 @@ export const SLEEVE_IDS = ['short', 'long'] as const
 
 export type SleeveId = (typeof SLEEVE_IDS)[number]
 
-export const PATTERN_IDS = ['stripe', 'check'] as const
+export const PATTERN_IDS = ['stripe', 'check', 'gradient'] as const
 
 export type PatternId = (typeof PATTERN_IDS)[number]
 
@@ -69,6 +85,8 @@ export type GraphicLayer = {
   y: number
   scale: number
   rotation: number
+  opacity: number
+  color?: string
   visible: boolean
 }
 
@@ -83,6 +101,7 @@ export type TextLayer = {
   y: number
   scale: number
   rotation: number
+  opacity: number
   visible: boolean
 }
 
@@ -104,6 +123,7 @@ export type PatternLayer = {
   y: number
   scale: number
   rotation: number
+  opacity: number
   visible: boolean
 }
 
@@ -175,7 +195,21 @@ function asBoolean({
 }
 
 function parsePanelId({ value }: { value: unknown }): PanelId {
-  return PANEL_ID_SET.has(asString({ value })) ? (value as PanelId) : 'front'
+  const raw = asString({ value })
+  const aliased = LEGACY_PANEL_ALIASES[raw]
+
+  if (aliased) {
+    return aliased
+  }
+
+  return PANEL_ID_SET.has(raw) ? (raw as PanelId) : 'front'
+}
+
+function parseOpacity({ value }: { value: unknown }) {
+  return Math.min(
+    1,
+    Math.max(0, asNumber({ value, fallback: 1 })),
+  )
 }
 
 function parseStrokePoint({ value }: { value: unknown }): StrokePoint | null {
@@ -261,6 +295,8 @@ function parseGraphicLayer({
     return null
   }
 
+  const color = asString({ value: record.color }).trim()
+
   return {
     id,
     kind: 'graphic',
@@ -270,6 +306,8 @@ function parseGraphicLayer({
     y: asNumber({ value: record.y, fallback: 0.5 }),
     scale: asNumber({ value: record.scale, fallback: 0.32 }),
     rotation: asNumber({ value: record.rotation, fallback: 0 }),
+    opacity: parseOpacity({ value: record.opacity }),
+    ...(color ? { color } : {}),
     visible: asBoolean({ value: record.visible, fallback: true }),
   }
 }
@@ -295,6 +333,7 @@ function parseTextLayer({
     y: asNumber({ value: record.y, fallback: 0.42 }),
     scale: asNumber({ value: record.scale, fallback: 0.12 }),
     rotation: asNumber({ value: record.rotation, fallback: 0 }),
+    opacity: parseOpacity({ value: record.opacity }),
     visible: asBoolean({ value: record.visible, fallback: true }),
   }
 }
@@ -375,6 +414,7 @@ function parsePatternLayer({
     y: asNumber({ value: record.y, fallback: 0.5 }),
     scale: asNumber({ value: record.scale, fallback: 0.42 }),
     rotation: asNumber({ value: record.rotation, fallback: 0 }),
+    opacity: parseOpacity({ value: record.opacity }),
     visible: asBoolean({ value: record.visible, fallback: true }),
   }
 }
@@ -475,11 +515,76 @@ export function parseDocument({
   }
 }
 
+export const MAX_PUBLISH_GRAPHIC_CHARS = 80_000
+
+export function sanitizePublishedDocument({
+  document,
+}: {
+  document: DesignDocument
+}): DesignDocument | undefined {
+  const parsed = parseDocument({ value: document })
+
+  if (!parsed) {
+    return undefined
+  }
+
+  const layers = parsed.layers
+    .filter((layer) => layer.kind !== 'art')
+    .map((layer) => {
+      if (layer.kind !== 'graphic') {
+        return layer
+      }
+
+      if (layer.src.length > MAX_PUBLISH_GRAPHIC_CHARS) {
+        return null
+      }
+
+      return layer
+    })
+    .filter(
+      (
+        layer,
+      ): layer is Exclude<DesignLayer, { kind: 'art' }> => layer !== null,
+    )
+
+  if (
+    layers.every(
+      (layer) => layer.kind === 'paint' && layer.strokes.length === 0,
+    )
+  ) {
+    const hasStructural = Object.keys(parsed.structural).length > 0
+    const hasOverrides = parsed.overrides.length > 0
+
+    if (!hasStructural && !hasOverrides) {
+      return {
+        ...parsed,
+        layers: layers.length > 0 ? layers : [createEmptyPaintLayer()],
+      }
+    }
+  }
+
+  return {
+    ...parsed,
+    layers: layers.length > 0 ? layers : [createEmptyPaintLayer()],
+  }
+}
+
 export function documentFromDesign({
   design,
 }: {
-  design: Pick<Design, 'garmentId' | 'overrides' | 'artMap' | 'structural'>
+  design: Pick<
+    Design,
+    'garmentId' | 'overrides' | 'artMap' | 'structural' | 'document'
+  >
 }): DesignDocument {
+  if (design.document) {
+    const fromStored = parseDocument({ value: design.document })
+
+    if (fromStored) {
+      return fromStored
+    }
+  }
+
   const document = createEmptyDocument({ garmentId: design.garmentId })
   document.overrides = design.overrides.map((override) => ({ ...override }))
   document.structural = parseStructural({ value: design.structural })

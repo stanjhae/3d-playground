@@ -95,6 +95,7 @@ function stampDot({
   radius,
   color,
   erase,
+  opacity = 1,
 }: {
   buffer: AtlasBuffer
   u: number
@@ -102,6 +103,7 @@ function stampDot({
   radius: number
   color: string
   erase: boolean
+  opacity?: number
 }) {
   const { r, g, b, a } = hexToRgb({ color })
   const center = atlasPixelForUv({
@@ -111,6 +113,7 @@ function stampDot({
     height: buffer.height,
   })
   const pixelRadius = Math.max(1, Math.round(radius * buffer.width))
+  const scaledA = Math.round(a * Math.min(1, Math.max(0, opacity)))
 
   for (let dy = -pixelRadius; dy <= pixelRadius; dy += 1) {
     for (let dx = -pixelRadius; dx <= pixelRadius; dx += 1) {
@@ -136,7 +139,7 @@ function stampDot({
         r,
         g,
         b,
-        a,
+        a: scaledA,
         erase,
       })
     }
@@ -207,6 +210,8 @@ function sampleSource({
   row,
   srcX,
   srcY,
+  opacity = 1,
+  tint,
 }: {
   dest: AtlasBuffer
   source: AtlasBuffer
@@ -214,6 +219,8 @@ function sampleSource({
   row: number
   srcX: number
   srcY: number
+  opacity?: number
+  tint?: { r: number; g: number; b: number }
 }) {
   if (column < 0 || row < 0 || column >= dest.width || row >= dest.height) {
     return
@@ -224,18 +231,22 @@ function sampleSource({
   }
 
   const srcIndex = (srcY * source.width + srcX) * 4
-  const a = source.pixels[srcIndex + 3] ?? 0
+  const a = Math.round((source.pixels[srcIndex + 3] ?? 0) * opacity)
 
   if (a === 0) {
     return
   }
 
+  const sourceR = source.pixels[srcIndex] ?? 0
+  const sourceG = source.pixels[srcIndex + 1] ?? 0
+  const sourceB = source.pixels[srcIndex + 2] ?? 0
+
   writePixel({
     buffer: dest,
     index: (row * dest.width + column) * 4,
-    r: source.pixels[srcIndex] ?? 0,
-    g: source.pixels[srcIndex + 1] ?? 0,
-    b: source.pixels[srcIndex + 2] ?? 0,
+    r: tint ? Math.round((sourceR * tint.r) / 255) : sourceR,
+    g: tint ? Math.round((sourceG * tint.g) / 255) : sourceG,
+    b: tint ? Math.round((sourceB * tint.b) / 255) : sourceB,
     a,
   })
 }
@@ -248,6 +259,8 @@ function blitBuffer({
   destWidth,
   destHeight,
   rotation = 0,
+  opacity = 1,
+  tint,
 }: {
   dest: AtlasBuffer
   source: AtlasBuffer
@@ -256,9 +269,12 @@ function blitBuffer({
   destWidth: number
   destHeight: number
   rotation?: number
+  opacity?: number
+  tint?: { r: number; g: number; b: number }
 }) {
   const width = Math.max(1, Math.round(destWidth))
   const height = Math.max(1, Math.round(destHeight))
+  const clampedOpacity = Math.min(1, Math.max(0, opacity))
 
   if (rotation === 0) {
     for (let y = 0; y < height; y += 1) {
@@ -276,6 +292,8 @@ function blitBuffer({
             source.height - 1,
             Math.floor((y / height) * source.height),
           ),
+          opacity: clampedOpacity,
+          tint,
         })
       }
     }
@@ -312,6 +330,8 @@ function blitBuffer({
           source.height - 1,
           Math.floor((sourceY / height) * source.height),
         ),
+        opacity: clampedOpacity,
+        tint,
       })
     }
   }
@@ -367,6 +387,7 @@ function drawTextMark({
           : '"Cormorant Garamond", Palatino, serif'
       context.font = `600 ${fontSize}px ${face}`
       context.fillStyle = layer.color
+      context.globalAlpha = Math.min(1, Math.max(0, layer.opacity ?? 1))
       context.textAlign = 'center'
       context.textBaseline = 'middle'
       context.save()
@@ -386,6 +407,7 @@ function drawTextMark({
         destY: 0,
         destWidth: buffer.width,
         destHeight: buffer.height,
+        opacity: 1,
       })
       return
     }
@@ -393,6 +415,7 @@ function drawTextMark({
 
   const width = Math.max(0.04, layer.scale * 1.8)
   const height = Math.max(0.02, layer.scale * 0.45)
+  const markOpacity = Math.min(1, Math.max(0, layer.opacity ?? 1))
 
   for (let x = 0; x < 12; x += 1) {
     for (let y = 0; y < 4; y += 1) {
@@ -403,6 +426,7 @@ function drawTextMark({
         radius: 0.008,
         color: layer.color,
         erase: false,
+        opacity: markOpacity,
       })
     }
   }
@@ -422,10 +446,18 @@ function drawPatternMark({
 
   for (let row = 0; row < tile; row += 1) {
     for (let column = 0; column < tile; column += 1) {
-      const stripe = Math.floor(row / band) % 2 === 0
-      const check =
-        (Math.floor(column / band) + Math.floor(row / band)) % 2 === 0
-      const fill = layer.patternId === 'check' ? check : stripe
+      let fill = false
+      let alpha = a
+
+      if (layer.patternId === 'gradient') {
+        fill = true
+        alpha = Math.round(a * (1 - row / Math.max(1, tile - 1)))
+      } else if (layer.patternId === 'check') {
+        fill =
+          (Math.floor(column / band) + Math.floor(row / band)) % 2 === 0
+      } else {
+        fill = Math.floor(row / band) % 2 === 0
+      }
 
       if (!fill) {
         continue
@@ -437,7 +469,7 @@ function drawPatternMark({
         r,
         g,
         b,
-        a,
+        a: alpha,
       })
     }
   }
@@ -453,7 +485,12 @@ function drawPatternMark({
     width: buffer.width,
     height: buffer.height,
   })
-  const size = Math.max(18, Math.round(layer.scale * buffer.width))
+  const size = Math.max(
+    18,
+    Math.round(
+      layer.scale * buffer.width * (layer.patternId === 'gradient' ? 1.35 : 1),
+    ),
+  )
 
   blitBuffer({
     dest: buffer,
@@ -463,6 +500,7 @@ function drawPatternMark({
     destWidth: size,
     destHeight: size,
     rotation: layer.rotation,
+    opacity: layer.opacity ?? 1,
   })
 }
 
@@ -491,6 +529,7 @@ function drawGraphicMark({
     height: buffer.height,
   })
   const size = Math.max(12, Math.round(layer.scale * buffer.width))
+  const tint = layer.color ? hexToRgb({ color: layer.color }) : undefined
 
   blitBuffer({
     dest: buffer,
@@ -500,6 +539,8 @@ function drawGraphicMark({
     destWidth: size,
     destHeight: size,
     rotation: layer.rotation,
+    opacity: layer.opacity ?? 1,
+    ...(tint ? { tint: { r: tint.r, g: tint.g, b: tint.b } } : {}),
   })
 }
 

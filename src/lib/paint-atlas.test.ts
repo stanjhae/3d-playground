@@ -84,6 +84,7 @@ describe('rasterizeLayers', () => {
       y: 0.5,
       scale: 0.4,
       rotation: 0,
+      opacity: 1,
       visible: true,
     })
 
@@ -96,7 +97,7 @@ describe('rasterizeLayers', () => {
     })
     const sleeve = atlasPixelAtPanel({
       buffer,
-      panel: 'sleeve',
+      panel: 'left',
       x: 0.5,
       y: 0.5,
     })
@@ -126,12 +127,40 @@ describe('rasterizeLayers', () => {
     const buffer = rasterizeLayers({ document, width: 64, height: 64 })
     const sleeve = atlasPixelAtPanel({
       buffer,
-      panel: 'sleeve',
+      panel: 'left',
       x: 0.5,
       y: 0.5,
     })
 
     expect(sleeve.a).toBe(0)
+  })
+
+  test('placeable opacity lowers the mark alpha', () => {
+    const document = createEmptyDocument({ garmentId: 'tee' })
+    document.layers.push({
+      id: 'print-opacity',
+      kind: 'pattern',
+      patternId: 'stripe',
+      panel: 'front',
+      color: '#c41e3a',
+      x: 0.5,
+      y: 0.5,
+      scale: 0.5,
+      rotation: 0,
+      opacity: 0.25,
+      visible: true,
+    })
+
+    const buffer = rasterizeLayers({ document, width: 64, height: 64 })
+    const pixel = atlasPixelAtPanel({
+      buffer,
+      panel: 'front',
+      x: 0.5,
+      y: 0.5,
+    })
+
+    expect(pixel.a).toBeGreaterThan(0)
+    expect(pixel.a).toBeLessThan(200)
   })
 
   test('ink composites over cloth instead of replacing it', () => {

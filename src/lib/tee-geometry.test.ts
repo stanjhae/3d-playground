@@ -181,7 +181,7 @@ describe('createTeeMesh', () => {
       })
 
       expect(sleeveUv.getY(index)).toBeLessThanOrEqual(TORSO_V0 + 1e-6)
-      expect(hit?.panel).toBe('sleeve')
+      expect(hit?.panel).toBe('left')
       sleeveHits += 1
     }
 
@@ -192,7 +192,7 @@ describe('createTeeMesh', () => {
       })
 
       expect(bodyUv.getY(index)).toBeGreaterThanOrEqual(TORSO_V0 - 1e-6)
-      expect(hit?.panel).not.toBe('sleeve')
+      expect(hit?.panel === 'left' || hit?.panel === 'right').toBe(false)
       bodyHits += 1
     }
 

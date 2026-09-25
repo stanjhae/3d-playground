@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import { DEFAULT_AVATAR_MEASUREMENTS } from './avatars'
 import {
   applyCommand,
   canRedo,
@@ -11,10 +12,13 @@ import {
   type DesignCommand,
   type LayerPatch,
 } from './design-commands'
+import type { CreateStepId } from './create-steps'
 import {
+  cloneDocument,
   createEmptyDocument,
   createObjectId,
   documentFromDesign,
+  oppositePanel,
   type DesignDocument,
   type NeckId,
   type PanelId,
@@ -29,7 +33,12 @@ import {
   placeablePoseMatches,
   type LayerEdit,
 } from './layer-hit'
-import type { Design, GarmentId, MaterialOverride } from './design-schema'
+import type {
+  Design,
+  DesignMethod,
+  GarmentId,
+  MaterialOverride,
+} from './design-schema'
 import { resolveGarmentId } from './design-schema'
 import {
   listSnapshots,
@@ -43,6 +52,26 @@ import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from './paint-colors'
 export type EditorMode = 'design' | 'atelier'
 export type StudioView = 'draw' | 'cloth'
 export type EditorPaintTool = StrokeTool | 'type'
+export type CreateStep = CreateStepId
+export type DesignEditMode = 'draw' | 'tech'
+export type CameraPreset = 'front' | 'threeQuarter' | 'back'
+export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
+
+export type AvatarMeasurements = {
+  height: number
+  chest: number
+  waist: number
+}
+
+export const BASE_FINISH_PRESETS = [
+  { id: 'matte', label: 'Matte', fabricId: 'cotton' },
+  { id: 'silk', label: 'Silk', fabricId: 'silk' },
+  { id: 'wool', label: 'Wool', fabricId: 'wool' },
+  { id: 'denim', label: 'Denim', fabricId: 'denim' },
+  { id: 'leather', label: 'Leather', fabricId: 'leather' },
+] as const
+
+export type BaseFinishId = (typeof BASE_FINISH_PRESETS)[number]['id'] | string
 
 type EditorState = {
   mode: EditorMode
@@ -70,6 +99,17 @@ type EditorState = {
   snapshots: DesignSnapshot[]
   undoCount: number
   redoCount: number
+  createStep: CreateStep
+  designEditMode: DesignEditMode
+  publishTags: string[]
+  publishMethod: DesignMethod | null
+  challengeId: string | null
+  avatarId: string | null
+  avatarMeasurements: AvatarMeasurements
+  cameraPreset: CameraPreset
+  capturingAngles: boolean
+  basePatternId: BasePatternId
+  baseFinishId: BaseFinishId
   setMode: ({ mode }: { mode: EditorMode }) => void
   selectMesh: ({ selectedMeshName }: { selectedMeshName: string | null }) => void
   setGarmentId: ({ garmentId }: { garmentId: GarmentId }) => void
@@ -80,6 +120,7 @@ type EditorState = {
     fabricId: string
     colorId: string
   }) => void
+  applyBaseColor: ({ color }: { color: string }) => void
   undoLast: () => void
   redoLast: () => void
   canUndo: () => boolean
@@ -96,6 +137,35 @@ type EditorState = {
   setPaintColor: ({ paintColor }: { paintColor: string }) => void
   setPaintWidth: ({ paintWidth }: { paintWidth: number }) => void
   setStudioView: ({ studioView }: { studioView: StudioView }) => void
+  setCreateStep: ({ createStep }: { createStep: CreateStep }) => void
+  setDesignEditMode: ({
+    designEditMode,
+  }: {
+    designEditMode: DesignEditMode
+  }) => void
+  setPublishTags: ({ tags }: { tags: string[] }) => void
+  setPublishMethod: ({
+    method,
+  }: {
+    method: DesignMethod | null
+  }) => void
+  setChallengeId: ({ challengeId }: { challengeId: string | null }) => void
+  setAvatarId: ({ avatarId }: { avatarId: string | null }) => void
+  setAvatarMeasurements: ({
+    measurements,
+  }: {
+    measurements: Partial<AvatarMeasurements>
+  }) => void
+  resetAvatarMeasurements: () => void
+  setCameraPreset: ({ cameraPreset }: { cameraPreset: CameraPreset }) => void
+  setCapturingAngles: ({
+    capturingAngles,
+  }: {
+    capturingAngles: boolean
+  }) => void
+  setBasePattern: ({ patternId }: { patternId: BasePatternId }) => void
+  setBaseFinish: ({ finishId }: { finishId: BaseFinishId }) => void
+  copyLayerToOpposite: ({ layerId }: { layerId: string }) => void
   startStroke: ({
     panel,
     point,
@@ -247,6 +317,11 @@ function runCommand({
   return syncFromStack({ extra })
 }
 
+function finishPreset({ finishId }: { finishId: BaseFinishId }) {
+  const entry = BASE_FINISH_PRESETS.find((finish) => finish.id === finishId)
+  return getFabricById({ id: entry?.fabricId ?? finishId })
+}
+
 function layerPatchChanges({
   layer,
   patch,
@@ -278,8 +353,24 @@ function layerPatchChanges({
     return true
   }
 
+  if (patch.opacity !== undefined && patch.opacity !== layer.opacity) {
+    return true
+  }
+
   if (patch.visible !== undefined && patch.visible !== layer.visible) {
     return true
+  }
+
+  if (layer.kind === 'graphic') {
+    if (patch.color !== undefined && patch.color !== layer.color) {
+      return true
+    }
+  }
+
+  if (layer.kind === 'text' || layer.kind === 'pattern') {
+    if (patch.color !== undefined && patch.color !== layer.color) {
+      return true
+    }
   }
 
   if (layer.kind === 'text') {
@@ -321,6 +412,21 @@ const INITIAL_EDITOR_STATE = {
   snapshots: listSnapshots(),
   undoCount: 0,
   redoCount: 0,
+  createStep: 'select' as CreateStep,
+  designEditMode: 'draw' as DesignEditMode,
+  publishTags: [] as string[],
+  publishMethod: null as DesignMethod | null,
+  challengeId: null as string | null,
+  avatarId: null as string | null,
+  avatarMeasurements: {
+    height: DEFAULT_AVATAR_MEASUREMENTS.height,
+    chest: DEFAULT_AVATAR_MEASUREMENTS.chest,
+    waist: DEFAULT_AVATAR_MEASUREMENTS.waist,
+  },
+  cameraPreset: 'threeQuarter' as CameraPreset,
+  capturingAngles: false,
+  basePatternId: 'solid' as BasePatternId,
+  baseFinishId: 'matte' as BaseFinishId,
 }
 
 export const useEditorStore = create<EditorState>()((set, get) => ({
@@ -405,6 +511,27 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       })
     })
   },
+  applyBaseColor: ({ color }) => {
+    set((state) => {
+      const meshName = state.selectedMeshName ?? 'body'
+      const finish = finishPreset({ finishId: state.baseFinishId })
+      const override: MaterialOverride = {
+        meshName,
+        color,
+        roughness: finish?.roughness ?? 0.86,
+        metalness: finish?.metalness ?? 0,
+        ...(finish?.mapId ? { mapId: finish.mapId } : {}),
+      }
+
+      return runCommand({
+        command: { type: 'applyFabric', override },
+        extra: {
+          fabricId: finish?.id ?? state.fabricId,
+          colorId: finish?.id ?? color,
+        },
+      })
+    })
+  },
   undoLast: () => {
     set(() => {
       commandStack = undoCommand({ stack: commandStack })
@@ -451,6 +578,10 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       undoCount: 0,
       redoCount: 0,
       snapshots,
+      publishTags: design.tags ? [...design.tags] : [],
+      publishMethod: design.method ?? null,
+      challengeId: design.challengeId ?? null,
+      avatarId: design.avatarId ?? null,
     })
   },
   publishLook: ({ design }) => {
@@ -474,6 +605,17 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         garmentId: resolveGarmentId({ garmentId: design.garmentId }),
         ...(design.artMap ? { artMap: design.artMap } : {}),
         ...(design.structural ? { structural: design.structural } : {}),
+        ...(design.document ? { document: design.document } : {}),
+        ...(design.tags && design.tags.length > 0
+          ? { tags: [...design.tags] }
+          : {}),
+        ...(design.method ? { method: design.method } : {}),
+        ...(design.challengeId ? { challengeId: design.challengeId } : {}),
+        ...(design.createdAt ? { createdAt: design.createdAt } : {}),
+        ...(design.avatarId ? { avatarId: design.avatarId } : {}),
+        ...(design.angleStills && design.angleStills.length > 0
+          ? { angleStills: [...design.angleStills] }
+          : {}),
       },
       snapshots,
     })
@@ -493,6 +635,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       activeLayerEdit: null,
       selectedLayerId: null,
       snapshots: listSnapshots(),
+      avatarMeasurements: {
+        height: DEFAULT_AVATAR_MEASUREMENTS.height,
+        chest: DEFAULT_AVATAR_MEASUREMENTS.chest,
+        waist: DEFAULT_AVATAR_MEASUREMENTS.waist,
+      },
     })
   },
   setPaintPanel: ({ paintPanel }) => {
@@ -509,6 +656,197 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setStudioView: ({ studioView }) => {
     set({ studioView })
+  },
+  setCreateStep: ({ createStep }) => {
+    set({
+      createStep,
+      ...((
+        createStep === 'preview' ||
+        createStep === 'share' ||
+        createStep === 'select' ||
+        createStep === 'fit' ||
+        createStep === 'color'
+      )
+        ? { studioView: 'cloth' as const }
+        : {}),
+    })
+  },
+  setDesignEditMode: ({ designEditMode }) => {
+    set({
+      designEditMode,
+      ...(designEditMode === 'tech' ? { studioView: 'cloth' as const } : {}),
+    })
+  },
+  setPublishTags: ({ tags }) => {
+    set({
+      publishTags: tags
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .slice(0, 8),
+    })
+  },
+  setPublishMethod: ({ method }) => {
+    set({ publishMethod: method })
+  },
+  setChallengeId: ({ challengeId }) => {
+    set({ challengeId })
+  },
+  setAvatarId: ({ avatarId }) => {
+    set({ avatarId })
+  },
+  setAvatarMeasurements: ({ measurements }) => {
+    set((state) => ({
+      avatarMeasurements: {
+        height: measurements.height ?? state.avatarMeasurements.height,
+        chest: measurements.chest ?? state.avatarMeasurements.chest,
+        waist: measurements.waist ?? state.avatarMeasurements.waist,
+      },
+    }))
+  },
+  resetAvatarMeasurements: () => {
+    set({
+      avatarMeasurements: {
+        height: DEFAULT_AVATAR_MEASUREMENTS.height,
+        chest: DEFAULT_AVATAR_MEASUREMENTS.chest,
+        waist: DEFAULT_AVATAR_MEASUREMENTS.waist,
+      },
+    })
+  },
+  setCameraPreset: ({ cameraPreset }) => {
+    set({ cameraPreset })
+  },
+  setCapturingAngles: ({ capturingAngles }) => {
+    set({ capturingAngles })
+  },
+  setBasePattern: ({ patternId }) => {
+    set((state) => {
+      const before = cloneDocument({ document: state.document })
+      const next = cloneDocument({ document: state.document })
+      next.layers = next.layers.filter(
+        (layer) =>
+          layer.id !== 'base-fill' && !layer.id.startsWith('base-fill-'),
+      )
+
+      let selectedLayerId: string | null = state.selectedLayerId
+
+      if (patternId !== 'solid') {
+        const layerId = 'base-fill'
+        next.layers.push({
+          id: layerId,
+          kind: 'pattern',
+          patternId,
+          panel: state.paintPanel,
+          color: state.paintColor,
+          x: 0.5,
+          y: 0.5,
+          scale: 1.05,
+          rotation: 0,
+          opacity: patternId === 'gradient' ? 0.85 : 0.55,
+          visible: true,
+        })
+        selectedLayerId = layerId
+      } else if (selectedLayerId === 'base-fill') {
+        selectedLayerId = null
+      }
+
+      commandStack = {
+        document: next,
+        past: [...commandStack.past, before],
+        future: [],
+      }
+
+      return {
+        ...syncFromStack({
+          extra: {
+            basePatternId: patternId,
+            selectedLayerId,
+          },
+        }),
+      }
+    })
+  },
+  setBaseFinish: ({ finishId }) => {
+    set((state) => {
+      const finish = finishPreset({ finishId })
+      const meshName = state.selectedMeshName ?? 'body'
+
+      if (!finish) {
+        return { baseFinishId: finishId }
+      }
+
+      const currentColor =
+        state.overrides.find((entry) => entry.meshName === meshName)?.color ??
+        finish.color
+
+      const override: MaterialOverride = {
+        meshName,
+        color: currentColor,
+        roughness: finish.roughness,
+        metalness: finish.metalness,
+        ...(finish.mapId ? { mapId: finish.mapId } : {}),
+      }
+
+      return runCommand({
+        command: { type: 'applyFabric', override },
+        extra: {
+          fabricId: finish.id,
+          colorId: finish.id,
+          baseFinishId: finishId,
+        },
+      })
+    })
+  },
+  copyLayerToOpposite: ({ layerId }) => {
+    set((state) => {
+      const layer = state.document.layers.find((entry) => entry.id === layerId)
+
+      if (
+        !layer ||
+        (layer.kind !== 'graphic' &&
+          layer.kind !== 'text' &&
+          layer.kind !== 'pattern')
+      ) {
+        return state
+      }
+
+      const panel = oppositePanel({ panel: layer.panel })
+      const nextId = createObjectId({
+        prefix:
+          layer.kind === 'text'
+            ? 'word'
+            : layer.kind === 'pattern'
+              ? 'print'
+              : 'mark',
+      })
+
+      if (layer.kind === 'graphic') {
+        return runCommand({
+          command: {
+            type: 'addGraphic',
+            layer: { ...layer, id: nextId, panel },
+          },
+          extra: { selectedLayerId: nextId },
+        })
+      }
+
+      if (layer.kind === 'text') {
+        return runCommand({
+          command: {
+            type: 'addText',
+            layer: { ...layer, id: nextId, panel },
+          },
+          extra: { selectedLayerId: nextId },
+        })
+      }
+
+      return runCommand({
+        command: {
+          type: 'addPattern',
+          layer: { ...layer, id: nextId, panel },
+        },
+        extra: { selectedLayerId: nextId },
+      })
+    })
   },
   startStroke: ({ panel, point, pressure }) => {
     set((state) => ({
@@ -586,6 +924,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             y: 0.48,
             scale: 0.28,
             rotation: 0,
+            opacity: 1,
             visible: true,
           },
         },
@@ -617,6 +956,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             y: y ?? 0.38,
             scale: scale ?? state.textScale,
             rotation: 0,
+            opacity: 1,
             visible: true,
           },
         },
@@ -744,6 +1084,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             y: y ?? 0.48,
             scale: 0.46,
             rotation: 0,
+            opacity: 1,
             visible: true,
           },
         },
