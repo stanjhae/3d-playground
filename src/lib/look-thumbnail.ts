@@ -4,6 +4,8 @@ export const MAX_LAYER_SRC_CHARS = 1_500_000
 
 const SAFE_DATA_IMAGE = /^data:image\/(?:jpeg|jpg|png|webp|gif);/i
 const SAFE_STILL_PATH = /^\/stills\/[A-Za-z0-9._-]+\.(?:png|jpe?g|webp|gif)$/i
+const SAFE_GRAPHICS_PATH =
+  /^\/graphics\/[A-Za-z0-9._-]+\.(?:png|jpe?g|webp|gif|svg)$/i
 const SAFE_DATA_MIME = /^data:(image\/(?:jpeg|jpg|png|webp|gif));/i
 
 export function isSafeStillPath({
@@ -12,6 +14,10 @@ export function isSafeStillPath({
   thumbnailDataUrl: string
 }) {
   return SAFE_STILL_PATH.test(thumbnailDataUrl)
+}
+
+export function isSafeGraphicsPath({ src }: { src: string }) {
+  return SAFE_GRAPHICS_PATH.test(src)
 }
 
 export function isSafeDataImage({
@@ -46,7 +52,9 @@ export function isSafeLayerSrc({
   src: string
   maxChars?: number
 }) {
-  return isSafeDataImage({ dataUrl: src, maxChars })
+  return (
+    isSafeDataImage({ dataUrl: src, maxChars }) || isSafeGraphicsPath({ src })
+  )
 }
 
 export function sanitizeArtMap({ artMap }: { artMap: string }) {

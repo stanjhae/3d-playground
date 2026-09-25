@@ -94,6 +94,8 @@ type EditorState = {
   paintTool: EditorPaintTool
   paintColor: string
   paintWidth: number
+  paintOpacity: number
+  paintHardness: number
   studioView: StudioView
   activeStroke: Stroke | null
   selectedLayerId: string | null
@@ -141,6 +143,8 @@ type EditorState = {
   setPaintTool: ({ paintTool }: { paintTool: EditorPaintTool }) => void
   setPaintColor: ({ paintColor }: { paintColor: string }) => void
   setPaintWidth: ({ paintWidth }: { paintWidth: number }) => void
+  setPaintOpacity: ({ paintOpacity }: { paintOpacity: number }) => void
+  setPaintHardness: ({ paintHardness }: { paintHardness: number }) => void
   setStudioView: ({ studioView }: { studioView: StudioView }) => void
   setCreateStep: ({ createStep }: { createStep: CreateStep }) => void
   setDesignEditMode: ({
@@ -171,6 +175,7 @@ type EditorState = {
   setBasePattern: ({ patternId }: { patternId: BasePatternId }) => void
   setBaseFinish: ({ finishId }: { finishId: BaseFinishId }) => void
   copyLayerToOpposite: ({ layerId }: { layerId: string }) => void
+  duplicateLayer: ({ layerId }: { layerId: string }) => void
   startStroke: ({
     panel,
     point,
@@ -274,7 +279,7 @@ function stackFromDocument({ document }: { document: DesignDocument }) {
 }
 
 let commandStack: CommandStack = stackFromDocument({
-  document: emptyDocument({ garmentId: 'gown' }),
+  document: emptyDocument({ garmentId: 'tee' }),
 })
 
 const garmentShelves = new Map<GarmentId, CommandStack>()
@@ -396,9 +401,9 @@ const INITIAL_EDITOR_STATE = {
   selectedMeshName: 'body' as string | null,
   fabricId: null as string | null,
   colorId: null as string | null,
-  garmentId: 'gown' as GarmentId,
+  garmentId: 'tee' as GarmentId,
   overrides: [] as MaterialOverride[],
-  document: emptyDocument({ garmentId: 'gown' }),
+  document: emptyDocument({ garmentId: 'tee' }),
   title: '',
   author: 'Guest',
   lastPublished: null as Omit<Design, 'id' | 'votes'> | null,
@@ -407,6 +412,8 @@ const INITIAL_EDITOR_STATE = {
   paintTool: 'brush' as StrokeTool,
   paintColor: INK_COLORS[0]?.value ?? '#1a1c22',
   paintWidth: INK_WIDTHS[1],
+  paintOpacity: 1,
+  paintHardness: 0.7,
   studioView: 'cloth' as StudioView,
   activeStroke: null as Stroke | null,
   selectedLayerId: null as string | null,
@@ -627,7 +634,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   reset: () => {
     garmentShelves.clear()
-    const document = emptyDocument({ garmentId: 'gown' })
+    const document = emptyDocument({ garmentId: 'tee' })
     commandStack = stackFromDocument({ document })
     set({
       ...INITIAL_EDITOR_STATE,
@@ -635,7 +642,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       overrides: [],
       lastPublished: null,
       selectedMeshName: 'body',
-      garmentId: 'gown',
+      garmentId: 'tee',
       activeStroke: null,
       activeLayerEdit: null,
       selectedLayerId: null,
@@ -657,7 +664,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({ paintColor })
   },
   setPaintWidth: ({ paintWidth }) => {
-    set({ paintWidth })
+    set({ paintWidth: Math.min(1, Math.max(0.004, paintWidth)) })
+  },
+  setPaintOpacity: ({ paintOpacity }) => {
+    set({ paintOpacity: Math.min(1, Math.max(0, paintOpacity)) })
+  },
+  setPaintHardness: ({ paintHardness }) => {
+    set({ paintHardness: Math.min(1, Math.max(0, paintHardness)) })
   },
   setStudioView: ({ studioView }) => {
     set({ studioView })
@@ -891,23 +904,98 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       })
     })
   },
+  duplicateLayer: ({ layerId }) => {
+    set((state) => {
+      const layer = state.document.layers.find((entry) => entry.id === layerId)
+
+      if (
+        !layer ||
+        (layer.kind !== 'graphic' &&
+          layer.kind !== 'text' &&
+          layer.kind !== 'pattern')
+      ) {
+        return state
+      }
+
+      const nextId = createObjectId({
+        prefix:
+          layer.kind === 'text'
+            ? 'word'
+            : layer.kind === 'pattern'
+              ? 'print'
+              : 'mark',
+      })
+
+      if (layer.kind === 'graphic') {
+        return runCommand({
+          command: {
+            type: 'addGraphic',
+            layer: { ...layer, id: nextId },
+          },
+          extra: { selectedLayerId: nextId },
+        })
+      }
+
+      if (layer.kind === 'text') {
+        return runCommand({
+          command: {
+            type: 'addText',
+            layer: { ...layer, id: nextId },
+          },
+          extra: { selectedLayerId: nextId },
+        })
+      }
+
+      return runCommand({
+        command: {
+          type: 'addPattern',
+          layer: { ...layer, id: nextId },
+        },
+        extra: { selectedLayerId: nextId },
+      })
+    })
+  },
   startStroke: ({ panel, point, pressure }) => {
-    set((state) => ({
-      activeStroke: {
-        id: createObjectId({ prefix: 'ink' }),
-        panel,
-        points: [{ ...point, ...(pressure !== undefined ? { p: pressure } : {}) }],
-        color: state.paintColor,
-        width: state.paintWidth,
-        tool: state.paintTool === 'eraser' ? 'eraser' : 'brush',
-      },
-    }))
+    set((state) => {
+      const tool: StrokeTool =
+        state.paintTool === 'fill'
+          ? 'fill'
+          : state.paintTool === 'eraser'
+            ? 'eraser'
+            : 'brush'
+      const base = state.paintColor.replace('#', '').slice(0, 6)
+      const alpha = Math.round(state.paintOpacity * 255)
+        .toString(16)
+        .padStart(2, '0')
+      const hardnessPressure =
+        pressure !== undefined
+          ? pressure * (0.35 + state.paintHardness * 0.65)
+          : 0.35 + state.paintHardness * 0.65
+      const color =
+        state.paintOpacity >= 0.999 ? `#${base}` : `#${base}${alpha}`
+
+      return {
+        activeStroke: {
+          id: createObjectId({ prefix: 'ink' }),
+          panel,
+          points: [{ ...point, p: hardnessPressure }],
+          color,
+          width: state.paintWidth,
+          tool,
+        },
+      }
+    })
   },
   appendStroke: ({ point, pressure }) => {
     set((state) => {
       if (!state.activeStroke) {
         return state
       }
+
+      const hardnessPressure =
+        pressure !== undefined
+          ? pressure * (0.35 + state.paintHardness * 0.65)
+          : 0.35 + state.paintHardness * 0.65
 
       return {
         activeStroke: {
@@ -916,7 +1004,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             ...state.activeStroke.points,
             {
               ...point,
-              ...(pressure !== undefined ? { p: pressure } : {}),
+              p: hardnessPressure,
             },
           ],
         },

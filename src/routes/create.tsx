@@ -7,6 +7,7 @@ import { ColorPatternPanel } from '../components/editor/ColorPatternPanel'
 import { CreateStepper } from '../components/editor/CreateStepper'
 import { DesignModeToggle } from '../components/editor/DesignModeToggle'
 import { DualStudio } from '../components/editor/DualStudio'
+import { GraphicLibrary } from '../components/editor/GraphicLibrary'
 import { LayerRail } from '../components/editor/LayerRail'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
@@ -21,6 +22,7 @@ import {
 } from '../components/editor/PublishBar'
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
+import { FLV_COPY } from '../lib/flv-copy'
 import {
   allowsDrawView,
   showsColorRail,
@@ -39,6 +41,7 @@ import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
 import {
   coverHeaderSpacerClass,
+  emptyStepClass,
   studioPhonePublishClass,
   studioPhoneToolsClass,
 } from '../lib/studio-chrome'
@@ -237,7 +240,7 @@ function AtelierHome() {
           aria-hidden
           className={coverHeaderSpacerClass()}
         />
-        <div className="pointer-events-auto flex shrink-0 flex-col gap-2 bg-gradient-to-b from-atelier/80 to-transparent px-4 pt-1 pb-3 lg:absolute lg:top-20 lg:left-6 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:bg-none lg:px-0 lg:pt-0 lg:pb-0">
+        <div className="pointer-events-auto flex shrink-0 flex-col gap-2 bg-gradient-to-b from-flv-paper/90 to-transparent px-4 pt-1 pb-3 lg:absolute lg:top-20 lg:left-6 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:bg-none lg:px-0 lg:pt-0 lg:pb-0">
           <ModeToggle mode={mode} />
           {mode === 'design' ? <CreateStepper /> : null}
           {mode === 'design' && showsSilhouetteRail({ step: createStep }) ? (
@@ -248,7 +251,9 @@ function AtelierHome() {
           allowsDrawView({ step: createStep }) ? (
             <StudioViewToggle />
           ) : null}
-          {mode === 'design' && showsDesignRails({ step: createStep }) ? (
+          {mode === 'design' &&
+          canPaint &&
+          showsDesignRails({ step: createStep }) ? (
             <DesignModeToggle />
           ) : null}
           {mode === 'design' && showsPreviewRails({ step: createStep }) ? (
@@ -258,22 +263,22 @@ function AtelierHome() {
             <GownCredit garmentId={garmentId} />
           ) : null}
           {remixStatus === 'loading' ? (
-            <p className="font-body text-sm text-ivory-muted">
+            <p className="font-body text-sm text-flv-muted">
               {HOUSE_COPY.lookLoading}
             </p>
           ) : null}
           {remixStatus === 'loaded' && remixTitle ? (
-            <p className="font-body text-xs tracking-[0.08em] text-brass uppercase">
+            <p className="font-body text-xs tracking-[0.08em] text-flv-accent uppercase">
               {remixCaption({ title: remixTitle })}
             </p>
           ) : null}
           {remixStatus === 'missing' ? (
-            <p className="font-body text-sm text-ivory-muted">
+            <p className="font-body text-sm text-flv-muted">
               {HOUSE_COPY.lookGone} {HOUSE_COPY.studioOpen}
             </p>
           ) : null}
           {remixStatus === 'error' ? (
-            <p className="font-body text-sm text-ivory-muted">
+            <p className="font-body text-sm text-flv-muted">
               {HOUSE_COPY.lookFailed} {HOUSE_COPY.studioOpen}
             </p>
           ) : null}
@@ -285,7 +290,7 @@ function AtelierHome() {
               {showsColorRail({ step: createStep }) ? (
                 <ColorPatternPanel />
               ) : null}
-              {showsStructureRail({ step: createStep }) && canPaint ? (
+              {showsStructureRail({ step: createStep }) ? (
                 <StructureRail />
               ) : null}
               {showsDesignRails({ step: createStep }) && canPaint ? (
@@ -295,23 +300,34 @@ function AtelierHome() {
                       designEditMode === 'tech' ? 'placeables' : 'all'
                     }
                   />
+                  {designEditMode === 'tech' ? <GraphicLibrary /> : null}
                   <LayerRail />
                   {designEditMode === 'tech' ? <TechInspector /> : null}
                   <VersionRail />
                 </>
               ) : null}
-              {showsPreviewRails({ step: createStep }) && canPaint ? (
+              {showsDesignRails({ step: createStep }) && !canPaint ? (
+                <div className={emptyStepClass()}>
+                  <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
+                    {FLV_COPY.designEmptyTitle}
+                  </p>
+                  <p className="font-body text-sm text-flv-muted">
+                    {FLV_COPY.designEmptyLead}
+                  </p>
+                </div>
+              ) : null}
+              {showsPreviewRails({ step: createStep }) ? (
                 <AvatarRail />
               ) : null}
             </div>
             <div className={studioPhonePublishClass()}>
               {publishError ? (
-                <p className="font-body text-sm text-ivory-muted">
+                <p className="font-body text-sm text-flv-muted">
                   {publishError}
                 </p>
               ) : null}
               {enteredLabel ? (
-                <p className="font-body text-xs tracking-[0.08em] text-brass uppercase">
+                <p className="font-body text-xs tracking-[0.08em] text-flv-accent uppercase">
                   {enteredLabel}
                 </p>
               ) : null}

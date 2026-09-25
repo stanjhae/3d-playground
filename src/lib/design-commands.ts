@@ -22,6 +22,7 @@ export type LayerPatch = {
   visible?: boolean
   content?: string
   face?: TextFace
+  label?: string
 }
 import type { MaterialOverride } from './design-schema'
 
@@ -175,6 +176,11 @@ function applyToDocument({
         if (command.patch.face !== undefined) {
           layer.face = command.patch.face
         }
+      }
+
+      if (command.patch.label !== undefined) {
+        const nextLabel = command.patch.label.trim().slice(0, 40)
+        layer.label = nextLabel.length > 0 ? nextLabel : undefined
       }
 
       if (layer.kind === 'paint' && command.patch.visible !== undefined) {

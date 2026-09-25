@@ -1,6 +1,11 @@
 import type { DesignDocument, DesignLayer, Stroke } from './design-document'
 import { MAX_ART_MAP_CHARS, isSafeDataImage } from './look-thumbnail'
-import { atlasPixelForUv, DEFAULT_PANEL_UV, panelPointToUv } from './panel-uv'
+import {
+  atlasPixelForUv,
+  atlasSourceRect,
+  DEFAULT_PANEL_UV,
+  panelPointToUv,
+} from './panel-uv'
 
 export const ATLAS_SIZE = 512
 
@@ -12,14 +17,19 @@ export type AtlasBuffer = {
 
 function hexToRgb({ color }: { color: string }) {
   const hex = color.replace('#', '')
-  const full =
+  const withAlpha = hex.length === 8
+  const rgbHex =
     hex.length === 3
       ? hex
           .split('')
           .map((part) => `${part}${part}`)
           .join('')
-      : hex.padEnd(6, '0').slice(0, 6)
-  const value = Number.parseInt(full, 16)
+      : hex.padEnd(withAlpha ? 8 : 6, '0').slice(0, withAlpha ? 8 : 6)
+  const value = Number.parseInt(
+    withAlpha ? rgbHex.slice(0, 6) : rgbHex.slice(0, 6),
+    16,
+  )
+  const alphaHex = withAlpha ? Number.parseInt(rgbHex.slice(6, 8), 16) : 255
 
   if (!Number.isFinite(value)) {
     return { r: 26, g: 28, b: 34, a: 255 }
@@ -29,7 +39,7 @@ function hexToRgb({ color }: { color: string }) {
     r: (value >> 16) & 255,
     g: (value >> 8) & 255,
     b: value & 255,
-    a: 255,
+    a: Number.isFinite(alphaHex) ? alphaHex : 255,
   }
 }
 
@@ -153,6 +163,40 @@ function drawStroke({
   buffer: AtlasBuffer
   stroke: Stroke
 }) {
+  if (stroke.tool === 'fill') {
+    const { r, g, b, a } = hexToRgb({ color: stroke.color })
+    const rect = atlasSourceRect({
+      panel: stroke.panel,
+      width: buffer.width,
+      height: buffer.height,
+    })
+    const startColumn = Math.max(0, Math.floor(rect.sourceX))
+    const startRow = Math.max(0, Math.floor(rect.sourceY))
+    const endColumn = Math.min(
+      buffer.width,
+      Math.ceil(rect.sourceX + rect.sourceWidth),
+    )
+    const endRow = Math.min(
+      buffer.height,
+      Math.ceil(rect.sourceY + rect.sourceHeight),
+    )
+
+    for (let row = startRow; row < endRow; row += 1) {
+      for (let column = startColumn; column < endColumn; column += 1) {
+        writePixel({
+          buffer,
+          index: (row * buffer.width + column) * 4,
+          r,
+          g,
+          b,
+          a,
+        })
+      }
+    }
+
+    return
+  }
+
   if (stroke.points.length === 0) {
     return
   }

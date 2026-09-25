@@ -30,7 +30,7 @@ export const LAYER_KINDS = ['paint', 'graphic', 'text', 'art', 'pattern'] as con
 
 export type LayerKind = (typeof LAYER_KINDS)[number]
 
-export const STROKE_TOOLS = ['brush', 'eraser'] as const
+export const STROKE_TOOLS = ['brush', 'eraser', 'fill'] as const
 
 export type StrokeTool = (typeof STROKE_TOOLS)[number]
 
@@ -74,6 +74,7 @@ export type PaintLayer = {
   kind: 'paint'
   visible: boolean
   strokes: Stroke[]
+  label?: string
 }
 
 export type GraphicLayer = {
@@ -88,6 +89,7 @@ export type GraphicLayer = {
   opacity: number
   color?: string
   visible: boolean
+  label?: string
 }
 
 export type TextLayer = {
@@ -103,6 +105,7 @@ export type TextLayer = {
   rotation: number
   opacity: number
   visible: boolean
+  label?: string
 }
 
 export type ArtLayer = {
@@ -111,6 +114,7 @@ export type ArtLayer = {
   src: string
   locked: true
   visible: boolean
+  label?: string
 }
 
 export type PatternLayer = {
@@ -125,6 +129,7 @@ export type PatternLayer = {
   rotation: number
   opacity: number
   visible: boolean
+  label?: string
 }
 
 export type DesignLayer =
@@ -212,6 +217,11 @@ function parseOpacity({ value }: { value: unknown }) {
   )
 }
 
+function parseLabel({ value }: { value: unknown }): string | undefined {
+  const label = asString({ value }).trim().slice(0, 40)
+  return label.length > 0 ? label : undefined
+}
+
 function parseStrokePoint({ value }: { value: unknown }): StrokePoint | null {
   if (!isRecord(value)) {
     return null
@@ -279,6 +289,9 @@ function parsePaintLayer({
     kind: 'paint',
     visible: asBoolean({ value: record.visible, fallback: true }),
     strokes,
+    ...(parseLabel({ value: record.label })
+      ? { label: parseLabel({ value: record.label }) }
+      : {}),
   }
 }
 
@@ -309,6 +322,9 @@ function parseGraphicLayer({
     opacity: parseOpacity({ value: record.opacity }),
     ...(color ? { color } : {}),
     visible: asBoolean({ value: record.visible, fallback: true }),
+    ...(parseLabel({ value: record.label })
+      ? { label: parseLabel({ value: record.label }) }
+      : {}),
   }
 }
 
@@ -335,6 +351,9 @@ function parseTextLayer({
     rotation: asNumber({ value: record.rotation, fallback: 0 }),
     opacity: parseOpacity({ value: record.opacity }),
     visible: asBoolean({ value: record.visible, fallback: true }),
+    ...(parseLabel({ value: record.label })
+      ? { label: parseLabel({ value: record.label }) }
+      : {}),
   }
 }
 
@@ -357,6 +376,9 @@ function parseArtLayer({
     src,
     locked: true,
     visible: asBoolean({ value: record.visible, fallback: true }),
+    ...(parseLabel({ value: record.label })
+      ? { label: parseLabel({ value: record.label }) }
+      : {}),
   }
 }
 
@@ -416,6 +438,9 @@ function parsePatternLayer({
     rotation: asNumber({ value: record.rotation, fallback: 0 }),
     opacity: parseOpacity({ value: record.opacity }),
     visible: asBoolean({ value: record.visible, fallback: true }),
+    ...(parseLabel({ value: record.label })
+      ? { label: parseLabel({ value: record.label }) }
+      : {}),
   }
 }
 

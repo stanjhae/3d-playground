@@ -12,36 +12,26 @@ Checks below are against the live URL. Production is this house.
 
 | Check | Live | Notes |
 | --- | --- | --- |
-| Gown reads as clothing from ~2 meters | Pass | Style3D White Evening Gown Dress: floor-length, criss-cross halter, keyhole bust. Credited CC BY 4.0. |
-| First paint is full-bleed studio; gown in frame; wordmark only | Pass | No manifesto. Wordmark floats. |
-| Silk without a tutorial | Pass | Body is preselected. Silk is live on first tap. Title becomes Silk 01. |
+| Tee reads as clothing from ~2 meters | Pass | Oversized house tee with four-sided print panels. |
+| First paint is FLV paper chrome; designed tee in hero | Pass | Cross Flame demo on landing; studio defaults to tee. |
+| Silk without a tutorial | Pass | Color step finish presets still live. Title becomes Silk 01. |
 | Stills match the 3D look | Pass | Publish captures a 4:5 JPEG of the live look. House cards are studio stills, including Cotton and Leather. |
-| Publish survives reload | Pass | Production KV is on. `Ivory Silk Proof 20260901T065652Z` stayed. This run entered `look-0b08a0a7-fcbf-485d-87c0-6606cb78e37a`. |
+| Publish survives reload | Pass | Production KV is on. |
 | Look nav never 404s | Pass | Look is the current look or the Leader. Never `/look/preview`. |
-| iMessage / Slack unfurl | Pass | Crawler HTML names the look, the recipe, and the author. House stills stay `/stills/{id}.png`. A guest look uses that look’s still. A human Slack paste is still #52. |
-| 390px studio is usable | Pass | Header Atelier / Vote / Look and card Vote are 44px. Look never goes to `/look/preview`. |
-| Would you text this URL to a fashion person? | Pass | The live studio is evening-wear. The leftover that would have stopped the forward was #39. |
-| Tee reads as clothing from ~2 metres | Form Pass live | Clothing tee is on production after #107. Full pencil ceremony for #92 is still open. |
-| Marks and type are objects | Local | Drag, scale, rotate on the panel. Tap the chest to place or move the word. Size chips, not hex. |
-| 390px is one rail | Local | Fabric, paint, structure, layers, this house, and publish share one scroll. Draw \| Cloth stays. |
-| The cut reads as clothing | Local | V, Crop, Long sleeve change the form. Ink and the word stay. |
-| Sleeve is a panel | Local | Front / Back / Sleeve. A stripe can wrap both arms. |
-| A painted house tee sits on the board | Local | Crop Silk sits with Midnight Silk. Recipe names the cut. Remix continues V / Crop / Long. |
+| iMessage / Slack unfurl | Pass | Crawler HTML names the look, the recipe, and the author. |
+| 390px studio is usable | Pass | Header Create / Vote / Look and card Vote are 44px. |
+| Would you text this URL to a fashion person? | Pass | Create → design four sides → enter the vote. |
+| Tee cut (V / Crop / Long) | Local | Structure rail on Fit. Ink and the word stay. |
+| Marks and type are objects | Local | Drag, scale, rotate on the panel. Graphic library + draw. |
 
 ## 90-second shot list
 
-1. Open the studio. A white evening gown fills the frame. Fashion Leader Vote. No captured cursor.
-2. Tap **Silk**. The cloth takes sheen. The title becomes Silk 01.
-3. Switch to **Tee**. It reads as a T-shirt.
-4. Tap **V**, **Crop**, **Long**. The form changes. Any ink already on it stays.
-5. Drop a **Stripe**, type a word, draw. Switch **Sleeve**. The sheet is a garment, not a poster.
-6. On the 3D cloth: tap the chest to place or move the same word. The sheet agrees.
-7. Tap **Silk**. The print stays. Sheen still reads as silk.
-8. **Enter the Vote**. **Crop Silk** already sits with Midnight Silk. Recipe: Tee · V · Crop · Long sleeve · Silk · Ink.
-9. Remix that look. The cut continues. **This house** keeps mornings and looks you entered. Guest stays Guest.
-10. Optional: **/soon** — three looks, the house leader first, then painted looks, then a plain join. Not six months free.
-
-A second house-authored silhouette is not this season. Hoodie and overshirt failed the same 2m clothing test as the tank. Style3D stays cloth-only.
+1. Open the landing. A designed oversized tee fills the hero. Fashion Leader Vote.
+2. Tap **Start creating**. Land on Select with the tee.
+3. Continue through Fit (V / Crop / Long) and Color (Silk).
+4. On Design: draw, drop a graphic from Suggestions, see live 3D.
+5. Preview angles, then Publish with a title and enter the vote.
+6. Remix that look from the board. Guest stays Guest.
 
 ## Founder QA — L10
 

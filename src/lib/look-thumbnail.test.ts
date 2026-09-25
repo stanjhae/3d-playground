@@ -4,6 +4,8 @@ import {
   MAX_ART_MAP_CHARS,
   MAX_THUMBNAIL_CHARS,
   imageFromDataUrl,
+  isSafeGraphicsPath,
+  isSafeLayerSrc,
   isSafeStillPath,
   isSafeThumbnail,
   sanitizeArtMap,
@@ -94,5 +96,14 @@ describe('look thumbnail', () => {
     expect(
       imageFromDataUrl({ dataUrl: 'data:image/jpeg;base64,!!!!' }),
     ).toBeNull()
+  })
+
+  test('layer srcs allow house graphics paths and raster data urls', () => {
+    expect(isSafeLayerSrc({ src: '/graphics/cross-gothic.svg' })).toBe(true)
+    expect(isSafeLayerSrc({ src: '/graphics/logo-flv.png' })).toBe(true)
+    expect(isSafeLayerSrc({ src: 'data:image/png;base64,abc' })).toBe(true)
+    expect(isSafeLayerSrc({ src: 'https://evil.example/x.svg' })).toBe(false)
+    expect(isSafeLayerSrc({ src: '/stills/look.png' })).toBe(false)
+    expect(isSafeGraphicsPath({ src: '/graphics/../evil.svg' })).toBe(false)
   })
 })

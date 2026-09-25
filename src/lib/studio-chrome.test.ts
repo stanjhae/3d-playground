@@ -74,6 +74,7 @@ describe('look sheet chrome', () => {
   test('lets the canvas receive events outside the copy', () => {
     expect(lookSheetFrameClass()).toContain('pointer-events-none')
     expect(lookSheetFrameClass()).not.toContain('overflow-y-auto')
+    expect(lookSheetFrameClass()).toContain('from-flv-paper')
   })
 
   test('makes the copy the scroll surface', () => {

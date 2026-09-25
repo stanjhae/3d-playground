@@ -28,7 +28,7 @@ export const HOUSE_COPY = {
   colorStep: 'Color',
   designStep: 'Design',
   previewStep: 'Preview',
-  shareStep: 'Share',
+  shareStep: 'Publish',
   tech: 'Tech',
   drawMode: 'Draw',
   techMode: 'Tech',

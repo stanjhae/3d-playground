@@ -2,7 +2,7 @@ import {
   createFileRoute,
   redirect,
 } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { LandingCloth } from '../components/landing/LandingCloth'
 import { LandingFlowOverview } from '../components/landing/LandingFlowOverview'
@@ -12,8 +12,9 @@ import { LandingStageHost } from '../components/landing/LandingStageHost'
 import { LandingStageRail } from '../components/landing/LandingStageRail'
 import { LandingWaitlist } from '../components/landing/LandingWaitlist'
 import { trackAssumption } from '../lib/assumption-events'
+import { createCrossFlameDemoDocument } from '../lib/cross-flame-demo'
 import type { HemId, NeckId, SleeveId } from '../lib/design-document'
-import type { GarmentId, MaterialOverride } from '../lib/design-schema'
+import type { GarmentId } from '../lib/design-schema'
 import type { LandingStageId } from '../lib/landing-stages'
 
 export const Route = createFileRoute('/')({
@@ -39,14 +40,11 @@ export const Route = createFileRoute('/')({
 function LandingPage() {
   const [activeStage, setActiveStage] = useState<LandingStageId>('select')
   const [garmentId, setGarmentId] = useState<GarmentId>('tee')
-  const [clothColor, setClothColor] = useState('#f4ead4')
+  const [clothColor, setClothColor] = useState('#f7f7f7')
   const [neck, setNeck] = useState<NeckId>('crew')
-  const [hem, setHem] = useState<HemId>('crop')
+  const [hem, setHem] = useState<HemId>('long')
   const [sleeve, setSleeve] = useState<SleeveId>('short')
-  const overrides: MaterialOverride[] = [
-    { meshName: 'body', color: clothColor },
-  ]
-  const structural = { neck, hem, sleeve }
+  const heroDocument = useMemo(() => createCrossFlameDemoDocument(), [])
 
   useEffect(() => {
     void trackAssumption({ name: 'viewed_demo' })
@@ -115,9 +113,10 @@ function LandingPage() {
       <LandingHero
         stage={
           <LandingCloth
-            garmentId={garmentId}
-            overrides={overrides}
-            structural={structural}
+            garmentId="tee"
+            overrides={[{ meshName: 'body', color: '#f7f7f7' }]}
+            structural={{ neck: 'crew', hem: 'long', sleeve: 'short' }}
+            document={heroDocument}
           />
         }
       />

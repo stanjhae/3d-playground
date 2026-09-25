@@ -163,6 +163,40 @@ describe('rasterizeLayers', () => {
     expect(pixel.a).toBeLessThan(200)
   })
 
+  test('a fill stroke covers the panel rect', () => {
+    const document = createEmptyDocument({ garmentId: 'tee' })
+    const paint = document.layers[0]
+
+    if (paint?.kind === 'paint') {
+      paint.strokes.push({
+        id: createObjectId({ prefix: 'ink' }),
+        panel: 'front',
+        points: [{ x: 0.5, y: 0.5 }],
+        color: '#c41e3a',
+        width: 0.04,
+        tool: 'fill',
+      })
+    }
+
+    const buffer = rasterizeLayers({ document, width: 64, height: 64 })
+    const chest = atlasPixelAtPanel({
+      buffer,
+      panel: 'front',
+      x: 0.5,
+      y: 0.5,
+    })
+    const sleeve = atlasPixelAtPanel({
+      buffer,
+      panel: 'left',
+      x: 0.5,
+      y: 0.5,
+    })
+
+    expect(chest.a).toBeGreaterThan(0)
+    expect(chest.r).toBeGreaterThan(chest.g)
+    expect(sleeve.a).toBe(0)
+  })
+
   test('ink composites over cloth instead of replacing it', () => {
     expect(
       paintOverCloth({

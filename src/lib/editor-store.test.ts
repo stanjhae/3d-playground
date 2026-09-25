@@ -13,7 +13,7 @@ describe('useEditorStore', () => {
 
     expect(state.mode).toBe('design')
     expect(state.selectedMeshName).toBe('body')
-    expect(state.garmentId).toBe('gown')
+    expect(state.garmentId).toBe('tee')
     expect(state.fabricId).toBeNull()
     expect(state.colorId).toBeNull()
     expect(state.overrides).toEqual([])
@@ -119,7 +119,7 @@ describe('useEditorStore', () => {
       fabricId: 'ivory-silk',
       colorId: 'ivory-silk',
     })
-    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
+    useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
 
     expect(useEditorStore.getState().overrides).toHaveLength(1)
     expect(useEditorStore.getState().fabricId).toBe('ivory-silk')
@@ -601,5 +601,53 @@ describe('useEditorStore', () => {
       hem: 'crop',
       sleeve: 'long',
     })
+  })
+
+  test('startStroke uses fill tool and paint params default', () => {
+    const state = useEditorStore.getState()
+    expect(state.paintOpacity).toBe(1)
+    expect(state.paintHardness).toBe(0.7)
+
+    state.setPaintTool({ paintTool: 'fill' })
+    state.setPaintOpacity({ paintOpacity: 0.5 })
+    state.setPaintHardness({ paintHardness: 0.2 })
+    state.startStroke({
+      panel: 'front',
+      point: { x: 0.4, y: 0.5 },
+    })
+
+    expect(useEditorStore.getState().activeStroke?.tool).toBe('fill')
+    expect(useEditorStore.getState().paintOpacity).toBe(0.5)
+    expect(useEditorStore.getState().paintHardness).toBe(0.2)
+  })
+
+  test('duplicateLayer clones a graphic on the same panel', () => {
+    useEditorStore.getState().addGraphic({
+      src: '/graphics/cross-gothic.svg',
+    })
+
+    const original = useEditorStore
+      .getState()
+      .document.layers.find((layer) => layer.kind === 'graphic')
+
+    expect(original?.kind).toBe('graphic')
+    if (!original || original.kind !== 'graphic') {
+      return
+    }
+
+    useEditorStore.getState().duplicateLayer({ layerId: original.id })
+
+    const graphics = useEditorStore
+      .getState()
+      .document.layers.filter((layer) => layer.kind === 'graphic')
+
+    expect(graphics).toHaveLength(2)
+    expect(graphics[0]?.id).not.toBe(graphics[1]?.id)
+    expect(graphics[1]?.kind === 'graphic' ? graphics[1].panel : null).toBe(
+      original.panel,
+    )
+    expect(graphics[1]?.kind === 'graphic' ? graphics[1].src : null).toBe(
+      original.src,
+    )
   })
 })

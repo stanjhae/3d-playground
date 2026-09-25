@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import { FLV_COPY } from '../../lib/flv-copy'
 import {
@@ -18,9 +19,12 @@ export function LandingSoon() {
   return (
     <section className="flex flex-col gap-12 border-b border-flv-line px-6 py-12 sm:px-10">
       <div className="flex flex-col gap-2">
-        <p className="font-display text-xs tracking-[0.22em] text-flv-accent uppercase">
-          {FLV_COPY.soonBadge}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-display text-xs tracking-[0.22em] text-flv-accent uppercase">
+            {FLV_COPY.soonBadge}
+          </p>
+          <ConceptPreviewBadge />
+        </div>
         <h2 className="font-display text-3xl text-flv-ink">
           {FLV_COPY.soonTitle}
         </h2>
@@ -66,9 +70,7 @@ function ShootDemo() {
             {FLV_COPY.soonAiShootLead}
           </p>
         </div>
-        <span className="rounded-full border border-flv-accent px-3 py-1 font-body text-xs tracking-[0.12em] text-flv-accent uppercase">
-          {FLV_COPY.soonBadge}
-        </span>
+        <ConceptPreviewBadge />
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem_minmax(0,1fr)]">
         <div className="flv-panel flex flex-col gap-3 p-4">
@@ -167,7 +169,7 @@ function ShootDemo() {
             }}
             className="flv-cta mt-auto min-h-11 px-4 font-body text-xs tracking-[0.1em] uppercase"
           >
-            ✨ {FLV_COPY.shootGenerate}
+            {FLV_COPY.shootGenerate}
           </button>
         </div>
         <div className="flv-panel flex flex-col gap-3 p-4">
@@ -303,9 +305,7 @@ function VideoDemo() {
             {FLV_COPY.soonAiVideoLead}
           </p>
         </div>
-        <span className="rounded-full border border-flv-accent px-3 py-1 font-body text-xs tracking-[0.12em] text-flv-accent uppercase">
-          {FLV_COPY.soonBadge}
-        </span>
+        <ConceptPreviewBadge />
       </div>
       <div className="grid gap-4 xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
         <aside className="flv-panel flex flex-col gap-2 p-3">
@@ -541,8 +541,8 @@ function VideoDemo() {
             </button>
             {generated ? (
               <p className="font-body text-xs text-flv-muted">
-                Preview ready for {exportId}. {FLV_COPY.soonBadge} — no motion
-                export yet.
+                Preview ready for {exportId}. {FLV_COPY.conceptPreview} — no
+                motion export yet.
               </p>
             ) : null}
           </div>

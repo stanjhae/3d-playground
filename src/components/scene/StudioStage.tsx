@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import {
   ACESFilmicToneMapping,
   DoubleSide,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   PMREMGenerator,
   SRGBColorSpace,
   type PerspectiveCamera,
@@ -40,7 +40,8 @@ export function StudioRenderer() {
     gl.toneMapping = ACESFilmicToneMapping
     gl.toneMappingExposure = 1.12
     gl.shadowMap.enabled = true
-    gl.shadowMap.type = PCFSoftShadowMap
+    // PCFSoftShadowMap is deprecated in three@0.185 (falls back with a warning).
+    gl.shadowMap.type = PCFShadowMap
   }, [gl])
 
   return null

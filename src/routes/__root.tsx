@@ -36,8 +36,6 @@ function RootShell() {
     lookIdFromPathname({ pathname: location.pathname }) ??
     leaderId
   const isLanding = location.pathname === '/'
-  const isCover =
-    location.pathname === '/create' || location.pathname.startsWith('/look/')
 
   useEffect(() => {
     let cancelled = false
@@ -60,34 +58,24 @@ function RootShell() {
   }, [])
 
   return (
-    <>
+    <div className="flv min-h-dvh">
       <header
         className={cn(
-          'z-30 flex items-center justify-between gap-3',
+          'z-30 flex items-center justify-between gap-3 border-b border-flv-line bg-flv-paper/95 text-flv-ink backdrop-blur-sm',
           {
-            'absolute inset-x-0 top-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-flv-ink sm:px-6 sm:pt-5 sm:pb-5':
+            'absolute inset-x-0 top-0 border-transparent bg-transparent px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-5 sm:pb-5':
               isLanding,
-            'absolute inset-x-0 top-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-ivory sm:px-6 sm:pt-5 sm:pb-5':
-              isCover,
-            'border-b border-atelier-line bg-atelier px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-ivory sm:px-6 sm:pt-5 sm:pb-5':
-              !isLanding && !isCover,
+            'sticky top-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-4 sm:pb-4':
+              !isLanding,
           },
         )}
       >
         <Link
           to="/"
           search={{}}
-          className={cn('flex shrink-0 items-end gap-2', {
-            'text-flv-ink': isLanding,
-            'text-ivory': !isLanding,
-          })}
+          className="flex shrink-0 items-end gap-2 text-flv-ink"
         >
-          <span
-            className={cn('font-display text-2xl leading-none tracking-tight', {
-              'text-flv-accent': isLanding,
-              'text-brass': !isLanding,
-            })}
-          >
+          <span className="font-display text-2xl leading-none tracking-tight text-flv-accent">
             {FLV_COPY.brandMark}
           </span>
           <span className="hidden pb-0.5 font-body text-[0.55rem] leading-tight tracking-[0.16em] uppercase sm:block">
@@ -114,26 +102,23 @@ function RootShell() {
               to="/"
               label="Home"
               active={false}
-              flv={false}
             />
             <NavLink
               to="/create"
               label="Create"
               active={location.pathname === '/create'}
-              flv={false}
             />
             <NavLink
               to="/vote"
               label="Vote"
               active={location.pathname === '/vote'}
-              flv={false}
             />
             <Link
               to="/look/$lookId"
               params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
               className={cn('inline-flex min-h-11 items-center px-1', {
-                'text-brass': location.pathname.startsWith('/look/'),
-                'text-ivory-muted hover:text-brass':
+                'text-flv-accent': location.pathname.startsWith('/look/'),
+                'text-flv-muted hover:text-flv-accent':
                   !location.pathname.startsWith('/look/'),
               })}
             >
@@ -169,15 +154,10 @@ function RootShell() {
           </div>
         ) : null}
       </header>
-      <main
-        className={cn('relative min-h-dvh', {
-          'bg-flv-paper text-flv-ink': isLanding,
-          'bg-atelier text-ivory': !isLanding,
-        })}
-      >
+      <main className="relative min-h-dvh bg-flv-paper text-flv-ink">
         <Outlet />
       </main>
-    </>
+    </div>
   )
 }
 
@@ -185,22 +165,18 @@ function NavLink({
   to,
   label,
   active,
-  flv,
 }: {
   to: '/' | '/create' | '/vote'
   label: string
   active: boolean
-  flv: boolean
 }) {
   return (
     <Link
       to={to}
       search={{}}
       className={cn('inline-flex min-h-11 items-center px-1', {
-        'text-flv-accent': flv && active,
-        'text-flv-muted hover:text-flv-accent': flv && !active,
-        'text-brass': !flv && active,
-        'text-ivory-muted hover:text-brass': !flv && !active,
+        'text-flv-accent': active,
+        'text-flv-muted hover:text-flv-accent': !active,
       })}
     >
       {label}

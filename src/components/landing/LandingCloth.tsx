@@ -12,10 +12,12 @@ export function LandingCloth({
   garmentId,
   overrides,
   structural,
+  document: documentProp,
 }: {
   garmentId: GarmentId
   overrides: MaterialOverride[]
   structural?: DesignDocument['structural']
+  document?: DesignDocument
   /** @deprecated Kept for callers; tee always seats on the mannequin. */
   tryOn?: boolean
 }) {
@@ -42,6 +44,7 @@ export function LandingCloth({
                   garmentId={garmentId}
                   overrides={overrides}
                   structural={structural}
+                  document={documentProp}
                   picking={false}
                 />
               </AvatarBody>
@@ -50,6 +53,7 @@ export function LandingCloth({
                 garmentId={garmentId}
                 overrides={overrides}
                 structural={structural}
+                document={documentProp}
                 picking={false}
               />
             )}
