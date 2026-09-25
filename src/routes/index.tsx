@@ -1,272 +1,115 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  redirect,
+} from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
-import { AvatarRail } from '../components/editor/AvatarRail'
-import { CameraPresetBar } from '../components/editor/CameraPresetBar'
-import { ColorPatternPanel } from '../components/editor/ColorPatternPanel'
-import { CreateStepper } from '../components/editor/CreateStepper'
-import { DesignModeToggle } from '../components/editor/DesignModeToggle'
-import { DualStudio } from '../components/editor/DualStudio'
-import { LayerRail } from '../components/editor/LayerRail'
-import { PaintToolbar } from '../components/editor/PaintToolbar'
-import { StructureRail } from '../components/editor/StructureRail'
-import { StudioViewToggle } from '../components/editor/StudioViewToggle'
-import { TechInspector } from '../components/editor/TechInspector'
-import { VersionRail } from '../components/editor/VersionRail'
-import { GownCredit } from '../components/editor/GownCredit'
-import { ModeToggle } from '../components/editor/ModeToggle'
-import {
-  PublishBar,
-  PublishThumbnailSync,
-} from '../components/editor/PublishBar'
-import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
-import { AtelierScene } from '../components/scene/AtelierScene'
-import {
-  allowsDrawView,
-  showsColorRail,
-  showsDesignRails,
-  showsPreviewRails,
-  showsShareRail,
-  showsSilhouetteRail,
-  showsStructureRail,
-} from '../lib/create-steps'
-import { loadDraft, saveDraft } from '../lib/design-draft'
-import { createDesign, getDesign } from '../lib/designs-api'
-import { useEditorStore } from '../lib/editor-store'
-import { garmentCanPaint } from '../lib/garments'
-import { resolveFetchedLook } from '../lib/fetched-look'
-import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
-import {
-  coverHeaderSpacerClass,
-  studioPhonePublishClass,
-  studioPhoneToolsClass,
-} from '../lib/studio-chrome'
+import { LandingCloth } from '../components/landing/LandingCloth'
+import { LandingHero } from '../components/landing/LandingHero'
+import { LandingSoon } from '../components/landing/LandingSoon'
+import { LandingStageHost } from '../components/landing/LandingStageHost'
+import { LandingStageRail } from '../components/landing/LandingStageRail'
+import { LandingWaitlist } from '../components/landing/LandingWaitlist'
+import { trackAssumption } from '../lib/assumption-events'
+import type { HemId, NeckId, SleeveId } from '../lib/design-document'
+import type { GarmentId, MaterialOverride } from '../lib/design-schema'
+import type { LandingStageId } from '../lib/landing-stages'
 
 export const Route = createFileRoute('/')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { design?: string } => {
-    if (typeof search.design === 'string' && search.design.length > 0) {
-      return { design: search.design }
-    }
+  validateSearch: (search: Record<string, unknown>) => {
+    const design =
+      typeof search.design === 'string' && search.design.length > 0
+        ? search.design
+        : undefined
 
-    return {}
+    return design ? { design } : {}
   },
-  component: AtelierHome,
+  beforeLoad: ({ search }) => {
+    if (search.design) {
+      throw redirect({
+        to: '/create',
+        search: { design: search.design },
+      })
+    }
+  },
+  component: LandingPage,
 })
 
-function AtelierHome() {
-  const navigate = useNavigate()
-  const { design: remixId } = Route.useSearch()
-  const mode = useEditorStore((state) => state.mode)
-  const garmentId = useEditorStore((state) => state.garmentId)
-  const createStep = useEditorStore((state) => state.createStep)
-  const designEditMode = useEditorStore((state) => state.designEditMode)
-  const canPaint = garmentCanPaint({ garmentId })
-  const [publishError, setPublishError] = useState<string | null>(null)
-  const [publishing, setPublishing] = useState(false)
-  const [enteredLabel, setEnteredLabel] = useState<string | null>(null)
-  const [remixTitle, setRemixTitle] = useState<string | null>(null)
-  const [remixStatus, setRemixStatus] = useState<
-    'idle' | 'loading' | 'loaded' | 'missing' | 'error'
-  >('idle')
+function LandingPage() {
+  const [activeStage, setActiveStage] = useState<LandingStageId>('select')
+  const [garmentId, setGarmentId] = useState<GarmentId>('tee')
+  const [clothColor, setClothColor] = useState('#f4ead4')
+  const [neck, setNeck] = useState<NeckId>('crew')
+  const [hem, setHem] = useState<HemId>('crop')
+  const [sleeve, setSleeve] = useState<SleeveId>('short')
+  const overrides: MaterialOverride[] = [
+    { meshName: 'body', color: clothColor },
+  ]
+  const structural = { neck, hem, sleeve }
 
   useEffect(() => {
-    let cancelled = false
-
-    void loadDraft().then((draft) => {
-      if (cancelled || !draft || remixId) {
-        return
-      }
-
-      useEditorStore.getState().hydrateDocument({
-        document: draft.document,
-        garmentId: draft.garmentId,
-      })
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [remixId])
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      const state = useEditorStore.getState()
-      void saveDraft({
-        garmentId: state.garmentId,
-        document: state.document,
-      })
-    }, 800)
-
-    return () => {
-      window.clearInterval(interval)
-    }
+    void trackAssumption({ name: 'viewed_demo' })
   }, [])
 
   useEffect(() => {
-    if (!remixId) {
-      setRemixStatus('idle')
-      setRemixTitle(null)
+    if (typeof window === 'undefined') {
       return
     }
 
-    let cancelled = false
-    setRemixStatus('loading')
-
-    void getDesign({ id: remixId })
-      .then((design) => {
-        if (cancelled) {
-          return
-        }
-
-        const resolved = resolveFetchedLook({ failed: false, design })
-
-        if (resolved.status === 'ready' && resolved.design) {
-          useEditorStore.getState().loadDesign({ design: resolved.design })
-          setRemixTitle(resolved.design.title)
-          setRemixStatus('loaded')
-          return
-        }
-
-        setRemixTitle(null)
-        setRemixStatus(
-          resolved.status === 'missing' ? 'missing' : 'error',
-        )
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setRemixTitle(null)
-          setRemixStatus('error')
-        }
-      })
-
-    return () => {
-      cancelled = true
+    if (window.location.hash !== '#waitlist') {
+      return
     }
-  }, [remixId])
+
+    window.requestAnimationFrame(() => {
+      document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })
+    })
+  }, [])
 
   return (
-    <section className="relative h-dvh overflow-hidden">
-      <DualStudio>
-        <AtelierScene>
-          <PublishThumbnailSync />
-        </AtelierScene>
-      </DualStudio>
-      <div className="pointer-events-none absolute inset-0 z-20 flex flex-col lg:block">
-        <div
-          aria-hidden
-          className={coverHeaderSpacerClass()}
-        />
-        <div className="pointer-events-auto flex shrink-0 flex-col gap-2 bg-gradient-to-b from-atelier/80 to-transparent px-4 pt-1 pb-3 lg:absolute lg:top-20 lg:left-6 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:bg-none lg:px-0 lg:pt-0 lg:pb-0">
-          <ModeToggle mode={mode} />
-          {mode === 'design' ? <CreateStepper /> : null}
-          {mode === 'design' && showsSilhouetteRail({ step: createStep }) ? (
-            <SilhouetteSwitch />
-          ) : null}
-          {mode === 'design' &&
-          canPaint &&
-          allowsDrawView({ step: createStep }) ? (
-            <StudioViewToggle />
-          ) : null}
-          {mode === 'design' && showsDesignRails({ step: createStep }) ? (
-            <DesignModeToggle />
-          ) : null}
-          {mode === 'design' && showsPreviewRails({ step: createStep }) ? (
-            <CameraPresetBar />
-          ) : null}
-          {mode === 'design' ? (
-            <GownCredit garmentId={garmentId} />
-          ) : null}
-          {remixStatus === 'loading' ? (
-            <p className="font-body text-sm text-ivory-muted">
-              {HOUSE_COPY.lookLoading}
-            </p>
-          ) : null}
-          {remixStatus === 'loaded' && remixTitle ? (
-            <p className="font-body text-xs tracking-[0.08em] text-brass uppercase">
-              {remixCaption({ title: remixTitle })}
-            </p>
-          ) : null}
-          {remixStatus === 'missing' ? (
-            <p className="font-body text-sm text-ivory-muted">
-              {HOUSE_COPY.lookGone} {HOUSE_COPY.studioOpen}
-            </p>
-          ) : null}
-          {remixStatus === 'error' ? (
-            <p className="font-body text-sm text-ivory-muted">
-              {HOUSE_COPY.lookFailed} {HOUSE_COPY.studioOpen}
-            </p>
-          ) : null}
-        </div>
-        <div className="min-h-0 flex-1 lg:hidden" />
-        {mode === 'design' ? (
-          <>
-            <div className={studioPhoneToolsClass()}>
-              {showsColorRail({ step: createStep }) ? (
-                <ColorPatternPanel />
-              ) : null}
-              {showsStructureRail({ step: createStep }) && canPaint ? (
-                <StructureRail />
-              ) : null}
-              {showsDesignRails({ step: createStep }) && canPaint ? (
-                <>
-                  <PaintToolbar
-                    tools={
-                      designEditMode === 'tech' ? 'placeables' : 'all'
-                    }
-                  />
-                  <LayerRail />
-                  {designEditMode === 'tech' ? <TechInspector /> : null}
-                  <VersionRail />
-                </>
-              ) : null}
-              {showsPreviewRails({ step: createStep }) && canPaint ? (
-                <AvatarRail />
-              ) : null}
-            </div>
-            <div className={studioPhonePublishClass()}>
-              {publishError ? (
-                <p className="font-body text-sm text-ivory-muted">
-                  {publishError}
-                </p>
-              ) : null}
-              {enteredLabel ? (
-                <p className="font-body text-xs tracking-[0.08em] text-brass uppercase">
-                  {enteredLabel}
-                </p>
-              ) : null}
-              {showsShareRail({ step: createStep }) ? (
-                <PublishBar
-                  publishing={publishing}
-                  onPublish={async ({ design }) => {
-                    setPublishError(null)
-                    setPublishing(true)
-
-                    try {
-                      const created = await createDesign({ design })
-                      useEditorStore.getState().publishLook({ design })
-                      setEnteredLabel(HOUSE_COPY.entered)
-                      await navigate({
-                        to: '/vote',
-                        search: { entered: created.id },
-                      })
-                    } catch (error) {
-                      setPublishError(
-                        error instanceof Error
-                          ? error.message
-                          : HOUSE_COPY.publishFailed,
-                      )
-                    } finally {
-                      setPublishing(false)
-                    }
-                  }}
-                />
-              ) : null}
-            </div>
-          </>
-        ) : null}
-      </div>
-    </section>
+    <div className="flv min-h-dvh">
+      <LandingHero
+        stage={
+          <LandingCloth
+            garmentId={garmentId}
+            overrides={overrides}
+            structural={structural}
+          />
+        }
+      />
+      <LandingStageRail
+        activeStage={activeStage}
+        onSelect={({ stage }) => {
+          setActiveStage(stage)
+        }}
+      />
+      <LandingStageHost
+        activeStage={activeStage}
+        garmentId={garmentId}
+        clothColor={clothColor}
+        neck={neck}
+        hem={hem}
+        sleeve={sleeve}
+        onStageChange={({ stage }) => {
+          setActiveStage(stage)
+        }}
+        onGarmentChange={({ garmentId: next }) => {
+          setGarmentId(next)
+        }}
+        onColorChange={({ color }) => {
+          setClothColor(color)
+        }}
+        onNeckChange={({ neck: next }) => {
+          setNeck(next)
+        }}
+        onHemChange={({ hem: next }) => {
+          setHem(next)
+        }}
+        onSleeveChange={({ sleeve: next }) => {
+          setSleeve(next)
+        }}
+      />
+      <LandingSoon />
+      <LandingWaitlist />
+    </div>
   )
 }

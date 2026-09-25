@@ -265,7 +265,7 @@ function VotePage() {
             {HOUSE_COPY.boardEmpty}
           </p>
           <Link
-            to="/"
+            to="/create"
             search={{}}
             className="min-h-11 self-start border border-brass px-4 font-body text-xs tracking-[0.08em] text-brass uppercase"
           >

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CreateRouteImport } from './routes/create'
 import { Route as SoonRouteImport } from './routes/soon'
 import { Route as VoteRouteImport } from './routes/vote'
 import { Route as LookLookIdRouteImport } from './routes/look.$lookId'
@@ -17,6 +18,11 @@ import { Route as LookLookIdRouteImport } from './routes/look.$lookId'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreateRoute = CreateRouteImport.update({
+  id: '/create',
+  path: '/create',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SoonRoute = SoonRouteImport.update({
@@ -37,12 +43,14 @@ const LookLookIdRoute = LookLookIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/create': typeof CreateRoute
   '/soon': typeof SoonRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/create': typeof CreateRoute
   '/soon': typeof SoonRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/create': typeof CreateRoute
   '/soon': typeof SoonRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/soon' | '/vote' | '/look/$lookId'
+  fullPaths: '/' | '/create' | '/soon' | '/vote' | '/look/$lookId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/soon' | '/vote' | '/look/$lookId'
-  id: '__root__' | '/' | '/soon' | '/vote' | '/look/$lookId'
+  to: '/' | '/create' | '/soon' | '/vote' | '/look/$lookId'
+  id: '__root__' | '/' | '/create' | '/soon' | '/vote' | '/look/$lookId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CreateRoute: typeof CreateRoute
   SoonRoute: typeof SoonRoute
   VoteRoute: typeof VoteRoute
   LookLookIdRoute: typeof LookLookIdRoute
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create': {
+      id: '/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof CreateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/soon': {
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CreateRoute: CreateRoute,
   SoonRoute: SoonRoute,
   VoteRoute: VoteRoute,
   LookLookIdRoute: LookLookIdRoute,

@@ -110,7 +110,7 @@ try {
   page.setDefaultTimeout(40000)
 
   for (const look of looks) {
-    await page.goto(`${base}/?design=${encodeURIComponent(look.id)}`, {
+    await page.goto(`${base}/create?design=${encodeURIComponent(look.id)}`, {
       waitUntil: 'domcontentloaded',
     })
     await page.waitForSelector('canvas')
