@@ -148,7 +148,7 @@ export function PublishBar({
 
   return (
     <form
-      className="flex flex-row flex-wrap items-end gap-2 border border-atelier-line bg-atelier/92 p-3 backdrop-blur-sm sm:gap-3 sm:p-4"
+      className="flex w-full flex-col gap-3 rounded-2xl border border-atelier-line bg-atelier/92 p-3 backdrop-blur-sm"
       onSubmit={(event) => {
         event.preventDefault()
 
@@ -259,7 +259,12 @@ export function PublishBar({
       }}
     >
       <div className="flex w-full flex-col gap-2">
-        <p className={chromeKickerClass()}>{HOUSE_COPY.angles}</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className={chromeKickerClass()}>{HOUSE_COPY.angles}</p>
+          <p className="font-body text-xs tracking-[0.12em] text-brass uppercase">
+            Design details
+          </p>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           {ANGLE_STRIP.map((angle) => {
             const preview = anglePreviews[angle.id]
@@ -275,7 +280,7 @@ export function PublishBar({
                   setCameraPreset({ cameraPreset: angle.id })
                 }}
                 className={cn(
-                  'flex aspect-[4/5] flex-col overflow-hidden border bg-atelier',
+                  'flex aspect-[4/5] flex-col overflow-hidden rounded-xl border bg-atelier',
                   {
                     'border-brass': isCurrent,
                     'border-atelier-line': !isCurrent,
@@ -305,7 +310,7 @@ export function PublishBar({
           })}
         </div>
       </div>
-      <label className="flex min-w-0 flex-1 flex-col gap-2">
+      <label className="flex min-w-0 flex-col gap-2">
         <span className="font-display text-xs tracking-[0.22em] text-brass uppercase">
           {HOUSE_COPY.lookTitle}
         </span>
@@ -316,8 +321,11 @@ export function PublishBar({
             setTitleTouched(true)
             setDraftTitle(event.target.value)
           }}
-          className="min-h-11 border border-atelier-line bg-atelier px-3 py-2 font-body text-sm text-ivory disabled:opacity-50"
+          className="min-h-11 rounded-xl border border-atelier-line bg-atelier px-3 py-2 font-body text-sm text-ivory disabled:opacity-50"
         />
+        <span className="font-body text-xs text-ivory-muted">
+          {draftTitle.length}/100
+        </span>
       </label>
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.tags}</p>
@@ -338,7 +346,7 @@ export function PublishBar({
                       : [...publishTags, tag],
                   })
                 }}
-                className={cn('min-h-9 border px-3', chromeTextClass(), {
+                className={cn('min-h-9 rounded-full border px-3', chromeTextClass(), {
                   'border-brass text-brass': active,
                   'border-atelier-line text-ivory-muted hover:text-brass':
                     !active,
@@ -372,7 +380,7 @@ export function PublishBar({
               setPublishTags({ tags: [...publishTags, next] })
               setTagDraft('')
             }}
-            className="min-h-11 flex-1 border border-atelier-line bg-atelier px-3 py-2 font-body text-sm text-ivory disabled:opacity-50"
+            className="min-h-11 flex-1 rounded-xl border border-atelier-line bg-atelier px-3 py-2 font-body text-sm text-ivory disabled:opacity-50"
           />
         </div>
       </div>
@@ -390,7 +398,7 @@ export function PublishBar({
                   method: publishMethod === method.id ? null : method.id,
                 })
               }}
-              className={cn('min-h-9 border px-3', chromeTextClass(), {
+              className={cn('min-h-9 rounded-xl border px-3', chromeTextClass(), {
                 'border-brass text-brass': publishMethod === method.id,
                 'border-atelier-line text-ivory-muted hover:text-brass':
                   publishMethod !== method.id,
@@ -411,7 +419,7 @@ export function PublishBar({
             onClick={() => {
               setChallengeId({ challengeId: null })
             }}
-            className={cn('min-h-9 border px-3', chromeTextClass(), {
+            className={cn('min-h-9 rounded-full border px-3', chromeTextClass(), {
               'border-brass text-brass': !challengeId,
               'border-atelier-line text-ivory-muted hover:text-brass':
                 Boolean(challengeId),
@@ -431,7 +439,7 @@ export function PublishBar({
                     challengeId === challenge.id ? null : challenge.id,
                 })
               }}
-              className={cn('min-h-9 border px-3', chromeTextClass(), {
+              className={cn('min-h-9 rounded-full border px-3', chromeTextClass(), {
                 'border-brass text-brass': challengeId === challenge.id,
                 'border-atelier-line text-ivory-muted hover:text-brass':
                   challengeId !== challenge.id,
@@ -448,9 +456,9 @@ export function PublishBar({
       <button
         type="submit"
         disabled={busy}
-        className="min-h-11 shrink-0 border border-brass px-4 py-2 font-body text-xs tracking-[0.08em] text-brass uppercase hover:bg-atelier disabled:opacity-50 sm:px-5"
+        className="flv-cta min-h-12 w-full shrink-0 px-4 py-2 font-body text-xs tracking-[0.08em] uppercase disabled:opacity-50 sm:px-5"
       >
-        {busy ? HOUSE_COPY.entering : HOUSE_COPY.enter}
+        {busy ? HOUSE_COPY.entering : `${HOUSE_COPY.enter} →`}
       </button>
     </form>
   )

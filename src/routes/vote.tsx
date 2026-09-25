@@ -14,6 +14,7 @@ import { listChallenges } from '../lib/challenges'
 import { cn } from '../lib/cn'
 import { listDesigns, voteOnDesign } from '../lib/designs-api'
 import type { Design, GarmentId } from '../lib/design-schema'
+import { FLV_COPY } from '../lib/flv-copy'
 import { getGarment, listRailGarments } from '../lib/garments'
 import { HOUSE_COPY } from '../lib/house-copy'
 import { isSafeThumbnail } from '../lib/look-thumbnail'
@@ -39,6 +40,23 @@ export const Route = createFileRoute('/vote')({
   },
   component: VotePage,
 })
+
+function medalClass({
+  index,
+}: {
+  index: number
+}) {
+  if (index === 0) {
+    return 'bg-[#c9a227] text-atelier'
+  }
+  if (index === 1) {
+    return 'bg-[#9aa0a6] text-atelier'
+  }
+  if (index === 2) {
+    return 'bg-[#b08d57] text-atelier'
+  }
+  return 'bg-atelier-line text-ivory'
+}
 
 function VotePage() {
   const { entered } = Route.useSearch()
@@ -138,9 +156,16 @@ function VotePage() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-8 pb-16 sm:gap-8 sm:px-6 sm:pt-10">
-      <p className={chromeKickerClass()}>Fashion Leader Vote</p>
-      <h1 className="font-display text-4xl text-ivory sm:text-5xl">The board</h1>
-      <div className="flex flex-col gap-3 border border-atelier-line bg-atelier-raised p-4">
+      <div className="flex flex-col gap-2">
+        <p className={chromeKickerClass()}>{FLV_COPY.brand}</p>
+        <h1 className="font-display text-4xl text-ivory sm:text-5xl">
+          {FLV_COPY.voteTitle}
+        </h1>
+        <p className="max-w-xl font-body text-sm text-ivory-muted">
+          {FLV_COPY.voteLead}
+        </p>
+      </div>
+      <div className="flex flex-col gap-3 rounded-2xl border border-atelier-line bg-atelier-raised p-4">
         <p className={chromeKickerClass()}>{HOUSE_COPY.filters}</p>
         <div className="flex flex-wrap gap-2">
           <button
@@ -149,13 +174,17 @@ function VotePage() {
             onClick={() => {
               setFilters((current) => ({ ...current, garmentId: 'all' }))
             }}
-            className={cn('min-h-9 border px-3', chromeTextClass(), {
-              'border-brass text-brass': filters.garmentId === 'all',
-              'border-atelier-line text-ivory-muted hover:text-brass':
-                filters.garmentId !== 'all',
-            })}
+            className={cn(
+              'min-h-9 rounded-full border px-3',
+              chromeTextClass(),
+              {
+                'border-brass bg-brass text-atelier': filters.garmentId === 'all',
+                'border-atelier-line text-ivory-muted hover:text-brass':
+                  filters.garmentId !== 'all',
+              },
+            )}
           >
-            {HOUSE_COPY.allChallenges}
+            All Garments
           </button>
           {(railGarments.length > 0
             ? railGarments
@@ -171,11 +200,16 @@ function VotePage() {
                   garmentId: garment.id as GarmentId | 'all',
                 }))
               }}
-              className={cn('min-h-9 border px-3', chromeTextClass(), {
-                'border-brass text-brass': filters.garmentId === garment.id,
-                'border-atelier-line text-ivory-muted hover:text-brass':
-                  filters.garmentId !== garment.id,
-              })}
+              className={cn(
+                'min-h-9 rounded-full border px-3',
+                chromeTextClass(),
+                {
+                  'border-brass bg-brass text-atelier':
+                    filters.garmentId === garment.id,
+                  'border-atelier-line text-ivory-muted hover:text-brass':
+                    filters.garmentId !== garment.id,
+                },
+              )}
             >
               {garment.label}
             </button>
@@ -188,11 +222,15 @@ function VotePage() {
             onClick={() => {
               setFilters((current) => ({ ...current, challengeId: 'all' }))
             }}
-            className={cn('min-h-9 border px-3', chromeTextClass(), {
-              'border-brass text-brass': filters.challengeId === 'all',
-              'border-atelier-line text-ivory-muted hover:text-brass':
-                filters.challengeId !== 'all',
-            })}
+            className={cn(
+              'min-h-9 rounded-full border px-3',
+              chromeTextClass(),
+              {
+                'border-brass text-brass': filters.challengeId === 'all',
+                'border-atelier-line text-ivory-muted hover:text-brass':
+                  filters.challengeId !== 'all',
+              },
+            )}
           >
             {HOUSE_COPY.challenge}: {HOUSE_COPY.allChallenges}
           </button>
@@ -207,11 +245,16 @@ function VotePage() {
                   challengeId: challenge.id,
                 }))
               }}
-              className={cn('min-h-9 border px-3', chromeTextClass(), {
-                'border-brass text-brass': filters.challengeId === challenge.id,
-                'border-atelier-line text-ivory-muted hover:text-brass':
-                  filters.challengeId !== challenge.id,
-              })}
+              className={cn(
+                'min-h-9 rounded-full border px-3',
+                chromeTextClass(),
+                {
+                  'border-brass text-brass':
+                    filters.challengeId === challenge.id,
+                  'border-atelier-line text-ivory-muted hover:text-brass':
+                    filters.challengeId !== challenge.id,
+                },
+              )}
             >
               {challenge.title}
             </button>
@@ -226,11 +269,15 @@ function VotePage() {
               onClick={() => {
                 setFilters((current) => ({ ...current, timeframe }))
               }}
-              className={cn('min-h-9 border px-3', chromeTextClass(), {
-                'border-brass text-brass': filters.timeframe === timeframe,
-                'border-atelier-line text-ivory-muted hover:text-brass':
-                  filters.timeframe !== timeframe,
-              })}
+              className={cn(
+                'min-h-9 rounded-full border px-3',
+                chromeTextClass(),
+                {
+                  'border-brass text-brass': filters.timeframe === timeframe,
+                  'border-atelier-line text-ivory-muted hover:text-brass':
+                    filters.timeframe !== timeframe,
+                },
+              )}
             >
               {timeframe === 'week' ? HOUSE_COPY.thisWeek : HOUSE_COPY.allTime}
             </button>
@@ -241,7 +288,7 @@ function VotePage() {
         <p className="font-body text-sm text-ivory-muted">{voteError}</p>
       ) : null}
       {status === 'loading' ? (
-        <div className="h-48 border border-atelier-line bg-atelier-raised" />
+        <div className="h-48 rounded-2xl border border-atelier-line bg-atelier-raised" />
       ) : null}
       {status === 'error' ? (
         <div className="flex flex-col gap-3">
@@ -285,78 +332,145 @@ function VotePage() {
               onVote={handleVote}
             />
           </div>
-          <div className="overflow-x-auto border border-atelier-line bg-atelier-raised">
-            <table className="w-full min-w-[28rem] text-left">
+          <div className="overflow-x-auto rounded-2xl border border-atelier-line bg-atelier-raised">
+            <table className="w-full min-w-[36rem] text-left">
               <caption className={cn('px-4 pt-4 text-left', chromeKickerClass())}>
                 {HOUSE_COPY.rankings}
               </caption>
               <thead>
                 <tr className="border-b border-atelier-line">
-                  <th className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}>
+                  <th
+                    className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}
+                  >
                     #
                   </th>
-                  <th className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}>
-                    Look
+                  <th
+                    className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}
+                  >
+                    Design
                   </th>
-                  <th className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}>
+                  <th
+                    className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}
+                  >
+                    Creator
+                  </th>
+                  <th
+                    className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}
+                  >
+                    Category
+                  </th>
+                  <th
+                    className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}
+                  >
+                    Tags
+                  </th>
+                  <th
+                    className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}
+                  >
                     {HOUSE_COPY.votes}
                   </th>
-                  <th className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}>
+                  <th
+                    className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}
+                  >
                     {HOUSE_COPY.vote}
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredLooks.map((look, index) => (
-                  <tr
-                    key={look.id}
-                    className="border-b border-atelier-line/60 last:border-b-0"
-                  >
-                    <td className="px-4 py-3 font-body text-sm text-brass">
-                      {index === 0 ? HOUSE_COPY.leader : index + 1}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        to="/look/$lookId"
-                        params={{ lookId: look.id }}
-                        className="flex items-center gap-3 font-body text-sm text-ivory hover:text-brass"
-                      >
-                        {isSafeThumbnail({
-                          thumbnailDataUrl: look.thumbnailDataUrl,
-                        }) ? (
-                          <img
-                            src={look.thumbnailDataUrl}
-                            alt=""
-                            className="h-12 w-10 shrink-0 border border-atelier-line object-cover"
-                          />
-                        ) : (
-                          <span className="h-12 w-10 shrink-0 border border-atelier-line bg-atelier" />
-                        )}
-                        <span>{look.title}</span>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 font-body text-sm text-ivory-muted">
-                      {look.votes}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        disabled={votingIds.includes(look.id)}
-                        onClick={() => {
-                          void handleVote({ id: look.id })
-                        }}
-                        className={cn(
-                          'min-h-9 border border-atelier-line px-3 text-ivory-muted hover:text-brass disabled:opacity-50',
-                          chromeTextClass(),
-                        )}
-                      >
-                        {votingIds.includes(look.id)
-                          ? HOUSE_COPY.voting
-                          : HOUSE_COPY.vote}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredLooks.map((look, index) => {
+                  const garment = getGarment({ garmentId: look.garmentId })
+                  const isHighlight = entered === look.id
+
+                  return (
+                    <tr
+                      key={look.id}
+                      className={cn(
+                        'border-b border-atelier-line/60 last:border-b-0',
+                        {
+                          'bg-brass/10': isHighlight,
+                        },
+                      )}
+                    >
+                      <td className="px-4 py-3">
+                        <span
+                          className={cn(
+                            'inline-flex size-7 items-center justify-center rounded-full font-body text-xs',
+                            medalClass({ index }),
+                          )}
+                        >
+                          {index + 1}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          to="/look/$lookId"
+                          params={{ lookId: look.id }}
+                          className="flex items-center gap-3 font-body text-sm text-ivory hover:text-brass"
+                        >
+                          {isSafeThumbnail({
+                            thumbnailDataUrl: look.thumbnailDataUrl,
+                          }) ? (
+                            <img
+                              src={look.thumbnailDataUrl}
+                              alt=""
+                              className="h-14 w-12 shrink-0 rounded-lg border border-atelier-line object-cover"
+                            />
+                          ) : (
+                            <span className="h-14 w-12 shrink-0 rounded-lg border border-atelier-line bg-atelier" />
+                          )}
+                          <span className="flex min-w-0 flex-col gap-1">
+                            <span className="truncate font-medium">
+                              {look.title}
+                            </span>
+                            {index === 0 ? (
+                              <span className="w-fit rounded-full bg-[#c9a227]/20 px-2 py-0.5 text-[0.65rem] tracking-[0.08em] text-[#c9a227] uppercase">
+                                Featured
+                              </span>
+                            ) : null}
+                          </span>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 font-body text-sm text-ivory-muted">
+                        {look.author}
+                      </td>
+                      <td className="px-4 py-3 font-body text-sm text-ivory-muted">
+                        {garment.label}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {(look.tags ?? []).slice(0, 3).map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full border border-atelier-line px-2 py-0.5 font-body text-[0.65rem] text-ivory-muted uppercase"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-body text-sm text-ivory-muted">
+                        {look.votes}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          disabled={votingIds.includes(look.id)}
+                          onClick={() => {
+                            void handleVote({ id: look.id })
+                          }}
+                          className={cn(
+                            'min-h-9 rounded-full border border-atelier-line px-3 text-ivory-muted hover:text-brass disabled:opacity-50',
+                            chromeTextClass(),
+                          )}
+                        >
+                          {votingIds.includes(look.id)
+                            ? HOUSE_COPY.voting
+                            : HOUSE_COPY.vote}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
