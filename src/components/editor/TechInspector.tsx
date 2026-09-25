@@ -56,7 +56,14 @@ export function TechInspector() {
       layer.kind !== 'text' &&
       layer.kind !== 'pattern')
   ) {
-    return null
+    return (
+      <aside className={railFrameClass()}>
+        <p className={chromeKickerClass()}>{HOUSE_COPY.inspector}</p>
+        <p className="font-body text-sm text-ivory-muted">
+          {HOUSE_COPY.selectMark}
+        </p>
+      </aside>
+    )
   }
 
   const selected = layer

@@ -9,6 +9,8 @@ import {
   previousCreateStep,
   showsColorRail,
   showsDesignRails,
+  showsDualStudio,
+  showsPaintPane,
   showsPreviewRails,
   showsShareRail,
   showsSilhouetteRail,
@@ -45,5 +47,9 @@ describe('create-steps', () => {
     expect(allowsDrawView({ step: 'design' })).toBe(true)
     expect(allowsDrawView({ step: 'preview' })).toBe(false)
     expect(forcesClothView({ step: 'preview' })).toBe(true)
+    expect(showsPaintPane({ step: 'design' })).toBe(true)
+    expect(showsPaintPane({ step: 'select' })).toBe(false)
+    expect(showsDualStudio({ step: 'design' })).toBe(true)
+    expect(showsDualStudio({ step: 'color' })).toBe(false)
   })
 })

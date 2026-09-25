@@ -4,6 +4,7 @@ import {
   DEFAULT_AVATAR_MEASUREMENTS,
   getAvatarById,
   listAvatars,
+  nextAvatarSelection,
 } from './avatars'
 import { createProceduralAvatar } from './avatar-geometry'
 
@@ -30,5 +31,29 @@ describe('avatars', () => {
     expect(tall.root.children.length).toBeGreaterThan(3)
     expect(tall.heightScale).toBeGreaterThan(compact.heightScale)
     expect(tall.garmentScale).toBeGreaterThan(0)
+  })
+
+  test('preview keeps the current avatar when re-tapped', () => {
+    expect(
+      nextAvatarSelection({
+        currentId: 'atelier-tall',
+        clickedId: 'atelier-tall',
+        createStep: 'preview',
+      }),
+    ).toBe('atelier-tall')
+    expect(
+      nextAvatarSelection({
+        currentId: 'atelier-tall',
+        clickedId: 'atelier-tall',
+        createStep: 'design',
+      }),
+    ).toBeNull()
+    expect(
+      nextAvatarSelection({
+        currentId: 'atelier-tall',
+        clickedId: 'atelier-soft',
+        createStep: 'preview',
+      }),
+    ).toBe('atelier-soft')
   })
 })

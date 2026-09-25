@@ -27,6 +27,7 @@ function skinMaterial() {
 /**
  * Procedural mannequin used when avatar GLBs are missing.
  * Scaled from height / chest / waist centimeters.
+ * Proportions tuned so a tee seats on the torso rather than floating.
  */
 export function createProceduralAvatar({
   measurements,
@@ -42,59 +43,59 @@ export function createProceduralAvatar({
   root.name = 'avatar-root'
 
   const hips = new Mesh(
-    new CapsuleGeometry(0.16 * torsoScaleX, 0.28 * heightScale, 6, 12),
+    new CapsuleGeometry(0.15 * torsoScaleX, 0.22 * heightScale, 6, 12),
     material,
   )
   hips.name = 'avatar-hips'
-  hips.position.set(0, 0.95 * heightScale, 0)
+  hips.position.set(0, 0.88 * heightScale, 0)
   hips.castShadow = true
 
   const torso = new Mesh(
-    new CapsuleGeometry(0.2 * chestScale, 0.42 * heightScale, 6, 12),
+    new CapsuleGeometry(0.19 * chestScale, 0.48 * heightScale, 6, 12),
     material,
   )
   torso.name = 'avatar-torso'
-  torso.position.set(0, 1.35 * heightScale, 0)
+  torso.position.set(0, 1.28 * heightScale, 0)
   torso.castShadow = true
 
-  const head = new Mesh(new SphereGeometry(0.12 * heightScale, 16, 12), material)
+  const head = new Mesh(new SphereGeometry(0.11 * heightScale, 16, 12), material)
   head.name = 'avatar-head'
-  head.position.set(0, 1.78 * heightScale, 0)
+  head.position.set(0, 1.72 * heightScale, 0)
   head.castShadow = true
 
   const legLeft = new Mesh(
-    new CapsuleGeometry(0.08 * waistScale, 0.55 * heightScale, 4, 10),
+    new CapsuleGeometry(0.075 * waistScale, 0.58 * heightScale, 4, 10),
     material,
   )
   legLeft.name = 'avatar-leg-left'
-  legLeft.position.set(-0.12 * torsoScaleX, 0.42 * heightScale, 0)
+  legLeft.position.set(-0.11 * torsoScaleX, 0.38 * heightScale, 0)
   legLeft.castShadow = true
 
   const legRight = legLeft.clone()
   legRight.name = 'avatar-leg-right'
-  legRight.position.x = 0.12 * torsoScaleX
+  legRight.position.x = 0.11 * torsoScaleX
 
   const armLeft = new Mesh(
-    new CapsuleGeometry(0.055 * chestScale, 0.42 * heightScale, 4, 10),
+    new CapsuleGeometry(0.05 * chestScale, 0.44 * heightScale, 4, 10),
     material,
   )
   armLeft.name = 'avatar-arm-left'
-  armLeft.position.set(-0.32 * chestScale, 1.38 * heightScale, 0)
-  armLeft.rotation.z = 0.18
+  armLeft.position.set(-0.3 * chestScale, 1.32 * heightScale, 0)
+  armLeft.rotation.z = 0.14
   armLeft.castShadow = true
 
   const armRight = armLeft.clone()
   armRight.name = 'avatar-arm-right'
-  armRight.position.x = 0.32 * chestScale
-  armRight.rotation.z = -0.18
+  armRight.position.x = 0.3 * chestScale
+  armRight.rotation.z = -0.14
 
   root.add(hips, torso, head, legLeft, legRight, armLeft, armRight)
 
   return {
     root,
     heightScale,
-    garmentOffsetY: 1.05 * heightScale,
-    garmentScale: 0.92 + (chestScale - 1) * 0.25,
+    garmentOffsetY: 0.98 * heightScale,
+    garmentScale: 0.96 + (chestScale - 1) * 0.22,
   }
 }
 

@@ -1,7 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Leaderboard } from '../components/vote/Leaderboard'
 import { LookCard } from '../components/vote/LookCard'
 import { trackAssumption } from '../lib/assumption-events'
 import {
@@ -17,6 +16,7 @@ import { listDesigns, voteOnDesign } from '../lib/designs-api'
 import type { Design, GarmentId } from '../lib/design-schema'
 import { getGarment, listRailGarments } from '../lib/garments'
 import { HOUSE_COPY } from '../lib/house-copy'
+import { isSafeThumbnail } from '../lib/look-thumbnail'
 import { rankDesigns } from '../lib/rank-designs'
 import { chromeKickerClass, chromeTextClass } from '../lib/studio-chrome'
 import {
@@ -131,7 +131,6 @@ function VotePage() {
     [filters, looks],
   )
   const leader = filteredLooks[0]
-  const rest = filteredLooks.slice(1)
   const garmentOptions = boardGarmentOptions({ looks })
   const railGarments = listRailGarments().filter((garment) =>
     garmentOptions.includes(garment.id),
@@ -242,14 +241,7 @@ function VotePage() {
         <p className="font-body text-sm text-ivory-muted">{voteError}</p>
       ) : null}
       {status === 'loading' ? (
-        <div className="grid gap-5 sm:grid-cols-2">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div
-              key={index}
-              className="aspect-[4/5] border border-atelier-line bg-atelier-raised"
-            />
-          ))}
-        </div>
+        <div className="h-48 border border-atelier-line bg-atelier-raised" />
       ) : null}
       {status === 'error' ? (
         <div className="flex flex-col gap-3">
@@ -282,7 +274,17 @@ function VotePage() {
         </div>
       ) : null}
       {status === 'ready' && leader ? (
-        <section className="flex flex-col gap-8">
+        <section className="flex flex-col gap-6">
+          <div className="max-w-md">
+            <LookCard
+              design={leader}
+              isLeader
+              featured
+              isEntered={entered === leader.id}
+              voting={votingIds.includes(leader.id)}
+              onVote={handleVote}
+            />
+          </div>
           <div className="overflow-x-auto border border-atelier-line bg-atelier-raised">
             <table className="w-full min-w-[28rem] text-left">
               <caption className={cn('px-4 pt-4 text-left', chromeKickerClass())}>
@@ -299,10 +301,13 @@ function VotePage() {
                   <th className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}>
                     {HOUSE_COPY.votes}
                   </th>
+                  <th className={cn('px-4 py-3 text-ivory-muted', chromeTextClass())}>
+                    {HOUSE_COPY.vote}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredLooks.slice(0, 8).map((look, index) => (
+                {filteredLooks.map((look, index) => (
                   <tr
                     key={look.id}
                     className="border-b border-atelier-line/60 last:border-b-0"
@@ -314,48 +319,47 @@ function VotePage() {
                       <Link
                         to="/look/$lookId"
                         params={{ lookId: look.id }}
-                        className="font-body text-sm text-ivory hover:text-brass"
+                        className="flex items-center gap-3 font-body text-sm text-ivory hover:text-brass"
                       >
-                        {look.title}
+                        {isSafeThumbnail({
+                          thumbnailDataUrl: look.thumbnailDataUrl,
+                        }) ? (
+                          <img
+                            src={look.thumbnailDataUrl}
+                            alt=""
+                            className="h-12 w-10 shrink-0 border border-atelier-line object-cover"
+                          />
+                        ) : (
+                          <span className="h-12 w-10 shrink-0 border border-atelier-line bg-atelier" />
+                        )}
+                        <span>{look.title}</span>
                       </Link>
                     </td>
                     <td className="px-4 py-3 font-body text-sm text-ivory-muted">
                       {look.votes}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        disabled={votingIds.includes(look.id)}
+                        onClick={() => {
+                          void handleVote({ id: look.id })
+                        }}
+                        className={cn(
+                          'min-h-9 border border-atelier-line px-3 text-ivory-muted hover:text-brass disabled:opacity-50',
+                          chromeTextClass(),
+                        )}
+                      >
+                        {votingIds.includes(look.id)
+                          ? HOUSE_COPY.voting
+                          : HOUSE_COPY.vote}
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="lg:hidden">
-            <Leaderboard looks={filteredLooks} compact />
-          </div>
-          <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
-            <section className="flex flex-col gap-8">
-              <LookCard
-                design={leader}
-                isLeader
-                featured
-                isEntered={entered === leader.id}
-                voting={votingIds.includes(leader.id)}
-                onVote={handleVote}
-              />
-              <section className="grid gap-5 sm:grid-cols-2">
-                {rest.map((look) => (
-                  <LookCard
-                    key={look.id}
-                    design={look}
-                    isEntered={entered === look.id}
-                    voting={votingIds.includes(look.id)}
-                    onVote={handleVote}
-                  />
-                ))}
-              </section>
-            </section>
-            <div className="hidden lg:block">
-              <Leaderboard looks={filteredLooks} />
-            </div>
-          </section>
         </section>
       ) : null}
     </section>

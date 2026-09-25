@@ -7,7 +7,6 @@ import { ColorPatternPanel } from '../components/editor/ColorPatternPanel'
 import { CreateStepper } from '../components/editor/CreateStepper'
 import { DesignModeToggle } from '../components/editor/DesignModeToggle'
 import { DualStudio } from '../components/editor/DualStudio'
-import { FabricPanel } from '../components/editor/FabricPanel'
 import { LayerRail } from '../components/editor/LayerRail'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
@@ -212,14 +211,19 @@ function AtelierHome() {
               ) : null}
               {showsDesignRails({ step: createStep }) && canPaint ? (
                 <>
-                  {designEditMode === 'draw' ? <PaintToolbar /> : null}
-                  {designEditMode === 'draw' ? <FabricPanel /> : null}
+                  <PaintToolbar
+                    tools={
+                      designEditMode === 'tech' ? 'placeables' : 'all'
+                    }
+                  />
                   <LayerRail />
                   {designEditMode === 'tech' ? <TechInspector /> : null}
                   <VersionRail />
                 </>
               ) : null}
-              {showsPreviewRails({ step: createStep }) ? <AvatarRail /> : null}
+              {showsPreviewRails({ step: createStep }) && canPaint ? (
+                <AvatarRail />
+              ) : null}
             </div>
             <div className={studioPhonePublishClass()}>
               {publishError ? (

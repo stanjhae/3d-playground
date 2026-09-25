@@ -10,6 +10,7 @@ const PRESETS: { id: CameraPreset; label: string }[] = [
   { id: 'front', label: HOUSE_COPY.angleFront },
   { id: 'threeQuarter', label: HOUSE_COPY.angleThreeQuarter },
   { id: 'back', label: HOUSE_COPY.angleBack },
+  { id: 'orbit', label: HOUSE_COPY.angleOrbit },
 ]
 
 export function CameraPresetBar() {

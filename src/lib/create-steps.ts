@@ -78,9 +78,24 @@ export function showsShareRail({ step }: { step: CreateStepId }) {
 }
 
 export function forcesClothView({ step }: { step: CreateStepId }) {
-  return step === 'preview' || step === 'share' || step === 'select' || step === 'fit' || step === 'color'
+  return (
+    step === 'preview' ||
+    step === 'share' ||
+    step === 'select' ||
+    step === 'fit' ||
+    step === 'color'
+  )
 }
 
 export function allowsDrawView({ step }: { step: CreateStepId }) {
+  return step === 'design'
+}
+
+/** Design step shows the paint pane beside cloth; all other steps are full-bleed 3D. */
+export function showsPaintPane({ step }: { step: CreateStepId }) {
+  return step === 'design'
+}
+
+export function showsDualStudio({ step }: { step: CreateStepId }) {
   return step === 'design'
 }

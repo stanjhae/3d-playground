@@ -40,7 +40,7 @@ export function AvatarBody({
     <group>
       <primitive object={mount.root} />
       <group
-        position={[0, mount.garmentOffsetY * 0.08, 0.02]}
+        position={[0, mount.garmentOffsetY * 0.02, 0.015]}
         scale={mount.garmentScale}
       >
         {children}

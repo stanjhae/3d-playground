@@ -1,4 +1,7 @@
-type CameraPreset = 'front' | 'threeQuarter' | 'back'
+import type {
+  AngleCameraPreset,
+  CameraPreset,
+} from './editor-store'
 
 export type StudioCanvasProbe = {
   width: number
@@ -205,7 +208,7 @@ export async function captureAngleStills({
   restorePreset: CameraPreset
   settleMs?: number
 }): Promise<string[]> {
-  const presets: CameraPreset[] = ['front', 'threeQuarter', 'back']
+  const presets: AngleCameraPreset[] = ['front', 'threeQuarter', 'back']
   const stills: string[] = []
 
   setCapturingAngles({ capturingAngles: true })

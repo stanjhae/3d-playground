@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 
-import { DEFAULT_AVATAR_MEASUREMENTS } from './avatars'
+import {
+  DEFAULT_AVATAR_MEASUREMENTS,
+  listAvatars,
+} from './avatars'
+import { garmentPanels } from './garments'
 import {
   applyCommand,
   canRedo,
@@ -54,7 +58,8 @@ export type StudioView = 'draw' | 'cloth'
 export type EditorPaintTool = StrokeTool | 'type'
 export type CreateStep = CreateStepId
 export type DesignEditMode = 'draw' | 'tech'
-export type CameraPreset = 'front' | 'threeQuarter' | 'back'
+export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'orbit'
+export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
 export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
 
 export type AvatarMeasurements = {
@@ -658,17 +663,45 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({ studioView })
   },
   setCreateStep: ({ createStep }) => {
-    set({
-      createStep,
-      ...((
+    set((state) => {
+      const forceCloth =
         createStep === 'preview' ||
         createStep === 'share' ||
         createStep === 'select' ||
         createStep === 'fit' ||
         createStep === 'color'
-      )
-        ? { studioView: 'cloth' as const }
-        : {}),
+      const next: {
+        createStep: CreateStep
+        studioView?: 'cloth'
+        avatarId?: string
+        avatarMeasurements?: {
+          height: number
+          chest: number
+          waist: number
+        }
+      } = {
+        createStep,
+        ...(forceCloth ? { studioView: 'cloth' as const } : {}),
+      }
+
+      if (
+        createStep === 'preview' &&
+        state.avatarId === null &&
+        state.garmentId === 'tee'
+      ) {
+        const first = listAvatars()[0]
+
+        if (first) {
+          next.avatarId = first.id
+          next.avatarMeasurements = {
+            height: first.heightCm,
+            chest: first.chestCm,
+            waist: first.waistCm,
+          }
+        }
+      }
+
+      return next
     })
   },
   setDesignEditMode: ({ designEditMode }) => {
@@ -728,24 +761,34 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       )
 
       let selectedLayerId: string | null = state.selectedLayerId
+      const panels = garmentPanels({ garmentId: state.garmentId })
+      const panelIds =
+        panels.length > 0
+          ? panels.map((panel) => panel.id)
+          : ([state.paintPanel] as PanelId[])
 
       if (patternId !== 'solid') {
-        const layerId = 'base-fill'
-        next.layers.push({
-          id: layerId,
-          kind: 'pattern',
-          patternId,
-          panel: state.paintPanel,
-          color: state.paintColor,
-          x: 0.5,
-          y: 0.5,
-          scale: 1.05,
-          rotation: 0,
-          opacity: patternId === 'gradient' ? 0.85 : 0.55,
-          visible: true,
-        })
-        selectedLayerId = layerId
-      } else if (selectedLayerId === 'base-fill') {
+        for (const panel of panelIds) {
+          const layerId = `base-fill-${panel}`
+          next.layers.push({
+            id: layerId,
+            kind: 'pattern',
+            patternId,
+            panel,
+            color: state.paintColor,
+            x: 0.5,
+            y: 0.5,
+            scale: 1.05,
+            rotation: 0,
+            opacity: patternId === 'gradient' ? 0.85 : 0.55,
+            visible: true,
+          })
+        }
+        selectedLayerId = `base-fill-${state.paintPanel}`
+      } else if (
+        selectedLayerId === 'base-fill' ||
+        selectedLayerId?.startsWith('base-fill-')
+      ) {
         selectedLayerId = null
       }
 

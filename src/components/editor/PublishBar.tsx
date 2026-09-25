@@ -14,7 +14,11 @@ import {
   sanitizePublishedDocument,
 } from '../../lib/design-document'
 import type { Design, DesignMethod } from '../../lib/design-schema'
-import { useEditorStore } from '../../lib/editor-store'
+import { angleStripPreset } from '../../lib/paint-layout'
+import {
+  useEditorStore,
+  type AngleCameraPreset,
+} from '../../lib/editor-store'
 import { getFabricById } from '../../lib/fabrics'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { decodeDocumentImages } from '../../lib/layer-images'
@@ -29,6 +33,12 @@ const METHOD_OPTIONS: { id: DesignMethod; label: string }[] = [
   { id: 'draw', label: HOUSE_COPY.drawMode },
   { id: 'tech', label: HOUSE_COPY.techMode },
   { id: 'combined', label: HOUSE_COPY.combinedMethod },
+]
+
+const ANGLE_STRIP: { id: AngleCameraPreset; label: string }[] = [
+  { id: 'front', label: HOUSE_COPY.angleFront },
+  { id: 'threeQuarter', label: HOUSE_COPY.angleThreeQuarter },
+  { id: 'back', label: HOUSE_COPY.angleBack },
 ]
 
 const SUGGESTED_TAGS = ['night', 'ivory', 'mark', 'house', 'soft', 'bold']
@@ -97,6 +107,9 @@ export function PublishBar({
       serial: lookSerial,
     }),
   )
+  const [anglePreviews, setAnglePreviews] = useState<
+    Partial<Record<AngleCameraPreset, string>>
+  >({})
 
   useEffect(() => {
     if (titleTouched) {
@@ -112,6 +125,26 @@ export function PublishBar({
       }),
     )
   }, [fabricName, lookSerial, storeTitle, title, titleTouched])
+
+  useEffect(() => {
+    let cancelled = false
+    const stripPreset = angleStripPreset({ cameraPreset })
+
+    void captureFramedStill({ canvas: studioCanvas }).then((still) => {
+      if (cancelled || !still) {
+        return
+      }
+
+      setAnglePreviews((current) => ({
+        ...current,
+        [stripPreset]: still,
+      }))
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [cameraPreset, lookSerial])
 
   return (
     <form
@@ -165,6 +198,14 @@ export function PublishBar({
                   restorePreset: cameraPreset,
                 })
 
+                if (angleStills.length > 0) {
+                  setAnglePreviews({
+                    front: angleStills[0],
+                    threeQuarter: angleStills[1],
+                    back: angleStills[2],
+                  })
+                }
+
                 const trimmedAngles = trimAngleStillsForLook({
                   angleStills,
                   artMap,
@@ -217,6 +258,53 @@ export function PublishBar({
           })
       }}
     >
+      <div className="flex w-full flex-col gap-2">
+        <p className={chromeKickerClass()}>{HOUSE_COPY.angles}</p>
+        <div className="grid grid-cols-3 gap-2">
+          {ANGLE_STRIP.map((angle) => {
+            const preview = anglePreviews[angle.id]
+            const isCurrent = cameraPreset === angle.id
+
+            return (
+              <button
+                key={angle.id}
+                type="button"
+                disabled={busy}
+                aria-pressed={isCurrent}
+                onClick={() => {
+                  setCameraPreset({ cameraPreset: angle.id })
+                }}
+                className={cn(
+                  'flex aspect-[4/5] flex-col overflow-hidden border bg-atelier',
+                  {
+                    'border-brass': isCurrent,
+                    'border-atelier-line': !isCurrent,
+                  },
+                )}
+              >
+                {preview ? (
+                  <img
+                    src={preview}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full items-end justify-center bg-ivory/10 p-2">
+                    <span
+                      className={cn(chromeTextClass(), {
+                        'text-brass': isCurrent,
+                        'text-ivory-muted': !isCurrent,
+                      })}
+                    >
+                      {angle.label}
+                    </span>
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
       <label className="flex min-w-0 flex-1 flex-col gap-2">
         <span className="font-display text-xs tracking-[0.22em] text-brass uppercase">
           {HOUSE_COPY.lookTitle}
