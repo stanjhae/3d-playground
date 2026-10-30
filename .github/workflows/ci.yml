@@ -31,6 +31,32 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # `pnpm build` runs route generation, tsc and the Vite build.
       - run: pnpm build
+      # Renderer budget (R06 #169). Limits are gzip KiB with about 15%
+      # headroom over docs/baseline.md; raise them there first, on purpose.
+      - name: Bundle size budget
+        env:
+          JS_TOTAL_KIB: 570
+          JS_CHUNK_KIB: 310
+        run: |
+          node --input-type=module -e '
+          import { readdirSync, readFileSync } from "node:fs"
+          import { gzipSync } from "node:zlib"
+          const dir = "dist/assets"
+          const kib = (n) => n / 1024
+          const chunks = readdirSync(dir)
+            .filter((f) => f.endsWith(".js"))
+            .map((f) => ({ f, size: kib(gzipSync(readFileSync(`${dir}/${f}`)).length) }))
+          const total = chunks.reduce((sum, c) => sum + c.size, 0)
+          const largest = chunks.reduce((a, c) => (c.size > a.size ? c : a))
+          const totalLimit = Number(process.env.JS_TOTAL_KIB)
+          const chunkLimit = Number(process.env.JS_CHUNK_KIB)
+          console.log(`JS gzip total ${total.toFixed(1)} KiB (budget ${totalLimit})`)
+          console.log(`Largest chunk ${largest.f} ${largest.size.toFixed(1)} KiB (budget ${chunkLimit})`)
+          if (total > totalLimit || largest.size > chunkLimit) {
+            console.error("::error::JS bundle over budget. See docs/baseline.md (#169).")
+            process.exit(1)
+          }
+          '
       - run: pnpm test
 
   database:

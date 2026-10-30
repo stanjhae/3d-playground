@@ -11,6 +11,7 @@ import { AvatarBody } from './AvatarBody'
 import { FashionLoader } from './FashionLoader'
 import { Garment } from './Garment'
 import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
+import { WebglContextWatcher, WebglGuard } from './WebglGuard'
 
 function HouseCaption({
   title,
@@ -87,38 +88,41 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
           recipe={leader ? lookRecipe({ design: leader }) : ''}
         />
       ) : null}
-      <Canvas
-        shadows
-        camera={{
-          position: [...STUDIO_CAMERA.position],
-          fov: STUDIO_CAMERA.fov,
-          near: STUDIO_CAMERA.near,
-          far: STUDIO_CAMERA.far,
-        }}
-        gl={{ antialias: true, preserveDrawingBuffer: true }}
-        className="h-full min-h-80 w-full touch-none bg-flv-ink"
-      >
-        <StudioStage picking={!isHouse} intro>
-          <Suspense fallback={<FashionLoader />}>
-            {isHouse ? (
-              leader ? (
-                <Garment
-                  garmentId={leader.garmentId}
-                  overrides={leader.overrides}
-                  artMap={leader.artMap}
-                  picking={false}
-                />
-              ) : null
-            ) : (
-              <>
-                <DesignGarment />
-                {children}
-              </>
-            )}
-          </Suspense>
-        </StudioStage>
-        <StudioOrbit intro turntable={isHouse} />
-      </Canvas>
+      <WebglGuard>
+        <Canvas
+          shadows
+          camera={{
+            position: [...STUDIO_CAMERA.position],
+            fov: STUDIO_CAMERA.fov,
+            near: STUDIO_CAMERA.near,
+            far: STUDIO_CAMERA.far,
+          }}
+          gl={{ antialias: true, preserveDrawingBuffer: true }}
+          className="h-full min-h-80 w-full touch-none bg-flv-ink"
+        >
+          <StudioStage picking={!isHouse} intro>
+            <Suspense fallback={<FashionLoader />}>
+              {isHouse ? (
+                leader ? (
+                  <Garment
+                    garmentId={leader.garmentId}
+                    overrides={leader.overrides}
+                    artMap={leader.artMap}
+                    picking={false}
+                  />
+                ) : null
+              ) : (
+                <>
+                  <DesignGarment />
+                  {children}
+                </>
+              )}
+            </Suspense>
+          </StudioStage>
+          <StudioOrbit intro turntable={isHouse} />
+          <WebglContextWatcher />
+        </Canvas>
+      </WebglGuard>
     </div>
   )
 }
