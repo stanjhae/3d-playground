@@ -577,6 +577,34 @@ describe('useEditorStore', () => {
     ).toHaveLength(2)
   })
 
+  test('clear ink only touches the chosen panel and keeps words (#159)', () => {
+    const store = useEditorStore.getState()
+    store.setGarmentId({ garmentId: 'tee' })
+
+    for (const panel of ['front', 'back'] as const) {
+      useEditorStore.getState().startStroke({ panel, point: { x: 0.3, y: 0.3 } })
+      useEditorStore.getState().endStroke()
+    }
+    useEditorStore.getState().addText({ content: 'KEEP', panel: 'front' })
+
+    const strokesOn = (panel: string) =>
+      useEditorStore
+        .getState()
+        .document.layers.flatMap((layer) => (layer.kind === 'paint' ? layer.strokes : []))
+        .filter((stroke) => stroke.panel === panel).length
+
+    useEditorStore.getState().clearInk({ panel: 'front' })
+
+    expect(strokesOn('front')).toBe(0)
+    expect(strokesOn('back')).toBe(1)
+    expect(
+      useEditorStore.getState().document.layers.some((layer) => layer.kind === 'text' && layer.content === 'KEEP'),
+    ).toBe(true)
+
+    useEditorStore.getState().undoLast()
+    expect(strokesOn('front')).toBe(1)
+  })
+
   test('the tee template is fixed: stamps and structure are concept-only', () => {
     useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
     useEditorStore.getState().addText({

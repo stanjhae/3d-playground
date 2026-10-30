@@ -4,6 +4,7 @@ import { cn } from '../../lib/cn'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
+import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { selectedTextLayer } from '../../lib/layer-hit'
 import { isSafeLayerSrc } from '../../lib/look-thumbnail'
@@ -51,6 +52,12 @@ export function PaintToolbar({
   const setPaintOpacity = useEditorStore((state) => state.setPaintOpacity)
   const setPaintHardness = useEditorStore((state) => state.setPaintHardness)
   const clearInk = useEditorStore((state) => state.clearInk)
+  const paintPanel = useEditorStore((state) => state.paintPanel)
+  const garmentId = useEditorStore((state) => state.garmentId)
+  // Clearing is confirmed and limited to one panel (#159).
+  const [confirmingClear, setConfirmingClear] = useState(false)
+  const panelLabel =
+    garmentPanels({ garmentId }).find((panel) => panel.id === paintPanel)?.label ?? HOUSE_COPY.front
   const addGraphic = useEditorStore((state) => state.addGraphic)
   const addUploadedImage = useEditorStore((state) => state.addUploadedImage)
   const addPattern = useEditorStore((state) => state.addPattern)
@@ -116,9 +123,8 @@ export function PaintToolbar({
             )}
             <button
               type="button"
-              onClick={() => {
-                clearInk()
-              }}
+              aria-expanded={confirmingClear}
+              onClick={() => setConfirmingClear(true)}
               className={cn(
                 'min-h-11 text-flv-muted hover:text-flv-accent',
                 chromeTextClass(),
@@ -127,6 +133,35 @@ export function PaintToolbar({
               {HOUSE_COPY.clearInk}
             </button>
           </div>
+          {confirmingClear ? (
+            <div
+              role="group"
+              aria-label={`Clear ink on the ${panelLabel.toLowerCase()}`}
+              className="flex flex-wrap items-center gap-2 border border-flv-line p-2"
+            >
+              <p className={cn('flex-1', chromeMutedClass())}>
+                Clear all ink on the {panelLabel.toLowerCase()}? Words, graphics and other panels stay. You can undo this.
+              </p>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setConfirmingClear(false)}
+                className={toolButtonClass({ selected: false })}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearInk({ panel: paintPanel })
+                  setConfirmingClear(false)
+                }}
+                className={toolButtonClass({ selected: true })}
+              >
+                Clear {panelLabel.toLowerCase()}
+              </button>
+            </div>
+          ) : null}
           <ul className="flex flex-wrap gap-2">
             {INK_COLORS.map((color) => (
               <li key={color.id}>

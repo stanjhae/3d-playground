@@ -128,6 +128,21 @@ describe.skipIf(!env)('design details against local Supabase', () => {
     expect((await api({ path: `designs/${designId}`, method: 'DELETE', token: a.token })).status).toBe(404)
   })
 
+  test('a rename reaches the public page only when the design is published again', async () => {
+    const designId = await createDesign({ owner: a, title: 'Launch tee' })
+    await api({ path: `designs/${designId}/renders`, method: 'POST', token: a.token, body: { seq: 1, renders: RENDERS } })
+    const { slug } = (await (
+      await api({ path: `designs/${designId}/publication`, method: 'POST', token: a.token, body: { seq: 1 } })
+    ).json()) as { slug: string }
+    const publicTitle = async () => ((await (await api({ path: `public/${slug}` })).json()) as { title: string }).title
+
+    await api({ path: `designs/${designId}`, method: 'PATCH', token: a.token, body: { title: 'Renamed tee' } })
+    expect(await publicTitle()).toBe('Launch tee')
+
+    await api({ path: `designs/${designId}/publication`, method: 'POST', token: a.token, body: { seq: 1 } })
+    expect(await publicTitle()).toBe('Renamed tee')
+  })
+
   test('the public display name is per account and can be cleared', async () => {
     expect(await (await api({ path: 'profile', token: a.token })).json()).toEqual({ displayName: null })
 

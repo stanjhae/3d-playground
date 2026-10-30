@@ -286,7 +286,8 @@ export function translateCommand({
   }
 
   if (command.type === 'clearPaint') {
-    const commands: CanonicalCommand[] = CANONICAL_PANEL_IDS.flatMap((panel) =>
+    const panels = command.panel ? [canonicalPanel({ renderPanel: command.panel })] : CANONICAL_PANEL_IDS
+    const commands: CanonicalCommand[] = panels.flatMap((panel) =>
       document.panels[panel].layers
         .filter((layer) => layer.kind === 'paint')
         .map((layer) => ({ type: 'clearPaintLayer' as const, layerId: layer.id })),

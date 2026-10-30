@@ -5,6 +5,7 @@ import {
   type DesignDocument,
   type DesignLayer,
   type GraphicLayer,
+  type PanelId,
   type PatternLayer,
   type Stroke,
   type StructuralParams,
@@ -29,7 +30,8 @@ import type { MaterialOverride } from './design-schema'
 export type DesignCommand =
   | { type: 'addStroke'; stroke: Stroke }
   | { type: 'eraseStroke'; strokeId: string }
-  | { type: 'clearPaint' }
+  /** Without `panel`, every panel (concept garments, tests). */
+  | { type: 'clearPaint'; panel?: PanelId }
   | { type: 'addGraphic'; layer: GraphicLayer }
   | { type: 'addPattern'; layer: PatternLayer }
   | { type: 'removeLayer'; layerId: string }
@@ -92,7 +94,7 @@ function applyToDocument({
   if (command.type === 'clearPaint') {
     for (const layer of next.layers) {
       if (layer.kind === 'paint') {
-        layer.strokes = []
+        layer.strokes = command.panel ? layer.strokes.filter((stroke) => stroke.panel !== command.panel) : []
       }
     }
     return next
