@@ -16,7 +16,8 @@
     "build": "pnpm generate && tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:integration": "FLP_INTEGRATION=1 vitest run integration"
+    "test:integration": "FLP_INTEGRATION=1 vitest run integration",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.8",
@@ -31,6 +32,8 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-generator": "^1.167.33",
     "@tanstack/router-plugin": "^1.168.35",

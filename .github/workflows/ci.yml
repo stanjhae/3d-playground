@@ -62,7 +62,7 @@ jobs:
   database:
     name: Database and API integration
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -87,3 +87,19 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" \
           SUPABASE_SECRET_KEY="$SECRET_KEY" \
           pnpm test:integration
+      # Browser journey against the same stack (Q04 #189).
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Browser journey tests
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY|SECRET_KEY|MAILPIT_URL)=')"
+          export SUPABASE_URL="$API_URL" SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" SUPABASE_SECRET_KEY="$SECRET_KEY"
+          export VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" MAILPIT_URL="$MAILPIT_URL"
+          pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
