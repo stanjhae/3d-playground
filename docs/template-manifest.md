@@ -2,7 +2,9 @@
 
 A canonical document pins `template: { id, version }`. `src/lib/template-manifest.ts` defines what that means, and `resolveTemplate` turns it into a manifest or an explicit error (`unknown-template` or `unsupported-version`). Saved designs are never quietly remapped onto different geometry.
 
-## `tee-crew-short@1`
+## `tee-crew-short@2` (current) and `@1`
+
+New designs pin `@2`. `@2` differs from `@1` only in how the back of the body unwraps (R02 #165, below); geometry, atlas, material, fonts and every other region are the same.
 
 | Part | Value |
 | --- | --- |
@@ -15,22 +17,43 @@ A canonical document pins `template: { id, version }`. `src/lib/template-manifes
 | Canonical panel | Mesh | UV rectangle | Render panel (v1) | Axes |
 | --- | --- | --- | --- | --- |
 | `front` | `body` | u 0–0.5, v 0.28–1 | `front` | x toward the wearer's left; y from hem to neckline |
-| `back` | `body` | u 0.5–1, v 0.28–1 | `back` | Same; **mirrored when seen from behind** |
+| `back` | `body` | u 0.5–1, v 0.28–1 | `back` | x toward the wearer's left, like the front. The render panel is **mirrored** (`renderMirrorX`), so the 2D back canvas shows the back as seen from behind |
 | `left` (wearer's left) | `body-sleeve-right` (+x) | u 0.5–1, v 0–0.28 | `right` | Around and along the sleeve |
 | `right` (wearer's right) | `body-sleeve-left` (−x) | u 0–0.5, v 0–0.28 | `left` | Around and along the sleeve |
 
-The front faces +z, so +x is the wearer's left. The tests rebuild the geometry and check every value in these tables: sleeve sides, chest direction, UV bounds, landmark heights and the collar overlap.
+The front faces +z, so +x is the wearer's left. The tests rebuild the geometry and check every value in these tables: sleeve sides, chest direction, back direction, UV bounds, seam split, landmark heights and the collar overlap.
 
 Landmarks (panel coordinates) are in the manifest. The torso heights come from the body rings: waist 0.321, chest 0.691, shoulder line 0.889.
 
-### Findings for R02 #165
+### Back orientation (R02 #165): `@1` → `@2`
 
-- **Back mirroring.** The back panel runs the same direction as the front, toward the wearer's left. Seen from behind, screen-right is −x, so text drawn left-to-right reads mirrored. This follows from the geometry and the camera basis and has **not** yet been confirmed in a render. Fixing it changes the UVs, so it needs `tee-crew-short@2`.
+On `@1` geometry the back unwrapped u 0.5 → 1 from the wearer's right to the wearer's left, the same direction as the front. Seen from behind, screen-right is −x, so text drawn left-to-right on the 2D back canvas read mirrored on the garment. A browser pass confirmed it.
+
+`@2` fixes this in the UV layout (`uvLayout: 2` in `createClothingMesh`):
+
+- The back unwraps **u 1 → 0.5** from the wearer's right to the wearer's left. The back's atlas rectangle, and the 2D back canvas, now read left-to-right from behind.
+- The wearer's right side seam (θ = π) is split into two columns, so the front ends at u 0 and the back starts at u 1. On `@1`, one column of triangles there stretched across the whole front row.
+- **Canonical coordinates are unchanged and wearer-oriented.** Back `x` still runs toward the wearer's left, and the landmarks are identical. The region sets `renderMirrorX: true`, and `toRenderDocument` maps the back as render `x = 1 − x` and `rotation = −rotation` (stroke points too). The editor maps render-space input back with the same involution (`mirrorToRender`).
+
+**Existing documents.** The scene always builds the newest layout. `render-projection.ts` reads each document's own template version, so stored content never changes:
+
+| Pinned | Back projection | Result |
+| --- | --- | --- |
+| `@2` (new designs) | mirrored | Canonical wearer's-left marks land on the wearer's left and read correctly from behind |
+| `@1` (saved before #165, and every legacy import) | as stored | The 2D back canvas looks exactly as its author saw it, and now reads correctly from behind. Relative to the old mirrored render, back marks sit on the opposite side. |
+
+Legacy v1 imports (`legacy-import.ts`) still pin `@1`, because v1 placement is render space and `@1` keeps it as stored.
+
+**Front and sleeves.** These were checked and are not mirrored. `panel-orientation.test.ts` builds the mesh and checks every front, back and sleeve triangle: atlas +u × +v must face out of the garment, which means the panel reads correctly from outside. It also passes asymmetric text and strokes through the projection for both versions. The sleeve tubes keep three.js's cylinder UVs, where u runs around the sleeve and v from cuff to shoulder, and those read correctly from outside.
+
+### Other findings
+
 - **Collar overlap.** The collar band samples the front panel above y ≈ 0.861, so marks drawn there also appear on the collar.
-- **Sleeve names.** The UI label "Left" means the render panel (−x), which is the wearer's right. E02 #153 should label the sleeves by wearer side.
+- **Sleeve names.** The render panel `left` is built at −x, which is the wearer's right. The studio labels sleeves by wearer side (E02 #153).
+- **Panel clipping.** `rasterizeLayers` clips every tee stroke, text, image and pattern stamp to its own panel's atlas rectangle. A mark near an edge therefore never lands on the other sleeve or on the torso (E02 #153). Concept garments are not clipped.
 
 ## Versioning rule
 
 - Any change to geometry, UVs or structure means **a new version**, plus a new archive entry. The GLB hash test fails until the version is bumped.
-- Old versions stay in `TEMPLATE_ARCHIVE` for good, so saved designs keep opening on the mapping they were made with.
+- Old versions stay in `TEMPLATE_ARCHIVE` for good, so saved designs keep opening. The scene builds only the newest geometry, and each archived version says how its panels project onto that geometry (`renderMirrorX`), so a design's stored content is never rewritten.
 - A design pinned to a missing version shows the `unsupported-version` message; it is never silently opened on newer geometry.

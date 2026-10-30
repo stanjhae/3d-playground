@@ -4,6 +4,8 @@ import { cn } from '../../lib/cn'
 import { showsDualStudio, showsPaintPane } from '../../lib/create-steps'
 import { garmentCanPaint } from '../../lib/garments'
 import { useEditorStore } from '../../lib/editor-store'
+import { dualStudioGridClass } from '../../lib/studio-chrome'
+import { useLgUp } from '../../lib/viewport'
 import { PaintCanvas } from './PaintCanvas'
 
 export function DualStudio({
@@ -16,6 +18,7 @@ export function DualStudio({
   const studioView = useEditorStore((state) => state.studioView)
   const undoLast = useEditorStore((state) => state.undoLast)
   const redoLast = useEditorStore((state) => state.redoLast)
+  const lgUp = useLgUp()
   const canPaint = garmentCanPaint({ garmentId })
   const dual = canPaint && showsDualStudio({ step: createStep })
   const paintPane = canPaint && showsPaintPane({ step: createStep })
@@ -73,16 +76,14 @@ export function DualStudio({
     return <div className="relative h-full min-h-80 w-full">{children}</div>
   }
 
+  // Below lg the create route draws the canvas in the page flow instead.
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(20rem,1fr)] lg:grid-cols-2">
-      <div
-        className={cn('min-h-80 h-full', {
-          hidden: !paintPane || studioView === 'cloth',
-          'lg:block': paintPane,
-        })}
-      >
-        <PaintCanvas layout="quad" />
-      </div>
+    <div className={dualStudioGridClass()}>
+      {lgUp && paintPane ? (
+        <div className="h-full min-h-0">
+          <PaintCanvas layout="quad" />
+        </div>
+      ) : null}
       <div
         className={cn('relative h-full min-h-80', {
           hidden: studioView === 'draw',

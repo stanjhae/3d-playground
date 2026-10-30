@@ -29,7 +29,12 @@ import {
   wrapAngle,
 } from './legacy-import.ts'
 import { LIBRARY_ASSET_SOURCES, libraryAssetId } from './library-assets.ts'
-import { canonicalPanel, toRenderDocument } from './render-projection.ts'
+import {
+  canonicalPanel,
+  mirrorToRender,
+  rendersMirrored,
+  toRenderDocument,
+} from './render-projection.ts'
 
 /**
  * The tee studio's v2 engine (FLP E01 #152). The editor store keeps
@@ -229,12 +234,24 @@ export function translateCommand({
 }): { command: CanonicalCommand; assetSources: Record<string, string> } | null {
   const document = engine.stack.document
   const same = engine.assetSources
+  // Store commands are in render space; mirrored panels (the @2 back)
+  // map back to canonical x here. Mirroring is its own inverse.
+  const mirrored = (panel: CanonicalPanelId) =>
+    rendersMirrored({ template: document.template, panel })
+  const fromRender = <T extends { x?: number; rotation?: number }>(panel: CanonicalPanelId, value: T) =>
+    mirrorToRender({ mirrored: mirrored(panel), value })
 
   if (command.type === 'addStroke') {
     const converted = strokeFromV1({ value: command.stroke })
 
     if (!converted) {
       return null
+    }
+
+    if (mirrored(converted.panel)) {
+      converted.stroke.points = converted.stroke.points.map((value, index) =>
+        index % 2 === 0 ? 1 - value : value,
+      )
     }
 
     return {
@@ -262,7 +279,7 @@ export function translateCommand({
   }
 
   if (command.type === 'addGraphic') {
-    const { layer } = command
+    const layer = fromRender(canonicalPanel({ renderPanel: command.layer.panel }), command.layer)
     const libraryId = libraryAssetId({ src: layer.src })
     // A copy of a placed upload keeps its finalized asset id (S01 #170).
     const knownId = Object.keys(same).find((id) => same[id] === layer.src)
@@ -291,7 +308,7 @@ export function translateCommand({
   }
 
   if (command.type === 'addText') {
-    const { layer } = command
+    const layer = fromRender(canonicalPanel({ renderPanel: command.layer.panel }), command.layer)
     const color = toColor({ value: layer.color })
 
     if (!layer.content.trim() || !color) {
@@ -362,7 +379,7 @@ export function translateCommand({
       command: {
         type: 'updateLayer',
         layerId: command.layerId,
-        patch: translatePatch({ patch: command.patch, kind: found.layer.kind }),
+        patch: translatePatch({ patch: fromRender(found.panel, command.patch), kind: found.layer.kind }),
       },
     }
   }

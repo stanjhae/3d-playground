@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { AvatarRail } from '../components/editor/AvatarRail'
 import { CameraPresetBar } from '../components/editor/CameraPresetBar'
@@ -7,6 +7,7 @@ import { ColorPatternPanel } from '../components/editor/ColorPatternPanel'
 import { CreateStepper } from '../components/editor/CreateStepper'
 import { DesignModeToggle } from '../components/editor/DesignModeToggle'
 import { DualStudio } from '../components/editor/DualStudio'
+import { PaintCanvas } from '../components/editor/PaintCanvas'
 import { GraphicLibrary } from '../components/editor/GraphicLibrary'
 import { LayerRail } from '../components/editor/LayerRail'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
@@ -46,6 +47,7 @@ import { loadCloudDesign } from '../lib/cloud-design-load'
 import { FLV_COPY } from '../lib/flv-copy'
 import {
   allowsDrawView,
+  showsPaintPane,
   showsColorRail,
   showsDesignRails,
   showsPreviewRails,
@@ -58,6 +60,15 @@ import { loadDraft, saveDraft } from '../lib/design-draft'
 import { createDesign, getDesign } from '../lib/designs-api'
 import { getAssetSources, getCanonicalDocument, useEditorStore } from '../lib/editor-store'
 import { garmentCanPaint } from '../lib/garments'
+import {
+  STUDIO_CHROME_BOTTOM_VAR,
+  STUDIO_TOP_VAR,
+  studioHeaderClass,
+  studioOverlayClass,
+  studioPhoneDrawClass,
+  studioSectionClass,
+} from '../lib/studio-chrome'
+import { useLgUp } from '../lib/viewport'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
 import { consumeLandingHandoff } from '../lib/landing-handoff'
@@ -123,7 +134,17 @@ function AtelierHome() {
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
   const applyBaseColor = useEditorStore((state) => state.applyBaseColor)
   const setStructural = useEditorStore((state) => state.setStructural)
+  const studioView = useEditorStore((state) => state.studioView)
   const canPaint = garmentCanPaint({ garmentId })
+  const lgUp = useLgUp()
+  const drawInFlow =
+    !lgUp &&
+    mode === 'design' &&
+    canPaint &&
+    showsPaintPane({ step: createStep }) &&
+    studioView === 'draw'
+  const sectionRef = useRef<HTMLElement | null>(null)
+  const headerRef = useRef<HTMLDivElement | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [enteredLabel, setEnteredLabel] = useState<string | null>(null)
@@ -433,19 +454,46 @@ function AtelierHome() {
     }
   }, [remixId])
 
+  // The lg studio grid starts below the header, however it wraps (#163).
+  useLayoutEffect(() => {
+    const section = sectionRef.current
+    const header = headerRef.current
+
+    if (!section || !header || typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const measure = () => {
+      const top = section.getBoundingClientRect().top
+      const bottom = header.getBoundingClientRect().bottom - top
+      section.style.setProperty(STUDIO_CHROME_BOTTOM_VAR, `${Math.ceil(bottom)}px`)
+      // The site header is sticky above the section; fill only what is left.
+      section.style.setProperty(STUDIO_TOP_VAR, `${Math.max(0, Math.round(top + window.scrollY))}px`)
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(section)
+    observer.observe(header)
+    measure()
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
   return (
-    <section className="relative h-dvh overflow-hidden">
+    <section ref={sectionRef} className={studioSectionClass()}>
       <DualStudio>
         <AtelierScene>
           <PublishThumbnailSync />
         </AtelierScene>
       </DualStudio>
-      <div className="pointer-events-none absolute inset-0 z-20 flex flex-col lg:block">
-        <div
-          aria-hidden
-          className={coverHeaderSpacerClass()}
-        />
-        <div className="pointer-events-auto flex shrink-0 flex-col gap-2 bg-gradient-to-b from-flv-paper/90 to-transparent px-4 pt-1 pb-3 lg:absolute lg:top-20 lg:left-6 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6 lg:bg-none lg:px-0 lg:pt-0 lg:pb-0">
+      <div className={studioOverlayClass({ drawInFlow })}>
+        {drawInFlow ? null : (
+          <div
+            aria-hidden
+            className={coverHeaderSpacerClass()}
+          />
+        )}
+        <div ref={headerRef} className={studioHeaderClass()}>
           <ModeToggle mode={mode} />
           {mode === 'design' ? <CreateStepper /> : null}
           {mode === 'design' && showsSilhouetteRail({ step: createStep }) ? (
@@ -507,10 +555,16 @@ function AtelierHome() {
             </p>
           ) : null}
         </div>
-        <div className="min-h-0 flex-1 lg:hidden" />
+        {drawInFlow ? (
+          <div className={studioPhoneDrawClass()}>
+            <PaintCanvas layout="quad" />
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 lg:hidden" />
+        )}
         {mode === 'design' ? (
           <>
-            <div className={studioPhoneToolsClass()}>
+            <div className={studioPhoneToolsClass({ drawInFlow })}>
               {showsColorRail({ step: createStep }) ? (
                 <ColorPatternPanel />
               ) : null}
