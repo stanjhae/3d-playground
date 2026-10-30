@@ -64,7 +64,8 @@ export async function deleteAccounts({ emails }: { emails: string[] }) {
 }
 
 export function panelCanvas({ page, panel }: { page: Page; panel: 'Front' | 'Back' | "Wearer's right" | "Wearer's left" }) {
-  return page.locator(`canvas[aria-label="Design panel ${panel}"]`)
+  // The selected panel's name ends in ", active" (#248), so match the start.
+  return page.locator(`canvas[aria-label^="Design panel ${panel}"]`)
 }
 
 /** A short diagonal brush stroke across the middle of a panel. */
