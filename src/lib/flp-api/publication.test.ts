@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { PUBLIC_RENDER_KINDS, SIGNED_URL_SECONDS, parseRenderUpload } from './publication'
+import { PUBLIC_RENDER_KINDS, PUBLIC_IMAGE_MAX_AGE, parseRenderUpload, publicImagePath } from './publication'
 
 const renders = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data: 'AAAA' }))
 
@@ -22,7 +22,19 @@ describe('parseRenderUpload', () => {
     expect(result.ok ? null : result.error.body.error.issues?.[0]?.path).toBe(path)
   })
 
-  test('public render links are short-lived', () => {
-    expect(SIGNED_URL_SECONDS).toBeLessThanOrEqual(300)
+  test('public images are cached only briefly', () => {
+    expect(PUBLIC_IMAGE_MAX_AGE).toBeLessThanOrEqual(60)
+  })
+})
+
+describe('publicImagePath', () => {
+  test('defaults to the current front view, a stable link for previews', () => {
+    expect(publicImagePath({ slug: '0123456789abcdef' })).toBe('/api/flp/public/0123456789abcdef/image')
+  })
+
+  test('pins the view and version for the public page', () => {
+    expect(publicImagePath({ slug: '0123456789abcdef', kind: 'view_back', seq: 4 })).toBe(
+      '/api/flp/public/0123456789abcdef/image?view=view_back&seq=4',
+    )
   })
 })

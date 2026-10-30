@@ -143,7 +143,11 @@ describe.skipIf(!env)('publication against local Supabase', () => {
     expect(Object.keys(page).sort()).toEqual(['displayName', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
     expect(Object.keys(page.renders).sort()).toEqual([...PUBLIC_RENDER_KINDS].sort())
     expect(JSON.stringify(page)).not.toContain('panels')
-    expect((await fetch(page.renders.view_front!)).status).toBe(200)
+    expect(page.renders.view_front).toBe(`/api/flp/public/${publication.slug}/image?seq=1`)
+
+    const front = await handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost${page.renders.view_front}`) })
+    expect(front.status).toBe(200)
+    expect(front.headers.get('Content-Type')).toMatch(/^image\//)
 
     // Saving after publish never moves what the public sees.
     const next = await save({ baseSeq: 1 })
@@ -167,6 +171,7 @@ describe.skipIf(!env)('publication against local Supabase', () => {
 
     expect((await api({ path: `designs/${designId}/publication`, method: 'DELETE', token: a.token })).status).toBe(204)
     expect((await api({ path: `public/${publication.slug}` })).status).toBe(404)
+    expect((await api({ path: `public/${publication.slug}/image` })).status).toBe(404)
   })
 
   test('an unknown or malformed slug is a plain 404', async () => {

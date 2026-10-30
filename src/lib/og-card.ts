@@ -111,3 +111,42 @@ export function lookCardHtml({
   </body>
 </html>`
 }
+
+/**
+ * Link-preview HTML for `/s/:slug` (#184). A published design shows its
+ * title, display name and our stable image endpoint (never a signed URL,
+ * which would expire in caches); anything else gets the site card.
+ */
+export function shareCardHtml({
+  origin,
+  shared,
+}: {
+  origin: string
+  shared: {
+    slug: string
+    title: string
+    displayName: string | null
+    imageUrl: string
+    imageType: string
+  } | null
+}) {
+  if (!shared) {
+    return lookCardHtml({
+      title: 'Fashion Leader Vote',
+      author: '',
+      imageUrl: `${origin}/og-default.png`,
+      pageUrl: `${origin}/`,
+    })
+  }
+
+  return lookCardHtml({
+    title: shared.title,
+    author: shared.displayName ?? '',
+    description: shared.displayName
+      ? `By ${shared.displayName.slice(0, 40)} on Fashion Leader Vote.`
+      : 'A design on Fashion Leader Vote.',
+    imageUrl: shared.imageUrl,
+    imageType: shared.imageType,
+    pageUrl: `${origin}/s/${encodeURIComponent(shared.slug)}`,
+  })
+}
