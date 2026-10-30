@@ -7,7 +7,11 @@ import {
 } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { AccountControl } from '../components/auth/AccountControl'
+import { onAccountChange, startSession } from '../lib/auth/session-store'
+import { getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
+import { useEditorStore } from '../lib/editor-store'
 import { listDesigns } from '../lib/designs-api'
 import { FLV_COPY } from '../lib/flv-copy'
 import { HOUSE_LOOK_FALLBACK_ID, lookIdFromPathname } from '../lib/paths'
@@ -15,6 +19,20 @@ import { rankDesigns } from '../lib/rank-designs'
 
 export const Route = createRootRoute({
   component: RootShell,
+})
+
+let lastSignedInUserId: string | null = null
+
+// A different account must never see the previous account's open design.
+// Expiry (account → null) keeps it in memory for same-account re-sign-in.
+onAccountChange((next) => {
+  if (next && lastSignedInUserId && next.userId !== lastSignedInUserId) {
+    useEditorStore.getState().reset()
+  }
+
+  if (next) {
+    lastSignedInUserId = next.userId
+  }
 })
 
 const MARKETING_LINKS = [
@@ -36,6 +54,10 @@ function RootShell() {
     lookIdFromPathname({ pathname: location.pathname }) ??
     leaderId
   const isLanding = location.pathname === '/'
+
+  useEffect(() => {
+    void startSession({ client: getSupabaseClient() })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -124,6 +146,7 @@ function RootShell() {
             >
               Look
             </Link>
+            <AccountControl />
           </nav>
         )}
         {isLanding ? (

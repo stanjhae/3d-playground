@@ -11,6 +11,7 @@ export const HOUSE_COPY = {
   voteFailed: 'The vote could not be counted.',
   copyFailed: 'The link could not be copied. Use the address bar.',
   publishFailed: 'The look could not enter the vote.',
+  signInToPublish: 'Your session ended. Sign in again to publish; your design is still here.',
   boardFull: 'The house is full tonight.',
   boardPersistFailed: 'The look could not be kept. Try again.',
   gownCredit: 'Gown by Style3D CG',

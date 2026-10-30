@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { AvatarRail } from '../components/editor/AvatarRail'
@@ -22,6 +22,9 @@ import {
 } from '../components/editor/PublishBar'
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
+import { RequireSession } from '../components/auth/RequireSession'
+import { waitForSession } from '../lib/auth/session-store'
+import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { FLV_COPY } from '../lib/flv-copy'
 import {
   allowsDrawView,
@@ -50,8 +53,27 @@ export const Route = createFileRoute('/create')({
   validateSearch: (
     search: Record<string, unknown>,
   ) => parseCreateSearch({ search }),
-  component: AtelierHome,
+  beforeLoad: async ({ location }) => {
+    if (!AUTH_REQUIRED) {
+      return
+    }
+
+    const session = await waitForSession({ client: getSupabaseClient() })
+
+    if (session.status !== 'signed-in') {
+      throw redirect({ to: '/sign-in', search: { returnTo: location.href } })
+    }
+  },
+  component: GuardedAtelier,
 })
+
+function GuardedAtelier() {
+  return (
+    <RequireSession>
+      <AtelierHome />
+    </RequireSession>
+  )
+}
 
 function AtelierHome() {
   const navigate = useNavigate()
