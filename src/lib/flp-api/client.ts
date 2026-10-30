@@ -1,5 +1,11 @@
 import type { CanonicalDocument } from '../canonical-document.ts'
-import { accountGuard, useSessionStore, waitForSession } from '../auth/session-store.ts'
+import {
+  accountGuard,
+  applySession,
+  signOut,
+  useSessionStore,
+  waitForSession,
+} from '../auth/session-store.ts'
 import { getSupabaseClient } from '../auth/supabase-client.ts'
 import type { ImageRejectReason } from '../image-validate.ts'
 import type {
@@ -49,6 +55,25 @@ export type FlpResult<T> =
       reason?: ImageRejectReason
     }
 
+/** A fresh access token for the same account, or null after signing out. */
+async function renewOrEnd(): Promise<string | null> {
+  const client = getSupabaseClient()
+
+  if (!client) {
+    return null
+  }
+
+  const { data, error } = await client.auth.refreshSession()
+
+  if (!error && data.session) {
+    applySession({ session: data.session })
+    return data.session.access_token
+  }
+
+  await signOut({ client })
+  return null
+}
+
 export async function call<T>({
   path,
   method = 'GET',
@@ -73,17 +98,33 @@ export async function call<T>({
     return { ok: false, code: 'unauthenticated', message: 'Sign in required' }
   }
 
-  let response: Response
-
-  try {
-    response = await fetchImpl(`/api/flp/${path}`, {
+  const send = (bearer: string) =>
+    fetchImpl(`/api/flp/${path}`, {
       method,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${bearer}`,
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     })
+
+  let response: Response
+
+  try {
+    response = await send(token)
+
+    // The server no longer accepts this session (expired, revoked, or the
+    // account was deleted): renew it once, or end it so the route guards
+    // send the person to sign-in instead of leaving them stuck.
+    if (response.status === 401 && stillSameAccount()) {
+      const renewed = await renewOrEnd()
+
+      if (!renewed) {
+        return { ok: false, code: 'unauthenticated', message: 'Sign in required' }
+      }
+
+      response = await send(renewed)
+    }
   } catch {
     return stillSameAccount()
       ? { ok: false, code: 'network', message: 'Could not reach the server' }

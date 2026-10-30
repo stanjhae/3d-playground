@@ -15,6 +15,7 @@ import {
   type RecoveryStorage,
   RECOVERY_WARNINGS,
   clearRecovery,
+  liveRecoveryOffer,
   indexedDbRecoveryStorage,
 } from '../../lib/cloud-recovery'
 import { createOwnedDesign } from '../../lib/flp-api/client'
@@ -202,16 +203,25 @@ const OFFER_COPY: Record<NonNullable<ReturnType<typeof useRecoveryStore.getState
 /** Recover / discard / save-as-copy for local work found on open (S05 #174). */
 export function RecoveryPrompt() {
   const navigate = useNavigate()
-  const offer = useRecoveryStore((store) => store.offer)
+  const rawOffer = useRecoveryStore((store) => store.offer)
   const designId = useRecoveryStore((store) => store.designId)
   const cloud = useEditorStore((store) => store.cloud)
   const ownerId = useSessionStore((store) => store.account?.userId ?? null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const saveStatus = useCloudSaveStore((store) => store.state?.status ?? 'saved')
 
-  if (!offer || !cloud || !ownerId || cloud.designId !== designId) {
+  if (!rawOffer || !cloud || !ownerId || cloud.designId !== designId) {
     return null
   }
+
+  // Edits made, or saved, while this prompt is open make the local copy
+  // out of date: never let Recover overwrite them.
+  const offer = liveRecoveryOffer({
+    offer: rawOffer,
+    cloudHeadSeq: cloud.headSeq,
+    hasUnsavedEdits: saveStatus !== 'saved',
+  })
 
   const forget = async () => {
     const cleared = await clearRecovery({
@@ -267,7 +277,19 @@ export function RecoveryPrompt() {
               className={quiet}
               disabled={busy}
               onClick={() => {
-                useEditorStore.getState().recoverCanonical({ document: offer.document })
+                // Re-check at click time: an autosave may have just landed.
+                const current = useEditorStore.getState().cloud
+                const now = liveRecoveryOffer({
+                  offer,
+                  cloudHeadSeq: current?.headSeq ?? -1,
+                  hasUnsavedEdits: useCloudSaveStore.getState().state?.status !== 'saved',
+                })
+
+                if (now.kind !== 'recover') {
+                  return
+                }
+
+                useEditorStore.getState().recoverCanonical({ document: now.document })
                 useRecoveryStore.setState({ offer: null })
               }}
             >
