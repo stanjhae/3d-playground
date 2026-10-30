@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { validateCanonicalDocument } from './canonical-document'
 import { importLegacyDesign } from './legacy-import'
 import { panelPointToUv } from './panel-uv'
+import { TEE_CREW_SHORT_V1 } from './template-manifest'
 
 const LEGACY_TEE = {
   garmentId: 'tee',
@@ -98,8 +99,8 @@ describe('importLegacyDesign', () => {
       'paint-1--front',
       'text-1',
     ])
-    expect(result.document.panels.left.layers.map((layer) => layer.id)).toEqual([
-      'paint-1--left',
+    expect(result.document.panels.right.layers.map((layer) => layer.id)).toEqual([
+      'paint-1--right',
     ])
     expect(result.document.panels.back.layers[0]).toMatchObject({
       kind: 'image',
@@ -123,13 +124,30 @@ describe('importLegacyDesign', () => {
     ])
   })
 
-  test('documents the legacy sleeve alias as the left sleeve', async () => {
+  test('maps the legacy sleeve alias to the sleeve it was drawn on: the wearer\'s right', async () => {
     const result = await importOk(LEGACY_TEE)
 
     expect(result.warnings).toContainEqual({
       path: 'layers[0].strokes[1].panel',
-      message: 'legacy panel "sleeve" mapped to the left sleeve',
+      message: 'legacy panel "sleeve" mapped to the wearer\'s right sleeve',
     })
+  })
+
+  test('v1 sleeve ids name render panels, so they swap to wearer sides', async () => {
+    const result = await importOk({
+      ...LEGACY_TEE,
+      layers: [
+        { id: 'on-v1-left', kind: 'text', panel: 'left', content: 'R', x: 0.4, y: 0.6, scale: 0.1 },
+        { id: 'on-v1-right', kind: 'text', panel: 'right', content: 'L', x: 0.4, y: 0.6, scale: 0.1 },
+      ],
+    })
+
+    expect(result.document.panels.right.layers.map((layer) => layer.id)).toEqual(['on-v1-left'])
+    expect(result.document.panels.left.layers.map((layer) => layer.id)).toEqual(['on-v1-right'])
+    // Same physical sleeve, same atlas position.
+    expect(panelPointToUv({ panel: 'left', x: 0.4, y: 0.6 })).toEqual(
+      panelPointToUv({ panel: TEE_CREW_SHORT_V1.regions.right.renderPanel, x: 0.4, y: 0.6 }),
+    )
   })
 
   test('preserves visible placement on the atlas', async () => {
