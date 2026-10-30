@@ -83,3 +83,22 @@ The adapter has three outcomes:
 Placement (`x`, `y`, `scale`, `rotation`) copies across unchanged, so `panelPointToUv` gives the same atlas position before and after import.
 
 **Never overwriting owned work.** Imports are deterministic: the same source always produces the same document, `contentHash` and `importKey`. `importKey` is a UUID (version-8 layout) derived from the SHA-256 of the original. Pass it as the `mutation_key` to `flp_create_design`, and a repeated import returns the design it already made, instead of creating a duplicate or overwriting anything. `backup` holds the exact original input so that it can be kept alongside the import.
+
+## Editor commands and the interim render projection (E01 #152)
+
+`src/lib/canonical-commands.ts` defines the editor's v2 command stack.
+- **Commands:**
+  - add or remove strokes, and clear a single paint layer;
+  - add, update, move, copy or remove layers;
+  - set the base.
+- **Purity:** commands are pure, and the caller supplies any new IDs.
+- **Strict results:** every result must pass `validateCanonicalDocument`. An invalid result is rejected and leaves the stack unchanged, with no clamping, and a layer can only be patched with fields its kind allows.
+- **History:** at most 100 undo steps; E09 needs at least 50.
+- **Revisions:** `revision` increases on every change, undo and redo included, and loading a document drops history but keeps revisions increasing. The editor, renderer, history and save controller key on it.
+
+`src/lib/render-projection.ts` is the **only** v2 → v1 conversion. It feeds the existing atlas, paint canvas and layer UI until R01 #164 renders from v2 directly.
+- Panels map through the template manifest (`canonicalPanel` and `renderPanel`).
+- Images need an `assetSources` map; one without a source is reported in `missingAssets` and not drawn.
+- Known gaps until R01/E10: the stripe/check period, brush and layer opacity, and image aspect (v1 stamps images square).
+
+A test checks that a legacy design imported and then projected puts every supported layer and stroke back at the same atlas position.
