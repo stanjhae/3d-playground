@@ -10,6 +10,7 @@ import {
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
   prepareContent,
+  uploadedAssetReferences,
 } from './contract'
 
 const KEY = '8b0f6f6e-3c1d-4f7a-9a52-2f1c5b7e9d10'
@@ -135,5 +136,23 @@ describe('apiErrorFromDatabase', () => {
 
   test('does not describe unknown database failures', () => {
     expect(apiErrorFromDatabase({ code: '23505', message: 'duplicate key' })).toBeNull()
+  })
+})
+
+describe('uploadedAssetReferences', () => {
+  test('lists uploaded image ids with their paths and skips library graphics', () => {
+    const document = structuredClone(GOLDEN_DOCUMENT)
+    const library = structuredClone(document.panels.front.layers[1]!)
+
+    if (library.kind === 'image') {
+      library.id = 'image-library'
+      library.assetId = 'asset_lib_crest'
+    }
+
+    document.panels.back.layers.push(library)
+
+    expect(uploadedAssetReferences({ document })).toEqual([
+      { assetId: 'asset_3f9a1c22b7', path: '$.panels.front.layers[1].assetId' },
+    ])
   })
 })
