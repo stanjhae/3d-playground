@@ -32,10 +32,10 @@ function withText({ text }: { text: string }): CanonicalDocument {
 }
 
 describe.skipIf(!env)('FLP design API against local Supabase', () => {
+  // Vitest still runs this body to collect tests when the suite is skipped,
+  // so nothing here may touch the env until beforeAll.
   const serverEnv = env as FlpServerEnv
-  const admin = createClient(serverEnv.url, serverEnv.secretKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  let admin: SupabaseClient
   const accounts: Account[] = []
   let a: Account
   let b: Account
@@ -102,6 +102,9 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
   }
 
   beforeAll(async () => {
+    admin = createClient(serverEnv.url, serverEnv.secretKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
     a = await account({ label: 'a' })
     b = await account({ label: 'b' })
 
