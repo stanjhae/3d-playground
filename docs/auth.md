@@ -31,9 +31,13 @@ Logic is in `src/lib/auth/` (`code-flow.ts`, `return-path.ts`, `session-store.ts
 - A different account signing in resets the editor. An explicit **Sign out** also resets it.
 - Expiry keeps the open design in memory and sends the browser to sign-in, so the same account can pick up where it left off.
 
-## The `VITE_FLP_REQUIRE_AUTH` flag
+## Sign-in required by default
 
-When it is `true`, `/create` requires a session (a route guard plus `RequireSession` for expiry mid-edit), and **Publish refuses** without a session instead of posting as a guest. It defaults to `false` until My Studio (#149) and cloud save (#172) exist; turning it on earlier only blocks the demo. To try it locally: `VITE_FLP_REQUIRE_AUTH=true pnpm dev`.
+Wherever Supabase is configured, `/create` and `/studio` require a session (A05 #149):
+- After sign-in the browser goes to **My Studio** (`/studio`). Signed-in `/create` without `cloud=` or a board remix (`design=`) redirects there.
+- Publishing refuses without a session, and a cloud design can only publish once it shows **Saved to cloud**.
+- `VITE_FLP_REQUIRE_AUTH=false` opts out, for a guest-only demo build.
+- Deploys without Supabase env vars, such as today's Vercel production, keep the guest studio.
 
 ## Known gaps (tracked)
 
@@ -49,4 +53,6 @@ cp .env.example .env.local
 VITE_FLP_REQUIRE_AUTH=true pnpm dev
 ```
 
-Copy `PUBLISHABLE_KEY` from `supabase start` into `.env.local` before starting the dev server. Open `/create` and you are sent to sign-in. Request a code, then read it in Mailpit at http://127.0.0.1:54324.
+Copy `PUBLISHABLE_KEY` from `supabase start` into `.env.local` before starting the dev server. Open `/studio` and you are sent to sign-in. Request a code, then read it in Mailpit at http://127.0.0.1:54324.
+
+**Run the Supabase CLI only from the main checkout.** If `supabase start`, `db reset` or `test db` runs from another worktree, Kong serves the email templates from that folder. Once the folder is gone, sign-in emails silently fall back to the default **magic link**. To fix it, run `supabase stop && supabase start` from the main checkout.

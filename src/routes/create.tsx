@@ -23,6 +23,7 @@ import {
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
 import { RequireSession } from '../components/auth/RequireSession'
+import { CloudSaveStatus, useCloudAutosave } from '../components/editor/CloudSave'
 import { waitForSession } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { isCanonicalGarment } from '../lib/concept-flags'
@@ -117,6 +118,7 @@ function AtelierHome() {
   const [remixStatus, setRemixStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'missing' | 'error'
   >('idle')
+  useCloudAutosave()
   const [cloudStatus, setCloudStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'missing' | 'unsupported' | 'error'
   >('idle')
@@ -246,7 +248,12 @@ function AtelierHome() {
   }, [entryHem, entryNeck, entrySleeve, setStructural])
 
   useEffect(() => {
-    if (search.step === createStep) {
+    // Compare with the store's current step, not this render's: the entry
+    // effect above may have just applied ?step=, and a stale value here
+    // made the two effects rewrite each other forever (frozen studio).
+    const current = useEditorStore.getState().createStep
+
+    if (search.step === current) {
       return
     }
 
@@ -254,7 +261,7 @@ function AtelierHome() {
       to: '/create',
       search: (previous) => ({
         ...previous,
-        step: createStep,
+        step: current,
       }),
       replace: true,
     })
@@ -395,6 +402,7 @@ function AtelierHome() {
           {mode === 'design' ? (
             <GownCredit garmentId={garmentId} />
           ) : null}
+          {cloudStatus === 'loaded' ? <CloudSaveStatus /> : null}
           {cloudStatus === 'loading' ? (
             <p className="font-body text-sm text-flv-muted">Opening your design…</p>
           ) : null}

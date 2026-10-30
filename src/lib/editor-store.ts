@@ -535,6 +535,11 @@ const INITIAL_EDITOR_STATE = {
   baseFinishId: 'matte' as BaseFinishId,
 }
 
+/** The tee's canonical v2 document, for cloud saving (S04 #173). */
+export function getCanonicalDocument(): CanonicalDocument {
+  return tee.stack.document
+}
+
 export const useEditorStore = create<EditorState>()((set, get) => ({
   ...INITIAL_EDITOR_STATE,
   setMode: ({ mode }) => {

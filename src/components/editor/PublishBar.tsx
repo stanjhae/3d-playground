@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { trackAssumption } from '../../lib/assumption-events'
 import { useSessionStore } from '../../lib/auth/session-store'
+import { useCloudSaveStore } from './CloudSave'
 import { AUTH_REQUIRED } from '../../lib/auth/supabase-client'
 import { listChallenges } from '../../lib/challenges'
 import { cn } from '../../lib/cn'
@@ -199,6 +200,15 @@ export function PublishBar({
           useSessionStore.getState().status !== 'signed-in'
         ) {
           setInkError(HOUSE_COPY.signInToPublish)
+          return
+        }
+
+        // Local-only work cannot publish (PRD 6.1): wait for the cloud save.
+        if (
+          useEditorStore.getState().cloud &&
+          useCloudSaveStore.getState().state?.status !== 'saved'
+        ) {
+          setInkError(HOUSE_COPY.saveBeforePublish)
           return
         }
 
