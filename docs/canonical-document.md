@@ -54,10 +54,31 @@ sha256:e081116ffc8971eccb2c8b466f21bf289306bbec33a906e6bd173fc542843b56
 
 Any visible content edit changes the hash. `shasum -a 256` over the serialized bytes produces the same digest, so the hash does not depend on JavaScript.
 
-## Notes for the v1 import adapter (F06 #141)
+## Legacy v1 import (F06 #141)
 
-- Points, `scale` and `rotation` keep the same numeric meaning as v1, so they copy across without conversion. Only the containers change: per-layer `panel` becomes `panels.<id>.layers`, and per-stroke `panel` moves into a paint layer on that panel.
-- v1 `graphic.src` (a data URL or library path) must first become an uploaded asset (S01 #170). Legacy graphics get `aspect: 1`, which reproduces how they look today.
-- v1 stroke pressure (`p`) is dropped. The renderer's default pressure of 0.7 is what v1 strokes without pressure already used.
-- v1 `pattern` layers and locked `art` layers have no v2 equivalent. The adapter must report them rather than drop them silently.
-- The F04 merge (#216) first documented y-down, degrees and panel-relative scale. Nothing ever persisted v2 documents, so F05 corrected these in place to match the renderer without bumping `schemaVersion`.
+`importLegacyDesign` in `src/lib/legacy-import.ts` reads a v1 document, an editor draft (`flv:draft:current`) or a snapshot (`flv:draft:mornings`). It never uses the permissive v1 parsers. Cloud saves accept only `validateCanonicalDocument`, and every import result passes it.
+
+The adapter has three outcomes:
+- **`warnings`:** content was imported, but something about it changed.
+- **`unsupported`:** content was left out, each item with a path.
+- **Rejection:** `corrupt`, `already-v2`, `unsupported-garment`, or `invalid` (the converted result failed v2 validation, for example because of duplicate IDs).
+
+| v1 | v2 | Outcome |
+| --- | --- | --- |
+| `garmentId: 'tee'` | template `tee-crew-short@1` | Any other garment is rejected (`unsupported-garment`) |
+| `garmentVersion` other than 2 | current template | Warning |
+| `structural` other than neck `crew` and sleeve `short` | — | Unsupported |
+| First `overrides[].color` | `base: solid` | Warning that names the material. Other part colors, `mapId`, `roughness` and `metalness` are unsupported. |
+| Panel `sleeve` (before four panels) | `left` | Warning. **Documented mapping:** v1 had one sleeve panel that the renderer drew on the left sleeve's UV rectangle. |
+| Paint layer | One paint layer per panel that has strokes | If the strokes span several panels, IDs get a `--<panel>` suffix |
+| Brush and eraser strokes | Same tool; points flattened to `[x, y, …]` | Pressure is dropped (warning if any point differs from 0.7, the old default). Off-panel points are clamped exactly as the old renderer clamped them (warning). |
+| `fill` stroke | — | Unsupported |
+| Graphic | `image`, `aspect: 1` | Gets a reserved `asset_legacy_<sha256(src)[0:32]>` ID and is listed in `pendingAssets` for upload (S01 #170). Tint is dropped (warning). |
+| Text | Text | All content is kept. A warning appears when it was longer than the 32 characters the old preview showed. Over 280 characters is unsupported. |
+| `scale` out of `(0, 1]`, width out of range, too many points | — | Unsupported (clamping would change the look) |
+| `rotation` | Same angle wrapped into `(−π, π]` | Lossless |
+| `pattern` layer, locked `art` layer | — | Unsupported |
+
+Placement (`x`, `y`, `scale`, `rotation`) copies across unchanged, so `panelPointToUv` gives the same atlas position before and after import.
+
+**Never overwriting owned work.** Imports are deterministic: the same source always produces the same document, `contentHash` and `importKey`. `importKey` is a UUID (version-8 layout) derived from the SHA-256 of the original. Pass it as the `mutation_key` to `flp_create_design`, and a repeated import returns the design it already made, instead of creating a duplicate or overwriting anything. `backup` holds the exact original input so that it can be kept alongside the import.
