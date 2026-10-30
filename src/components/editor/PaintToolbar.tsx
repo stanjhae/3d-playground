@@ -14,6 +14,7 @@ import {
   railFrameClass,
 } from '../../lib/studio-chrome'
 import { uploadForStudio } from '../../lib/uploaded-images'
+import { LimitMeter } from './LimitMeter'
 
 function inkWidthLabel({ width }: { width: number }) {
   if (width === INK_WIDTHS[0]) {
@@ -76,6 +77,7 @@ export function PaintToolbar({
 
   return (
     <aside className={railFrameClass()}>
+      <LimitMeter />
       {showInk ? (
         <>
           <div className="flex flex-wrap items-center gap-2">

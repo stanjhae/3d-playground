@@ -57,7 +57,9 @@ import {
   type TeeEngine,
   basePatternCommand,
   createTeeEngine,
+  limitMessage,
   loadTeeEngine,
+  overLimitNotice,
   redoTee,
   runTeeCommand,
   runTranslated,
@@ -112,6 +114,8 @@ type EditorState = {
   revision: number
   /** What the last load changed or left out (legacy import, #141). */
   importNotes: ImportNote[]
+  /** A refused command or an over-limit document, in words (#162). */
+  limitNotice: string | null
   /** The owned cloud design open in the studio, if any (A05 #149). */
   cloud: CloudContext | null
   /** Bumped by every `loadCanonical`, so autosave restarts on a reload. */
@@ -362,18 +366,18 @@ function loadEngine({
 }: {
   document: DesignDocument
   garmentId: GarmentId
-}): ImportNote[] {
+}): { importNotes: ImportNote[]; limitNotice: string | null } {
   activeGarment = garmentId
 
   if (garmentId === 'tee') {
     const loaded = loadTeeEngine({ engine: tee, document })
     tee = loaded.engine
-    return loaded.notes
+    return { importNotes: loaded.notes, limitNotice: loaded.limitNotice ?? null }
   }
 
   commandStack = stackFromDocument({ document })
   shelfCurrent({ garmentId })
-  return []
+  return { importNotes: [], limitNotice: null }
 }
 
 function shelfCurrent({ garmentId }: { garmentId: GarmentId }) {
@@ -406,6 +410,7 @@ function syncFromStack({
       revision: tee.stack.revision,
       undoCount: tee.stack.past.length,
       redoCount: tee.stack.future.length,
+      limitNotice: overLimitNotice({ document: tee.stack.document }),
       ...extra,
     }
   }
@@ -418,6 +423,7 @@ function syncFromStack({
     garmentId: document.garmentId,
     undoCount: commandStack.past.length,
     redoCount: commandStack.future.length,
+    limitNotice: null,
     ...extra,
   }
 }
@@ -430,8 +436,10 @@ function runCommand({
   extra?: Partial<EditorState>
 }) {
   if (teeActive()) {
-    tee = runTranslated({ engine: tee, command }).engine
-    return syncFromStack({ extra })
+    const step = runTranslated({ engine: tee, command })
+    tee = step.engine
+    // A refused command changes nothing else the caller meant to set.
+    return syncFromStack({ extra: step.refusal ? { limitNotice: step.refusal } : extra })
   }
 
   commandStack = applyCommand({ stack: commandStack, command })
@@ -517,6 +525,7 @@ const INITIAL_EDITOR_STATE = {
   document: teeRenderDocument({ engine: tee }),
   revision: 0,
   importNotes: [] as ImportNote[],
+  limitNotice: null as string | null,
   cloud: null as CloudContext | null,
   cloudLoad: 0,
   title: '',
@@ -706,7 +715,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   loadDesign: ({ design }) => {
     const document = documentFromDesign({ design })
     const garmentId = resolveGarmentId({ garmentId: design.garmentId })
-    const importNotes = loadEngine({ document, garmentId })
+    const loaded = loadEngine({ document, garmentId })
     const { snapshots } = rememberSnapshot({
       title: design.title,
       document,
@@ -718,7 +727,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
     set({
       ...syncFromStack(),
-      importNotes,
+      ...loaded,
       cloud: null,
       title: design.title,
       author: design.author,
@@ -921,7 +930,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
           return state
         }
 
-        tee = runTeeCommand({ engine: tee, command }).engine
+        const step = runTeeCommand({ engine: tee, command })
+
+        if (step.refusal) {
+          return syncFromStack({ extra: { limitNotice: step.refusal } })
+        }
+
+        tee = step.engine
         return syncFromStack({
           extra: {
             basePatternId: patternId,
@@ -1156,6 +1171,25 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set((state) => {
       if (!state.activeStroke) {
         return state
+      }
+
+      // A v2 stroke holds at most `pointsPerStroke` points; past that the
+      // pen stops inking until it lifts, instead of losing the stroke (#162).
+      const max = CANONICAL_LIMITS.pointsPerStroke
+
+      if (teeActive() && state.activeStroke.points.length >= max) {
+        return state.limitNotice
+          ? state
+          : {
+              limitNotice: limitMessage({
+                counter: {
+                  kind: 'points',
+                  panel: canonicalPanel({ renderPanel: state.activeStroke.panel }),
+                  used: state.activeStroke.points.length,
+                  max,
+                },
+              }),
+            }
       }
 
       const hardnessPressure =
@@ -1393,10 +1427,10 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     const resolved = resolveGarmentId({
       garmentId: garmentId ?? document.garmentId,
     })
-    const importNotes = loadEngine({ document, garmentId: resolved })
+    const loaded = loadEngine({ document, garmentId: resolved })
     set({
       ...syncFromStack(),
-      importNotes,
+      ...loaded,
       cloud: null,
       activeStroke: null,
       activeLayerEdit: null,
@@ -1467,6 +1501,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       },
     })
 
+    if (step.refusal) {
+      set({ limitNotice: step.refusal })
+      return
+    }
+
     if (!step.changed) {
       return
     }
@@ -1502,14 +1541,14 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({ snapshots })
   },
   restoreMorning: ({ snapshot }) => {
-    const importNotes = loadEngine({
+    const loaded = loadEngine({
       document: snapshot.document,
       garmentId: resolveGarmentId({ garmentId: snapshot.document.garmentId }),
     })
     set(
       syncFromStack({
         extra: {
-          importNotes,
+          ...loaded,
           cloud: null,
           activeStroke: null,
           activeLayerEdit: null,
