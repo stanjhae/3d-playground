@@ -1,8 +1,13 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 
+import type { AvatarMeasurements } from '../../lib/avatar-geometry'
 import type { DesignDocument } from '../../lib/design-document'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
+import type {
+  LandingCameraView,
+  StudioEnvMode,
+} from '../../lib/landing-demo'
 import { AvatarBody } from '../scene/AvatarBody'
 import { FashionLoader } from '../scene/FashionLoader'
 import { Garment } from '../scene/Garment'
@@ -13,11 +18,17 @@ export function LandingCloth({
   overrides,
   structural,
   document: documentProp,
+  measurements,
+  cameraView,
+  envMode = 'studio',
 }: {
   garmentId: GarmentId
   overrides: MaterialOverride[]
   structural?: DesignDocument['structural']
   document?: DesignDocument
+  measurements?: AvatarMeasurements
+  cameraView?: LandingCameraView
+  envMode?: StudioEnvMode
   /** @deprecated Kept for callers; tee always seats on the mannequin. */
   tryOn?: boolean
 }) {
@@ -36,10 +47,10 @@ export function LandingCloth({
         gl={{ antialias: true }}
         className="h-full min-h-80 w-full touch-none"
       >
-        <StudioStage>
+        <StudioStage envMode={envMode}>
           <Suspense fallback={<FashionLoader />}>
             {seatTee ? (
-              <AvatarBody>
+              <AvatarBody measurements={measurements}>
                 <Garment
                   garmentId={garmentId}
                   overrides={overrides}
@@ -59,7 +70,7 @@ export function LandingCloth({
             )}
           </Suspense>
         </StudioStage>
-        <StudioOrbit turntable />
+        <StudioOrbit turntable={!cameraView} cameraView={cameraView} />
       </Canvas>
     </div>
   )

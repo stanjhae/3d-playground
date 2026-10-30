@@ -1,11 +1,18 @@
 import { Link } from '@tanstack/react-router'
 
 import { cn } from '../../lib/cn'
-import type { Design } from '../../lib/design-schema'
+import type { Design, DesignAttachmentId } from '../../lib/design-schema'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { lookRecipe } from '../../lib/look-recipe'
 import { isSafeThumbnail } from '../../lib/look-thumbnail'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
+
+const ATTACHMENT_LABELS: Record<DesignAttachmentId, string> = {
+  garment: '3D',
+  avatar: 'Avatar',
+  shoot: 'Shoot',
+  video: 'Video',
+}
 
 export function LookCard({
   design,
@@ -73,6 +80,18 @@ export function LookCard({
                 className="rounded-full border border-flv-line px-2 py-1 font-body text-xs tracking-[0.08em] text-flv-muted uppercase"
               >
                 {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {design.attachments && design.attachments.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {design.attachments.map((attachment) => (
+              <span
+                key={attachment}
+                className="rounded-full border border-flv-accent/40 bg-flv-soft px-2 py-1 font-body text-xs tracking-[0.08em] text-flv-accent uppercase"
+              >
+                {ATTACHMENT_LABELS[attachment]}
               </span>
             ))}
           </div>

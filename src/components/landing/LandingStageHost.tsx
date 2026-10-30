@@ -1,24 +1,36 @@
 import { Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { cn } from '../../lib/cn'
-import type { HemId, NeckId, SleeveId } from '../../lib/design-document'
+import type { AvatarMeasurements } from '../../lib/avatar-geometry'
+import type { DesignDocument, HemId, NeckId, SleeveId } from '../../lib/design-document'
 import { listDesigns } from '../../lib/designs-api'
 import type { GarmentId, Design } from '../../lib/design-schema'
 import { BASE_FINISH_PRESETS } from '../../lib/editor-store'
 import { getFabricById, listFabrics } from '../../lib/fabrics'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { getGarment } from '../../lib/garments'
+import { GRAPHIC_ASSETS } from '../../lib/graphics-library'
 import { listAvatars } from '../../lib/avatars'
 import {
+  addLandingStroke,
+  applyLandingPattern,
   CANNED_STILLS,
   GARMENT_CATEGORIES,
+  LANDING_CAMERA_VIEWS,
   LANDING_PATTERN_OPTIONS,
   LANDING_TEXTURE_OPTIONS,
+  latestLandingGraphicId,
+  stampLandingGraphic,
+  updateLandingGraphicTransform,
   garmentCategory,
   listGarmentsByCategory,
   type GarmentCategoryId,
+  type LandingCameraView,
+  type LandingTextureId,
+  type StudioEnvMode,
 } from '../../lib/landing-demo'
+import { writeLandingHandoff } from '../../lib/landing-handoff'
 import {
   isCreateLandingStage,
   LANDING_STAGE_IDS,
@@ -31,32 +43,64 @@ import { INK_COLORS } from '../../lib/paint-colors'
 import { isSafeThumbnail } from '../../lib/look-thumbnail'
 import { rankDesigns } from '../../lib/rank-designs'
 
+type DocumentChangeHandler = ({
+  apply,
+}: {
+  apply: (previous: DesignDocument) => DesignDocument
+}) => void
+
 export function LandingStageHost({
   activeStage,
   garmentId,
   clothColor,
+  textureId,
   neck,
   hem,
   sleeve,
+  document: designDocument,
+  measurements,
+  envMode,
   onStageChange,
   onGarmentChange,
   onColorChange,
+  onTextureChange,
   onNeckChange,
   onHemChange,
   onSleeveChange,
+  onDocumentChange,
+  onMeasurementsChange,
+  onEnvModeChange,
+  onCameraViewChange,
 }: {
   activeStage: LandingStageId
   garmentId: GarmentId
   clothColor: string
+  textureId: LandingTextureId
   neck: NeckId
   hem: HemId
   sleeve: SleeveId
+  document: DesignDocument
+  measurements: AvatarMeasurements
+  envMode: StudioEnvMode
   onStageChange: ({ stage }: { stage: LandingStageId }) => void
   onGarmentChange: ({ garmentId }: { garmentId: GarmentId }) => void
   onColorChange: ({ color }: { color: string }) => void
+  onTextureChange: ({ textureId }: { textureId: LandingTextureId }) => void
   onNeckChange: ({ neck }: { neck: NeckId }) => void
   onHemChange: ({ hem }: { hem: HemId }) => void
   onSleeveChange: ({ sleeve }: { sleeve: SleeveId }) => void
+  onDocumentChange: DocumentChangeHandler
+  onMeasurementsChange: ({
+    measurements,
+  }: {
+    measurements: AvatarMeasurements
+  }) => void
+  onEnvModeChange: ({ envMode }: { envMode: StudioEnvMode }) => void
+  onCameraViewChange: ({
+    cameraView,
+  }: {
+    cameraView: LandingCameraView
+  }) => void
 }) {
   const title = landingStageTitle({ stage: activeStage })
   const lead = landingStageLead({ stage: activeStage })
@@ -64,7 +108,6 @@ export function LandingStageHost({
     garmentCategory({ garmentId }),
   )
   const [patternId, setPatternId] = useState('solid')
-  const [textureId, setTextureId] = useState('standard')
   const [finishId, setFinishId] = useState<
     (typeof BASE_FINISH_PRESETS)[number]['id']
   >(BASE_FINISH_PRESETS[0]!.id)
@@ -102,6 +145,17 @@ export function LandingStageHost({
     }
   }, [])
 
+  function persistHandoff() {
+    writeLandingHandoff({
+      garmentId,
+      document: designDocument,
+      color: clothColor,
+      neck,
+      hem,
+      sleeve,
+    })
+  }
+
   return (
     <section
       id="product-stages"
@@ -133,11 +187,11 @@ export function LandingStageHost({
       <div className="flex flex-col gap-2">
         <h2 className="font-display text-3xl text-flv-ink">{title}</h2>
         <p className="max-w-2xl font-body text-sm text-flv-muted">{lead}</p>
+        <p className="font-body text-xs text-flv-muted">
+          Live 3D updates in the hero stage above.
+        </p>
       </div>
-      <div
-        key={activeStage}
-        className="flv-stage-enter"
-      >
+      <div key={activeStage} className="flv-stage-enter">
         {activeStage === 'select' ? (
           <SelectDemo
             category={category}
@@ -211,26 +265,71 @@ export function LandingStageHost({
             onColorChange={onColorChange}
             onPatternChange={({ patternId: next }) => {
               setPatternId(next)
+              onDocumentChange({
+                apply: (previous) =>
+                  applyLandingPattern({
+                    document: previous,
+                    patternId: next as
+                      | 'solid'
+                      | 'stripe'
+                      | 'check'
+                      | 'gradient',
+                    color: clothColor,
+                  }),
+              })
             }}
-            onTextureChange={({ textureId: next }) => {
-              setTextureId(next)
-            }}
+            onTextureChange={onTextureChange}
             onFinishChange={({ finishId: next }) => {
               setFinishId(next as (typeof BASE_FINISH_PRESETS)[number]['id'])
+              const nextFinish = BASE_FINISH_PRESETS.find(
+                (entry) => entry.id === next,
+              )
+              const fabric =
+                getFabricById({ id: nextFinish?.fabricId ?? 'cotton' }) ??
+                listFabrics()[0]
+              if (fabric) {
+                onColorChange({ color: fabric.color })
+              }
             }}
           />
         ) : null}
-        {activeStage === 'design' ? <DesignDemo /> : null}
+        {activeStage === 'design' ? (
+          <DesignDemo
+            document={designDocument}
+            onDocumentChange={onDocumentChange}
+            onCameraViewChange={onCameraViewChange}
+          />
+        ) : null}
         {activeStage === 'preview' ? (
           <PreviewDemo
             avatars={avatars}
             avatarId={selectedAvatar?.id ?? ''}
+            measurements={measurements}
+            envMode={envMode}
             onAvatarChange={({ avatarId: next }) => {
               setAvatarId(next)
+              const avatar = avatars.find((entry) => entry.id === next)
+              if (avatar) {
+                onMeasurementsChange({
+                  measurements: {
+                    height: avatar.heightCm,
+                    chest: avatar.chestCm,
+                    waist: avatar.waistCm,
+                  },
+                })
+              }
+            }}
+            onMeasurementsChange={onMeasurementsChange}
+            onEnvModeChange={onEnvModeChange}
+          />
+        ) : null}
+        {activeStage === 'share' ? (
+          <ShareDemo
+            onBeforeStudioNavigate={() => {
+              persistHandoff()
             }}
           />
         ) : null}
-        {activeStage === 'share' ? <ShareDemo /> : null}
         {activeStage === 'vote' ? <CommunityDemo looks={boardLooks} /> : null}
       </div>
       {isCreateLandingStage(activeStage) ? (
@@ -243,6 +342,9 @@ export function LandingStageHost({
             neck,
             hem,
             sleeve,
+          }}
+          onClick={() => {
+            persistHandoff()
           }}
           className="flv-cta inline-flex min-h-12 w-fit items-center px-6 font-body text-xs tracking-[0.12em] uppercase"
         >
@@ -359,13 +461,13 @@ function ColorDemo({
 }: {
   clothColor: string
   patternId: string
-  textureId: string
+  textureId: LandingTextureId
   finishId: string
   fabricName: string
   fabricColor: string
   onColorChange: ({ color }: { color: string }) => void
   onPatternChange: ({ patternId }: { patternId: string }) => void
-  onTextureChange: ({ textureId }: { textureId: string }) => void
+  onTextureChange: ({ textureId }: { textureId: LandingTextureId }) => void
   onFinishChange: ({ finishId }: { finishId: string }) => void
 }) {
   const activeInk =
@@ -523,31 +625,91 @@ function ColorDemo({
   )
 }
 
-function DesignDemo() {
+function DesignDemo({
+  document: designDocument,
+  onDocumentChange,
+  onCameraViewChange,
+}: {
+  document: DesignDocument
+  onDocumentChange: DocumentChangeHandler
+  onCameraViewChange: ({
+    cameraView,
+  }: {
+    cameraView: LandingCameraView
+  }) => void
+}) {
   const tools = ['Brush', 'Eraser', 'Fill'] as const
-  const sides = ['Front', 'Back', 'Left', 'Right'] as const
-  const layerNames = [
-    'Base Garment',
-    'Front Sketch',
-    'Cross',
-    'Flames',
-    'Logo',
-  ] as const
+  const stampAssets = GRAPHIC_ASSETS.slice(0, 6)
   const [tool, setTool] = useState<(typeof tools)[number]>('Brush')
   const [size, setSize] = useState(24)
   const [opacity, setOpacity] = useState(100)
-  const [flow, setFlow] = useState(80)
   const [ink, setInk] = useState(INK_COLORS[0]!.value)
-  const [activeLayer, setActiveLayer] = useState(2)
-  const [visibleLayers, setVisibleLayers] = useState(() =>
-    layerNames.map(() => true),
+  const [activeGraphicId, setActiveGraphicId] = useState<string | null>(
+    latestLandingGraphicId({ document: designDocument }),
   )
-  const [side, setSide] = useState<(typeof sides)[number]>('Front')
-  const [posX, setPosX] = useState(42)
-  const [posY, setPosY] = useState(38)
-  const [scale, setScale] = useState(64)
-  const previewStill =
-    CANNED_STILLS[sides.indexOf(side) % CANNED_STILLS.length]!
+  const strokePoints = useRef<{ x: number; y: number }[]>([])
+  const drawing = useRef(false)
+  const graphicCount = designDocument.layers.filter(
+    (layer) => layer.kind === 'graphic',
+  ).length
+
+  useEffect(() => {
+    setActiveGraphicId(latestLandingGraphicId({ document: designDocument }))
+  }, [designDocument, graphicCount])
+
+  function pointerToUv({
+    event,
+  }: {
+    event: ReactPointerEvent<HTMLCanvasElement>
+  }) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    return {
+      x: Math.min(1, Math.max(0, (event.clientX - rect.left) / Math.max(1, rect.width))),
+      y: Math.min(1, Math.max(0, (event.clientY - rect.top) / Math.max(1, rect.height))),
+    }
+  }
+
+  function clearPad({ canvas }: { canvas: HTMLCanvasElement }) {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      return
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }
+
+  function commitTransform({
+    x,
+    y,
+    scale,
+  }: {
+    x?: number
+    y?: number
+    scale?: number
+  }) {
+    const layerId =
+      activeGraphicId ?? latestLandingGraphicId({ document: designDocument })
+    if (!layerId) {
+      return
+    }
+
+    onDocumentChange({
+      apply: (previous) =>
+        updateLandingGraphicTransform({
+          document: previous,
+          layerId,
+          x,
+          y,
+          scale,
+        }),
+    })
+  }
+
+  const activeGraphic = designDocument.layers.find(
+    (layer) => layer.kind === 'graphic' && layer.id === activeGraphicId,
+  )
+  const posX = Math.round(((activeGraphic && 'x' in activeGraphic ? activeGraphic.x : 0.5) as number) * 100)
+  const posY = Math.round(((activeGraphic && 'y' in activeGraphic ? activeGraphic.y : 0.48) as number) * 100)
+  const scale = Math.round(((activeGraphic && 'scale' in activeGraphic ? activeGraphic.scale : 0.28) as number) * 100)
 
   return (
     <div className="relative grid gap-4 lg:grid-cols-3">
@@ -611,22 +773,6 @@ function DesignDemo() {
             className="accent-[var(--color-flv-accent)]"
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="flex justify-between font-body text-xs text-flv-muted">
-            <span>Flow</span>
-            <span>{flow}%</span>
-          </span>
-          <input
-            type="range"
-            min={10}
-            max={100}
-            value={flow}
-            onChange={(event) => {
-              setFlow(Number(event.target.value))
-            }}
-            className="accent-[var(--color-flv-accent)]"
-          />
-        </label>
         <div className="flex flex-wrap gap-2">
           {INK_COLORS.slice(0, 5).map((color) => (
             <button
@@ -645,88 +791,106 @@ function DesignDemo() {
             />
           ))}
         </div>
-        <div
-          className="relative aspect-[4/5] overflow-hidden rounded-xl border border-flv-line"
-          style={{ backgroundColor: 'var(--color-flv-line)' }}
-        >
-          <div
-            className="absolute rounded-full"
-            style={{
-              width: size,
-              height: size,
-              left: `${posX}%`,
-              top: `${posY}%`,
-              opacity: opacity / 100,
-              backgroundColor: ink,
-              transform: 'translate(-50%, -50%)',
-            }}
-          />
-          <p className="absolute right-2 bottom-2 font-body text-[0.65rem] text-flv-muted uppercase">
-            {tool}
-          </p>
-        </div>
-        <div className="flex flex-col gap-1">
-          {layerNames.map((name, index) => (
-            <div
-              key={name}
-              className="flex items-center gap-2"
-            >
-              <button
-                type="button"
-                aria-pressed={visibleLayers[index]}
-                onClick={() => {
-                  setVisibleLayers((current) =>
-                    current.map((visible, layerIndex) =>
-                      layerIndex === index ? !visible : visible,
-                    ),
-                  )
-                }}
-                className="min-h-8 min-w-8 rounded border border-flv-line font-body text-xs text-flv-muted"
-              >
-                {visibleLayers[index] ? '◉' : '○'}
-              </button>
-              <button
-                type="button"
-                aria-pressed={activeLayer === index}
-                onClick={() => {
-                  setActiveLayer(index)
-                }}
-                className={cn(
-                  'min-h-8 flex-1 rounded-lg border px-2 text-left font-body text-xs',
-                  {
-                    'border-flv-accent text-flv-accent': activeLayer === index,
-                    'border-flv-line text-flv-muted': activeLayer !== index,
-                  },
-                )}
-              >
-                {name}
-              </button>
-            </div>
-          ))}
-        </div>
+        <canvas
+          aria-label="Design draw pad"
+          className="aspect-[4/5] w-full touch-none rounded-xl border border-flv-line bg-flv-soft"
+          width={240}
+          height={300}
+          onPointerDown={(event) => {
+            drawing.current = true
+            event.currentTarget.setPointerCapture(event.pointerId)
+            strokePoints.current = [pointerToUv({ event })]
+          }}
+          onPointerMove={(event) => {
+            if (!drawing.current) {
+              return
+            }
+            strokePoints.current = [
+              ...strokePoints.current,
+              pointerToUv({ event }),
+            ]
+            const ctx = event.currentTarget.getContext('2d')
+            if (!ctx || strokePoints.current.length < 2) {
+              return
+            }
+            const [from, to] = strokePoints.current.slice(-2)
+            if (!from || !to) {
+              return
+            }
+            ctx.strokeStyle = tool === 'Eraser' ? '#f3efe6' : ink
+            ctx.globalAlpha = opacity / 100
+            ctx.lineWidth = Math.max(2, size / 4)
+            ctx.lineCap = 'round'
+            ctx.beginPath()
+            ctx.moveTo(from.x * event.currentTarget.width, from.y * event.currentTarget.height)
+            ctx.lineTo(to.x * event.currentTarget.width, to.y * event.currentTarget.height)
+            ctx.stroke()
+          }}
+          onPointerUp={(event) => {
+            if (!drawing.current) {
+              return
+            }
+            drawing.current = false
+            const points = strokePoints.current
+            strokePoints.current = []
+            clearPad({ canvas: event.currentTarget })
+            if (points.length === 0) {
+              return
+            }
+            onDocumentChange({
+              apply: (previous) =>
+                addLandingStroke({
+                  document: previous,
+                  points,
+                  color: tool === 'Eraser' ? '#ffffff' : ink,
+                  width: size / 400,
+                  tool,
+                  opacity: opacity / 100,
+                  panel: 'front',
+                }),
+            })
+          }}
+        />
+        <p className="font-body text-xs text-flv-muted">
+          {FLV_COPY.designLiveSync}
+        </p>
       </article>
       <article className="flv-panel flex flex-col gap-3 p-4">
         <h3 className="font-display text-lg text-flv-ink">
           {FLV_COPY.designLayerTech}
         </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {sides.map((entry) => (
+        <div className="grid grid-cols-3 gap-2">
+          {stampAssets.map((asset) => (
             <button
-              key={entry}
+              key={asset.id}
               type="button"
-              aria-pressed={side === entry}
               onClick={() => {
-                setSide(entry)
+                onDocumentChange({
+                  apply: (previous) =>
+                    stampLandingGraphic({
+                      document: previous,
+                      src: asset.src,
+                      panel: 'front',
+                    }),
+                })
               }}
-              className={cn(
-                'flex aspect-square items-end rounded-xl border p-2 font-body text-xs uppercase',
-                {
-                  'border-flv-accent text-flv-accent': side === entry,
-                  'border-flv-line text-flv-muted': side !== entry,
-                },
-              )}
+              className="flex aspect-square items-center justify-center rounded-lg border border-flv-line bg-white p-2 hover:border-flv-accent"
             >
-              {entry}
+              <img src={asset.src} alt={asset.label} className="max-h-full max-w-full object-contain" />
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {LANDING_CAMERA_VIEWS.map((view) => (
+            <button
+              key={view}
+              type="button"
+              onClick={() => {
+                onCameraViewChange({ cameraView: view })
+              }}
+              className="flex aspect-square items-end rounded-xl border border-flv-line p-2 font-body text-xs text-flv-muted uppercase hover:border-flv-accent hover:text-flv-accent"
+            >
+              {view}
             </button>
           ))}
         </div>
@@ -741,7 +905,7 @@ function DesignDemo() {
             max={90}
             value={posX}
             onChange={(event) => {
-              setPosX(Number(event.target.value))
+              commitTransform({ x: Number(event.target.value) / 100 })
             }}
             className="accent-[var(--color-flv-accent)]"
           />
@@ -757,7 +921,7 @@ function DesignDemo() {
             max={90}
             value={posY}
             onChange={(event) => {
-              setPosY(Number(event.target.value))
+              commitTransform({ y: Number(event.target.value) / 100 })
             }}
             className="accent-[var(--color-flv-accent)]"
           />
@@ -769,11 +933,11 @@ function DesignDemo() {
           </span>
           <input
             type="range"
-            min={20}
-            max={100}
+            min={12}
+            max={60}
             value={scale}
             onChange={(event) => {
-              setScale(Number(event.target.value))
+              commitTransform({ scale: Number(event.target.value) / 100 })
             }}
             className="accent-[var(--color-flv-accent)]"
           />
@@ -784,51 +948,37 @@ function DesignDemo() {
           <h3 className="font-display text-lg text-flv-ink">
             {FLV_COPY.designLayerPreview}
           </h3>
-          <div className="flex gap-1">
-            {sides.map((entry) => (
+          <span className="flv-live-badge">⚡ {FLV_COPY.designLive}</span>
+        </div>
+        <p className="font-body text-xs text-flv-muted">
+          {FLV_COPY.designLiveSync} · graphics {graphicCount} · ink layers live on hero 3D
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {designDocument.layers
+            .filter((layer) => layer.kind === 'graphic')
+            .slice(-4)
+            .map((layer) => (
               <button
-                key={entry}
+                key={layer.id}
                 type="button"
-                aria-pressed={side === entry}
+                aria-pressed={activeGraphicId === layer.id}
                 onClick={() => {
-                  setSide(entry)
+                  setActiveGraphicId(layer.id)
                 }}
                 className={cn(
-                  'min-h-8 rounded-full border px-2 font-body text-[0.6rem] uppercase',
+                  'flex aspect-square items-center justify-center rounded-lg border bg-white p-2',
                   {
-                    'border-flv-accent text-flv-accent': side === entry,
-                    'border-flv-line text-flv-muted': side !== entry,
+                    'border-flv-accent': activeGraphicId === layer.id,
+                    'border-flv-line': activeGraphicId !== layer.id,
                   },
                 )}
               >
-                {entry[0]}
+                {'src' in layer ? (
+                  <img src={layer.src} alt="" className="max-h-full max-w-full object-contain" />
+                ) : null}
               </button>
             ))}
-          </div>
         </div>
-        <div className="relative aspect-[4/5] overflow-hidden rounded-xl border border-flv-line">
-          <img
-            src={previewStill}
-            alt=""
-            className="size-full object-cover"
-            style={{ opacity: visibleLayers[activeLayer] ? 1 : 0.35 }}
-          />
-          <div
-            className="absolute rounded border-2 border-flv-accent"
-            style={{
-              width: `${scale * 0.4}%`,
-              height: `${scale * 0.4}%`,
-              left: `${posX}%`,
-              top: `${posY}%`,
-              transform: 'translate(-50%, -50%)',
-              backgroundColor: ink,
-              opacity: opacity / 100,
-            }}
-          />
-        </div>
-        <p className="font-body text-xs text-flv-muted">
-          {FLV_COPY.designLiveSync} · {layerNames[activeLayer]} · {side}
-        </p>
       </article>
     </div>
   )
@@ -837,33 +987,35 @@ function DesignDemo() {
 function PreviewDemo({
   avatars,
   avatarId,
+  measurements,
+  envMode,
   onAvatarChange,
+  onMeasurementsChange,
+  onEnvModeChange,
 }: {
   avatars: ReturnType<typeof listAvatars>
   avatarId: string
+  measurements: AvatarMeasurements
+  envMode: StudioEnvMode
   onAvatarChange: ({ avatarId }: { avatarId: string }) => void
+  onMeasurementsChange: ({
+    measurements,
+  }: {
+    measurements: AvatarMeasurements
+  }) => void
+  onEnvModeChange: ({ envMode }: { envMode: StudioEnvMode }) => void
 }) {
   const selected =
     avatars.find((avatar) => avatar.id === avatarId) ?? avatars[0]
-  const [heightCm, setHeightCm] = useState(selected?.heightCm ?? 180)
-  const [chestCm, setChestCm] = useState(selected?.chestCm ?? 102)
-  const [waistCm, setWaistCm] = useState(selected?.waistCm ?? 80)
-
-  useEffect(() => {
-    if (!selected) {
-      return
-    }
-
-    setHeightCm(selected.heightCm)
-    setChestCm(selected.chestCm)
-    setWaistCm(selected.waistCm)
-  }, [selected])
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
       <div className="flv-panel flex flex-col gap-3 p-4">
         <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
           {FLV_COPY.previewLive}
+        </p>
+        <p className="font-body text-xs text-flv-muted">
+          Avatar and measurements update the hero 3D stage above.
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {avatars.map((avatar) => (
@@ -894,36 +1046,64 @@ function PreviewDemo({
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Environment">
+          {(['studio', 'outdoor'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="radio"
+              aria-checked={envMode === mode}
+              onClick={() => {
+                onEnvModeChange({ envMode: mode })
+              }}
+              className={cn(
+                'min-h-9 rounded-full border px-3 font-body text-xs uppercase',
+                {
+                  'border-flv-accent text-flv-accent': envMode === mode,
+                  'border-flv-line text-flv-muted': envMode !== mode,
+                },
+              )}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
       </div>
       <aside className="flv-panel flex flex-col gap-3 p-4">
         <MeasurementSlider
           label="Height"
-          value={heightCm}
+          value={measurements.height}
           unit="cm"
           min={150}
           max={200}
           onChange={({ value }) => {
-            setHeightCm(value)
+            onMeasurementsChange({
+              measurements: { ...measurements, height: value },
+            })
           }}
         />
         <MeasurementSlider
           label="Chest"
-          value={chestCm}
+          value={measurements.chest}
           unit="cm"
           min={80}
           max={120}
           onChange={({ value }) => {
-            setChestCm(value)
+            onMeasurementsChange({
+              measurements: { ...measurements, chest: value },
+            })
           }}
         />
         <MeasurementSlider
           label="Waist"
-          value={waistCm}
+          value={measurements.waist}
           unit="cm"
           min={60}
           max={110}
           onChange={({ value }) => {
-            setWaistCm(value)
+            onMeasurementsChange({
+              measurements: { ...measurements, waist: value },
+            })
           }}
         />
         <button
@@ -933,9 +1113,13 @@ function PreviewDemo({
               return
             }
 
-            setHeightCm(selected.heightCm)
-            setChestCm(selected.chestCm)
-            setWaistCm(selected.waistCm)
+            onMeasurementsChange({
+              measurements: {
+                height: selected.heightCm,
+                chest: selected.chestCm,
+                waist: selected.waistCm,
+              },
+            })
           }}
           className="min-h-10 rounded-full border border-flv-line px-3 font-body text-xs text-flv-muted uppercase hover:border-flv-accent hover:text-flv-accent"
         >
@@ -984,7 +1168,11 @@ function MeasurementSlider({
   )
 }
 
-function ShareDemo() {
+function ShareDemo({
+  onBeforeStudioNavigate,
+}: {
+  onBeforeStudioNavigate?: () => void
+}) {
   const angles = ['Front', '3/4', 'Back'] as const
   const methods = ['Draw', 'Tech', 'Combined'] as const
   const visibilityOptions = ['Public', 'Private', 'Unlisted'] as const
@@ -1108,6 +1296,9 @@ function ShareDemo() {
         <Link
           to="/create"
           search={{ step: 'share' }}
+          onClick={() => {
+            onBeforeStudioNavigate?.()
+          }}
           className="flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-xs tracking-[0.1em] uppercase"
         >
           {FLV_COPY.sharePublish} →

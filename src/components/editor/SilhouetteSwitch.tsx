@@ -11,7 +11,10 @@ import {
   GARMENT_CATEGORIES,
   garmentCategory,
   listGarmentsByCategory,
+  sampleSizeMeasurements,
+  SAMPLE_SIZE_IDS,
   type GarmentCategoryId,
+  type SampleSizeId,
 } from '../../lib/landing-demo'
 import { nextCreateStep } from '../../lib/create-steps'
 import {
@@ -29,8 +32,6 @@ const SAMPLE_COLORS = [
   '#5c6b4a',
   '#1e2a44',
 ] as const
-
-const SAMPLE_SIZES = ['XS', 'S', 'M', 'L', 'XL'] as const
 
 const FIT_LABEL: Partial<Record<GarmentId, string>> = {
   tee: FLV_COPY.selectFitOversized,
@@ -91,6 +92,9 @@ export function SilhouetteSwitch({
   const applyBaseColor = useEditorStore((state) => state.applyBaseColor)
   const setCreateStep = useEditorStore((state) => state.setCreateStep)
   const createStep = useEditorStore((state) => state.createStep)
+  const setAvatarMeasurements = useEditorStore(
+    (state) => state.setAvatarMeasurements,
+  )
   const current = resolveGarmentId({ garmentId: garmentId ?? storeId })
   const credit = garmentCredit({ garmentId: current })
   const canPaint = garmentCanPaint({ garmentId: current })
@@ -98,7 +102,7 @@ export function SilhouetteSwitch({
     garmentCategory({ garmentId: current }),
   )
   const [sampleColor, setSampleColor] = useState<string>(SAMPLE_COLORS[0])
-  const [sampleSize, setSampleSize] = useState<(typeof SAMPLE_SIZES)[number]>('L')
+  const [sampleSize, setSampleSize] = useState<SampleSizeId>('L')
   const garments = listGarmentsByCategory({ category })
   const selected =
     garments.find((garment) => garment.id === current) ?? garments[0]
@@ -218,7 +222,7 @@ export function SilhouetteSwitch({
               <ConceptPreviewBadge />
             </div>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={FLV_COPY.selectSampleSize}>
-              {SAMPLE_SIZES.map((size) => (
+              {SAMPLE_SIZE_IDS.map((size) => (
                 <button
                   key={size}
                   type="button"
@@ -226,6 +230,9 @@ export function SilhouetteSwitch({
                   aria-checked={sampleSize === size}
                   onClick={() => {
                     setSampleSize(size)
+                    setAvatarMeasurements({
+                      measurements: sampleSizeMeasurements({ size }),
+                    })
                   }}
                   className={cn(
                     'min-h-10 min-w-10 border px-2',
