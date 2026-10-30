@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CreateRouteImport } from './routes/create'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SoonRouteImport } from './routes/soon'
 import { Route as StudioRouteImport } from './routes/studio'
@@ -26,6 +27,11 @@ const IndexRoute = IndexRouteImport.update({
 const CreateRoute = CreateRouteImport.update({
   id: '/create',
   path: '/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -62,6 +68,7 @@ const SSlugRoute = SSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
+  '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
+  '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
+  '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/create'
+    | '/privacy'
     | '/sign-in'
     | '/soon'
     | '/studio'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/create'
+    | '/privacy'
     | '/sign-in'
     | '/soon'
     | '/studio'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/create'
+    | '/privacy'
     | '/sign-in'
     | '/soon'
     | '/studio'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreateRoute: typeof CreateRoute
+  PrivacyRoute: typeof PrivacyRoute
   SignInRoute: typeof SignInRoute
   SoonRoute: typeof SoonRoute
   StudioRoute: typeof StudioRoute
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/create'
       fullPath: '/create'
       preLoaderRoute: typeof CreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -198,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateRoute: CreateRoute,
+  PrivacyRoute: PrivacyRoute,
   SignInRoute: SignInRoute,
   SoonRoute: SoonRoute,
   StudioRoute: StudioRoute,

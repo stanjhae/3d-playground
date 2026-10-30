@@ -13,6 +13,7 @@ import type { OwnerPublication, PublicRenderKind } from '../../lib/flp-api/publi
 import { publishBlockedReason, useWebglStore } from '../scene/webgl-status'
 import { useCloudSaveStore } from './CloudSave'
 import { getStudioCanvas } from './PublishBar'
+import { trackAssumption } from '../../lib/assumption-events'
 
 /**
  * Publish an owned cloud design (P03 #181). Only the exact saved version
@@ -131,10 +132,12 @@ export function CloudPublish() {
     setBusy(null)
 
     if (!result.ok) {
+      void trackAssumption({ name: 'publish_failed' })
       setMessage(`Not published (${result.message}).`)
       return
     }
 
+    void trackAssumption({ name: 'publish_succeeded' })
     setReviewing(false)
     await refresh()
   }

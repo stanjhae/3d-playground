@@ -1,6 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { reportDesignHref } from '../lib/alpha-contact'
 import { getPublicDesign } from '../lib/flp-api/client'
 import type { PublicDesign } from '../lib/flp-api/publication'
 
@@ -66,6 +67,7 @@ function SharedDesign() {
   }
 
   const { design } = state
+  const reportHref = reportDesignHref({ slug })
 
   return (
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16">
@@ -102,9 +104,19 @@ function SharedDesign() {
         ))}
       </ul>
 
-      <p className="font-body text-xs text-flv-muted">
-        A garment visualization on a fixed T-shirt template, not a fit or manufacturing preview.
-      </p>
+      <footer className="flex flex-wrap items-center justify-between gap-3 font-body text-xs text-flv-muted">
+        <p>A garment visualization on a fixed T-shirt template, not a fit or manufacturing preview.</p>
+        <p className="flex gap-4">
+          {reportHref ? (
+            <a className="underline hover:text-flv-accent" href={reportHref}>
+              Report this design
+            </a>
+          ) : null}
+          <Link to="/privacy" className="underline hover:text-flv-accent">
+            Privacy
+          </Link>
+        </p>
+      </footer>
     </section>
   )
 }

@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useEffect, useReducer, useRef, useState } from 'react'
 
 import {
@@ -16,6 +16,7 @@ import { safeReturnPath } from '../lib/auth/return-path'
 import { useSessionStore } from '../lib/auth/session-store'
 import { getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
+import { trackAssumption } from '../lib/assumption-events'
 
 export const Route = createFileRoute('/sign-in')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -110,6 +111,7 @@ function SignIn() {
     }
 
     dispatch({ type: 'verified' })
+    void trackAssumption({ name: 'signed_in' })
   }
 
   const errorMessage = state.error ? CODE_FLOW_MESSAGES[state.error] : null
@@ -128,6 +130,9 @@ function SignIn() {
             ? `If ${state.email} can receive email, a ${CODE_LENGTH}-digit code is on its way. It works once and expires in 10 minutes.`
             : 'We email you a one-time code. No password needed; new accounts are created on first sign-in.'}
         </p>
+        <Link to="/privacy" className="font-body text-xs text-flv-muted underline hover:text-flv-accent">
+          What we store and how to delete it
+        </Link>
       </header>
 
       {!client ? (
