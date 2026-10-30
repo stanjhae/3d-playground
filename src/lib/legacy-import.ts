@@ -681,6 +681,9 @@ export function convertLegacyDesign({ value }: { value: unknown }): ConvertResul
 
   const context: Context = { warnings: [], unsupported: [], pendingAssets: new Map() }
   const document = createEmptyCanonicalDocument()
+  // v1 placement is render space, which @1 keeps as stored. Pinning @1
+  // keeps every import rendering exactly as its source did (R02 #165).
+  document.template = { id: TEE_CREW_SHORT_V1.id, version: TEE_CREW_SHORT_V1.version }
 
   if (body.garmentVersion !== 2) {
     context.warnings.push({

@@ -60,13 +60,43 @@ function bodyRings({
   })
 }
 
+/**
+ * Body columns once around a ring: front half θ ∈ [0, π], back half
+ * θ ∈ [π, 2π]. θ = π (the wearer's right side seam) is listed twice, so
+ * the front can end at u = 0 and the back start at u = 1 without a
+ * triangle smearing the whole atlas row between them.
+ */
+function bodyColumns({ radial }: { radial: number }) {
+  const half = Math.floor(radial / 2)
+  const columns: { theta: number; side: 'front' | 'back' }[] = []
+
+  for (let index = 0; index <= half; index += 1) {
+    columns.push({ theta: (index / radial) * Math.PI * 2, side: 'front' })
+  }
+
+  for (let index = half; index <= radial; index += 1) {
+    columns.push({ theta: (index / radial) * Math.PI * 2, side: 'back' })
+  }
+
+  return { columns, seam: half }
+}
+
+/**
+ * tee-crew-short@2 unwrap. The front (θ 0 → π, wearer's left → right)
+ * fills u 0.5 → 0, so it reads left-to-right from the front. The back
+ * (θ π → 2π, wearer's right → left) fills u 1 → 0.5, so it reads
+ * left-to-right from behind (R02 #165; @1 ran the back u 0.5 → 1, which
+ * read mirrored).
+ */
 function unwrapUv({
   theta,
+  side,
   y,
   y0,
   y1,
 }: {
   theta: number
+  side: 'front' | 'back'
   y: number
   y0: number
   y1: number
@@ -74,11 +104,33 @@ function unwrapUv({
   const vBody = (y - y0) / Math.max(0.001, y1 - y0)
   const v = TORSO_V0 + vBody * (1 - TORSO_V0)
 
-  if (theta <= Math.PI) {
+  if (side === 'front') {
     return { u: 0.5 * (1 - theta / Math.PI), v }
   }
 
-  return { u: 0.5 + 0.5 * ((theta - Math.PI) / Math.PI), v }
+  return { u: 1 - 0.5 * ((theta - Math.PI) / Math.PI), v }
+}
+
+/** Seam vertices are split for UVs only; give each pair one smooth normal. */
+function weldSeamNormals({
+  geometry,
+  pairs,
+}: {
+  geometry: BufferGeometry
+  pairs: [number, number][]
+}) {
+  const normal = geometry.attributes.normal!
+
+  for (const [a, b] of pairs) {
+    const x = normal.getX(a) + normal.getX(b)
+    const y = normal.getY(a) + normal.getY(b)
+    const z = normal.getZ(a) + normal.getZ(b)
+    const length = Math.hypot(x, y, z) || 1
+    normal.setXYZ(a, x / length, y / length, z / length)
+    normal.setXYZ(b, x / length, y / length, z / length)
+  }
+
+  normal.needsUpdate = true
 }
 
 function buildBody({
@@ -95,9 +147,10 @@ function buildBody({
   const y0 = rings[0]?.y ?? 0
   const y1 = rings[rings.length - 1]?.y ?? 1
 
+  const { columns: ringColumns, seam } = bodyColumns({ radial })
+
   for (const ring of rings) {
-    for (let index = 0; index <= radial; index += 1) {
-      const theta = (index / radial) * Math.PI * 2
+    for (const { theta, side } of ringColumns) {
       const x = ring.halfW * Math.cos(theta)
       let z = ring.halfD * Math.sin(theta)
       z *= z > 0 ? 1.14 : 0.9
@@ -111,16 +164,20 @@ function buildBody({
       }
 
       positions.push(x, y, z)
-      const uv = unwrapUv({ theta, y: ring.y, y0, y1 })
+      const uv = unwrapUv({ theta, side, y: ring.y, y0, y1 })
       uvs.push(uv.u, uv.v)
     }
   }
 
-  const columns = radial + 1
+  const columns = ringColumns.length
   const indices: number[] = []
 
   for (let row = 0; row < rings.length - 1; row += 1) {
-    for (let index = 0; index < radial; index += 1) {
+    for (let index = 0; index < columns - 1; index += 1) {
+      if (index === seam) {
+        continue
+      }
+
       const a = row * columns + index
       const b = a + 1
       const c = (row + 1) * columns + index
@@ -137,6 +194,13 @@ function buildBody({
   geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2))
   geometry.setIndex(indices)
   geometry.computeVertexNormals()
+  weldSeamNormals({
+    geometry,
+    pairs: rings.flatMap((_ring, row) => [
+      [row * columns + seam, row * columns + seam + 1] as [number, number],
+      [row * columns, row * columns + columns - 1] as [number, number],
+    ]),
+  })
   return geometry
 }
 

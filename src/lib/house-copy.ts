@@ -24,6 +24,10 @@ export const HOUSE_COPY = {
   back: 'Back',
   left: 'Left',
   right: 'Right',
+  wearerLeft: "Wearer's left",
+  wearerRight: "Wearer's right",
+  panelOrientationHint:
+    "Sleeves are named from the wearer's side. The back reads as you see it from behind.",
   sleeve: 'Sleeve',
   selectStep: 'Select',
   fitStep: 'Fit',

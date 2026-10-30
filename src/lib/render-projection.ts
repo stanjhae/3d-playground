@@ -4,7 +4,7 @@ import {
   CANONICAL_PANEL_IDS,
 } from './canonical-document.ts'
 import type { DesignDocument, DesignLayer, PanelId } from './design-document.ts'
-import { TEE_CREW_SHORT_V1 } from './template-manifest.ts'
+import { CURRENT_TEMPLATE, resolveTemplate } from './template-manifest.ts'
 
 /**
  * The single interim conversion (FLP E01 #152): canonical v2 → the v1
@@ -13,6 +13,11 @@ import { TEE_CREW_SHORT_V1 } from './template-manifest.ts'
  *
  * - Panels go through the template manifest, so canonical (wearer) `left`
  *   lands on the render panel that sleeve actually uses.
+ * - The document's own template version decides how each panel's x maps:
+ *   on @2 the back is mirrored (render x = 1 − x, rotation = −rotation) so
+ *   the 2D canvas shows it as seen from behind; @1 documents keep the
+ *   back exactly as stored (R02 #165). `mirrorToRender` is its own
+ *   inverse, and the editor uses it to map render-space input back.
  * - Images need their bytes: `assetSources` maps asset id → src. An image
  *   without a source is skipped and reported, never drawn as a placeholder.
  * - Known gaps until R01/E10: base stripe/check period, brush and layer
@@ -24,10 +29,11 @@ export type RenderProjection = {
   missingAssets: string[]
 }
 
+// Panel routing is the same in every template version.
 const RENDER_BY_CANONICAL = Object.fromEntries(
   CANONICAL_PANEL_IDS.map((panel) => [
     panel,
-    TEE_CREW_SHORT_V1.regions[panel].renderPanel,
+    CURRENT_TEMPLATE.regions[panel].renderPanel,
   ]),
 ) as Record<CanonicalPanelId, PanelId>
 
@@ -44,6 +50,46 @@ export function renderPanel({ panel }: { panel: CanonicalPanelId }) {
   return RENDER_BY_CANONICAL[panel]
 }
 
+function manifestFor({ template }: { template: CanonicalDocument['template'] }) {
+  const resolved = resolveTemplate(template)
+  // Unresolvable documents are refused on load (cloud-design-load.ts).
+  return resolved.ok ? resolved.manifest : CURRENT_TEMPLATE
+}
+
+/** Whether `panel` is drawn left-right reversed in the render document. */
+export function rendersMirrored({
+  template,
+  panel,
+}: {
+  template: CanonicalDocument['template']
+  panel: CanonicalPanelId
+}) {
+  return manifestFor({ template }).regions[panel].renderMirrorX
+}
+
+/**
+ * Map a panel position between canonical and render space. Mirroring is
+ * an involution, so the same call converts either way.
+ */
+export function mirrorToRender<T extends { x?: number; rotation?: number }>({
+  mirrored,
+  value,
+}: {
+  mirrored: boolean
+  value: T
+}): T {
+  if (!mirrored) {
+    return value
+  }
+
+  return {
+    ...value,
+    ...(value.x !== undefined ? { x: 1 - value.x } : {}),
+    // `0 - r` rather than `-r` so an unrotated layer stays 0, not −0.
+    ...(value.rotation !== undefined ? { rotation: 0 - value.rotation } : {}),
+  }
+}
+
 export function toRenderDocument({
   document,
   assetSources = {},
@@ -52,6 +98,7 @@ export function toRenderDocument({
   assetSources?: Record<string, string>
 }): RenderProjection {
   const { base } = document
+  const manifest = manifestFor({ template: document.template })
   const baseColor = base.kind === 'solid' ? base.color : base.colors[0]
   const layers: DesignLayer[] = []
   const missingAssets: string[] = []
@@ -59,6 +106,7 @@ export function toRenderDocument({
   if (base.kind !== 'solid') {
     for (const panel of CANONICAL_PANEL_IDS) {
       const render = RENDER_BY_CANONICAL[panel]
+      const angle = base.kind === 'stripes' ? base.angle : 0
       layers.push({
         id: `base-fill-${render}`,
         kind: 'pattern',
@@ -68,7 +116,10 @@ export function toRenderDocument({
         x: 0.5,
         y: 0.5,
         scale: 1.05,
-        rotation: base.kind === 'stripes' ? base.angle : 0,
+        rotation: mirrorToRender({
+          mirrored: manifest.regions[panel].renderMirrorX,
+          value: { rotation: angle },
+        }).rotation,
         opacity: 0.55,
         visible: true,
       })
@@ -77,6 +128,9 @@ export function toRenderDocument({
 
   for (const panel of CANONICAL_PANEL_IDS) {
     const render = RENDER_BY_CANONICAL[panel]
+    const mirrored = manifest.regions[panel].renderMirrorX
+    const place = ({ x, rotation }: { x: number; rotation: number }) =>
+      mirrorToRender({ mirrored, value: { x, rotation } })
 
     for (const layer of document.panels[panel].layers) {
       const label = layer.name ? { label: layer.name } : {}
@@ -91,7 +145,8 @@ export function toRenderDocument({
             const points = []
 
             for (let index = 0; index < stroke.points.length; index += 2) {
-              points.push({ x: stroke.points[index]!, y: stroke.points[index + 1]! })
+              const x = stroke.points[index]!
+              points.push({ x: mirrored ? 1 - x : x, y: stroke.points[index + 1]! })
             }
 
             return {
@@ -120,10 +175,9 @@ export function toRenderDocument({
           kind: 'graphic',
           panel: render,
           src,
-          x: layer.x,
+          ...place(layer),
           y: layer.y,
           scale: layer.scale,
-          rotation: layer.rotation,
           opacity: layer.opacity,
           visible: layer.visible,
           ...(layer.aspect !== 1 ? { aspect: layer.aspect } : {}),
@@ -139,10 +193,9 @@ export function toRenderDocument({
         content: layer.content,
         face: layer.face,
         color: layer.color,
-        x: layer.x,
+        ...place(layer),
         y: layer.y,
         scale: layer.scale,
-        rotation: layer.rotation,
         opacity: layer.opacity,
         visible: layer.visible,
         ...label,
@@ -154,9 +207,9 @@ export function toRenderDocument({
     document: {
       garmentId: 'tee',
       garmentVersion: 2,
-      structural: { ...TEE_CREW_SHORT_V1.geometry.structural },
+      structural: { ...manifest.geometry.structural },
       overrides:
-        base.kind === 'solid' && baseColor === TEE_CREW_SHORT_V1.material.color
+        base.kind === 'solid' && baseColor === manifest.material.color
           ? []
           : [{ meshName: 'body', color: baseColor, roughness: 0.86, metalness: 0 }],
       layers: layers.length > 0 ? layers : [{ id: 'paint-empty', kind: 'paint', visible: true, strokes: [] }],

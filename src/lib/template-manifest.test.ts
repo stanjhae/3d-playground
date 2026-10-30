@@ -4,10 +4,15 @@ import { describe, expect, test } from 'vitest'
 import { createEmptyCanonicalDocument } from './canonical-document'
 import { DEFAULT_PANEL_UV } from './panel-uv'
 import { createTeeMesh } from './tee-geometry'
-import { TEE_CREW_SHORT_V1, resolveTemplate } from './template-manifest'
+import {
+  CURRENT_TEMPLATE,
+  TEE_CREW_SHORT_V1,
+  TEE_CREW_SHORT_V2,
+  resolveTemplate,
+} from './template-manifest'
 
-const tee = createTeeMesh(TEE_CREW_SHORT_V1.geometry.structural)
-const regions = TEE_CREW_SHORT_V1.regions
+const tee = createTeeMesh(CURRENT_TEMPLATE.geometry.structural)
+const regions = CURRENT_TEMPLATE.regions
 
 function meshNamed({ name }: { name: string }) {
   // The group is also named "body", so look for the mesh specifically.
@@ -77,7 +82,7 @@ async function sha256File({ path }: { path: string }) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-describe('tee-crew-short@1 manifest', () => {
+describe('tee-crew-short manifest (current geometry)', () => {
   test('pins the shipped geometry file (bump the version if this changes)', async () => {
     expect(await sha256File({ path: `public${TEE_CREW_SHORT_V1.geometry.file}` })).toBe(
       TEE_CREW_SHORT_V1.geometry.sha256,
@@ -85,9 +90,26 @@ describe('tee-crew-short@1 manifest', () => {
   })
 
   test('each region names the render panel whose UV rectangle it uses', () => {
-    for (const region of Object.values(regions)) {
-      expect(region.uv).toEqual(DEFAULT_PANEL_UV[region.renderPanel])
+    for (const manifest of [TEE_CREW_SHORT_V1, TEE_CREW_SHORT_V2]) {
+      for (const region of Object.values(manifest.regions)) {
+        expect(region.uv).toEqual(DEFAULT_PANEL_UV[region.renderPanel])
+      }
     }
+  })
+
+  test('the scene builds the newest UV layout; only the back changed in @2', () => {
+    expect(CURRENT_TEMPLATE).toBe(TEE_CREW_SHORT_V2)
+    expect(TEE_CREW_SHORT_V1.geometry.uvLayout).toBe(1)
+    expect(TEE_CREW_SHORT_V2.geometry.uvLayout).toBe(2)
+
+    for (const panel of ['front', 'left', 'right'] as const) {
+      expect(TEE_CREW_SHORT_V2.regions[panel]).toEqual(TEE_CREW_SHORT_V1.regions[panel])
+      expect(TEE_CREW_SHORT_V2.regions[panel].renderMirrorX).toBe(false)
+    }
+
+    expect(TEE_CREW_SHORT_V1.regions.back.renderMirrorX).toBe(false)
+    expect(TEE_CREW_SHORT_V2.regions.back.renderMirrorX).toBe(true)
+    expect(TEE_CREW_SHORT_V2.regions.back.landmarks).toEqual(TEE_CREW_SHORT_V1.regions.back.landmarks)
   })
 
   test('each region mesh samples only its own rectangle', () => {
@@ -121,15 +143,30 @@ describe('tee-crew-short@1 manifest', () => {
     expect(regions.left.uv.u0).toBeGreaterThanOrEqual(regions.right.uv.u1)
   })
 
-  test('panel x runs toward the wearer’s left on both front and back', () => {
-    const wearerLeft = bodyVertex({ pick: (x) => x })
-    const wearerRight = bodyVertex({ pick: (x) => -x })
+  test('front atlas x runs toward the wearer’s left; back atlas x toward the wearer’s right', () => {
+    const wearerLeftFront = bodyVertex({ pick: (x, z) => (z >= 0 ? x : -Infinity) })
+    const wearerRightFront = bodyVertex({ pick: (x, z) => (z > 1e-9 ? -x : -Infinity) })
+    const wearerLeftBack = bodyVertex({ pick: (x, z) => (z <= 0 ? x : -Infinity) })
+    const wearerRightBack = bodyVertex({ pick: (x, z) => (z < -1e-9 ? -x : -Infinity) })
 
-    // +x side sits at the right edge of front (u 0.5) and back (u 1.0).
-    expect([0.5, 1]).toContainEqual(Number(wearerLeft.u.toFixed(3)))
-    expect(Number(wearerRight.u.toFixed(3))).toBeCloseTo(0, 3)
+    expect(wearerLeftFront.u).toBeCloseTo(0.5, 3)
+    expect(wearerRightFront.u).toBeLessThan(0.05)
+    // @2: the back starts at u 1 on the wearer's right and ends at 0.5.
+    expect(wearerRightBack.u).toBeGreaterThan(0.95)
+    expect(wearerLeftBack.u).toBeCloseTo(0.5, 3)
     expect(regions.front.landmarks.wearerLeftSideSeam?.x).toBe(1)
     expect(regions.back.landmarks.wearerLeftSideSeam?.x).toBe(1)
+  })
+
+  test('no body triangle spans more than one column of the atlas', () => {
+    const geometry = meshNamed({ name: 'body' })
+    const uv = geometry.attributes.uv!
+    const index = geometry.index!
+
+    for (let face = 0; face < index.count; face += 3) {
+      const us = [0, 1, 2].map((corner) => uv.getX(index.getX(face + corner)))
+      expect(Math.max(...us) - Math.min(...us)).toBeLessThan(0.05)
+    }
   })
 
   test('torso landmark heights come from the body rings', () => {
@@ -164,7 +201,14 @@ describe('resolveTemplate', () => {
   test('resolves the template new documents pin', () => {
     const { template } = createEmptyCanonicalDocument()
 
-    expect(resolveTemplate(template)).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V1 })
+    expect(resolveTemplate(template)).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V2 })
+  })
+
+  test('keeps @1 so documents saved before #165 still open', () => {
+    expect(resolveTemplate({ id: 'tee-crew-short', version: 1 })).toEqual({
+      ok: true,
+      manifest: TEE_CREW_SHORT_V1,
+    })
   })
 
   test('refuses unknown templates and versions explicitly', () => {
@@ -172,7 +216,7 @@ describe('resolveTemplate', () => {
       ok: false,
       reason: 'unknown-template',
     })
-    expect(resolveTemplate({ id: 'tee-crew-short', version: 2 })).toMatchObject({
+    expect(resolveTemplate({ id: 'tee-crew-short', version: 3 })).toMatchObject({
       ok: false,
       reason: 'unsupported-version',
     })

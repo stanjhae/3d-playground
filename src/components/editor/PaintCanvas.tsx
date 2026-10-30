@@ -33,6 +33,8 @@ import { useLgUp } from '../../lib/viewport'
 
 const PANEL_CANVAS_WIDTH = 360
 const PANEL_CANVAS_HEIGHT = 420
+/** Centres each panel at the canvas's 6:7 aspect, however its cell is shaped. */
+const PANEL_FRAME_CLASS = 'grid min-h-0 flex-1 place-items-center [container-type:size]'
 
 type DragState = {
   handle: LayerHandle
@@ -236,6 +238,7 @@ function WordOnCloth({
 
 function PaintSurface({
   panel,
+  label,
   active,
   canvasRef,
   atlas,
@@ -256,6 +259,7 @@ function PaintSurface({
   onActivate,
 }: {
   panel: PanelId
+  label: string
   active: boolean
   canvasRef: RefObject<HTMLCanvasElement | null>
   atlas: HTMLCanvasElement | null
@@ -542,7 +546,7 @@ function PaintSurface({
 
   return (
     <div
-      className={cn('relative min-h-0 flex-1 border bg-flv-soft', {
+      className={cn('relative aspect-[6/7] w-[min(100cqw,calc(100cqh*6/7))] border bg-flv-soft', {
         'border-flv-accent': active,
         'border-flv-line': !active,
       })}
@@ -552,7 +556,7 @@ function PaintSurface({
         width={PANEL_CANVAS_WIDTH}
         height={PANEL_CANVAS_HEIGHT}
         role="img"
-        aria-label={`${HOUSE_COPY.designPanel} ${panel}`}
+        aria-label={`${HOUSE_COPY.designPanel} ${label}`}
         className="h-full w-full cursor-crosshair touch-none bg-ivory"
         onPointerDown={(event) => {
           handlePointerDown({ event })
@@ -682,6 +686,7 @@ export function PaintCanvas({
   }) {
     return {
       panel,
+      label: panels.find((entry) => entry.id === panel)?.label ?? panel,
       active: paintPanel === panel,
       canvasRef,
       atlas,
@@ -710,7 +715,8 @@ export function PaintCanvas({
       <div className="flex items-center justify-between gap-3">
         <p className={chromeKickerClass()}>{HOUSE_COPY.draw}</p>
         <nav
-          className={cn('flex gap-3', {
+          aria-label={HOUSE_COPY.draw}
+          className={cn('flex flex-wrap justify-end gap-x-3', {
             'lg:hidden': quad,
           })}
         >
@@ -731,6 +737,9 @@ export function PaintCanvas({
           ))}
         </nav>
       </div>
+      {garmentId === 'tee' ? (
+        <p className="font-body text-xs text-flv-muted">{HOUSE_COPY.panelOrientationHint}</p>
+      ) : null}
       {quad && lgUp ? (
         <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2">
           {mountedPanels.map((panelId) => {
@@ -746,18 +755,20 @@ export function PaintCanvas({
                 >
                   {meta?.label ?? panelId}
                 </p>
-                <PaintSurface
-                  {...surfaceProps({
-                    panel: panelId,
-                    canvasRef: canvasRefs[panelId],
-                  })}
-                />
+                <div className={PANEL_FRAME_CLASS}>
+                  <PaintSurface
+                    {...surfaceProps({
+                      panel: panelId,
+                      canvasRef: canvasRefs[panelId],
+                    })}
+                  />
+                </div>
               </div>
             )
           })}
         </div>
       ) : (
-        <div className="relative min-h-0 flex-1">
+        <div className={PANEL_FRAME_CLASS}>
           <PaintSurface
             {...surfaceProps({
               panel: paintPanel,

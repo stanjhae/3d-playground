@@ -86,11 +86,16 @@ function partsNamed({
   })
 }
 
+/**
+ * Panel ids name the render sleeve (built at −x for `left`), which is the
+ * wearer's right; labels use the wearer's side (E02 #153). From the front
+ * the wearer's right sleeve is on screen-left, so the order stays.
+ */
 const TEE_PANELS: readonly GarmentPanel[] = [
   { id: 'front', label: HOUSE_COPY.front },
   { id: 'back', label: HOUSE_COPY.back },
-  { id: 'left', label: HOUSE_COPY.left },
-  { id: 'right', label: HOUSE_COPY.right },
+  { id: 'left', label: HOUSE_COPY.wearerRight },
+  { id: 'right', label: HOUSE_COPY.wearerLeft },
 ]
 
 const TEE_STRUCTURE: readonly StructuralField[] = [

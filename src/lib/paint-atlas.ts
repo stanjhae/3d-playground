@@ -14,6 +14,8 @@ export type AtlasBuffer = {
   width: number
   height: number
   pixels: Uint8ClampedArray
+  /** Writes outside these pixel bounds (end-exclusive) are dropped. */
+  clip?: { x0: number; y0: number; x1: number; y1: number }
 }
 
 function hexToRgb({ color }: { color: string }) {
@@ -63,6 +65,17 @@ function writePixel({
 }) {
   if (index < 0 || index + 3 >= buffer.pixels.length) {
     return
+  }
+
+  if (buffer.clip) {
+    const pixel = index / 4
+    const column = pixel % buffer.width
+    const row = Math.floor(pixel / buffer.width)
+    const { x0, y0, x1, y1 } = buffer.clip
+
+    if (column < x0 || column >= x1 || row < y0 || row >= y1) {
+      return
+    }
   }
 
   if (erase) {
@@ -605,6 +618,30 @@ export function createAtlasBuffer({
   }
 }
 
+/**
+ * The same pixels, with writes limited to one panel's atlas rectangle, so
+ * a mark near an edge never lands on a neighbouring panel (E02 #153).
+ */
+function clipToPanel({
+  buffer,
+  panel,
+}: {
+  buffer: AtlasBuffer
+  panel: Stroke['panel']
+}): AtlasBuffer {
+  const rect = atlasSourceRect({ panel, width: buffer.width, height: buffer.height })
+
+  return {
+    ...buffer,
+    clip: {
+      x0: Math.round(rect.sourceX),
+      y0: Math.round(rect.sourceY),
+      x1: Math.round(rect.sourceX + rect.sourceWidth),
+      y1: Math.round(rect.sourceY + rect.sourceHeight),
+    },
+  }
+}
+
 export function rasterizeLayers({
   document,
   extraStroke,
@@ -619,6 +656,9 @@ export function rasterizeLayers({
   images?: Record<string, AtlasBuffer>
 }): AtlasBuffer {
   const buffer = createAtlasBuffer({ width, height })
+  // Tee panels are separate print regions; concept garments keep v1 drawing.
+  const target = ({ panel }: { panel: Stroke['panel'] }) =>
+    document.garmentId === 'tee' ? clipToPanel({ buffer, panel }) : buffer
 
   for (const layer of document.layers) {
     if (!layer.visible) {
@@ -635,29 +675,29 @@ export function rasterizeLayers({
 
     if (layer.kind === 'paint') {
       for (const stroke of layer.strokes) {
-        drawStroke({ buffer, stroke })
+        drawStroke({ buffer: target(stroke), stroke })
       }
     }
 
     if (layer.kind === 'text') {
-      drawTextMark({ buffer, layer })
+      drawTextMark({ buffer: target(layer), layer })
     }
 
     if (layer.kind === 'graphic') {
       drawGraphicMark({
-        buffer,
+        buffer: target(layer),
         layer,
         image: images?.[layer.src],
       })
     }
 
     if (layer.kind === 'pattern') {
-      drawPatternMark({ buffer, layer })
+      drawPatternMark({ buffer: target(layer), layer })
     }
   }
 
   if (extraStroke) {
-    drawStroke({ buffer, stroke: extraStroke })
+    drawStroke({ buffer: target(extraStroke), stroke: extraStroke })
   }
 
   return buffer

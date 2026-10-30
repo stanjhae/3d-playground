@@ -65,7 +65,7 @@ The adapter has three outcomes:
 
 | v1 | v2 | Outcome |
 | --- | --- | --- |
-| `garmentId: 'tee'` | template `tee-crew-short@1` | Any other garment is rejected (`unsupported-garment`) |
+| `garmentId: 'tee'` | template `tee-crew-short@1` (v1 placement is render space, which `@1` keeps as stored) | Any other garment is rejected (`unsupported-garment`) |
 | `garmentVersion` other than 2 | current template | Warning |
 | `structural` other than neck `crew` and sleeve `short` | — | Unsupported |
 | First `overrides[].color` | `base: solid` | Warning that names the material. Other part colors, `mapId`, `roughness` and `metalness` are unsupported. |
@@ -98,6 +98,7 @@ Placement (`x`, `y`, `scale`, `rotation`) copies across unchanged, so `panelPoin
 
 `src/lib/render-projection.ts` is the **only** v2 → v1 conversion. It feeds the existing atlas, paint canvas and layer UI until R01 #164 renders from v2 directly.
 - Panels map through the template manifest (`canonicalPanel` and `renderPanel`).
+- The document's template version sets each panel's x direction. On `@2` the back is mirrored into render space (seen from behind), and `@1` keeps it as stored. The editor maps input back the same way. See docs/template-manifest.md (R02 #165).
 - Images need an `assetSources` map; one without a source is reported in `missingAssets` and not drawn.
 - Known gaps until R01/E10: the stripe/check period, brush and layer opacity, and image aspect (v1 stamps images square).
 
