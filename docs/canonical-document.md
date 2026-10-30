@@ -102,3 +102,23 @@ Placement (`x`, `y`, `scale`, `rotation`) copies across unchanged, so `panelPoin
 - Known gaps until R01/E10: the stripe/check period, brush and layer opacity, and image aspect (v1 stamps images square).
 
 A test checks that a legacy design imported and then projected puts every supported layer and stroke back at the same atlas position.
+
+### The editor store on v2 (E01 #152, part 2)
+
+**The tee's source of truth** is the canonical stack in `src/lib/editor-canonical.ts`.
+- The store still issues its existing commands. For the tee, `translateCommand` maps them onto canonical commands.
+- `document` is derived through `toRenderDocument`.
+- `revision` and `importNotes` are store state.
+- Every load (`loadDesign`, `hydrateDocument`, `restoreMorning`) converts through `convertLegacyDesign`. That is the synchronous core of the legacy importer; it never uses the permissive v1 parser. Loading also resets undo.
+
+**Input normalisation:** pointer and slider input is normalised in the translator. A drag past the panel edge pins to the edge, and angles wrap. Anything else invalid is refused by the validator.
+
+**Concept garments** (gown, slip, coat, suit, mixed) keep the legacy v1 stack. On the v2 tee, the studio hides what v2 cannot hold:
+- per-mesh fabrics and finishes
+- the gradient base
+- pattern stamps and the fill tool
+- neck, hem and sleeve variants
+
+`VITE_FLP_CONCEPT=true` shows concept garments in the silhouette switch. Remixing a concept look from the board still opens it.
+
+**Pixel parity:** `editor-canonical.test.ts` renders the same store commands through the legacy stack (master's behaviour) and through v2 plus the projection. The atlases are pixel-identical for strokes on all four panels, erasing and graphics. One intentional change: a base stripe or check now always sits **under** prints, where v1 painted it over any ink drawn before it was picked.

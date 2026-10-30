@@ -6,6 +6,7 @@ import type { GarmentId } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
+import { showsGarmentInStudio } from '../../lib/concept-flags'
 import { garmentCanPaint, garmentCredit } from '../../lib/garments'
 import {
   GARMENT_CATEGORIES,
@@ -103,21 +104,30 @@ export function SilhouetteSwitch({
   )
   const [sampleColor, setSampleColor] = useState<string>(SAMPLE_COLORS[0])
   const [sampleSize, setSampleSize] = useState<SampleSizeId>('L')
-  const garments = listGarmentsByCategory({ category })
+  const garments = listGarmentsByCategory({ category }).filter((garment) =>
+    showsGarmentInStudio({ garmentId: garment.id }),
+  )
+  const categories = GARMENT_CATEGORIES.filter((entry) =>
+    listGarmentsByCategory({ category: entry.id }).some((garment) =>
+      showsGarmentInStudio({ garmentId: garment.id }),
+    ),
+  )
   const selected =
     garments.find((garment) => garment.id === current) ?? garments[0]
 
   return (
     <div className="flex w-full max-w-full flex-col gap-3 lg:max-w-[min(100%,52rem)]">
       <div className="flex flex-wrap gap-2">
-        {GARMENT_CATEGORIES.map((entry) => (
+        {categories.map((entry) => (
           <button
             key={entry.id}
             type="button"
             aria-pressed={category === entry.id}
             onClick={() => {
               setCategory(entry.id)
-              const first = listGarmentsByCategory({ category: entry.id })[0]
+              const first = listGarmentsByCategory({ category: entry.id }).find(
+                (garment) => showsGarmentInStudio({ garmentId: garment.id }),
+              )
               if (first) {
                 setGarmentId({ garmentId: first.id })
               }

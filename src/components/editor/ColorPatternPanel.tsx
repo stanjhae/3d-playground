@@ -1,5 +1,6 @@
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
+import { isCanonicalGarment } from '../../lib/concept-flags'
 import {
   BASE_FINISH_PRESETS,
   useEditorStore,
@@ -28,6 +29,9 @@ function finishLacksRealMap({ fabricId }: { fabricId: string }) {
 }
 
 export function ColorPatternPanel() {
+  const garmentId = useEditorStore((state) => state.garmentId)
+  // The v2 tee has Solid/Stripes/Check bases and a fixed material.
+  const v2Tee = isCanonicalGarment({ garmentId })
   const basePatternId = useEditorStore((state) => state.basePatternId)
   const baseFinishId = useEditorStore((state) => state.baseFinishId)
   const applyBaseColor = useEditorStore((state) => state.applyBaseColor)
@@ -79,7 +83,9 @@ export function ColorPatternPanel() {
       </div>
       <p className={chromeKickerClass()}>{HOUSE_COPY.patternFill}</p>
       <div className="grid grid-cols-2 gap-2">
-        {PATTERN_OPTIONS.map((pattern) => (
+        {PATTERN_OPTIONS.filter(
+          (pattern) => !v2Tee || pattern.id !== 'gradient',
+        ).map((pattern) => (
           <button
             key={pattern.id}
             type="button"
@@ -105,6 +111,8 @@ export function ColorPatternPanel() {
           </button>
         ))}
       </div>
+      {v2Tee ? null : (
+      <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.finish}</p>
         {conceptFinishes.length > 0 ? <ConceptPreviewBadge /> : null}
@@ -151,6 +159,8 @@ export function ColorPatternPanel() {
           </ul>
         </div>
       ) : null}
+      </>
+      )}
       <div className="flex gap-3">
         <button
           type="button"

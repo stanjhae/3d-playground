@@ -154,7 +154,10 @@ export function toRenderDocument({
       garmentId: 'tee',
       garmentVersion: 2,
       structural: { ...TEE_CREW_SHORT_V1.geometry.structural },
-      overrides: [{ meshName: 'body', color: baseColor, roughness: 0.86, metalness: 0 }],
+      overrides:
+        base.kind === 'solid' && baseColor === TEE_CREW_SHORT_V1.material.color
+          ? []
+          : [{ meshName: 'body', color: baseColor, roughness: 0.86, metalness: 0 }],
       layers: layers.length > 0 ? layers : [{ id: 'paint-empty', kind: 'paint', visible: true, strokes: [] }],
     },
     missingAssets,

@@ -33,7 +33,9 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().selectedMeshName).toBe('collar')
   })
 
+  // Per-mesh fabric is a concept-garment feature; the tee base is v2.
   test('applyFabric is a no-op without a selection or known preset', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
     useEditorStore.getState().selectMesh({ selectedMeshName: null })
     useEditorStore.getState().applyFabric({
       fabricId: 'ivory-silk',
@@ -52,6 +54,7 @@ describe('useEditorStore', () => {
   })
 
   test('applyFabric appends an override from the fabric preset', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
     useEditorStore.getState().selectMesh({ selectedMeshName: 'collar' })
     useEditorStore.getState().applyFabric({
       fabricId: 'ivory-silk',
@@ -72,6 +75,7 @@ describe('useEditorStore', () => {
   })
 
   test('undoLast pops the last override', () => {
+    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
     useEditorStore.getState().selectMesh({ selectedMeshName: 'body' })
     useEditorStore.getState().applyFabric({
       fabricId: 'ink-cotton',
@@ -573,7 +577,7 @@ describe('useEditorStore', () => {
     ).toHaveLength(2)
   })
 
-  test('crop keeps the word and a stripe can sit on the cloth', () => {
+  test('the tee template is fixed: stamps and structure are concept-only', () => {
     useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
     useEditorStore.getState().addText({
       content: 'HOUSE',
@@ -593,13 +597,11 @@ describe('useEditorStore', () => {
       .document.layers.find((layer) => layer.kind === 'pattern')
 
     expect(word && word.kind === 'text' ? word.content : null).toBe('HOUSE')
-    expect(print && print.kind === 'pattern' ? print.patternId : null).toBe(
-      'check',
-    )
+    expect(print).toBeUndefined()
     expect(useEditorStore.getState().document.structural).toEqual({
-      neck: 'v',
-      hem: 'crop',
-      sleeve: 'long',
+      neck: 'crew',
+      hem: 'long',
+      sleeve: 'short',
     })
   })
 
