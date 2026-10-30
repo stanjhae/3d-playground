@@ -12,8 +12,10 @@ import {
   type ApiError,
   type AssetReservation,
   type AssetResponse,
+  type DesignDetails,
   LIBRARY_ASSET_PREFIX,
   MAX_CONTENT_BYTES,
+  type ProfileResponse,
   type VersionDetail,
   type VersionPage,
   type VersionResponse,
@@ -21,8 +23,10 @@ import {
   apiError,
   apiErrorFromDatabase,
   parseCreateDesignRequest,
+  parseProfileRequest,
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
+  parseUpdateDesignRequest,
   parseVersionListQuery,
   parseVersionSeq,
   prepareContent,
@@ -204,18 +208,7 @@ async function callWrite({
   const { data, error } = await admin.rpc(fn, args).single<DesignVersionRow>()
 
   if (error) {
-    const mapped = apiErrorFromDatabase({
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    })
-
-    if (mapped) {
-      return fromError({ error: mapped })
-    }
-
-    console.error('flp write failed', { fn, code: error.code })
-    return internalError()
+    return writeFailed({ fn, error })
   }
 
   return json({ status, body: versionResponse({ row: data }) })
@@ -622,6 +615,175 @@ async function handleVersionHistory({
   return json({ status: 200, body })
 }
 
+function writeFailed({ fn, error }: { fn: string; error: { code: string; message: string; details?: string } }) {
+  const mapped = apiErrorFromDatabase({ code: error.code, message: error.message, details: error.details })
+
+  if (mapped) {
+    return fromError({ error: mapped })
+  }
+
+  console.error('flp write failed', { fn, code: error.code })
+  return internalError()
+}
+
+// PATCH /designs/:id — rename or describe; history is untouched (A06 #150).
+async function updateDesign({
+  request,
+  admin,
+  userId,
+  designId,
+}: {
+  request: Request
+  admin: SupabaseClient
+  userId: string
+  designId: string
+}) {
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseUpdateDesignRequest({ value: body.value })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  const { data, error } = await admin
+    .rpc('flp_update_design', {
+      p_owner_id: userId,
+      p_design_id: designId,
+      p_title: parsed.request.title ?? null,
+      p_description: parsed.request.description ?? null,
+    })
+    .single<{ id: string; title: string; description: string; updated_at: string }>()
+
+  if (error) {
+    return writeFailed({ fn: 'flp_update_design', error })
+  }
+
+  const details: DesignDetails = {
+    id: data.id,
+    title: data.title,
+    description: data.description,
+    updatedAt: data.updated_at,
+  }
+  return json({ status: 200, body: details })
+}
+
+/** Every stored object under `<owner>/<design>/`, one folder level deep. */
+async function designObjectPaths({
+  admin,
+  userId,
+  designId,
+}: {
+  admin: SupabaseClient
+  userId: string
+  designId: string
+}) {
+  const root = `${userId}/${designId}`
+  const { data: entries } = await admin.storage.from(ASSET_BUCKET).list(root, { limit: 1000 })
+  const paths: string[] = []
+
+  for (const entry of entries ?? []) {
+    // Folders (v<seq>) have no id; files directly under the design do.
+    if (entry.id) {
+      paths.push(`${root}/${entry.name}`)
+      continue
+    }
+
+    const { data: files } = await admin.storage
+      .from(ASSET_BUCKET)
+      .list(`${root}/${entry.name}`, { limit: 1000 })
+    paths.push(...(files ?? []).map((file) => `${root}/${entry.name}/${file.name}`))
+  }
+
+  return paths
+}
+
+// DELETE /designs/:id — revokes any publication, deletes the design with
+// its history and render files (A07 #151). Uploaded originals are account
+// assets and stay for the owner's other designs.
+async function deleteDesign({
+  admin,
+  userId,
+  designId,
+}: {
+  admin: SupabaseClient
+  userId: string
+  designId: string
+}) {
+  const { error } = await admin.rpc('flp_delete_design', {
+    p_owner_id: userId,
+    p_design_id: designId,
+  })
+
+  if (error) {
+    return writeFailed({ fn: 'flp_delete_design', error })
+  }
+
+  const paths = await designObjectPaths({ admin, userId, designId })
+
+  if (paths.length > 0) {
+    const removed = await admin.storage.from(ASSET_BUCKET).remove(paths)
+
+    // The rows are gone and the files are private, so a failed cleanup
+    // exposes nothing; log it for the retention sweep (S09 #178).
+    if (removed.error) {
+      console.error('flp render cleanup failed', { designId })
+    }
+  }
+
+  return respond({ status: 204 })
+}
+
+// GET/POST /profile — the name shown on published designs (A06 #150).
+async function handleProfile({
+  request,
+  admin,
+  asUser,
+  userId,
+}: {
+  request: Request
+  admin: SupabaseClient
+  asUser: SupabaseClient
+  userId: string
+}) {
+  if (request.method === 'GET') {
+    const { data } = await asUser.from('profiles').select('display_name').maybeSingle()
+    const profile: ProfileResponse = { displayName: (data?.display_name as string | null) ?? null }
+    return json({ status: 200, body: profile })
+  }
+
+  if (request.method !== 'POST') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseProfileRequest({ value: body.value })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  const { data, error } = await admin
+    .rpc('flp_set_display_name', { p_owner_id: userId, p_display_name: parsed.request.displayName })
+    .single<{ display_name: string | null }>()
+
+  if (error) {
+    return writeFailed({ fn: 'flp_set_display_name', error })
+  }
+
+  const profile: ProfileResponse = { displayName: data.display_name }
+  return json({ status: 200, body: profile })
+}
+
 export async function handleFlpRequest({
   request,
   env = flpServerEnv(),
@@ -661,6 +823,10 @@ export async function handleFlpRequest({
     ) {
       return fromError({ error: assetNotFound() })
     }
+  } else if (collection === 'profile') {
+    if (designId) {
+      return fromError({ error: apiError({ code: 'not_found', message: 'Not found' }) })
+    }
   } else if (
     collection !== 'designs' ||
     // Only `/designs/:id/versions/:seq` has a fourth segment.
@@ -683,6 +849,10 @@ export async function handleFlpRequest({
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${user.token}` } },
   })
+
+  if (collection === 'profile') {
+    return handleProfile({ request, admin, asUser, userId: user.userId })
+  }
 
   if (collection === 'assets') {
     return handleAssetRequest({ request, admin, asUser, userId: user.userId, assetId: designId, action })
@@ -787,6 +957,14 @@ export async function handleFlpRequest({
           : null,
       },
     })
+  }
+
+  if (designId && !action && request.method === 'PATCH') {
+    return updateDesign({ request, admin, userId: user.userId, designId })
+  }
+
+  if (designId && !action && request.method === 'DELETE') {
+    return deleteDesign({ admin, userId: user.userId, designId })
   }
 
   if (request.method !== 'POST') {

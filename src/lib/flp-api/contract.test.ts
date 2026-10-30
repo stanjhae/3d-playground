@@ -7,7 +7,9 @@ import {
   apiErrorFromDatabase,
   checkpointLabelIssues,
   parseCreateDesignRequest,
+  parseProfileRequest,
   parsePublishVersionRequest,
+  parseUpdateDesignRequest,
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
   parseVersionListQuery,
@@ -224,5 +226,29 @@ describe('history requests (S07 #176)', () => {
       error: { body: { error: { issues: [{ path: '$.label' }] } } },
     })
     expect(parseSaveVersionRequest({ value: { ...base, kind: 'checkpoint', label: ' ' } }).ok).toBe(false)
+  })
+})
+
+describe('design details requests (A06 #150)', () => {
+  test('a rename or description is accepted, alone or together', () => {
+    expect(parseUpdateDesignRequest({ value: { title: 'Crest tee' } }).ok).toBe(true)
+    expect(parseUpdateDesignRequest({ value: { description: '' } }).ok).toBe(true)
+    expect(parseUpdateDesignRequest({ value: { title: 'A', description: 'B' } }).ok).toBe(true)
+  })
+
+  test('empty, blank, long or unknown fields are refused', () => {
+    expect(parseUpdateDesignRequest({ value: {} }).ok).toBe(false)
+    expect(parseUpdateDesignRequest({ value: { title: '  ' } }).ok).toBe(false)
+    expect(parseUpdateDesignRequest({ value: { title: 'x'.repeat(81) } }).ok).toBe(false)
+    expect(parseUpdateDesignRequest({ value: { description: 'x'.repeat(501) } }).ok).toBe(false)
+    expect(parseUpdateDesignRequest({ value: { title: 'A', headSeq: 2 } }).ok).toBe(false)
+  })
+
+  test('a display name is set, cleared with null or empty, and capped at 40', () => {
+    expect(parseProfileRequest({ value: { displayName: 'Ada' } }).ok).toBe(true)
+    expect(parseProfileRequest({ value: { displayName: null } }).ok).toBe(true)
+    expect(parseProfileRequest({ value: { displayName: '' } }).ok).toBe(true)
+    expect(parseProfileRequest({ value: { displayName: 'x'.repeat(41) } }).ok).toBe(false)
+    expect(parseProfileRequest({ value: {} }).ok).toBe(false)
   })
 })

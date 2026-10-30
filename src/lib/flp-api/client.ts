@@ -11,9 +11,12 @@ import type { ImageRejectReason } from '../image-validate.ts'
 import type {
   ApiErrorCode,
   CreateDesignRequest,
+  DesignDetails,
+  ProfileResponse,
   RestoreVersionRequest,
   PublicationResponse,
   SaveVersionRequest,
+  UpdateDesignRequest,
   VersionDetail,
   VersionPage,
   VersionResponse,
@@ -81,7 +84,7 @@ export async function call<T>({
   fetchImpl = fetch,
 }: {
   path: string
-  method?: 'GET' | 'POST' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   body?: unknown
   fetchImpl?: typeof fetch
 }): Promise<FlpResult<T>> {
@@ -218,6 +221,39 @@ export function restoreDesignVersion({
     body: request,
     fetchImpl,
   })
+}
+
+/** Rename or describe a design (A06 #150); not a new version. */
+export function updateDesign({
+  designId,
+  request,
+  fetchImpl,
+}: {
+  designId: string
+  request: UpdateDesignRequest
+  fetchImpl?: typeof fetch
+}) {
+  return call<DesignDetails>({ path: `designs/${designId}`, method: 'PATCH', body: request, fetchImpl })
+}
+
+/** Delete a design, its history and any publication (A07 #151). */
+export function deleteDesign({ designId, fetchImpl }: { designId: string; fetchImpl?: typeof fetch }) {
+  return call<null>({ path: `designs/${designId}`, method: 'DELETE', fetchImpl })
+}
+
+/** The name the account shows on published designs (A06 #150). */
+export function getProfile({ fetchImpl }: { fetchImpl?: typeof fetch } = {}) {
+  return call<ProfileResponse>({ path: 'profile', fetchImpl })
+}
+
+export function setDisplayName({
+  displayName,
+  fetchImpl,
+}: {
+  displayName: string | null
+  fetchImpl?: typeof fetch
+}) {
+  return call<ProfileResponse>({ path: 'profile', method: 'POST', body: { displayName }, fetchImpl })
 }
 
 /** Publication state for the owner (P03 #181). */

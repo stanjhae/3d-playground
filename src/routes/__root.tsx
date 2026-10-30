@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 import { AccountControl } from '../components/auth/AccountControl'
 import { onAccountChange, startSession } from '../lib/auth/session-store'
-import { getSupabaseClient } from '../lib/auth/supabase-client'
+import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
 import { useEditorStore } from '../lib/editor-store'
 import { listDesigns } from '../lib/designs-api'
@@ -60,6 +60,11 @@ function RootShell() {
   }, [])
 
   useEffect(() => {
+    // The guest leaderboard only feeds the guest Look link (F09 #144).
+    if (AUTH_REQUIRED) {
+      return
+    }
+
     let cancelled = false
 
     void listDesigns()
@@ -130,22 +135,26 @@ function RootShell() {
               label="Create"
               active={location.pathname === '/create'}
             />
-            <NavLink
-              to="/vote"
-              label="Vote"
-              active={location.pathname === '/vote'}
-            />
-            <Link
-              to="/look/$lookId"
-              params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
-              className={cn('inline-flex min-h-11 items-center px-1', {
-                'text-flv-accent': location.pathname.startsWith('/look/'),
-                'text-flv-muted hover:text-flv-accent':
-                  !location.pathname.startsWith('/look/'),
-              })}
-            >
-              Look
-            </Link>
+            {AUTH_REQUIRED ? null : (
+              <>
+                <NavLink
+                  to="/vote"
+                  label="Vote"
+                  active={location.pathname === '/vote'}
+                />
+                <Link
+                  to="/look/$lookId"
+                  params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
+                  className={cn('inline-flex min-h-11 items-center px-1', {
+                    'text-flv-accent': location.pathname.startsWith('/look/'),
+                    'text-flv-muted hover:text-flv-accent':
+                      !location.pathname.startsWith('/look/'),
+                  })}
+                >
+                  Look
+                </Link>
+              </>
+            )}
             <AccountControl />
           </nav>
         )}

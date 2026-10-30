@@ -297,6 +297,8 @@ type EditorState = {
   }) => void
   /** Record a cloud acknowledgement (autosave, S04 #173). */
   setCloudHead: ({ headSeq }: { headSeq: number }) => void
+  /** Show a rename of the open cloud design (A06 #150); not an edit. */
+  setCloudTitle: ({ title }: { title: string }) => void
   /** Put recovered local work over the open cloud design as a new revision (S05 #174). */
   recoverCanonical: ({ document }: { document: CanonicalDocument }) => void
   /** Place an uploaded, ready asset (S01 #170); `src` is what the renderer draws. */
@@ -1419,6 +1421,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setCloudHead: ({ headSeq }) => {
     set((state) => (state.cloud ? { cloud: { ...state.cloud, headSeq } } : state))
+  },
+  setCloudTitle: ({ title }) => {
+    set((state) => (state.cloud ? { cloud: { ...state.cloud, title } } : state))
   },
   recoverCanonical: ({ document }) => {
     if (!get().cloud || !teeActive()) {
