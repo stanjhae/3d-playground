@@ -94,14 +94,27 @@ describe.skipIf(!env)('quotas and rate limits against local Supabase', () => {
     const rename = (title: string, owner = b) =>
       api({ path: `designs/${designId}`, method: 'PATCH', token: owner.token, body: { title }, limits })
 
-    expect((await rename('One')).status).toBe(200)
-    expect((await rename('Two')).status).toBe(200)
+    // Windows are fixed minutes, so a run may straddle a boundary: within
+    // five requests (at most two windows) at most 2 × 2 pass, and the first
+    // refusal arrives by the fifth.
+    let lastApplied = ''
+    let limited: Response | null = null
 
-    const limited = await rename('Three')
+    for (const title of ['One', 'Two', 'Three', 'Four', 'Five']) {
+      const response = await rename(title)
 
-    expect(limited.status).toBe(429)
-    expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0)
-    expect(await limited.json()).toMatchObject({ error: { code: 'rate_limited' } })
+      if (response.status === 429) {
+        limited = response
+        break
+      }
+
+      expect(response.status).toBe(200)
+      lastApplied = title
+    }
+
+    expect(limited?.status).toBe(429)
+    expect(Number(limited!.headers.get('retry-after'))).toBeGreaterThan(0)
+    expect(await limited!.json()).toMatchObject({ error: { code: 'rate_limited' } })
 
     // Reads and saves are not counted against `details`.
     expect((await api({ path: `designs/${designId}`, token: b.token })).status).toBe(200)
@@ -121,6 +134,6 @@ describe.skipIf(!env)('quotas and rate limits against local Supabase', () => {
     expect((await api({ path: 'profile', method: 'POST', token: a.token, body: { displayName: 'A' }, limits })).status).toBe(200)
 
     // The refused rename did not apply.
-    expect(((await (await api({ path: `designs/${designId}`, token: b.token })).json()) as { title: string }).title).toBe('Two')
+    expect(((await (await api({ path: `designs/${designId}`, token: b.token })).json()) as { title: string }).title).toBe(lastApplied)
   })
 })
