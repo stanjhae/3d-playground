@@ -14,6 +14,7 @@ import {
   type SaveState,
   createSaveController,
 } from './save-controller.ts'
+import { trackAssumptionOnce } from './assumption-events.ts'
 
 /**
  * Binds the editor store to a save controller for one open cloud design
@@ -43,6 +44,7 @@ export function startCloudAutosave({
     save,
     onAcknowledged: ({ headSeq }) => {
       useEditorStore.getState().setCloudHead({ headSeq })
+      trackAssumptionOnce({ name: 'design_saved', scope: designId })
     },
     ...timing,
   })

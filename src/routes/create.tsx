@@ -79,6 +79,7 @@ import {
   studioPhonePublishClass,
   studioPhoneToolsClass,
 } from '../lib/studio-chrome'
+import { trackAssumptionOnce } from '../lib/assumption-events'
 
 export const Route = createFileRoute('/create')({
   validateSearch: (
@@ -201,6 +202,10 @@ function AtelierHome() {
       // A local copy identical to the cloud needs no question.
       if (offer.kind === 'none' && read.status === 'found' && ownerId) {
         void clearRecovery({ storage, ownerId, designId: cloudId })
+      }
+
+      if (offer.kind !== 'none') {
+        trackAssumptionOnce({ name: 'recovery_offered', scope: cloudId })
       }
 
       useRecoveryStore.setState({

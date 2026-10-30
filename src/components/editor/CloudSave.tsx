@@ -20,6 +20,7 @@ import {
 } from '../../lib/cloud-recovery'
 import { createOwnedDesign } from '../../lib/flp-api/client'
 import type { SaveController, SaveState } from '../../lib/save-controller'
+import { trackAssumption } from '../../lib/assumption-events'
 
 /** Latest cloud save state for the open design; null outside cloud mode. */
 export const useCloudSaveStore = create<{
@@ -291,6 +292,7 @@ export function RecoveryPrompt() {
 
                 useEditorStore.getState().recoverCanonical({ document: now.document })
                 useRecoveryStore.setState({ offer: null })
+                void trackAssumption({ name: 'recovery_used' })
               }}
             >
               Recover unsaved changes

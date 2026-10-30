@@ -15,6 +15,7 @@ import {
 import { consumeLandingHandoff, peekLandingHandoff } from '../lib/landing-handoff'
 import { initialStudioDocument } from '../lib/studio-create'
 import { resolveTemplate } from '../lib/template-manifest'
+import { trackAssumption } from '../lib/assumption-events'
 
 export const Route = createFileRoute('/studio')({
   beforeLoad: async ({ location }) => {
@@ -114,6 +115,7 @@ function MyStudio() {
     }
 
     createKey.current = null
+    void trackAssumption({ name: 'design_created' })
 
     if (landing) {
       consumeLandingHandoff()
