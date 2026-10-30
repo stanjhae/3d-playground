@@ -808,7 +808,8 @@ export function createEmptyCanonicalDocument(): CanonicalDocument {
   return {
     schemaVersion: CANONICAL_SCHEMA_VERSION,
     template: { id: 'tee-crew-short', version: 1 },
-    base: { kind: 'solid', color: '#f7f3ea' },
+    // The template's own material colour, so an untouched tee renders as before.
+    base: { kind: 'solid', color: '#f3efe6' },
     panels: {
       front: { layers: [] },
       back: { layers: [] },

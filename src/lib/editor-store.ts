@@ -53,6 +53,18 @@ import {
 import { getFabricById } from './fabrics'
 import { isSafeLayerSrc } from './look-thumbnail'
 import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from './paint-colors'
+import {
+  type TeeEngine,
+  basePatternCommand,
+  createTeeEngine,
+  loadTeeEngine,
+  redoTee,
+  runTeeCommand,
+  runTranslated,
+  teeRenderDocument,
+  undoTee,
+} from './editor-canonical'
+import type { ImportNote } from './legacy-import'
 
 export type EditorMode = 'design' | 'atelier'
 export type StudioView = 'draw' | 'cloth'
@@ -87,6 +99,10 @@ type EditorState = {
   garmentId: GarmentId
   overrides: MaterialOverride[]
   document: DesignDocument
+  /** Canonical content revision; 2D, 3D and saving key on it (E01 #152). */
+  revision: number
+  /** What the last load changed or left out (legacy import, #141). */
+  importNotes: ImportNote[]
   title: string
   author: string
   lastPublished: Omit<Design, 'id' | 'votes'> | null
@@ -287,6 +303,38 @@ let commandStack: CommandStack = stackFromDocument({
 
 const garmentShelves = new Map<GarmentId, CommandStack>()
 
+/**
+ * The tee runs on the canonical v2 engine; concept garments keep the
+ * legacy v1 stack above. `activeGarment` says which one is live.
+ */
+let tee: TeeEngine = createTeeEngine()
+let activeGarment: GarmentId = 'tee'
+
+function teeActive() {
+  return activeGarment === 'tee'
+}
+
+/** Point the live engine at a document; returns import notes for the tee. */
+function loadEngine({
+  document,
+  garmentId,
+}: {
+  document: DesignDocument
+  garmentId: GarmentId
+}): ImportNote[] {
+  activeGarment = garmentId
+
+  if (garmentId === 'tee') {
+    const loaded = loadTeeEngine({ engine: tee, document })
+    tee = loaded.engine
+    return loaded.notes
+  }
+
+  commandStack = stackFromDocument({ document })
+  shelfCurrent({ garmentId })
+  return []
+}
+
 function shelfCurrent({ garmentId }: { garmentId: GarmentId }) {
   garmentShelves.set(garmentId, commandStack)
 }
@@ -307,6 +355,20 @@ function syncFromStack({
 }: {
   extra?: Partial<EditorState>
 } = {}) {
+  if (teeActive()) {
+    const document = teeRenderDocument({ engine: tee })
+
+    return {
+      document,
+      overrides: document.overrides,
+      garmentId: 'tee' as GarmentId,
+      revision: tee.stack.revision,
+      undoCount: tee.stack.past.length,
+      redoCount: tee.stack.future.length,
+      ...extra,
+    }
+  }
+
   const document = commandStack.document
 
   return {
@@ -326,6 +388,11 @@ function runCommand({
   command: DesignCommand
   extra?: Partial<EditorState>
 }) {
+  if (teeActive()) {
+    tee = runTranslated({ engine: tee, command }).engine
+    return syncFromStack({ extra })
+  }
+
   commandStack = applyCommand({ stack: commandStack, command })
   return syncFromStack({ extra })
 }
@@ -406,7 +473,9 @@ const INITIAL_EDITOR_STATE = {
   colorId: null as string | null,
   garmentId: 'tee' as GarmentId,
   overrides: [] as MaterialOverride[],
-  document: emptyDocument({ garmentId: 'tee' }),
+  document: teeRenderDocument({ engine: tee }),
+  revision: 0,
+  importNotes: [] as ImportNote[],
   title: '',
   author: 'Guest',
   lastPublished: null as Omit<Design, 'id' | 'votes'> | null,
@@ -461,8 +530,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         return state
       }
 
-      shelfCurrent({ garmentId: state.garmentId })
-      const restored = restoreShelf({ garmentId: resolved })
+      if (!teeActive()) {
+        shelfCurrent({ garmentId: state.garmentId })
+      }
+
+      activeGarment = resolved
+      const restored = resolved === 'tee' ? tee : restoreShelf({ garmentId: resolved })
 
       if (restored) {
         return syncFromStack({
@@ -550,7 +623,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   undoLast: () => {
     set(() => {
-      commandStack = undoCommand({ stack: commandStack })
+      if (teeActive()) {
+        tee = undoTee({ engine: tee })
+      } else {
+        commandStack = undoCommand({ stack: commandStack })
+      }
       return syncFromStack({
         extra: { activeLayerEdit: null, activeStroke: null },
       })
@@ -558,18 +635,24 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   redoLast: () => {
     set(() => {
-      commandStack = redoCommand({ stack: commandStack })
+      if (teeActive()) {
+        tee = redoTee({ engine: tee })
+      } else {
+        commandStack = redoCommand({ stack: commandStack })
+      }
       return syncFromStack({
         extra: { activeLayerEdit: null, activeStroke: null },
       })
     })
   },
-  canUndo: () => canUndo({ stack: commandStack }),
-  canRedo: () => canRedo({ stack: commandStack }),
+  canUndo: () =>
+    teeActive() ? tee.stack.past.length > 0 : canUndo({ stack: commandStack }),
+  canRedo: () =>
+    teeActive() ? tee.stack.future.length > 0 : canRedo({ stack: commandStack }),
   loadDesign: ({ design }) => {
     const document = documentFromDesign({ design })
-    commandStack = stackFromDocument({ document })
-    shelfCurrent({ garmentId: resolveGarmentId({ garmentId: design.garmentId }) })
+    const garmentId = resolveGarmentId({ garmentId: design.garmentId })
+    const importNotes = loadEngine({ document, garmentId })
     const { snapshots } = rememberSnapshot({
       title: design.title,
       document,
@@ -580,14 +663,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     })
 
     set({
+      ...syncFromStack(),
+      importNotes,
       title: design.title,
       author: design.author,
-      overrides: [...document.overrides],
-      document,
       fabricId: null,
       colorId: null,
       selectedMeshName: 'body',
-      garmentId: resolveGarmentId({ garmentId: design.garmentId }),
       activeStroke: null,
       activeLayerEdit: null,
       selectedLayerId: null,
@@ -638,12 +720,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   reset: () => {
     garmentShelves.clear()
-    const document = emptyDocument({ garmentId: 'tee' })
-    commandStack = stackFromDocument({ document })
+    tee = createTeeEngine({ revision: tee.stack.revision + 1 })
+    activeGarment = 'tee'
+    commandStack = stackFromDocument({ document: emptyDocument({ garmentId: 'tee' }) })
     set({
       ...INITIAL_EDITOR_STATE,
-      document,
-      overrides: [],
+      ...syncFromStack(),
       lastPublished: null,
       selectedMeshName: 'body',
       garmentId: 'tee',
@@ -773,6 +855,28 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setBasePattern: ({ patternId }) => {
     set((state) => {
+      if (teeActive()) {
+        const command = basePatternCommand({
+          engine: tee,
+          patternId,
+          fillColor: state.paintColor,
+        })
+
+        if (!command) {
+          return state
+        }
+
+        tee = runTeeCommand({ engine: tee, command }).engine
+        return syncFromStack({
+          extra: {
+            basePatternId: patternId,
+            selectedLayerId: state.selectedLayerId?.startsWith('base-fill')
+              ? null
+              : state.selectedLayerId,
+          },
+        })
+      }
+
       const before = cloneDocument({ document: state.document })
       const next = cloneDocument({ document: state.document })
       next.layers = next.layers.filter(
@@ -1234,12 +1338,10 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     const resolved = resolveGarmentId({
       garmentId: garmentId ?? document.garmentId,
     })
-    commandStack = stackFromDocument({ document })
-    shelfCurrent({ garmentId: resolved })
+    const importNotes = loadEngine({ document, garmentId: resolved })
     set({
-      document,
-      overrides: document.overrides,
-      garmentId: resolved,
+      ...syncFromStack(),
+      importNotes,
       activeStroke: null,
       activeLayerEdit: null,
       selectedLayerId: null,
@@ -1268,11 +1370,14 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({ snapshots })
   },
   restoreMorning: ({ snapshot }) => {
-    commandStack = stackFromDocument({ document: snapshot.document })
-    shelfCurrent({ garmentId: snapshot.document.garmentId })
+    const importNotes = loadEngine({
+      document: snapshot.document,
+      garmentId: resolveGarmentId({ garmentId: snapshot.document.garmentId }),
+    })
     set(
       syncFromStack({
         extra: {
+          importNotes,
           activeStroke: null,
           activeLayerEdit: null,
           selectedLayerId: null,

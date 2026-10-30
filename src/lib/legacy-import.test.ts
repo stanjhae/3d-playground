@@ -241,6 +241,54 @@ describe('importLegacyDesign', () => {
     expect(paths({ notes: result.unsupported })).toContain('layers[1].scale')
   })
 
+  test('keeps how strokes looked: pressure folds into width, alpha into opacity', async () => {
+    const result = await importOk({
+      ...LEGACY_TEE,
+      layers: [
+        {
+          id: 'p',
+          kind: 'paint',
+          strokes: [
+            {
+              id: 'soft',
+              panel: 'front',
+              color: '#1A1C2280',
+              width: 0.02,
+              tool: 'brush',
+              points: [{ x: 0.2, y: 0.2, p: 0.805 }, { x: 0.3, y: 0.3, p: 0.805 }],
+            },
+          ],
+        },
+      ],
+    })
+    const layer = result.document.panels.front.layers[0]
+    const stroke = layer?.kind === 'paint' ? layer.strokes[0] : null
+
+    expect(stroke).toMatchObject({ color: '#1a1c22', opacity: 0.501961 })
+    expect(stroke?.width).toBeCloseTo((0.02 * (0.55 + 0.805 * 0.7)) / (0.55 + 0.7 * 0.7), 6)
+  })
+
+  test('the legacy stripe/check base fill becomes the v2 base pattern', async () => {
+    const result = await importOk({
+      ...LEGACY_TEE,
+      layers: ['front', 'back', 'left', 'right'].map((panel) => ({
+        id: `base-fill-${panel}`,
+        kind: 'pattern',
+        patternId: 'stripe',
+        panel,
+        color: '#F4EAD4',
+      })),
+    })
+
+    expect(result.document.base).toEqual({
+      kind: 'stripes',
+      colors: ['#2b3a55', '#f4ead4'],
+      period: 0.08,
+      angle: 0,
+    })
+    expect(result.unsupported.filter((note) => note.path.startsWith('layers['))).toEqual([])
+  })
+
   test('rejects corrupt and out-of-scope sources explicitly', async () => {
     expect(await importLegacyDesign({ value: '{not json' })).toMatchObject({ ok: false, reason: 'corrupt' })
     expect(await importLegacyDesign({ value: [LEGACY_TEE] })).toMatchObject({ ok: false, reason: 'corrupt' })

@@ -60,6 +60,8 @@ export type CanonicalCommand =
       newId: string
     }
   | { type: 'setBase'; base: GarmentBase }
+  /** Several commands as one undo step, e.g. clearing every paint layer. */
+  | { type: 'batch'; commands: CanonicalCommand[] }
 
 export type CanonicalStack = {
   document: CanonicalDocument
@@ -145,6 +147,22 @@ function applyToDocument({
   command: CanonicalCommand
 }): { ok: true; document: CanonicalDocument } | { ok: false; issues: ValidationIssue[] } {
   const next = structuredClone(document)
+
+  if (command.type === 'batch') {
+    let current = next
+
+    for (const inner of command.commands) {
+      const applied = applyToDocument({ document: current, command: inner })
+
+      if (!applied.ok) {
+        return applied
+      }
+
+      current = applied.document
+    }
+
+    return { ok: true, document: current }
+  }
 
   if (command.type === 'addStroke') {
     const layers = next.panels[command.panel].layers

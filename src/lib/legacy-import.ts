@@ -105,6 +105,30 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+/**
+ * Synchronous 128-bit FNV-1a (two 64-bit lanes) so editor loads stay
+ * synchronous. Only used to reserve stable asset ids, not for security.
+ */
+function fnv128Hex({ text }: { text: string }) {
+  const bytes = new TextEncoder().encode(text)
+  const prime = 0x100000001b3n
+  const mask = (1n << 64n) - 1n
+  let a = 0xcbf29ce484222325n
+  let b = 0x84222325cbf29ce4n
+
+  for (const byte of bytes) {
+    a = ((a ^ BigInt(byte)) * prime) & mask
+    b = ((b ^ BigInt(byte ^ 0x5a)) * prime) & mask
+  }
+
+  return a.toString(16).padStart(16, '0') + b.toString(16).padStart(16, '0')
+}
+
+/** Stable id reserved for image bytes not yet uploaded (S01 #170). */
+export function reservedAssetId({ src }: { src: string }) {
+  return `asset_legacy_${fnv128Hex({ text: src })}`
+}
+
 async function sha256Hex({ text }: { text: string }) {
   const digest = await crypto.subtle.digest(
     'SHA-256',
@@ -128,7 +152,7 @@ function uuidFromHex({ hex }: { hex: string }) {
   ].join('-')
 }
 
-function toColor({ value }: { value: unknown }): Color | null {
+export function toColor({ value }: { value: unknown }): Color | null {
   if (typeof value !== 'string') {
     return null
   }
@@ -192,7 +216,7 @@ function clampUnit({
 }
 
 /** Same angle in (-π, π]; lossless. */
-function wrapAngle({ value }: { value: number }) {
+export function wrapAngle({ value }: { value: number }) {
   const turn = Math.PI * 2
   let angle = value % turn
 
@@ -277,6 +301,7 @@ function convertStroke({
 
   const points: number[] = []
   let hasPressure = false
+  let pressureSum = 0
 
   for (const [index, point] of value.points.entries()) {
     const pointPath = `${path}.points[${index}]`
@@ -286,7 +311,10 @@ function convertStroke({
       return null
     }
 
-    if (isFiniteNumber(point.p) && point.p !== V1_DEFAULT_PRESSURE) {
+    const pressure = isFiniteNumber(point.p) ? point.p : V1_DEFAULT_PRESSURE
+    pressureSum += pressure
+
+    if (pressure !== V1_DEFAULT_PRESSURE) {
       hasPressure = true
     }
 
@@ -296,25 +324,48 @@ function convertStroke({
     )
   }
 
+  // v1 drew radius = width × (0.55 + p × 0.7); v2 has no pressure and the
+  // renderer assumes p = 0.7, so fold the stroke's mean pressure into width.
+  const meanPressure = pressureSum / value.points.length
+  const evenWidth = Number(
+    ((width * (0.55 + meanPressure * 0.7)) / (0.55 + V1_DEFAULT_PRESSURE * 0.7)).toFixed(6),
+  )
+
+  if (evenWidth < CANONICAL_LIMITS.minStrokeWidth || evenWidth > CANONICAL_LIMITS.maxStrokeWidth) {
+    context.unsupported.push({ path: `${path}.width`, message: 'stroke width out of range; left out' })
+    return null
+  }
+
   if (hasPressure) {
     context.warnings.push({
       path,
-      message: 'pen pressure is not in v2; stroke width is now even',
+      message: 'pen pressure is not in v2; folded into an even stroke width',
     })
   }
 
   if (tool === 'eraser') {
-    return { panel, stroke: { id, tool: 'eraser', width, points } }
+    return { panel, stroke: { id, tool: 'eraser', width: evenWidth, points } }
   }
 
-  const color = toColor({ value: value.color })
+  const rawColor = typeof value.color === 'string' ? value.color.trim().toLowerCase() : ''
+  const alpha = /^#[0-9a-f]{8}$/.test(rawColor)
+    ? Number.parseInt(rawColor.slice(7, 9), 16) / 255
+    : 1
+  const color = toColor({ value: alpha < 1 || rawColor.length === 9 ? rawColor.slice(0, 7) : value.color })
 
   if (!color) {
     context.unsupported.push({ path: `${path}.color`, message: 'stroke color is not a hex color; left out' })
     return null
   }
 
-  const stroke: BrushStroke = { id, tool: 'brush', color, width, opacity: 1, points }
+  const stroke: BrushStroke = {
+    id,
+    tool: 'brush',
+    color,
+    width: evenWidth,
+    opacity: Number(alpha.toFixed(6)),
+    points,
+  }
   return { panel, stroke }
 }
 
@@ -389,7 +440,7 @@ function convertPlacement({
   }
 }
 
-async function convertGraphicLayer({
+function convertGraphicLayer({
   record,
   id,
   path,
@@ -399,7 +450,7 @@ async function convertGraphicLayer({
   id: string
   path: string
   context: Context
-}): Promise<CanonicalLayer | null> {
+}): CanonicalLayer | null {
   const src = typeof record.src === 'string' ? record.src.trim() : ''
 
   if (!src) {
@@ -413,7 +464,7 @@ async function convertGraphicLayer({
     return null
   }
 
-  const assetId = `asset_legacy_${(await sha256Hex({ text: src })).slice(0, 32)}`
+  const assetId = reservedAssetId({ src })
   context.pendingAssets.set(assetId, { assetId, src })
   context.warnings.push({
     path: `${path}.src`,
@@ -574,11 +625,17 @@ function unwrap({ value }: { value: unknown }):
   return { source: 'document', body: value }
 }
 
-export async function importLegacyDesign({
-  value,
-}: {
-  value: unknown
-}): Promise<ImportResult> {
+export type ConvertResult =
+  | (Omit<Extract<ImportResult, { ok: true }>, 'contentHash' | 'importKey' | 'backup'> & {
+      input: unknown
+    })
+  | Extract<ImportResult, { ok: false }>
+
+/**
+ * Synchronous legacy → v2 conversion for editor loads. `importLegacyDesign`
+ * adds the content hash, backup and import key on top.
+ */
+export function convertLegacyDesign({ value }: { value: unknown }): ConvertResult {
   let input = value
 
   if (typeof value === 'string') {
@@ -662,6 +719,27 @@ export async function importLegacyDesign({
       continue
     }
 
+    if (
+      layer.kind === 'pattern' &&
+      id.startsWith('base-fill') &&
+      (layer.patternId === 'stripe' || layer.patternId === 'check')
+    ) {
+      const fill = toColor({ value: layer.color })
+      const ground = document.base.kind === 'solid' ? document.base.color : document.base.colors[0]
+
+      if (fill && document.base.kind === 'solid') {
+        document.base =
+          layer.patternId === 'stripe'
+            ? { kind: 'stripes', colors: [ground, fill], period: 0.08, angle: 0 }
+            : { kind: 'check', colors: [ground, fill], period: 0.08 }
+        context.warnings.push({
+          path,
+          message: `garment ${layer.patternId === 'stripe' ? 'stripes' : 'check'} became the base pattern`,
+        })
+      }
+      continue
+    }
+
     if (layer.kind === 'pattern') {
       context.unsupported.push({
         path,
@@ -689,7 +767,7 @@ export async function importLegacyDesign({
 
     const converted =
       layer.kind === 'graphic'
-        ? await convertGraphicLayer({ record: layer, id, path, context })
+        ? convertGraphicLayer({ record: layer, id, path, context })
         : convertTextLayer({ record: layer, id, path, context })
 
     if (converted) {
@@ -709,18 +787,43 @@ export async function importLegacyDesign({
     }
   }
 
-  const backup = typeof value === 'string' ? value : JSON.stringify(input)
-
   return {
     ok: true,
     source,
     ...(title ? { title } : {}),
     document: checked.document,
-    contentHash: await hashCanonicalDocument({ document: checked.document }),
     warnings: context.warnings,
     unsupported: context.unsupported,
     pendingAssets: [...context.pendingAssets.values()],
+    input,
+  }
+}
+
+export async function importLegacyDesign({
+  value,
+}: {
+  value: unknown
+}): Promise<ImportResult> {
+  const converted = convertLegacyDesign({ value })
+
+  if (!converted.ok) {
+    return converted
+  }
+
+  const { input, ...result } = converted
+  const backup = typeof value === 'string' ? value : JSON.stringify(input)
+
+  return {
+    ...result,
+    contentHash: await hashCanonicalDocument({ document: result.document }),
     backup,
     importKey: uuidFromHex({ hex: await sha256Hex({ text: backup }) }),
   }
+}
+
+/** One v1 stroke → v2, with the same rules as a full import. */
+export function strokeFromV1({ value }: { value: unknown }) {
+  const context: Context = { warnings: [], unsupported: [], pendingAssets: new Map() }
+  const converted = convertStroke({ value, path: 'stroke', context })
+  return converted ? { ...converted, notes: [...context.warnings, ...context.unsupported] } : null
 }

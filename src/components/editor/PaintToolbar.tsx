@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
+import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
@@ -50,6 +51,7 @@ export function PaintToolbar({
   const clearInk = useEditorStore((state) => state.clearInk)
   const addGraphic = useEditorStore((state) => state.addGraphic)
   const addPattern = useEditorStore((state) => state.addPattern)
+  const v2Tee = useEditorStore((state) => isCanonicalGarment({ garmentId: state.garmentId }))
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
   const typeDraft = useEditorStore((state) => state.typeDraft)
@@ -91,6 +93,7 @@ export function PaintToolbar({
             >
               {HOUSE_COPY.erase}
             </button>
+            {v2Tee ? null : (
             <button
               type="button"
               onClick={() => {
@@ -100,6 +103,7 @@ export function PaintToolbar({
             >
               {FLV_COPY.fillTool}
             </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -260,6 +264,8 @@ export function PaintToolbar({
                 className="min-h-11 min-w-0 flex-1 border border-flv-line bg-flv-paper px-3 font-body text-sm text-flv-ink"
               />
             </label>
+            {v2Tee ? null : (
+            <>
             <button
               type="button"
               onClick={() => {
@@ -284,6 +290,8 @@ export function PaintToolbar({
             >
               {HOUSE_COPY.check}
             </button>
+            </>
+            )}
             <button
               type="button"
               onClick={() => {

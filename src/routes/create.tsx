@@ -25,6 +25,7 @@ import { AtelierScene } from '../components/scene/AtelierScene'
 import { RequireSession } from '../components/auth/RequireSession'
 import { waitForSession } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
+import { isCanonicalGarment } from '../lib/concept-flags'
 import { FLV_COPY } from '../lib/flv-copy'
 import {
   allowsDrawView,
@@ -344,7 +345,8 @@ function AtelierHome() {
               {showsColorRail({ step: createStep }) ? (
                 <ColorPatternPanel />
               ) : null}
-              {showsStructureRail({ step: createStep }) ? (
+              {showsStructureRail({ step: createStep }) &&
+              !isCanonicalGarment({ garmentId }) ? (
                 <StructureRail />
               ) : null}
               {showsDesignRails({ step: createStep }) && canPaint ? (
