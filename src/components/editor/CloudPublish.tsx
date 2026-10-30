@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { captureAngleStills } from '../../lib/capture-still'
 import { useEditorStore } from '../../lib/editor-store'
 import {
+  getProfile,
   getPublication,
   publishDesign,
   unpublishDesign,
@@ -50,7 +51,12 @@ export function CloudPublish() {
 
     if (result.ok) {
       setPublication(result.data.publication)
-      setDisplayName((current) => current || result.data.publication?.displayName || '')
+      // The name this design was last published under, else the account's
+      // public name (A06 #150).
+      const published = result.data.publication?.displayName
+      const profile = published ? null : await getProfile()
+      const fallback = profile?.ok ? profile.data.displayName : null
+      setDisplayName((current) => current || published || fallback || '')
     }
   }, [designId])
 

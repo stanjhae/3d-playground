@@ -8,6 +8,10 @@ export function POST(request: Request) {
   return handleFlpRequest({ request })
 }
 
+export function PATCH(request: Request) {
+  return handleFlpRequest({ request })
+}
+
 export function DELETE(request: Request) {
   return handleFlpRequest({ request })
 }

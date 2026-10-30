@@ -31,6 +31,7 @@ import {
   useCloudAutosave,
   useRecoveryStore,
 } from '../components/editor/CloudSave'
+import { CloudTitle } from '../components/editor/CloudTitle'
 import { accountGuard, useSessionStore, waitForSession } from '../lib/auth/session-store'
 import {
   RECOVERY_WARNINGS,
@@ -467,6 +468,7 @@ function AtelierHome() {
           {mode === 'design' ? (
             <GownCredit garmentId={garmentId} />
           ) : null}
+          {cloudStatus === 'loaded' ? <CloudTitle /> : null}
           {cloudStatus === 'loaded' ? <CloudSaveStatus /> : null}
           {cloudStatus === 'loaded' ? <RecoveryPrompt /> : null}
           {cloudStatus === 'loading' ? (

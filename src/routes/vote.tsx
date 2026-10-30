@@ -1,4 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+
+import { NotInAlpha } from '../components/ui/NotInAlpha'
+import { AUTH_REQUIRED } from '../lib/auth/supabase-client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { LookCard } from '../components/vote/LookCard'
@@ -39,7 +42,8 @@ export const Route = createFileRoute('/vote')({
 
     return {}
   },
-  component: VotePage,
+  // The guest board is retired where sign-in is required (F09 #144).
+  component: AUTH_REQUIRED ? NotInAlpha : VotePage,
 })
 
 function medalClass({

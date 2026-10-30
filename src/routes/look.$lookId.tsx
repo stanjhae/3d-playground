@@ -1,4 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+
+import { NotInAlpha } from '../components/ui/NotInAlpha'
+import { AUTH_REQUIRED } from '../lib/auth/supabase-client'
 import { useEffect, useRef, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
@@ -13,7 +16,8 @@ import { lookRecipe } from '../lib/look-recipe'
 import { lookSheetBodyClass, lookSheetFrameClass } from '../lib/studio-chrome'
 
 export const Route = createFileRoute('/look/$lookId')({
-  component: LookPage,
+  // The guest board is retired where sign-in is required (F09 #144).
+  component: AUTH_REQUIRED ? NotInAlpha : LookPage,
 })
 
 function LookPage() {

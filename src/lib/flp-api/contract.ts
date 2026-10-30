@@ -74,6 +74,28 @@ export type PublishVersionRequest = {
   displayName?: string
 }
 
+/** PATCH /designs/:id — design metadata, not a version (A06 #150). */
+export type UpdateDesignRequest = {
+  title?: string
+  description?: string
+}
+
+export type DesignDetails = {
+  id: string
+  title: string
+  description: string
+  updatedAt: string
+}
+
+/** POST /profile — the name shown on published designs; null clears it. */
+export type ProfileRequest = {
+  displayName: string | null
+}
+
+export type ProfileResponse = {
+  displayName: string | null
+}
+
 export type VersionResponse = {
   designId: string
   seq: number
@@ -468,6 +490,35 @@ export function parsePublishVersionRequest({ value }: { value: unknown }) {
       ...seqIssue({ value: record.seq, path: '$.seq' }),
       ...textIssue({ value: record.displayName, path: '$.displayName', max: 40 }),
     ],
+  })
+}
+
+export function parseUpdateDesignRequest({ value }: { value: unknown }) {
+  return parseFields<UpdateDesignRequest>({
+    value,
+    required: [],
+    optional: ['title', 'description'],
+    check: (record) => [
+      ...(record.title === undefined && record.description === undefined
+        ? [{ path: '$', message: 'expected a title or description' }]
+        : []),
+      ...textIssue({ value: record.title, path: '$.title', max: 80 }),
+      ...(record.description === undefined ||
+      (typeof record.description === 'string' && record.description.length <= 500)
+        ? []
+        : [{ path: '$.description', message: 'expected at most 500 characters' }]),
+    ],
+  })
+}
+
+export function parseProfileRequest({ value }: { value: unknown }) {
+  return parseFields<ProfileRequest>({
+    value,
+    required: ['displayName'],
+    check: (record) =>
+      record.displayName === null || record.displayName === ''
+        ? []
+        : textIssue({ value: record.displayName, path: '$.displayName', max: 40 }),
   })
 }
 

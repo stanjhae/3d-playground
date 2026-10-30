@@ -1,7 +1,9 @@
-import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { RequireSession } from '../components/auth/RequireSession'
+import { DesignCard } from '../components/studio/DesignCard'
+import { PublicName } from '../components/studio/PublicName'
 import { useSessionStore, waitForSession } from '../lib/auth/session-store'
 import { authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
 import { createEmptyCanonicalDocument } from '../lib/canonical-document'
@@ -59,6 +61,7 @@ type ListState =
 function MyStudio() {
   const navigate = useNavigate()
   const accountEpoch = useSessionStore((state) => state.accountEpoch)
+  const ownerId = useSessionStore((state) => state.account?.userId ?? null)
   const [list, setList] = useState<ListState>({ status: 'loading' })
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -146,6 +149,8 @@ function MyStudio() {
         </div>
       </header>
 
+      <PublicName />
+
       <p role="status" aria-live="polite" className="min-h-5 font-body text-sm text-flv-accent">
         {createError}
       </p>
@@ -169,17 +174,29 @@ function MyStudio() {
         <ul className="grid gap-3 sm:grid-cols-2">
           {list.designs.map((design) => (
             <li key={design.id}>
-              <Link
-                to="/create"
-                search={{ cloud: design.id, step: 'design' }}
-                className="flex min-h-20 flex-col justify-between gap-2 border border-flv-line bg-flv-paper p-4 hover:border-flv-accent"
-              >
-                <span className="font-display text-xl">{design.title}</span>
-                <span className="font-body text-xs text-flv-muted">
-                  {design.visibility === 'published' ? 'Published · ' : 'Private · '}
-                  edited {new Date(design.updatedAt).toLocaleString()}
-                </span>
-              </Link>
+              <DesignCard
+                design={design}
+                ownerId={ownerId ?? ''}
+                onRenamed={(title) =>
+                  setList((current) =>
+                    current.status === 'ready'
+                      ? {
+                          status: 'ready',
+                          designs: current.designs.map((each) =>
+                            each.id === design.id ? { ...each, title } : each,
+                          ),
+                        }
+                      : current,
+                  )
+                }
+                onDeleted={() =>
+                  setList((current) =>
+                    current.status === 'ready'
+                      ? { status: 'ready', designs: current.designs.filter((each) => each.id !== design.id) }
+                      : current,
+                  )
+                }
+              />
             </li>
           ))}
         </ul>
