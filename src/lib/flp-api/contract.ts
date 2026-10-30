@@ -83,6 +83,44 @@ export type VersionResponse = {
   createdAt: string
 }
 
+/** One row of `GET /designs/:id/versions` (S07 #176); no content. */
+export type VersionSummary = {
+  seq: number
+  kind: VersionResponse['kind']
+  label: string | null
+  contentHash: ContentHash
+  restoredFromSeq: number | null
+  createdAt: string
+}
+
+/**
+ * A newest-first page of history. `nextBefore` is the cursor for the next
+ * (older) page, or null at version 1. `headSeq` and `publishedSeq` mark
+ * the current and published versions.
+ */
+export type VersionPage = {
+  headSeq: number | null
+  publishedSeq: number | null
+  versions: VersionSummary[]
+  nextBefore: number | null
+}
+
+/** `GET /designs/:id/versions/:seq`: one version for read-only preview. */
+export type VersionDetail = VersionSummary & {
+  designId: string
+  content: CanonicalDocument
+}
+
+export type VersionListQuery = {
+  before: number | null
+  limit: number
+}
+
+export const VERSION_PAGE_LIMITS = { default: 20, max: 50 } as const
+
+/** Must match the label bound in the schema migration. */
+export const MAX_CHECKPOINT_LABEL = 60
+
 export type PublicationResponse = {
   slug: string
   status: 'published' | 'revoked'
@@ -344,9 +382,69 @@ export function parseSaveVersionRequest({ value }: { value: unknown }) {
       ...(record.kind === 'autosave' || record.kind === 'checkpoint'
         ? []
         : [{ path: '$.kind', message: 'expected autosave or checkpoint' }]),
-      ...textIssue({ value: record.label, path: '$.label', max: 60 }),
+      ...(record.label === undefined
+        ? []
+        : record.kind === 'checkpoint'
+          ? checkpointLabelIssues({ value: record.label })
+          : [{ path: '$.label', message: 'only checkpoints have a name' }]),
     ],
   })
+}
+
+/**
+ * A checkpoint name: 1–60 visible characters after trimming, no control
+ * characters. The client trims before sending; the server re-checks.
+ */
+export function checkpointLabelIssues({ value }: { value: unknown }): ValidationIssue[] {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return [{ path: '$.label', message: 'Name the checkpoint' }]
+  }
+
+  if (value.trim().length > MAX_CHECKPOINT_LABEL) {
+    return [{ path: '$.label', message: `Use at most ${MAX_CHECKPOINT_LABEL} characters` }]
+  }
+
+  if (/[\u0000-\u001f\u007f]/.test(value) || value !== value.trim()) {
+    return [{ path: '$.label', message: 'Use plain text without line breaks or outer spaces' }]
+  }
+
+  return []
+}
+
+function positiveInteger({ text }: { text: string }) {
+  return /^[1-9][0-9]{0,8}$/.test(text) ? Number(text) : null
+}
+
+/** `:seq` of `/designs/:id/versions/:seq`; anything else is a 404. */
+export function parseVersionSeq({ segment }: { segment: string }) {
+  return positiveInteger({ text: segment })
+}
+
+/** `?before=<seq>&limit=<n>` for the history list; unknown params are ignored. */
+export function parseVersionListQuery({
+  params,
+}: {
+  params: URLSearchParams
+}): { ok: true; query: VersionListQuery } | { ok: false; error: ApiError } {
+  const issues: ValidationIssue[] = []
+  const rawBefore = params.get('before')
+  const rawLimit = params.get('limit')
+  const before = rawBefore === null ? null : positiveInteger({ text: rawBefore })
+  const limit = rawLimit === null ? VERSION_PAGE_LIMITS.default : positiveInteger({ text: rawLimit })
+
+  if (rawBefore !== null && before === null) {
+    issues.push({ path: '$.before', message: 'expected a version number' })
+  }
+
+  if (limit === null || limit > VERSION_PAGE_LIMITS.max) {
+    issues.push({ path: '$.limit', message: `expected 1–${VERSION_PAGE_LIMITS.max}` })
+  }
+
+  if (issues.length > 0) {
+    return { ok: false, error: apiError({ code: 'invalid', message: 'Request is invalid', issues }) }
+  }
+
+  return { ok: true, query: { before, limit: limit as number } }
 }
 
 export function parseRestoreVersionRequest({ value }: { value: unknown }) {

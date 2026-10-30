@@ -14,6 +14,7 @@ import { StructureRail } from '../components/editor/StructureRail'
 import { StudioViewToggle } from '../components/editor/StudioViewToggle'
 import { TechInspector } from '../components/editor/TechInspector'
 import { VersionRail } from '../components/editor/VersionRail'
+import { HistoryPanel } from '../components/editor/HistoryPanel'
 import { GownCredit } from '../components/editor/GownCredit'
 import { ModeToggle } from '../components/editor/ModeToggle'
 import {
@@ -23,6 +24,7 @@ import {
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
 import { RequireSession } from '../components/auth/RequireSession'
+import { CloudPublish } from '../components/editor/CloudPublish'
 import {
   CloudSaveStatus,
   RecoveryPrompt,
@@ -40,9 +42,7 @@ import {
 import { resolveUploadedSources, uploadedAssetIds } from '../lib/uploaded-images'
 import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { isCanonicalGarment } from '../lib/concept-flags'
-import { validateCanonicalDocument } from '../lib/canonical-document'
-import { getOwnedDesign } from '../lib/flp-api/client'
-import { resolveTemplate } from '../lib/template-manifest'
+import { loadCloudDesign } from '../lib/cloud-design-load'
 import { FLV_COPY } from '../lib/flv-copy'
 import {
   allowsDrawView,
@@ -154,58 +154,35 @@ function AtelierHome() {
       ? readRecovery({ storage, ownerId, designId: cloudId })
       : Promise.resolve({ status: 'none' })
 
-    void Promise.all([getOwnedDesign({ designId: cloudId }), recovery]).then(([result, read]) => {
+    void Promise.all([
+      loadCloudDesign({ designId: cloudId, isCurrent: () => !cancelled }),
+      recovery,
+    ]).then(([result, read]) => {
       if (cancelled || !stillSameAccount()) {
         return
       }
 
       if (!result.ok) {
-        setCloudStatus(
-          result.code === 'not_found'
-            ? 'missing'
-            : result.code === 'account-changed'
-              ? 'idle'
-              : 'error',
-        )
+        setCloudStatus(result.reason === 'account-changed' ? 'idle' : result.reason)
         return
       }
 
-      const checked = result.data.head
-        ? validateCanonicalDocument({ value: result.data.head.content })
-        : null
-
-      if (!checked?.ok || !result.data.head) {
-        setCloudStatus('error')
-        return
-      }
-
-      if (!resolveTemplate(checked.document.template).ok) {
-        setCloudStatus('unsupported')
-        return
-      }
-
-      useEditorStore.getState().loadCanonical({
-        document: checked.document,
-        cloud: {
-          designId: result.data.id,
-          headSeq: result.data.head.seq,
-          title: result.data.title,
-        },
-      })
-
-      const offer = recoveryOffer({
-        read,
-        cloudHeadSeq: result.data.head.seq,
-        cloudDocument: checked.document,
-      })
+      const loaded = useEditorStore.getState().cloud
+      const offer = loaded
+        ? recoveryOffer({
+            read,
+            cloudHeadSeq: loaded.headSeq,
+            cloudDocument: getCanonicalDocument(),
+          })
+        : ({ kind: 'none' } as const)
 
       // A local copy identical to the cloud needs no question.
       if (offer.kind === 'none' && read.status === 'found' && ownerId) {
-        void clearRecovery({ storage, ownerId, designId: result.data.id })
+        void clearRecovery({ storage, ownerId, designId: cloudId })
       }
 
       useRecoveryStore.setState({
-        designId: result.data.id,
+        designId: cloudId,
         offer: offer.kind === 'none' ? null : offer,
         warning:
           read.status === 'unavailable'
@@ -552,6 +529,7 @@ function AtelierHome() {
                   <LayerRail />
                   {designEditMode === 'tech' ? <TechInspector /> : null}
                   <VersionRail />
+                  <HistoryPanel />
                 </>
               ) : null}
               {showsDesignRails({ step: createStep }) && !canPaint ? (
@@ -579,7 +557,16 @@ function AtelierHome() {
                   {enteredLabel}
                 </p>
               ) : null}
-              {showsShareRail({ step: createStep }) ? (
+              {showsShareRail({ step: createStep }) && cloudStatus === 'loaded' ? (
+                <CloudPublish />
+              ) : showsShareRail({ step: createStep }) && AUTH_REQUIRED ? (
+                <p className="font-body text-sm text-flv-muted">
+                  Publishing works from your own designs.{' '}
+                  <Link to="/studio" className="underline">
+                    Open My Studio
+                  </Link>
+                </p>
+              ) : showsShareRail({ step: createStep }) ? (
                 <PublishBar
                   publishing={publishing}
                   onPublish={async ({ design }) => {

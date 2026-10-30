@@ -6,9 +6,13 @@ import type {
   ApiErrorCode,
   CreateDesignRequest,
   RestoreVersionRequest,
+  PublicationResponse,
   SaveVersionRequest,
+  VersionDetail,
+  VersionPage,
   VersionResponse,
 } from './contract.ts'
+import type { OwnerPublication, PublicDesign, PublicRenderKind } from './publication.ts'
 
 /**
  * Browser calls to `/api/flp/*` (S03 #172). Each call carries the current
@@ -52,7 +56,7 @@ export async function call<T>({
   fetchImpl = fetch,
 }: {
   path: string
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'DELETE'
   body?: unknown
   fetchImpl?: typeof fetch
 }): Promise<FlpResult<T>> {
@@ -86,7 +90,7 @@ export async function call<T>({
       : { ok: false, code: 'account-changed', message: 'Account changed' }
   }
 
-  const payload = (await response.json().catch(() => null)) as
+  const payload = (response.status === 204 ? null : await response.json().catch(() => null)) as
     | (T & { error?: undefined })
     | {
         error?: {
@@ -173,4 +177,112 @@ export function restoreDesignVersion({
     body: request,
     fetchImpl,
   })
+}
+
+/** Publication state for the owner (P03 #181). */
+export function getPublication({ designId, fetchImpl }: { designId: string; fetchImpl?: typeof fetch }) {
+  return call<{ publication: OwnerPublication | null }>({ path: `designs/${designId}/publication`, fetchImpl })
+}
+
+/** Upload the views of one saved version (P02 #180). Data is base64 JPEG/PNG. */
+export function uploadRenders({
+  designId,
+  seq,
+  renders,
+  fetchImpl,
+}: {
+  designId: string
+  seq: number
+  renders: Array<{ kind: PublicRenderKind; data: string }>
+  fetchImpl?: typeof fetch
+}) {
+  return call<{ seq: number; kinds: PublicRenderKind[] }>({
+    path: `designs/${designId}/renders`,
+    method: 'POST',
+    body: { seq, renders },
+    fetchImpl,
+  })
+}
+
+export function publishDesign({
+  designId,
+  seq,
+  displayName,
+  fetchImpl,
+}: {
+  designId: string
+  seq: number
+  displayName?: string
+  fetchImpl?: typeof fetch
+}) {
+  return call<PublicationResponse>({
+    path: `designs/${designId}/publication`,
+    method: 'POST',
+    body: displayName ? { seq, displayName } : { seq },
+    fetchImpl,
+  })
+}
+
+export function unpublishDesign({ designId, fetchImpl }: { designId: string; fetchImpl?: typeof fetch }) {
+  return call<null>({ path: `designs/${designId}/publication`, method: 'DELETE', fetchImpl })
+}
+
+/** Anonymous read of a published design (P04 #182); no session needed. */
+export async function getPublicDesign({
+  slug,
+  fetchImpl = fetch,
+}: {
+  slug: string
+  fetchImpl?: typeof fetch
+}): Promise<{ ok: true; data: PublicDesign } | { ok: false; code: 'not_found' | 'network' }> {
+  try {
+    const response = await fetchImpl(`/api/flp/public/${encodeURIComponent(slug)}`)
+    return response.ok
+      ? { ok: true, data: (await response.json()) as PublicDesign }
+      : { ok: false, code: 'not_found' }
+  } catch {
+    return { ok: false, code: 'network' }
+  }
+}
+
+/** One newest-first page of a design's history (S07 #176). */
+export function listDesignVersions({
+  designId,
+  before = null,
+  limit,
+  fetchImpl,
+}: {
+  designId: string
+  before?: number | null
+  limit?: number
+  fetchImpl?: typeof fetch
+}) {
+  const params = new URLSearchParams()
+
+  if (before !== null) {
+    params.set('before', String(before))
+  }
+
+  if (limit !== undefined) {
+    params.set('limit', String(limit))
+  }
+
+  const query = params.toString()
+  return call<VersionPage>({
+    path: `designs/${designId}/versions${query ? `?${query}` : ''}`,
+    fetchImpl,
+  })
+}
+
+/** One version's content, for read-only preview (S07 #176). */
+export function getDesignVersion({
+  designId,
+  seq,
+  fetchImpl,
+}: {
+  designId: string
+  seq: number
+  fetchImpl?: typeof fetch
+}) {
+  return call<VersionDetail>({ path: `designs/${designId}/versions/${seq}`, fetchImpl })
 }

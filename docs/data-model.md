@@ -73,6 +73,16 @@ POST /api/flp/designs/:id/versions
 { "baseSeq": 1, "mutationKey": "…", "kind": "autosave", "content": { … } }
 → 201 VersionResponse | 409 conflict { headSeq } | 413 | 422 { issues }
 
+POST /api/flp/designs/:id/versions   (named checkpoint)
+{ "baseSeq": 4, "mutationKey": "…", "kind": "checkpoint", "label": "Before sleeves", "content": { … } }
+→ 201 VersionResponse | 422 { issues: [{ path: "$.label" }] }
+
+GET /api/flp/designs/:id/versions?before=7&limit=20
+→ 200 { "headSeq": 9, "publishedSeq": 3, "versions": [VersionSummary…], "nextBefore": 4 }
+
+GET /api/flp/designs/:id/versions/:seq
+→ 200 VersionSummary & { "designId", "content": { … } } | 404
+
 POST /api/flp/designs/:id/restore
 { "baseSeq": 3, "mutationKey": "…", "fromSeq": 1 }
 → 201 VersionResponse (kind "restore", restoredFromSeq 1)
@@ -130,7 +140,7 @@ supabase test db
 FLP_INTEGRATION=1 pnpm test:integration
 ```
 
-`pnpm test:integration` runs the API against the local stack with real user JWTs. It covers neutral 404s across owners, one-wins concurrent saves, idempotent retries, key reuse, the publication pointer, failed-write atomicity and attempts to bypass the API through REST. `assets.integration.test.ts` adds reserve → upload → finalize → save, metadata stripping, cross-owner refusal, blocked saves for unfinalized or rejected assets, and retrying an interrupted upload. It needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local` (see `.env.example`).
+`pnpm test:integration` runs the API against the local stack with real user JWTs. It covers neutral 404s across owners, one-wins concurrent saves, idempotent retries, key reuse, the publication pointer, failed-write atomicity and attempts to bypass the API through REST. `history.integration.test.ts` covers paging, preview reads, cross-owner 404s, checkpoint names, restore metadata with an unchanged publication, and concurrent restores. `assets.integration.test.ts` adds reserve → upload → finalize → save, metadata stripping, cross-owner refusal, blocked saves for unfinalized or rejected assets, and retrying an interrupted upload. It needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local` (see `.env.example`).
 
 `supabase start` needs Docker. `supabase db reset` applies the migrations to an empty database, and `supabase test db` runs the pgTAP suite. No hosted project is linked yet.
 
@@ -165,4 +175,51 @@ FLP_INTEGRATION=1 pnpm test:integration
 - **Accounts.** Records are looked up only under the signed-in owner, so account B never lists or loads A's. Writes stop when the account changes. Records are not deleted on sign-out, so A can recover after a session expires or after signing in again on the same browser. They remain readable by anyone with access to that browser profile's storage, like any IndexedDB data.
 - **Guest draft.** `flv:draft:current` is now used only while signed out (outside cloud designs), so signed-in work never lands in the shared guest slot.
 
-**Known issue for A07 #151:** deleting an auth user who owns designs fails. The cascade into `design_versions` is blocked by the immutability trigger, which only allows deletes inside `flp_delete_design`. Account deletion must delete the user's designs through that function first, or the trigger must also allow cascades.
+**Account deletion (A07 #151):** deleting an auth user removes all of their designs, versions, publications and assets through the foreign-key cascades. The immutability trigger allows a version delete only inside `flp_delete_design` or as part of a cascade (`pg_trigger_depth() > 1`, migration `20261102090000_flp_cascade_deletes.sql`). A direct delete from a client, REST or SQL is still refused.
+
+## Publishing and the public page (P01–P05, #179–#183)
+
+Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/CloudPublish.tsx`, and the public page `src/routes/s.$slug.tsx`.
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /api/flp/designs/:id/renders` | Owner | `{ seq, renders: [{ kind, data }] }` with exactly `view_front`, `view_three_quarter` and `view_back`, base64 JPEG or PNG. Each image is checked by `validateImage` and stored privately at `<owner>/<design>/v<seq>/<kind>.jpg`; the `render_artifacts` rows become `ready`. |
+| `GET /api/flp/designs/:id/publication` | Owner | `{ publication: { slug, status, seq, displayName, rendersReadyForHead } \| null }` |
+| `POST /api/flp/designs/:id/publication` | Owner | `{ seq, displayName? }`. Refused (`422`, one issue per missing view) unless all three views of that exact version are ready. Then `flp_publish_version` moves the pointer in one step. Republishing keeps the slug. |
+| `DELETE /api/flp/designs/:id/publication` | Owner | `204`. The public page returns 404 immediately. |
+| `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where the render URLs are signed for **5 minutes**. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
+
+**Studio flow:**
+- **Publish…** is available only when the design shows **Saved to cloud**.
+- The review names the exact version and explains that anyone with the link can view it and copy its images.
+- **Confirm** captures the three views of that exact version, refusing if the design changed meanwhile, then uploads them and publishes.
+- The panel then shows "Published vX · draft vY", the link, **Copy link** and **Unpublish**.
+- Without a cloud design, and wherever sign-in is required, the legacy guest board publish is not offered.
+
+**Limits:**
+- A render URL issued before unpublishing works until it expires, at most 5 minutes later. Images someone already downloaded can't be recalled (PRD §6.3).
+- The public page is static views only; read-only 3D (PRD S3) would need the published texture.
+
+## History, checkpoints and restore (S07 #176, S08 #177)
+
+No migration: history reads `design_versions` as the user, and checkpoints and restores use the existing `flp_save_version` and `flp_restore_version`.
+
+**List** `GET /api/flp/designs/:id/versions?before=<seq>&limit=<n>` (server `handleVersionHistory`, contract `parseVersionListQuery`):
+- Newest first by `seq`, which is gap-free and immutable per design, so the order is the same on every device. `limit` defaults to 20, max 50. `before` is an exclusive `seq` cursor; `nextBefore` is the next one, or `null` once version 1 is listed. Bad `before`/`limit` → `422`.
+- Each row is a `VersionSummary`: `seq`, `kind`, `label`, `contentHash`, `restoredFromSeq`, `createdAt`. No content. The page also returns `headSeq` (current) and `publishedSeq` (the owner's published version, or `null`).
+
+**Read one** `GET /api/flp/designs/:id/versions/:seq` returns that version's content for a read-only preview. It is returned as stored and never becomes the draft.
+
+Both read **as the user**. Another owner's design, a missing design and a malformed `:seq` all return the neutral `404 Design not found`. A missing `seq` on your own design returns `404 Version not found`.
+
+**Named checkpoints** are `POST …/versions` with `kind: "checkpoint"` and a `label`. The label must be 1–60 characters with no control characters and no outer spaces (`checkpointLabelIssues`; the database re-checks the length). An autosave cannot carry a label. Checkpoints share the head's compare-and-swap chain: the save controller's `checkpoint()` waits for any autosave in flight, then saves against the acknowledged head, so autosave never races it.
+
+**Restore** (`restoreFromHistory` in `src/lib/version-history.ts`):
+1. If there is unsaved work and **Save current work first** is checked (the default), `settle()` saves it now. If that fails, nothing is restored.
+2. `hold()` stops autosave and waits for any save in flight, so the base is the real head.
+3. `POST …/restore` with that base. The server checks the base (`409` if it moved, including a concurrent restore) and that `fromSeq` is a version of this owned design. It appends a `restore` version with A's content and hash and `restoredFromSeq`. Earlier versions are unchanged.
+4. Only after the acknowledgement is the draft reloaded from the head (`loadCloudDesign` → `loadCanonical`). Each load bumps `cloudLoad`, which starts a fresh autosave controller; the load itself is never autosaved. On failure, `release()` resumes autosave.
+
+Restore never touches `publications`: the published look stays on its version until the owner republishes.
+
+**Studio:** `HistoryPanel` (`src/components/editor/HistoryPanel.tsx`) appears on `/create?cloud=<id>`. It shows version, name, type, time and **Current**/**Published**/**From vN** markers, plus **Load more**, **Preview** (a read-only summary of base and layers per panel, outside the editor store), **Save checkpoint** and **Restore**.

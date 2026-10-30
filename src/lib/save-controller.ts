@@ -14,7 +14,10 @@ const LEGACY_ASSET_PREFIX = 'asset_legacy_'
  * - one mutation key per revision, reused on retry;
  * - only the exact revision sent is acknowledged as saved;
  * - a stale base (409) becomes `conflict` and stops; nothing is overwritten;
- * - cancel (navigation, account switch) drops late responses.
+ * - cancel (navigation, account switch) drops late responses;
+ * - a named checkpoint (S07 #176) waits its turn behind any save in flight
+ *   and moves the same head, so autosave never races it;
+ * - settle and hold let a restore (S08 #177) save or freeze work first.
  */
 
 export type SaveStatus =
@@ -40,6 +43,9 @@ export type SaveRequest = {
   mutationKey: string
   revision: number
   document: CanonicalDocument
+  /** Autosave unless a named checkpoint. */
+  kind?: 'autosave' | 'checkpoint'
+  label?: string
 }
 
 export type SaveControllerOptions = {
@@ -54,6 +60,9 @@ export type SaveControllerOptions = {
   setTimer?: (callback: () => void, ms: number) => unknown
   clearTimer?: (handle: unknown) => void
 }
+
+const CONFLICT_MESSAGE =
+  'This design changed somewhere else. Open the cloud version or save yours as a copy.'
 
 /**
  * Library graphics ship with the app and uploads are placed only once
@@ -93,6 +102,8 @@ export function createSaveController(options: SaveControllerOptions) {
   let inFlight = false
   let timer: unknown = null
   let generation = 0
+  let held = false
+  let idleWaiters: Array<() => void> = []
   const keys = new Map<number, string>()
   const listeners = new Set<(next: SaveState) => void>()
 
@@ -126,8 +137,34 @@ export function createSaveController(options: SaveControllerOptions) {
     return key
   }
 
+  function settleInFlight() {
+    inFlight = false
+    const waiters = idleWaiters
+    idleWaiters = []
+    waiters.forEach((resolve) => resolve())
+  }
+
+  /** Resolves once no request is in flight. */
+  function whenIdle() {
+    return inFlight
+      ? new Promise<void>((resolve) => {
+          idleWaiters.push(resolve)
+        })
+      : Promise.resolve()
+  }
+
+  /** After an acknowledgement: save anything newer, else report saved. */
+  function afterAcknowledged({ revision }: { revision: number }) {
+    if (latest && latest.revision > revision) {
+      emit({ status: 'unsaved' })
+      schedule(0)
+    } else {
+      emit({ status: 'saved' })
+    }
+  }
+
   async function send() {
-    if (inFlight || state.status === 'conflict' || !latest) {
+    if (inFlight || held || state.status === 'conflict' || !latest) {
       return
     }
 
@@ -154,23 +191,17 @@ export function createSaveController(options: SaveControllerOptions) {
       document: sent.document,
     })
 
-    inFlight = false
-
     if (mine !== generation) {
       return
     }
+
+    settleInFlight()
 
     if (result.ok) {
       keys.delete(sent.revision)
       emit({ savedRevision: sent.revision, headSeq: result.data.seq, message: null })
       onAcknowledged?.({ headSeq: result.data.seq, revision: sent.revision })
-
-      if (latest && latest.revision > sent.revision) {
-        emit({ status: 'unsaved' })
-        schedule(0)
-      } else {
-        emit({ status: 'saved' })
-      }
+      afterAcknowledged({ revision: sent.revision })
       return
     }
 
@@ -180,10 +211,7 @@ export function createSaveController(options: SaveControllerOptions) {
     }
 
     if (result.code === 'conflict') {
-      emit({
-        status: 'conflict',
-        message: 'This design changed somewhere else. Open the cloud version or save yours as a copy.',
-      })
+      emit({ status: 'conflict', message: CONFLICT_MESSAGE })
       return
     }
 
@@ -234,13 +262,140 @@ export function createSaveController(options: SaveControllerOptions) {
       timer = null
     }
 
-    inFlight = false
+    settleInFlight()
+  }
+
+  /**
+   * Save `document` (the editor at `revision`) as a named checkpoint. Waits
+   * for any save in flight so both share one compare-and-swap chain.
+   */
+  async function checkpoint({
+    label,
+    revision,
+    document,
+  }: {
+    label: string
+    revision: number
+    document: CanonicalDocument
+  }): Promise<FlpResult<VersionResponse>> {
+    while (inFlight) {
+      await whenIdle()
+    }
+
+    if (state.status === 'conflict') {
+      return { ok: false, code: 'conflict', message: CONFLICT_MESSAGE, headSeq: null }
+    }
+
+    if (!imagesReady({ document })) {
+      return { ok: false, code: 'invalid', message: 'Images must finish uploading before this design can save.' }
+    }
+
+    if (timer !== null) {
+      clearTimer(timer)
+      timer = null
+    }
+
+    const mine = generation
+    inFlight = true
+    emit({ status: 'saving', message: null })
+
+    const result = await save({
+      designId,
+      baseSeq: state.headSeq,
+      mutationKey: newKey(),
+      revision,
+      document,
+      kind: 'checkpoint',
+      label,
+    })
+
+    if (mine !== generation) {
+      return result
+    }
+
+    settleInFlight()
+
+    if (result.ok) {
+      const savedRevision = Math.max(state.savedRevision, revision)
+      keys.delete(revision)
+      emit({ savedRevision, headSeq: result.data.seq, message: null })
+      onAcknowledged?.({ headSeq: result.data.seq, revision })
+      afterAcknowledged({ revision: savedRevision })
+      return result
+    }
+
+    if (result.code === 'account-changed') {
+      cancel()
+    } else if (result.code === 'conflict') {
+      emit({ status: 'conflict', message: CONFLICT_MESSAGE })
+    } else if (latest && latest.revision > state.savedRevision) {
+      // The checkpoint failed; pending edits still autosave.
+      emit({ status: 'unsaved' })
+      schedule(debounceMs)
+    } else {
+      emit({ status: 'saved' })
+    }
+
+    return result
+  }
+
+  /**
+   * Save everything now and wait for the outcome: `saved`, or why not
+   * (`offline`, `failed`, `conflict`, `waiting-for-images`).
+   */
+  async function settle() {
+    // Bounded: each round saves the newest revision seen so far.
+    for (let round = 0; round < 5; round += 1) {
+      await whenIdle()
+
+      if (timer !== null) {
+        clearTimer(timer)
+        timer = null
+      }
+
+      await send()
+
+      if (!inFlight && state.status !== 'unsaved' && state.status !== 'saving') {
+        break
+      }
+    }
+
+    return state
+  }
+
+  /**
+   * Stop starting saves (pending edits stay pending) and wait for the one
+   * in flight, so the head is known. `release` resumes.
+   */
+  async function hold() {
+    held = true
+
+    if (timer !== null) {
+      clearTimer(timer)
+      timer = null
+    }
+
+    await whenIdle()
+    return state
+  }
+
+  function release() {
+    held = false
+
+    if (latest && latest.revision > state.savedRevision && state.status !== 'conflict') {
+      emit({ status: 'unsaved' })
+      schedule(debounceMs)
+    }
   }
 
   return {
     notify,
     flush,
     cancel,
+    checkpoint,
+    settle,
+    hold,
+    release,
     getState: () => state,
     subscribe(listener: (next: SaveState) => void) {
       listeners.add(listener)
