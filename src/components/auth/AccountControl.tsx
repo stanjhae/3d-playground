@@ -27,6 +27,12 @@ export function AccountControl() {
 
   return (
     <div className="flex items-center gap-2 font-body text-xs">
+      <Link
+        to="/studio"
+        className="inline-flex min-h-11 items-center px-1 tracking-[0.08em] text-flv-muted uppercase hover:text-flv-accent"
+      >
+        My Studio
+      </Link>
       <span className="hidden max-w-40 truncate text-flv-muted sm:inline" title={email ?? undefined}>
         {email}
       </span>

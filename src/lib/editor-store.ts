@@ -65,8 +65,16 @@ import {
   undoTee,
 } from './editor-canonical'
 import type { ImportNote } from './legacy-import'
+import type { CanonicalDocument } from './canonical-document'
+import { replaceDocument } from './canonical-commands'
 
 export type EditorMode = 'design' | 'atelier'
+
+export type CloudContext = {
+  designId: string
+  headSeq: number
+  title: string
+}
 export type StudioView = 'draw' | 'cloth'
 export type EditorPaintTool = StrokeTool | 'type'
 export type CreateStep = CreateStepId
@@ -103,6 +111,8 @@ type EditorState = {
   revision: number
   /** What the last load changed or left out (legacy import, #141). */
   importNotes: ImportNote[]
+  /** The owned cloud design open in the studio, if any (A05 #149). */
+  cloud: CloudContext | null
   title: string
   author: string
   lastPublished: Omit<Design, 'id' | 'votes'> | null
@@ -274,6 +284,16 @@ type EditorState = {
     document: DesignDocument
     garmentId?: GarmentId
   }) => void
+  /** Open a canonical v2 document from the cloud; resets undo. */
+  loadCanonical: ({
+    document,
+    cloud,
+  }: {
+    document: CanonicalDocument
+    cloud: CloudContext
+  }) => void
+  /** Record a cloud acknowledgement (autosave, S04 #173). */
+  setCloudHead: ({ headSeq }: { headSeq: number }) => void
   rememberMorning: ({ title }: { title: string }) => void
   rememberEnteredLook: ({
     title,
@@ -476,6 +496,7 @@ const INITIAL_EDITOR_STATE = {
   document: teeRenderDocument({ engine: tee }),
   revision: 0,
   importNotes: [] as ImportNote[],
+  cloud: null as CloudContext | null,
   title: '',
   author: 'Guest',
   lastPublished: null as Omit<Design, 'id' | 'votes'> | null,
@@ -514,6 +535,11 @@ const INITIAL_EDITOR_STATE = {
   baseFinishId: 'matte' as BaseFinishId,
 }
 
+/** The tee's canonical v2 document, for cloud saving (S04 #173). */
+export function getCanonicalDocument(): CanonicalDocument {
+  return tee.stack.document
+}
+
 export const useEditorStore = create<EditorState>()((set, get) => ({
   ...INITIAL_EDITOR_STATE,
   setMode: ({ mode }) => {
@@ -526,7 +552,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     const resolved = resolveGarmentId({ garmentId })
 
     set((state) => {
-      if (state.garmentId === resolved) {
+      // A cloud design is a canonical tee; it never switches garment.
+      if (state.garmentId === resolved || (state.cloud && resolved !== 'tee')) {
         return state
       }
 
@@ -665,6 +692,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({
       ...syncFromStack(),
       importNotes,
+      cloud: null,
       title: design.title,
       author: design.author,
       fabricId: null,
@@ -1342,12 +1370,29 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({
       ...syncFromStack(),
       importNotes,
+      cloud: null,
       activeStroke: null,
       activeLayerEdit: null,
       selectedLayerId: null,
       undoCount: 0,
       redoCount: 0,
     })
+  },
+  loadCanonical: ({ document, cloud }) => {
+    activeGarment = 'tee'
+    tee = { stack: replaceDocument({ stack: tee.stack, document }), assetSources: {} }
+    set({
+      ...syncFromStack(),
+      cloud,
+      title: cloud.title,
+      importNotes: [],
+      activeStroke: null,
+      activeLayerEdit: null,
+      selectedLayerId: null,
+    })
+  },
+  setCloudHead: ({ headSeq }) => {
+    set((state) => (state.cloud ? { cloud: { ...state.cloud, headSeq } } : state))
   },
   rememberMorning: ({ title }) => {
     const { snapshots } = rememberSnapshot({
@@ -1378,6 +1423,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       syncFromStack({
         extra: {
           importNotes,
+          cloud: null,
           activeStroke: null,
           activeLayerEdit: null,
           selectedLayerId: null,

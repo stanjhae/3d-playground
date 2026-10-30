@@ -1,5 +1,6 @@
 import type { CanonicalDocument } from '../canonical-document.ts'
-import { accountGuard, useSessionStore } from '../auth/session-store.ts'
+import { accountGuard, useSessionStore, waitForSession } from '../auth/session-store.ts'
+import { getSupabaseClient } from '../auth/supabase-client.ts'
 import type { ImageRejectReason } from '../image-validate.ts'
 import type {
   ApiErrorCode,
@@ -55,6 +56,12 @@ export async function call<T>({
   body?: unknown
   fetchImpl?: typeof fetch
 }): Promise<FlpResult<T>> {
+  // A call made while the stored session is still loading (e.g. on a page
+  // that renders before its route guard) waits for it instead of failing.
+  if (useSessionStore.getState().status === 'loading') {
+    await waitForSession({ client: getSupabaseClient() })
+  }
+
   const stillSameAccount = accountGuard()
   const token = useSessionStore.getState().accessToken
 

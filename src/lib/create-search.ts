@@ -7,6 +7,8 @@ import type { HemId, NeckId, SleeveId } from './design-document'
 
 export type CreateSearch = {
   design?: string
+  /** An owned cloud design (A05 #149). */
+  cloud?: string
   step?: CreateStepId
   garment?: GarmentId
   color?: string
@@ -99,6 +101,13 @@ export function parseCreateSearch({
 
   if (typeof search.design === 'string' && search.design.length > 0) {
     next.design = search.design
+  }
+
+  if (
+    typeof search.cloud === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(search.cloud)
+  ) {
+    next.cloud = search.cloud
   }
 
   const step = parseCreateStep({ value: search.step })

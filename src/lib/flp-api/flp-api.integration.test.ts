@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import type { CanonicalDocument } from '../canonical-document'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
+import { createSaveController } from '../save-controller'
 import { withImageAsset } from './integration-harness'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
 
@@ -312,5 +313,70 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
     expect(insert.error?.code).toBe('42501')
     expect(rpc.error?.code).toBe('42501')
     expect(guessed.data).toEqual([])
+  })
+  test('autosave: two edits make exactly two versions and reload returns the last acknowledged', async () => {
+    // Autosave waits for uploads; use a library graphic, which needs none.
+    const savable = ({ text }: { text: string }) => {
+      const document = withText({ text })
+      const image = document.panels.front.layers[1]
+
+      if (image?.kind === 'image') {
+        image.assetId = 'asset_lib_cross-simple'
+      }
+
+      return document
+    }
+    const created = await api({
+      path: 'designs',
+      method: 'POST',
+      token: a.token,
+      body: { mutationKey: crypto.randomUUID(), content: savable({ text: 'start' }) },
+    })
+    const autosaved = ((await created.json()) as { designId: string }).designId
+    let settled: () => void = () => {}
+    const controller = createSaveController({
+      designId: autosaved,
+      headSeq: 1,
+      revision: 0,
+      debounceMs: 0,
+      save: async ({ designId: id, baseSeq, mutationKey, document }) => {
+        const response = await api({
+          path: `designs/${id}/versions`,
+          method: 'POST',
+          token: a.token,
+          body: { baseSeq, mutationKey, kind: 'autosave', content: document },
+        })
+        const body = (await response.json()) as { seq: number }
+        return response.ok
+          ? { ok: true, data: { ...body, designId: id } as never }
+          : { ok: false, code: 'internal', message: String(response.status) }
+      },
+    })
+    controller.subscribe((state) => {
+      if (state.status === 'saved') settled()
+    })
+    const saved = () => new Promise<void>((resolve) => { settled = resolve })
+
+    let wait = saved()
+    controller.notify({ revision: 1, document: savable({ text: 'first edit' }) })
+    controller.flush()
+    await wait
+    wait = saved()
+    controller.notify({ revision: 2, document: savable({ text: 'second edit' }) })
+    controller.flush()
+    await wait
+
+    const { count } = await admin
+      .from('design_versions')
+      .select('*', { count: 'exact', head: true })
+      .eq('design_id', autosaved)
+    const reread = (await (await api({ path: `designs/${autosaved}`, token: a.token })).json()) as {
+      head: { seq: number; content: unknown }
+    }
+
+    expect(count).toBe(3)
+    expect(controller.getState()).toMatchObject({ status: 'saved', savedRevision: 2, headSeq: 3 })
+    expect(reread.head.seq).toBe(3)
+    expect(reread.head.content).toEqual(savable({ text: 'second edit' }))
   })
 })

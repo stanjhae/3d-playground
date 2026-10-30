@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { AvatarRail } from '../components/editor/AvatarRail'
@@ -23,9 +23,13 @@ import {
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
 import { RequireSession } from '../components/auth/RequireSession'
+import { CloudSaveStatus, useCloudAutosave } from '../components/editor/CloudSave'
 import { waitForSession } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { isCanonicalGarment } from '../lib/concept-flags'
+import { validateCanonicalDocument } from '../lib/canonical-document'
+import { getOwnedDesign } from '../lib/flp-api/client'
+import { resolveTemplate } from '../lib/template-manifest'
 import { FLV_COPY } from '../lib/flv-copy'
 import {
   allowsDrawView,
@@ -65,6 +69,14 @@ export const Route = createFileRoute('/create')({
     if (session.status !== 'signed-in') {
       throw redirect({ to: '/sign-in', search: { returnTo: location.href } })
     }
+
+    // Signed-in work lives in owned cloud designs: start from My Studio
+    // unless a cloud design (or a board remix) is named.
+    const search = location.search as { cloud?: string; design?: string }
+
+    if (!search.cloud && !search.design) {
+      throw redirect({ to: '/studio' })
+    }
   },
   component: GuardedAtelier,
 })
@@ -81,6 +93,7 @@ function AtelierHome() {
   const navigate = useNavigate()
   const search = Route.useSearch()
   const {
+    cloud: cloudId,
     design: remixId,
     step: entryStep,
     garment: entryGarment,
@@ -105,9 +118,68 @@ function AtelierHome() {
   const [remixStatus, setRemixStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'missing' | 'error'
   >('idle')
+  useCloudAutosave()
+  const [cloudStatus, setCloudStatus] = useState<
+    'idle' | 'loading' | 'loaded' | 'missing' | 'unsupported' | 'error'
+  >('idle')
 
   useEffect(() => {
-    if (remixId) {
+    if (!cloudId) {
+      setCloudStatus('idle')
+      return
+    }
+
+    let cancelled = false
+    setCloudStatus('loading')
+
+    void getOwnedDesign({ designId: cloudId }).then((result) => {
+      if (cancelled) {
+        return
+      }
+
+      if (!result.ok) {
+        setCloudStatus(
+          result.code === 'not_found'
+            ? 'missing'
+            : result.code === 'account-changed'
+              ? 'idle'
+              : 'error',
+        )
+        return
+      }
+
+      const checked = result.data.head
+        ? validateCanonicalDocument({ value: result.data.head.content })
+        : null
+
+      if (!checked?.ok || !result.data.head) {
+        setCloudStatus('error')
+        return
+      }
+
+      if (!resolveTemplate(checked.document.template).ok) {
+        setCloudStatus('unsupported')
+        return
+      }
+
+      useEditorStore.getState().loadCanonical({
+        document: checked.document,
+        cloud: {
+          designId: result.data.id,
+          headSeq: result.data.head.seq,
+          title: result.data.title,
+        },
+      })
+      setCloudStatus('loaded')
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [cloudId])
+
+  useEffect(() => {
+    if (remixId || cloudId) {
       return
     }
 
@@ -135,7 +207,7 @@ function AtelierHome() {
         },
       })
     }
-  }, [remixId])
+  }, [cloudId, remixId])
 
   useEffect(() => {
     if (!entryStep) {
@@ -176,7 +248,12 @@ function AtelierHome() {
   }, [entryHem, entryNeck, entrySleeve, setStructural])
 
   useEffect(() => {
-    if (search.step === createStep) {
+    // Compare with the store's current step, not this render's: the entry
+    // effect above may have just applied ?step=, and a stale value here
+    // made the two effects rewrite each other forever (frozen studio).
+    const current = useEditorStore.getState().createStep
+
+    if (search.step === current) {
       return
     }
 
@@ -184,7 +261,7 @@ function AtelierHome() {
       to: '/create',
       search: (previous) => ({
         ...previous,
-        step: createStep,
+        step: current,
       }),
       replace: true,
     })
@@ -198,6 +275,7 @@ function AtelierHome() {
         cancelled ||
         !draft ||
         remixId ||
+        cloudId ||
         entryGarment ||
         entryStep ||
         entryColor ||
@@ -224,12 +302,19 @@ function AtelierHome() {
     entryNeck,
     entrySleeve,
     entryStep,
+    cloudId,
     remixId,
   ])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       const state = useEditorStore.getState()
+
+      // Cloud designs autosave to the account (S04 #173), not the guest draft.
+      if (state.cloud) {
+        return
+      }
+
       void saveDraft({
         garmentId: state.garmentId,
         document: state.document,
@@ -316,6 +401,24 @@ function AtelierHome() {
           ) : null}
           {mode === 'design' ? (
             <GownCredit garmentId={garmentId} />
+          ) : null}
+          {cloudStatus === 'loaded' ? <CloudSaveStatus /> : null}
+          {cloudStatus === 'loading' ? (
+            <p className="font-body text-sm text-flv-muted">Opening your design…</p>
+          ) : null}
+          {cloudStatus === 'missing' ||
+          cloudStatus === 'error' ||
+          cloudStatus === 'unsupported' ? (
+            <p role="alert" className="font-body text-sm text-flv-accent">
+              {cloudStatus === 'missing'
+                ? 'This design is not available.'
+                : cloudStatus === 'unsupported'
+                  ? 'This design uses a garment template this app cannot open.'
+                  : 'This design could not open.'}{' '}
+              <Link to="/studio" className="underline">
+                Back to My Studio
+              </Link>
+            </p>
           ) : null}
           {remixStatus === 'loading' ? (
             <p className="font-body text-sm text-flv-muted">

@@ -145,3 +145,18 @@ export function consumeLandingHandoff(): LandingHandoff | null {
     return null
   }
 }
+
+/** Read a pending handoff without consuming it (My Studio, A05 #149). */
+export function peekLandingHandoff(): LandingHandoff | null {
+  const store = sessionStore()
+
+  if (!store) {
+    return null
+  }
+
+  try {
+    return parseLandingHandoff({ value: store.getItem(LANDING_HANDOFF_KEY) })
+  } catch {
+    return null
+  }
+}

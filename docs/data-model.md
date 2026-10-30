@@ -133,3 +133,19 @@ FLP_INTEGRATION=1 pnpm test:integration
 `pnpm test:integration` runs the API against the local stack with real user JWTs. It covers neutral 404s across owners, one-wins concurrent saves, idempotent retries, key reuse, the publication pointer, failed-write atomicity and attempts to bypass the API through REST. `assets.integration.test.ts` adds reserve → upload → finalize → save, metadata stripping, cross-owner refusal, blocked saves for unfinalized or rejected assets, and retrying an interrupted upload. It needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local` (see `.env.example`).
 
 `supabase start` needs Docker. `supabase db reset` applies the migrations to an empty database, and `supabase test db` runs the pgTAP suite. No hosted project is linked yet.
+
+
+## My Studio and autosave (A05 #149, S04 #173)
+
+**My Studio** (`src/routes/studio.tsx`):
+- Lists the signed-in owner's designs.
+- **Create a T-shirt** keeps one `mutationKey` per attempt, so a retry never creates a second design. A pending landing-page design carries over as the first content (`initialStudioDocument`).
+- `/create?cloud=<id>` loads the head version strictly: validator, template check, then `loadCanonical`, which resets undo.
+
+**Autosave** (`src/lib/save-controller.ts`, bound by `startCloudAutosave`):
+- Saves 2 seconds after the last change, or on **Save now**.
+- One request in flight, with newer revisions coalesced into one pending save. Each revision keeps its mutation key across retries.
+- Only the exact revision sent is acknowledged. A `409` becomes **Changed elsewhere**, with **Open cloud version** or **Save mine as a copy**; nothing is overwritten.
+- A design with images that aren't uploaded yet shows **Waiting for images**. Library graphics (`asset_lib_<slug>`, `src/lib/library-assets.ts`) need no upload.
+
+**Known issue for A07 #151:** deleting an auth user who owns designs fails. The cascade into `design_versions` is blocked by the immutability trigger, which only allows deletes inside `flp_delete_design`. Account deletion must delete the user's designs through that function first, or the trigger must also allow cascades.

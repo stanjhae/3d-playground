@@ -4,7 +4,7 @@
  * characters and the sign-in page itself fall back to the default.
  */
 
-export const DEFAULT_RETURN_PATH = '/create'
+export const DEFAULT_RETURN_PATH = '/studio'
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/
 
