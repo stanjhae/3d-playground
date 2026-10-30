@@ -14,7 +14,7 @@ The 2D document is the source of truth. The renderer, saves and publication all 
 | Base pattern `period` | Fraction of atlas width, `[0.02, 0.5]` | New in v2 |
 | `rotation`, stripe `angle` | **Radians**, `(−π, π]`, stored as `(−3.141593, 3.141593]`. Positive turns clockwise on screen. | `context.rotate(rotation)` on a y-down canvas |
 
-Each panel's print region is its UV rectangle in `DEFAULT_PANEL_UV`. Front and back are the upper half of the atlas; the sleeves are the lower half. The template version pins that mapping (F07 #142).
+Panels are **wearer-oriented**: `left` is the wearer's left sleeve. Each panel's print region and render mapping come from the pinned template manifest (`src/lib/template-manifest.ts`, F07 #142). Front and back are the upper half of the atlas and the sleeves the lower half. Canonical `left` and `right` use the opposite `DEFAULT_PANEL_UV` sleeve ids, because the render path names sleeves by mesh side, not wearer side.
 
 ### Images: the aspect-ratio extension
 
@@ -69,7 +69,8 @@ The adapter has three outcomes:
 | `garmentVersion` other than 2 | current template | Warning |
 | `structural` other than neck `crew` and sleeve `short` | — | Unsupported |
 | First `overrides[].color` | `base: solid` | Warning that names the material. Other part colors, `mapId`, `roughness` and `metalness` are unsupported. |
-| Panel `sleeve` (before four panels) | `left` | Warning. **Documented mapping:** v1 had one sleeve panel that the renderer drew on the left sleeve's UV rectangle. |
+| Panel `left` / `right` | `right` / `left` | v1 ids name the render sleeve: v1 `left` is built at −x, the **wearer's right**. The same physical sleeve keeps its print, routed through the manifest's `renderPanel`. |
+| Panel `sleeve` (before four panels) | `right` | Warning. **Documented mapping:** v1 had one sleeve panel, drawn on render panel `left`, which is the wearer's right sleeve. |
 | Paint layer | One paint layer per panel that has strokes | If the strokes span several panels, IDs get a `--<panel>` suffix |
 | Brush and eraser strokes | Same tool; points flattened to `[x, y, …]` | Pressure is dropped (warning if any point differs from 0.7, the old default). Off-panel points are clamped exactly as the old renderer clamped them (warning). |
 | `fill` stroke | — | Unsupported |

@@ -16,6 +16,7 @@ import {
   hashCanonicalDocument,
   normalizeCanonicalDocument,
 } from './canonical-hash.ts'
+import { TEE_CREW_SHORT_V1 } from './template-manifest.ts'
 
 /**
  * Explicit legacy → canonical v2 import (FLP F06 #141).
@@ -62,6 +63,19 @@ export type ImportResult =
       message: string
       issues?: ValidationIssue[]
     }
+
+/**
+ * v1 panel ids name the render panel (`DEFAULT_PANEL_UV`), not the
+ * wearer's side: v1 `left` is the sleeve built at −x, the wearer's right.
+ * The template manifest records each canonical panel's render panel, so
+ * the same physical sleeve keeps its print.
+ */
+const CANONICAL_BY_RENDER_PANEL = Object.fromEntries(
+  Object.entries(TEE_CREW_SHORT_V1.regions).map(([canonical, region]) => [
+    region.renderPanel,
+    canonical as CanonicalPanelId,
+  ]),
+) as Record<CanonicalPanelId, CanonicalPanelId>
 
 /** Legacy panel id from drafts made before four-sided panels. */
 const LEGACY_PANEL_ALIASES: Record<string, CanonicalPanelId> = {
@@ -142,14 +156,14 @@ function toPanel({
   context: Context
 }): CanonicalPanelId | null {
   if (typeof value === 'string' && PANELS.has(value)) {
-    return value as CanonicalPanelId
+    return CANONICAL_BY_RENDER_PANEL[value as CanonicalPanelId]
   }
 
   if (typeof value === 'string' && LEGACY_PANEL_ALIASES[value]) {
-    const panel = LEGACY_PANEL_ALIASES[value]
+    const panel = CANONICAL_BY_RENDER_PANEL[LEGACY_PANEL_ALIASES[value]]
     context.warnings.push({
       path,
-      message: `legacy panel "${value}" mapped to the ${panel} sleeve`,
+      message: `legacy panel "${value}" mapped to the wearer's ${panel} sleeve`,
     })
     return panel
   }
