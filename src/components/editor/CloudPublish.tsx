@@ -10,6 +10,7 @@ import {
   uploadRenders,
 } from '../../lib/flp-api/client'
 import type { OwnerPublication, PublicRenderKind } from '../../lib/flp-api/publication'
+import { publishBlockedReason, useWebglStore } from '../scene/webgl-status'
 import { useCloudSaveStore } from './CloudSave'
 import { getStudioCanvas } from './PublishBar'
 
@@ -33,6 +34,7 @@ export function shareUrl({ slug }: { slug: string }) {
 export function CloudPublish() {
   const cloud = useEditorStore((state) => state.cloud)
   const saveStatus = useCloudSaveStore((state) => state.state?.status ?? null)
+  const webglStatus = useWebglStore((state) => state.status)
   const [publication, setPublication] = useState<OwnerPublication | null>(null)
   const [reviewing, setReviewing] = useState(false)
   const [displayName, setDisplayName] = useState('')
@@ -41,6 +43,8 @@ export function CloudPublish() {
   const designId = cloud?.designId ?? null
   const headSeq = cloud?.headSeq ?? null
   const saved = saveStatus === 'saved'
+  // Renders come from the 3D canvas, so no publish while it is down (#168).
+  const renderBlocked = publishBlockedReason({ status: webglStatus })
 
   const refresh = useCallback(async () => {
     if (!designId) {
@@ -72,6 +76,11 @@ export function CloudPublish() {
 
   async function publish() {
     if (!designId || !headSeq || !saved) {
+      return
+    }
+
+    if (renderBlocked) {
+      setMessage(renderBlocked)
       return
     }
 
@@ -204,7 +213,7 @@ export function CloudPublish() {
             <button
               type="button"
               className={buttonClass}
-              disabled={!saved || busy !== null}
+              disabled={!saved || Boolean(renderBlocked) || busy !== null}
               onClick={() => void publish()}
             >
               {busy === 'publishing' ? 'Publishing…' : live ? `Publish v${headSeq}` : 'Confirm publish'}
@@ -226,7 +235,9 @@ export function CloudPublish() {
       )}
 
       <p role="status" aria-live="polite" className="min-h-5 font-body text-xs text-flv-accent">
-        {!saved ? 'Publishing is available once the design shows Saved to cloud.' : message}
+        {!saved
+          ? 'Publishing is available once the design shows Saved to cloud.'
+          : (message ?? renderBlocked)}
       </p>
     </section>
   )
