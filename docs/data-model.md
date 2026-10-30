@@ -26,6 +26,7 @@ browser ──(session JWT)──▶ API (Vercel function)
 | `design_versions` | Immutable revisions | PK `(design_id, seq)`, unique `(owner_id, mutation_key)`. UPDATE and DELETE are rejected by a trigger. `kind` is `autosave`, `checkpoint`, `restore` or `import`. `restored_from_seq` must point at an earlier version of the same design. |
 | `assets` | Uploaded images (S01 #170, S02 #171) | IDs match the canonical `asset_…` pattern but never `asset_lib_…`. `ready` requires the type, size, dimensions, hash and storage path. `rejected` requires a `rejection_reason`. Once ready or rejected a row never changes (trigger). See [Image uploads](#image-uploads). |
 | `render_artifacts` | Derivatives of one version (P02 #180) | Composite FK to `(design_id, version_seq)`. One row per kind. |
+| `profiles` | One per account (A06 #150) | The optional public `display_name` (1–40 characters) the publish panel pre-fills. Owner-read RLS; written only by `flp_set_display_name`. |
 | `publications` | One per design for its lifetime | Stable 16-hex `slug`. `published` ⇔ `version_seq` is set. When the design is deleted, a revoked tombstone keeps the slug so it is never reused. |
 
 Owner consistency uses composite foreign keys to `designs (id, owner_id)`, so every child row has the same owner as its design. A reference to another design's version fails with a foreign-key error.
@@ -39,7 +40,9 @@ Owner consistency uses composite foreign keys to `designs (id, owner_id)`, so ev
 | `flp_restore_version(owner, design, base_seq, key, from_seq)` | Appends a `restore` version that copies `from_seq`. History and the publication are unchanged. |
 | `flp_publish_version(owner, design, seq, display_name?)` | Points the design's publication at one saved version. Republishing keeps the slug. |
 | `flp_revoke_publication(owner, design)` | Sets `status = revoked` and clears the version pointer. |
-| `flp_delete_design(owner, design)` | Revokes, then deletes the design, its versions and artifacts. The publication tombstone remains. |
+| `flp_delete_design(owner, design)` | Revokes, then deletes the design, its versions and artifacts. The publication tombstone remains. The API then removes the design's render files from storage. Uploaded originals are account assets and stay. |
+| `flp_update_design(owner, design, title?, description?)` | Renames (1–80 characters, trimmed) or describes (up to 500) a design. Metadata only: no version is added and the publication is unchanged. |
+| `flp_set_display_name(owner, name)` | Sets or clears (`null` or empty) the account's public name. |
 
 A design that is missing and one owned by someone else raise the same `FL404`, so a response never reveals whether a design exists.
 
@@ -93,9 +96,16 @@ POST /api/flp/designs/:id/publication
 
 DELETE /api/flp/designs/:id/publication   → 204
 DELETE /api/flp/designs/:id               → 204
+
+PATCH /api/flp/designs/:id
+{ "title": "Crest tee", "description": "…" }   (either or both)
+→ 200 { "id": "…", "title": "Crest tee", "description": "…", "updatedAt": "…" }
+
+GET /api/flp/profile                      → 200 { "displayName": "Ada" | null }
+POST /api/flp/profile { "displayName": "Ada" | null } → 200 { "displayName": … }
 ```
 
-The create, save, restore, list and read routes are live in `api/flp.ts` (`src/lib/flp-api/server.ts`), and the browser client is `src/lib/flp-api/client.ts`. Publication and delete routes come with P03 #181 and A07 #151. The legacy `api/designs.ts` KV board stays until F09 #144.
+The create, save, restore, list and read routes are live in `api/flp.ts` (`src/lib/flp-api/server.ts`), and the browser client is `src/lib/flp-api/client.ts`. Publication, rename, delete and profile routes are live too. Where sign-in is required, the legacy `api/designs.ts` KV board is no longer reachable from the app: Vote and Look leave the nav, and `/vote` and `/look/:id` say they are not part of this alpha (F09 #144). The guest app keeps them.
 
 `GET /api/flp/designs` returns the owner's designs, newest first. `GET /api/flp/designs/:id` returns the design and its head version. Both read **as the user**, so RLS applies.
 
