@@ -54,6 +54,8 @@ export type FlpResult<T> =
       code: ApiErrorCode | 'account-changed' | 'network' | 'internal'
       message: string
       headSeq?: number | null
+      /** Seconds to wait after `rate_limited` (Q02 #187). */
+      retryAfter?: number
       /** Why an uploaded image was rejected (S02 #171). */
       reason?: ImageRejectReason
     }
@@ -159,6 +161,9 @@ export async function call<T>({
       message: error?.message ?? 'Something went wrong',
       ...(error && 'headSeq' in error ? { headSeq: error.headSeq } : {}),
       ...(error?.reason ? { reason: error.reason } : {}),
+      ...(response.status === 429
+        ? { retryAfter: Number(response.headers.get('retry-after')) || 5 }
+        : {}),
     }
   }
 

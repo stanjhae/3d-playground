@@ -16,7 +16,10 @@ import { handleSharePage } from './share-page'
 
 const processEnv =
   (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {}
-const env = processEnv.FLP_INTEGRATION === '1' ? flpServerEnv(processEnv) : null
+const baseEnv = processEnv.FLP_INTEGRATION === '1' ? flpServerEnv(processEnv) : null
+// Races publish far more often than a person can; rate limits have their
+// own suite (quotas.integration.test.ts).
+const env = baseEnv ? { ...baseEnv, rateLimits: { publish: 1000, save: 1000 } } : null
 
 const DOCUMENT = withImageAsset({ document: GOLDEN_DOCUMENT, assetId: 'asset_lib_cross-simple' })
 

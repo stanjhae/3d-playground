@@ -105,7 +105,11 @@ function MyStudio() {
     setCreating(false)
 
     if (!result.ok) {
-      if (result.code !== 'account-changed') {
+      if (result.code === 'quota_exceeded') {
+        // Retrying cannot help; the message says what to delete.
+        createKey.current = null
+        setCreateError(result.message)
+      } else if (result.code !== 'account-changed') {
         setCreateError(
           `Your design was not created (${result.message}). Nothing was saved to the cloud; try again.`,
         )

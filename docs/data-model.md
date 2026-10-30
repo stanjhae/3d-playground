@@ -46,7 +46,7 @@ Owner consistency uses composite foreign keys to `designs (id, owner_id)`, so ev
 
 A design that is missing and one owned by someone else raise the same `FL404`, so a response never reveals whether a design exists.
 
-Not yet covered here: checking that render artifacts are ready before publishing (P02/P03), quotas and rate limits (S09 #178, Q02 #187), and anonymous public reads (P04 #182).
+Quotas, retention and rate limits are described in [Quotas, retention and rate limits](#quotas-retention-and-rate-limits-s09-178-q02-187).
 
 ## Error envelope
 
@@ -61,7 +61,8 @@ Not yet covered here: checking that render artifacts are ready before publishing
 | 409 | `conflict` | Stale `baseSeq` (includes `headSeq`), a mutation key reused on another design (`FL409`), or finalize before the upload arrived |
 | 413 | `too_large` | Normalized content over 2,000,000 bytes (`prepareContent` or `FL413`) |
 | 422 | `invalid` | Request or content validation failed, with `issues[].path` (or `FL422`). A rejected image adds `reason`. |
-| 429 | `rate_limited` | Throttling (A01 #145, Q02 #187) |
+| 409 | `quota_exceeded` | An account or design limit is full (`FL429`); the message says which and what to do. Nothing is evicted. |
+| 429 | `rate_limited` | Too many mutations this minute (Q02 #187). Carries `Retry-After` in seconds. |
 
 Unknown database errors are logged and returned as a plain 500 with no details.
 
@@ -233,3 +234,19 @@ Both read **as the user**. Another owner's design, a missing design and a malfor
 Restore never touches `publications`: the published look stays on its version until the owner republishes.
 
 **Studio:** `HistoryPanel` (`src/components/editor/HistoryPanel.tsx`) appears on `/create?cloud=<id>`. It shows version, name, type, time and **Current**/**Published**/**From vN** markers, plus **Load more**, **Preview** (a read-only summary of base and layers per panel, outside the editor store), **Save checkpoint** and **Restore**.
+
+## Quotas, retention and rate limits (S09 #178, Q02 #187)
+
+Migration `20261104090000_flp_quotas`. Every check runs inside the write function that would exceed it, under a lock, so concurrent requests cannot both pass.
+
+| Limit | Where | When full |
+| --- | --- | --- |
+| 20 designs per account | `flp_create_design` (per-account advisory lock) | `quota_exceeded`; delete a design to create another. A retried create with the same key still succeeds. |
+| 100 named checkpoints per design | `flp_append_version` | `quota_exceeded`. Unnamed checkpoints and autosaves are not counted. |
+| 100 most recent autosaves per design | `flp_prune_autosaves`, after each autosave | Older autosaves are deleted in the same transaction, **except** the head, a published version, a version with renders, and the source of a restore. Named checkpoints and restores are never pruned. |
+| 100 MB of ready uploads per account | `assets_guard_quota` trigger on finalize | `quota_exceeded`; the normalized copy is removed and the row stays `staged`. |
+
+**Rate limits** (`flp_take_token`, fixed one-minute windows per account, table `rate_limits`): `save` 120 (create, save, restore), `upload` 20, `publish` 10 (renders, publish, unpublish), `details` 30 (rename, delete, public name). Reads are not limited. A refused request returns 429 with `Retry-After`. Autosave shows "Saving paused, retrying", keeps the work locally, and retries the same revision with the same mutation key after the wait. If the limiter itself fails, the request proceeds and the failure is logged.
+
+**Orphaned uploads.** `flp_orphan_assets(grace)` lists uploads that no saved version of the owner's designs references, older than the grace window (24 h by default). It only lists. `scripts/cleanup-orphans.mjs` runs it with the service key as a **dry run** by default and prints each asset. `--delete` removes the files, then the row, and keeps any row whose files could not be removed for the next run.
+

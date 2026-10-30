@@ -25,6 +25,7 @@ export type SaveStatus =
   | 'unsaved'
   | 'saving'
   | 'offline'
+  | 'paused'
   | 'failed'
   | 'conflict'
   | 'waiting-for-images'
@@ -221,6 +222,14 @@ export function createSaveController(options: SaveControllerOptions) {
       return
     }
 
+    // Too many requests (Q02 #187): the same revision and key retry after
+    // the server's wait; the work stays local until acknowledged.
+    if (result.code === 'rate_limited') {
+      emit({ status: 'paused', message: 'Saving paused for a moment. It will retry by itself.' })
+      schedule(Math.max(retryMs, (result.retryAfter ?? 0) * 1000))
+      return
+    }
+
     emit({ status: 'failed', message: result.message })
   }
 
@@ -232,7 +241,8 @@ export function createSaveController(options: SaveControllerOptions) {
 
     latest = { revision, document }
 
-    if (state.status === 'conflict') {
+    // Rate limited: edits wait for the scheduled retry, not re-arm it.
+    if (state.status === 'conflict' || (state.status === 'paused' && timer !== null)) {
       return
     }
 
