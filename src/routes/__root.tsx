@@ -85,7 +85,7 @@ function RootShell() {
   }, [])
 
   return (
-    <div className="flv min-h-dvh">
+    <div className="flv flex min-h-dvh flex-col">
       <header
         className={cn(
           'z-30 flex items-center justify-between gap-3 border-b border-flv-line bg-flv-paper/95 text-flv-ink backdrop-blur-sm',
@@ -186,7 +186,7 @@ function RootShell() {
           </div>
         ) : null}
       </header>
-      <main className="relative min-h-dvh bg-flv-paper text-flv-ink">
+      <main className="relative flex-1 bg-flv-paper text-flv-ink">
         <Outlet />
       </main>
     </div>

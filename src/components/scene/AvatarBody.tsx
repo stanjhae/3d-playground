@@ -7,6 +7,7 @@ import {
   type AvatarMeasurements,
 } from '../../lib/avatar-geometry'
 import { useEditorStore } from '../../lib/editor-store'
+import { ClothingPoseContext } from './clothing-pose'
 
 export function AvatarBody({
   children,
@@ -19,8 +20,7 @@ export function AvatarBody({
   const avatarMeasurements = measurementsProp ?? storeMeasurements
   const [mount, setMount] = useState<{
     root: Group
-    garmentOffsetY: number
-    garmentScale: number
+    garment: ReturnType<typeof createProceduralAvatar>['garment']
   } | null>(null)
   const mountRef = useRef(mount)
   mountRef.current = mount
@@ -34,8 +34,7 @@ export function AvatarBody({
 
       return {
         root: built.root,
-        garmentOffsetY: built.garmentOffsetY,
-        garmentScale: built.garmentScale,
+        garment: built.garment,
       }
     })
   }, [avatarMeasurements])
@@ -57,11 +56,10 @@ export function AvatarBody({
   return (
     <group>
       <primitive object={mount.root} />
-      <group
-        position={[0, mount.garmentOffsetY * 0.02, 0.015]}
-        scale={mount.garmentScale}
-      >
-        {children}
+      <group position={mount.garment.position} scale={mount.garment.scale}>
+        <ClothingPoseContext.Provider value="worn">
+          {children}
+        </ClothingPoseContext.Provider>
       </group>
     </group>
   )

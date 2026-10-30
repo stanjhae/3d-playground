@@ -1,10 +1,14 @@
 import {
   CapsuleGeometry,
+  CylinderGeometry,
   Group,
   Mesh,
   MeshStandardMaterial,
   SphereGeometry,
+  type BufferGeometry,
 } from 'three'
+
+import { SLEEVE_PIVOT, WORN_SLEEVE_DROP } from './tee-geometry'
 
 export type AvatarMeasurements = {
   height: number
@@ -16,6 +20,19 @@ const BASE_HEIGHT_CM = 180
 const BASE_CHEST_CM = 102
 const BASE_WAIST_CM = 80
 
+/**
+ * The mannequin is modelled at BASE measurements in the tee's own frame
+ * (tee-geometry.ts), lifted so the tee's shoulder pivot meets the
+ * mannequin's shoulder. Measurements then scale the mannequin and the
+ * garment by the same factors, so they cannot drift apart per preset.
+ */
+const GARMENT_LIFT = 0.28
+const SHOULDER_Y = SLEEVE_PIVOT.y + GARMENT_LIFT
+/** Arms hang a little inside the worn sleeves' drop. */
+const ARM_DROP = WORN_SLEEVE_DROP - 0.08
+/** Torso depth stays inside the tee's shallowest ring (the back of the waist). */
+const TORSO_DEPTH = 0.34
+
 function skinMaterial() {
   return new MeshStandardMaterial({
     color: '#c4a07a',
@@ -24,10 +41,68 @@ function skinMaterial() {
   })
 }
 
+function part({
+  name,
+  geometry,
+  material,
+}: {
+  name: string
+  geometry: BufferGeometry
+  material: MeshStandardMaterial
+}) {
+  const mesh = new Mesh(geometry, material)
+  mesh.name = name
+  mesh.castShadow = true
+  return mesh
+}
+
+function buildArm({
+  side,
+  material,
+}: {
+  side: 'left' | 'right'
+  material: MeshStandardMaterial
+}) {
+  const sign = side === 'left' ? -1 : 1
+  const length = 0.5
+  // Start just down the arm from the pivot so the cap stays inside the sleeve.
+  const start = 0.05
+  const dirX = sign * Math.sin(ARM_DROP)
+  const dirY = -Math.cos(ARM_DROP)
+  const shoulderX = sign * SLEEVE_PIVOT.x + dirX * start
+  const shoulderY = SHOULDER_Y + dirY * start
+
+  const arm = part({
+    name: `avatar-arm-${side}`,
+    geometry: new CapsuleGeometry(0.042, length, 4, 10),
+    material,
+  })
+  arm.rotation.z = sign * ARM_DROP
+  arm.position.set(
+    shoulderX + dirX * (length / 2),
+    shoulderY + dirY * (length / 2),
+    0,
+  )
+
+  const hand = part({
+    name: `avatar-hand-${side}`,
+    geometry: new SphereGeometry(0.05, 12, 10),
+    material,
+  })
+  hand.scale.set(0.8, 1.2, 0.6)
+  hand.position.set(
+    shoulderX + dirX * (length + 0.08),
+    shoulderY + dirY * (length + 0.08),
+    0,
+  )
+
+  return [arm, hand]
+}
+
 /**
- * Procedural mannequin used when avatar GLBs are missing.
+ * Procedural mannequin used when avatar GLBs are missing: a neutral
+ * standing pose, arms down through the worn tee's sleeves.
  * Scaled from height / chest / waist centimeters.
- * Proportions tuned so a tee seats on the torso rather than floating.
  */
 export function createProceduralAvatar({
   measurements,
@@ -37,65 +112,87 @@ export function createProceduralAvatar({
   const heightScale = measurements.height / BASE_HEIGHT_CM
   const chestScale = measurements.chest / BASE_CHEST_CM
   const waistScale = measurements.waist / BASE_WAIST_CM
-  const torsoScaleX = (chestScale + waistScale) / 2
   const material = skinMaterial()
   const root = new Group()
   root.name = 'avatar-root'
 
-  const hips = new Mesh(
-    new CapsuleGeometry(0.15 * torsoScaleX, 0.22 * heightScale, 6, 12),
+  const legLeft = part({
+    name: 'avatar-leg-left',
+    geometry: new CapsuleGeometry(0.056, 0.74, 4, 10),
     material,
-  )
-  hips.name = 'avatar-hips'
-  hips.position.set(0, 0.88 * heightScale, 0)
-  hips.castShadow = true
-
-  const torso = new Mesh(
-    new CapsuleGeometry(0.19 * chestScale, 0.48 * heightScale, 6, 12),
-    material,
-  )
-  torso.name = 'avatar-torso'
-  torso.position.set(0, 1.28 * heightScale, 0)
-  torso.castShadow = true
-
-  const head = new Mesh(new SphereGeometry(0.11 * heightScale, 16, 12), material)
-  head.name = 'avatar-head'
-  head.position.set(0, 1.72 * heightScale, 0)
-  head.castShadow = true
-
-  const legLeft = new Mesh(
-    new CapsuleGeometry(0.075 * waistScale, 0.58 * heightScale, 4, 10),
-    material,
-  )
-  legLeft.name = 'avatar-leg-left'
-  legLeft.position.set(-0.11 * torsoScaleX, 0.38 * heightScale, 0)
-  legLeft.castShadow = true
-
+  })
+  legLeft.position.set(-0.078, 0.47, 0)
   const legRight = legLeft.clone()
   legRight.name = 'avatar-leg-right'
-  legRight.position.x = 0.11 * torsoScaleX
+  legRight.position.x = 0.078
 
-  const armLeft = new Mesh(
-    new CapsuleGeometry(0.05 * chestScale, 0.44 * heightScale, 4, 10),
+  const hips = part({
+    name: 'avatar-hips',
+    geometry: new CapsuleGeometry(0.15, 0.12, 6, 16),
     material,
+  })
+  hips.position.set(0, 0.92, 0)
+  // Hips follow the waist; the shared root scale already carries the chest.
+  const hipRatio = waistScale / chestScale
+  hips.scale.set(hipRatio, 1, TORSO_DEPTH * hipRatio)
+
+  const torso = part({
+    name: 'avatar-torso',
+    geometry: new CapsuleGeometry(0.17, 0.3, 6, 16),
+    material,
+  })
+  torso.position.set(0, 1.17, 0)
+  torso.scale.z = TORSO_DEPTH
+
+  const shoulders = part({
+    name: 'avatar-shoulders',
+    geometry: new CapsuleGeometry(0.045, 0.26, 4, 10),
+    material,
+  })
+  shoulders.rotation.z = Math.PI / 2
+  shoulders.position.set(0, SHOULDER_Y - 0.035, 0)
+  shoulders.scale.z = 0.9
+
+  const neck = part({
+    name: 'avatar-neck',
+    geometry: new CylinderGeometry(0.046, 0.05, 0.18, 14),
+    material,
+  })
+  neck.position.set(0, 1.53, 0)
+
+  const head = part({
+    name: 'avatar-head',
+    geometry: new SphereGeometry(0.105, 18, 14),
+    material,
+  })
+  head.scale.set(0.95, 1.15, 1)
+  head.position.set(0, 1.72, 0.01)
+
+  root.add(
+    legLeft,
+    legRight,
+    hips,
+    torso,
+    shoulders,
+    neck,
+    head,
+    ...buildArm({ side: 'left', material }),
+    ...buildArm({ side: 'right', material }),
   )
-  armLeft.name = 'avatar-arm-left'
-  armLeft.position.set(-0.3 * chestScale, 1.32 * heightScale, 0)
-  armLeft.rotation.z = 0.14
-  armLeft.castShadow = true
-
-  const armRight = armLeft.clone()
-  armRight.name = 'avatar-arm-right'
-  armRight.position.x = 0.3 * chestScale
-  armRight.rotation.z = -0.14
-
-  root.add(hips, torso, head, legLeft, legRight, armLeft, armRight)
+  root.scale.set(chestScale, heightScale, chestScale)
 
   return {
     root,
     heightScale,
-    garmentOffsetY: 0.98 * heightScale,
-    garmentScale: 0.96 + (chestScale - 1) * 0.22,
+    garment: {
+      position: [0, GARMENT_LIFT * heightScale, 0.004 * chestScale] as [
+        number,
+        number,
+        number,
+      ],
+      scale: [chestScale, heightScale, chestScale] as [number, number, number],
+    },
+    shoulderY: SHOULDER_Y * heightScale,
   }
 }
 

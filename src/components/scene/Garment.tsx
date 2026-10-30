@@ -1,6 +1,6 @@
 import { useGLTF, useTexture } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useContext, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   CanvasTexture,
   Color,
@@ -35,6 +35,7 @@ import { applyLayerEdit } from '../../lib/layer-hit'
 import { useLayerImages } from '../../lib/layer-images'
 import { rasterizeLayers } from '../../lib/paint-atlas'
 import { createClothingMesh } from '../../lib/tee-geometry'
+import { ClothingPoseContext } from './clothing-pose'
 import { SelectableMesh } from './SelectableMesh'
 
 const DRACO_DECODER_PATH = '/draco/'
@@ -248,16 +249,19 @@ function HouseFormGarment({
   overrides: MaterialOverride[]
   picking: boolean
 }) {
+  const pose = useContext(ClothingPoseContext)
   const scene = useMemo(() => {
     return createClothingMesh({
       neck: inkDocument.structural.neck ?? 'crew',
       hem: inkDocument.structural.hem ?? 'long',
       sleeve: inkDocument.structural.sleeve ?? 'short',
+      pose,
     })
   }, [
     inkDocument.structural.hem,
     inkDocument.structural.neck,
     inkDocument.structural.sleeve,
+    pose,
   ])
 
   return (
