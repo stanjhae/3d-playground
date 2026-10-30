@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 
 import { useSessionStore } from '../../lib/auth/session-store'
@@ -18,6 +18,7 @@ import {
   liveRecoveryOffer,
   indexedDbRecoveryStorage,
 } from '../../lib/cloud-recovery'
+import { type CopyAttempt, createCopyAttempt } from '../../lib/copy-attempt'
 import { createOwnedDesign } from '../../lib/flp-api/client'
 import type { SaveController, SaveState } from '../../lib/save-controller'
 import { trackAssumption } from '../../lib/assumption-events'
@@ -122,6 +123,24 @@ const LABELS: Record<SaveState['status'], string> = {
   'waiting-for-images': 'Waiting for images',
 }
 
+/** One copy attempt per open design, kept across renders (S06 #175). */
+function useCopyAttempt({ designId }: { designId: string | null }) {
+  const current = useRef<{ designId: string | null; attempt: CopyAttempt } | null>(null)
+
+  return () => {
+    if (!current.current || current.current.designId !== designId) {
+      current.current = {
+        designId,
+        attempt: createCopyAttempt({ create: (request) => createOwnedDesign({ request }) }),
+      }
+    }
+
+    return current.current.attempt
+  }
+}
+
+const COPY_FAILED = 'The copy could not be saved. Your changes are still here; try again.'
+
 const quiet =
   'inline-flex min-h-9 items-center px-2 font-body text-xs tracking-[0.08em] uppercase underline-offset-4 hover:text-flv-accent hover:underline disabled:opacity-50'
 
@@ -133,6 +152,8 @@ export function CloudSaveStatus() {
   const local = useRecoveryStore((store) => store.local)
   const warning = useRecoveryStore((store) => store.warning)
   const [copying, setCopying] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
+  const copyAttempt = useCopyAttempt({ designId: cloud?.designId ?? null })
 
   if (!state || !cloud) {
     return null
@@ -161,19 +182,20 @@ export function CloudSaveStatus() {
             disabled={copying}
             onClick={() => {
               setCopying(true)
-              void createOwnedDesign({
-                request: {
-                  mutationKey: crypto.randomUUID(),
-                  title: `${cloud.title} (copy)`,
-                  content: getCanonicalDocument(),
-                },
-              }).then((result) => {
-                setCopying(false)
+              setCopyError(null)
+              // One attempt per design: a retry or second click replays
+              // the same create, never a second copy (S06 #175).
+              void copyAttempt()
+                .run({ title: `${cloud.title} (copy)`, content: getCanonicalDocument() })
+                .then((result) => {
+                  setCopying(false)
 
-                if (result.ok) {
-                  void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
-                }
-              })
+                  if (result.ok) {
+                    void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
+                  } else {
+                    setCopyError(COPY_FAILED)
+                  }
+                })
             }}
           >
             Save mine as a copy
@@ -185,6 +207,11 @@ export function CloudSaveStatus() {
         </button>
       )}
       {state.message ? <span className="w-full text-flv-muted">{state.message}</span> : null}
+      {copyError && state.status === 'conflict' ? (
+        <span role="alert" className="w-full text-flv-accent">
+          {copyError}
+        </span>
+      ) : null}
       {warning ? (
         <span role="alert" className="w-full text-flv-accent">
           {warning}
@@ -212,6 +239,7 @@ export function RecoveryPrompt() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const saveStatus = useCloudSaveStore((store) => store.state?.status ?? 'saved')
+  const copyAttempt = useCopyAttempt({ designId: cloud?.designId ?? null })
 
   if (!rawOffer || !cloud || !ownerId || cloud.designId !== designId) {
     return null
@@ -240,13 +268,10 @@ export function RecoveryPrompt() {
   const saveCopy = async () => {
     setBusy(true)
     setError(null)
-    const result = await createOwnedDesign({
-      request: {
-        mutationKey: crypto.randomUUID(),
-        title: `${cloud.title} (recovered)`,
-        // An unsupported copy goes as written; the server decides.
-        content: (offer.kind === 'unsupported' ? offer.record.document : offer.document) as CanonicalDocument,
-      },
+    const result = await copyAttempt().run({
+      title: `${cloud.title} (recovered)`,
+      // An unsupported copy goes as written; the server decides.
+      content: (offer.kind === 'unsupported' ? offer.record.document : offer.document) as CanonicalDocument,
     })
     setBusy(false)
 
