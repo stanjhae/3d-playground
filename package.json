@@ -15,7 +15,8 @@
     "og": "node scripts/bake-og.mjs",
     "build": "pnpm generate && tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "FLP_INTEGRATION=1 vitest run integration"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.8",

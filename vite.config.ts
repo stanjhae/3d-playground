@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { loadEnv } from 'vite'
 import { defineConfig, type Plugin } from 'vitest/config'
 
 async function incomingToRequest({
@@ -45,6 +46,11 @@ async function incomingToRequest({
 
 async function dispatchApi({ request }: { request: Request }) {
   const { pathname } = new URL(request.url)
+
+  if (pathname === '/api/flp' || pathname.startsWith('/api/flp/')) {
+    const { handleFlpRequest } = await import('./src/lib/flp-api/server.ts')
+    return handleFlpRequest({ request })
+  }
 
   if (pathname === '/api/og') {
     const { GET } = await import('./api/og.ts')
@@ -125,6 +131,13 @@ async function handleApiRequest({
 function flvApiPlugin(): Plugin {
   return {
     name: 'flv-api',
+    config(_config, { mode }) {
+      // Server-only SUPABASE_* values from .env.local for the dev API, the
+      // way Vercel provides them in production. Never exposed to the client.
+      for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), 'SUPABASE_'))) {
+        process.env[key] ??= value
+      }
+    },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         void handleApiRequest({ req, res, next })
