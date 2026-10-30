@@ -41,7 +41,7 @@ Wherever Supabase is configured, `/create` and `/studio` require a session (A05 
 
 ## Known gaps (tracked)
 
-- **Local recovery is not yet owner-scoped.** Browser drafts (`flv:draft:current`) and snapshots belong to no account, so the next person at the browser could reopen them. Signing out clears only what is on screen. Fixed by S05 #174 (owner-scoped recovery).
+- **Snapshots are not owner-scoped.** Cloud designs recover per owner (S05 #174, see `docs/data-model.md`), and the guest draft `flv:draft:current` is only used while signed out. Snapshots (`design-snapshots.ts`) still belong to no account.
 - **A signed-in publish still goes to the legacy guest board.** F09 #144 retires that path; P03 #181 publishes owned versions.
 - **No hosted project yet.** "Codes arrive on the deployed domain" (#145) is verified once one exists.
 

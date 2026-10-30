@@ -45,6 +45,14 @@ export function isSafeThumbnail({
   )
 }
 
+// Object URLs this page minted for uploaded assets (S01 #170). They are
+// renderable but never stored: documents keep only the asset id.
+const PAGE_OBJECT_URL = /^blob:(?:https?:\/\/[^/\s]+|null)\/[0-9a-f-]{36}$/i
+
+export function isObjectUrlSrc({ src }: { src: string }) {
+  return PAGE_OBJECT_URL.test(src)
+}
+
 export function isSafeLayerSrc({
   src,
   maxChars = MAX_LAYER_SRC_CHARS,

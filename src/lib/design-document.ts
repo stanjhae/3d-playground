@@ -90,6 +90,8 @@ export type GraphicLayer = {
   color?: string
   visible: boolean
   label?: string
+  /** Natural width / height of an uploaded image; absent means square. */
+  aspect?: number
 }
 
 export type TextLayer = {

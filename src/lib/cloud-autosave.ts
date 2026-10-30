@@ -1,3 +1,11 @@
+import { accountGuard } from './auth/session-store.ts'
+import {
+  type RecoveryStorage,
+  type RecoveryWriteResult,
+  type StorageFailure,
+  clearRecovery,
+  writeRecovery,
+} from './cloud-recovery.ts'
 import { getCanonicalDocument, useEditorStore } from './editor-store.ts'
 import { saveDesignVersion } from './flp-api/client.ts'
 import {
@@ -59,6 +67,121 @@ export function startCloudAutosave({
       controller.cancel()
       stopState()
       stopEditor()
+    },
+  }
+}
+
+export type LocalCopyState =
+  | { status: 'none' }
+  | { status: 'kept' }
+  | { status: 'failed'; reason: StorageFailure }
+
+/**
+ * Keeps unacknowledged revisions of one cloud design in owner-scoped local
+ * recovery (S05 #174): written on every revision the cloud has not
+ * acknowledged, re-based or cleared on each acknowledgement. Writes are
+ * serialized and stop once the account or design changes. A failed write
+ * is reported, never treated as saved.
+ */
+export function startCloudRecovery({
+  designId,
+  ownerId,
+  storage,
+  controller,
+  onLocal,
+}: {
+  designId: string
+  ownerId: string
+  storage: RecoveryStorage
+  controller: SaveController
+  onLocal?: (state: LocalCopyState) => void
+}) {
+  let stopped = false
+  let queue: Promise<unknown> = Promise.resolve()
+  const sameAccount = accountGuard()
+
+  function live() {
+    return !stopped && sameAccount() && useEditorStore.getState().cloud?.designId === designId
+  }
+
+  function enqueue(run: () => Promise<RecoveryWriteResult>, kept: boolean) {
+    queue = queue.then(async () => {
+      if (!live()) {
+        return
+      }
+
+      const result = await run()
+
+      if (stopped) {
+        return
+      }
+
+      onLocal?.(
+        result.ok
+          ? { status: kept ? 'kept' : 'none' }
+          : { status: 'failed', reason: result.reason },
+      )
+    })
+    return queue
+  }
+
+  function keep() {
+    const editor = useEditorStore.getState()
+
+    if (!editor.cloud) {
+      return queue
+    }
+
+    const revision = editor.revision
+    // The controller's head is the base the next save will send; the store
+    // hears about an acknowledgement only after the controller does.
+    const baseSeq = controller.getState().headSeq
+    const document = getCanonicalDocument()
+
+    return enqueue(
+      () => writeRecovery({ storage, ownerId, designId, baseSeq, revision, document }),
+      true,
+    )
+  }
+
+  const stopEditor = useEditorStore.subscribe((state, previous) => {
+    if (
+      state.revision !== previous.revision &&
+      state.cloud?.designId === designId &&
+      state.revision > controller.getState().savedRevision
+    ) {
+      void keep()
+    }
+  })
+
+  let acknowledged = controller.getState().savedRevision
+  const stopController = controller.subscribe((state) => {
+    if (state.savedRevision === acknowledged) {
+      return
+    }
+
+    acknowledged = state.savedRevision
+
+    // Newer edits are still only local: keep them on the new cloud base.
+    if (useEditorStore.getState().revision > acknowledged) {
+      void keep()
+    } else {
+      void enqueue(() => clearRecovery({ storage, ownerId, designId }), false)
+    }
+  })
+
+  // Work made before this started (a recovered copy) is kept at once.
+  if (useEditorStore.getState().revision > acknowledged) {
+    void keep()
+  }
+
+  return {
+    /** Resolves once queued writes have settled (tests). */
+    settled: () => queue,
+    stop() {
+      stopped = true
+      stopEditor()
+      stopController()
     },
   }
 }

@@ -91,20 +91,25 @@ export function loadTeeEngine({
   }
 }
 
-const projectionCache = new WeakMap<CanonicalDocument, DesignDocument>()
+// Keyed by document, checked against the sources: an upload resolving
+// later changes what renders without changing the document.
+const projectionCache = new WeakMap<
+  CanonicalDocument,
+  { assetSources: TeeEngine['assetSources']; document: DesignDocument }
+>()
 
 export function teeRenderDocument({ engine }: { engine: TeeEngine }) {
   const cached = projectionCache.get(engine.stack.document)
 
-  if (cached) {
-    return cached
+  if (cached && cached.assetSources === engine.assetSources) {
+    return cached.document
   }
 
   const { document } = toRenderDocument({
     document: engine.stack.document,
     assetSources: { ...LIBRARY_ASSET_SOURCES, ...engine.assetSources },
   })
-  projectionCache.set(engine.stack.document, document)
+  projectionCache.set(engine.stack.document, { assetSources: engine.assetSources, document })
   return document
 }
 
@@ -259,10 +264,12 @@ export function translateCommand({
   if (command.type === 'addGraphic') {
     const { layer } = command
     const libraryId = libraryAssetId({ src: layer.src })
-    const assetId = libraryId ?? reservedAssetId({ src: layer.src })
+    // A copy of a placed upload keeps its finalized asset id (S01 #170).
+    const knownId = Object.keys(same).find((id) => same[id] === layer.src)
+    const assetId = libraryId ?? knownId ?? reservedAssetId({ src: layer.src })
 
     return {
-      assetSources: libraryId ? same : { ...same, [assetId]: layer.src },
+      assetSources: libraryId || knownId ? same : { ...same, [assetId]: layer.src },
       command: {
         type: 'addLayer',
         panel: canonicalPanel({ renderPanel: layer.panel }),
@@ -277,7 +284,7 @@ export function translateCommand({
           scale: Math.min(CANONICAL_LIMITS.maxObjectScale, Math.max(0.01, layer.scale)),
           rotation: wrapAngle({ value: layer.rotation }),
           assetId,
-          aspect: 1,
+          aspect: layer.aspect ?? 1,
         },
       },
     }

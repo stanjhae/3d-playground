@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import type { DesignDocument } from './design-document'
-import { isSafeLayerSrc } from './look-thumbnail'
+import { isObjectUrlSrc, isSafeLayerSrc } from './look-thumbnail'
 import type { AtlasBuffer } from './paint-atlas'
 
 export function listLayerSrcs({
@@ -24,7 +24,7 @@ export async function decodeLayerImage({
 }: {
   src: string
 }): Promise<AtlasBuffer | null> {
-  if (!isSafeLayerSrc({ src }) || typeof document === 'undefined') {
+  if ((!isSafeLayerSrc({ src }) && !isObjectUrlSrc({ src })) || typeof document === 'undefined') {
     return null
   }
 
