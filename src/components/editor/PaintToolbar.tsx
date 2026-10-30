@@ -63,6 +63,7 @@ export function PaintToolbar({
   const setTextFace = useEditorStore((state) => state.setTextFace)
   const setTextScale = useEditorStore((state) => state.setTextScale)
   const setTypeDraft = useEditorStore((state) => state.setTypeDraft)
+  const addText = useEditorStore((state) => state.addText)
   const updateLayer = useEditorStore((state) => state.updateLayer)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [artworkError, setArtworkError] = useState<string | null>(null)
@@ -86,6 +87,7 @@ export function PaintToolbar({
               onClick={() => {
                 setPaintTool({ paintTool: 'brush' })
               }}
+              aria-pressed={paintTool === 'brush'}
               className={toolButtonClass({ selected: paintTool === 'brush' })}
             >
               {HOUSE_COPY.brush}
@@ -95,6 +97,7 @@ export function PaintToolbar({
               onClick={() => {
                 setPaintTool({ paintTool: 'eraser' })
               }}
+              aria-pressed={paintTool === 'eraser'}
               className={toolButtonClass({ selected: paintTool === 'eraser' })}
             >
               {HOUSE_COPY.erase}
@@ -105,6 +108,7 @@ export function PaintToolbar({
               onClick={() => {
                 setPaintTool({ paintTool: 'fill' })
               }}
+              aria-pressed={paintTool === 'fill'}
               className={toolButtonClass({ selected: paintTool === 'fill' })}
             >
               {FLV_COPY.fillTool}
@@ -129,6 +133,7 @@ export function PaintToolbar({
                 <button
                   type="button"
                   aria-label={color.name}
+                  aria-pressed={paintColor === color.value}
                   onClick={() => {
                     setPaintColor({ paintColor: color.value })
                     setPaintTool({ paintTool: 'brush' })
@@ -147,6 +152,7 @@ export function PaintToolbar({
               <button
                 key={width}
                 type="button"
+                aria-pressed={paintWidth === width}
                 onClick={() => {
                   setPaintWidth({ paintWidth: width })
                 }}
@@ -288,6 +294,15 @@ export function PaintToolbar({
                 onChange={(event) => {
                   setTypeDraft({ typeDraft: event.target.value })
                 }}
+                onKeyDown={(event) => {
+                  // Keyboard placement (#163): the word lands on the active panel.
+                  if (event.key !== 'Enter' || event.nativeEvent.isComposing || !typeDraft.trim()) {
+                    return
+                  }
+
+                  event.preventDefault()
+                  addText({ content: typeDraft, face: textFace, scale: textScale })
+                }}
                 placeholder={HOUSE_COPY.type}
                 className="min-h-11 min-w-0 flex-1 border border-flv-line bg-flv-paper px-3 font-body text-sm text-flv-ink"
               />
@@ -325,6 +340,7 @@ export function PaintToolbar({
               onClick={() => {
                 setPaintTool({ paintTool: 'type' })
               }}
+              aria-pressed={paintTool === 'type'}
               className={toolButtonClass({ selected: paintTool === 'type' })}
             >
               {HOUSE_COPY.type}
@@ -336,6 +352,7 @@ export function PaintToolbar({
               <button
                 key={face}
                 type="button"
+                aria-pressed={textFace === face}
                 onClick={() => {
                   setTextFace({ textFace: face })
                   if (selectedWord) {
@@ -359,6 +376,7 @@ export function PaintToolbar({
               <button
                 key={size.id}
                 type="button"
+                aria-pressed={textScale === size.scale}
                 onClick={() => {
                   setTextScale({ textScale: size.scale })
                   if (selectedWord) {

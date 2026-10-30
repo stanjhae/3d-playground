@@ -9,7 +9,9 @@ import { DesignModeToggle } from '../components/editor/DesignModeToggle'
 import { DualStudio } from '../components/editor/DualStudio'
 import { PaintCanvas } from '../components/editor/PaintCanvas'
 import { GraphicLibrary } from '../components/editor/GraphicLibrary'
+import { KeyboardHelp } from '../components/editor/KeyboardHelp'
 import { LayerRail } from '../components/editor/LayerRail'
+import { StudioAnnouncer } from '../components/editor/StudioAnnouncer'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
 import { StudioViewToggle } from '../components/editor/StudioViewToggle'
@@ -486,12 +488,7 @@ function AtelierHome() {
   }, [])
 
   return (
-    <section ref={sectionRef} className={studioSectionClass()}>
-      <DualStudio>
-        <AtelierScene>
-          <PublishThumbnailSync />
-        </AtelierScene>
-      </DualStudio>
+    <section ref={sectionRef} className={studioSectionClass({ drawInFlow })}>
       <div className={studioOverlayClass({ drawInFlow })}>
         {drawInFlow ? null : (
           <div
@@ -588,6 +585,7 @@ function AtelierHome() {
                   />
                   {designEditMode === 'tech' ? <GraphicLibrary /> : null}
                   <LayerRail />
+                  <KeyboardHelp />
                   {designEditMode === 'tech' ? <TechInspector /> : null}
                   <VersionRail />
                   <HistoryPanel />
@@ -658,6 +656,17 @@ function AtelierHome() {
           </>
         ) : null}
       </div>
+      {/*
+        After the header and tools in the DOM so focus runs header →
+        stepper → tools → panels → preview (#163); the overlay is z-20, so
+        it still draws on top.
+      */}
+      <DualStudio>
+        <AtelierScene>
+          <PublishThumbnailSync />
+        </AtelierScene>
+      </DualStudio>
+      <StudioAnnouncer />
     </section>
   )
 }

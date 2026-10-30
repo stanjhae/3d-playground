@@ -108,7 +108,7 @@ export const HOUSE_COPY = {
   design: 'Design',
   theHouse: 'The house',
   lookTitle: 'Name this look',
-  typeHint: 'Tap the cloth to place the word.',
+  typeHint: 'Tap the cloth to place the word, or press Enter to place it on the active panel.',
   fine: 'Fine',
   line: 'Line',
   bold: 'Bold',

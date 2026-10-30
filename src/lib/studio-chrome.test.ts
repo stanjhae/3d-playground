@@ -10,6 +10,7 @@ import {
   nextClothOpen,
   studioPhonePublishClass,
   studioPhoneToolsClass,
+  studioSectionClass,
 } from './studio-chrome'
 
 describe('nextClothOpen', () => {
@@ -116,5 +117,12 @@ describe('studio phone chrome', () => {
     expect(studioPhonePublishClass()).toContain('max-h-[min(72vh,42rem)]')
     expect(studioPhonePublishClass()).not.toContain('lg:left-6')
     expect(studioPhonePublishClass()).not.toContain('calc(50%')
+  })
+})
+
+describe('studioSectionClass (#163)', () => {
+  test('drops the min height when the Draw overlay scrolls on its own', () => {
+    expect(studioSectionClass()).toContain('min-h-[30rem]')
+    expect(studioSectionClass({ drawInFlow: true })).not.toContain('min-h-')
   })
 })

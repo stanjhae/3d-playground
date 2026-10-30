@@ -1,9 +1,17 @@
 import { useEffect, type ReactNode } from 'react'
 
 import { cn } from '../../lib/cn'
-import { showsDualStudio, showsPaintPane } from '../../lib/create-steps'
+import {
+  showsDesignRails,
+  showsDualStudio,
+  showsPaintPane,
+} from '../../lib/create-steps'
 import { garmentCanPaint } from '../../lib/garments'
 import { useEditorStore } from '../../lib/editor-store'
+import { layerVoice } from '../../lib/layer-hit'
+import { layerDeletedMessage } from '../../lib/layer-list'
+import { announce } from '../../lib/studio-announcer'
+import { studioKeyAction } from '../../lib/studio-keys'
 import { dualStudioGridClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
 import { PaintCanvas } from './PaintCanvas'
@@ -24,36 +32,69 @@ export function DualStudio({
   const paintPane = canPaint && showsPaintPane({ step: createStep })
 
   useEffect(() => {
-    function isTypingTarget({ target }: { target: EventTarget | null }) {
-      if (!(target instanceof HTMLElement)) {
-        return false
-      }
-
-      const tag = target.tagName
-      return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable
-    }
-
     function onKey(event: KeyboardEvent) {
-      if (isTypingTarget({ target: event.target })) {
+      if (event.defaultPrevented || event.isComposing) {
         return
       }
 
-      if (!(event.metaKey || event.ctrlKey)) {
+      const state = useEditorStore.getState()
+      const layer = state.selectedLayerId
+        ? state.document.layers.find((entry) => entry.id === state.selectedLayerId)
+        : undefined
+      const placeable =
+        showsDesignRails({ step: state.createStep }) &&
+        (layer?.kind === 'graphic' || layer?.kind === 'text' || layer?.kind === 'pattern')
+          ? layer
+          : null
+      const action = studioKeyAction({
+        key: event.key,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        target: event.target,
+        hasSelection: placeable !== null,
+      })
+
+      if (!action) {
         return
       }
 
-      const key = event.key.toLowerCase()
+      event.preventDefault()
 
-      if (key === 'z' && !event.shiftKey) {
-        event.preventDefault()
+      if (action.type === 'undo') {
         undoLast()
         return
       }
 
-      if (key === 'y' || (key === 'z' && event.shiftKey)) {
-        event.preventDefault()
+      if (action.type === 'redo') {
         redoLast()
+        return
       }
+
+      if (!placeable) {
+        return
+      }
+
+      if (action.type === 'nudge') {
+        state.nudgeLayer({ layerId: placeable.id, dx: action.dx, dy: action.dy })
+        return
+      }
+
+      if (action.type === 'delete') {
+        state.removeLayer({ layerId: placeable.id })
+        announce({ message: layerDeletedMessage({ name: layerVoice({ layer: placeable }) }) })
+        // Focus was on the deleted row's controls: keep it in the list.
+        requestAnimationFrame(() => {
+          if (document.activeElement === document.body) {
+            document.querySelector<HTMLElement>('[data-layer-control="select"]')?.focus()
+          }
+        })
+        return
+      }
+
+      state.selectLayer({ selectedLayerId: null })
+      announce({ message: `${layerVoice({ layer: placeable })} deselected.` })
     }
 
     function endPaintStroke() {

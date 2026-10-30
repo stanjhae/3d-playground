@@ -68,8 +68,9 @@ import {
 } from './editor-canonical'
 import type { ImportNote } from './legacy-import'
 import { type CanonicalDocument, CANONICAL_LIMITS } from './canonical-document'
-import { replaceDocument } from './canonical-commands'
-import { canonicalPanel } from './render-projection'
+import { findLayer, replaceDocument } from './canonical-commands'
+import { canonicalPanel, renderPanel } from './render-projection'
+import { NUDGE_MERGE_MS } from './studio-keys'
 
 export type EditorMode = 'design' | 'atelier'
 
@@ -271,6 +272,29 @@ type EditorState = {
   setTextScale: ({ textScale }: { textScale: number }) => void
   setTypeDraft: ({ typeDraft }: { typeDraft: string }) => void
   removeLayer: ({ layerId }: { layerId: string }) => void
+  /**
+   * Arrow-key nudge of a placeable layer (#163). Nudges of one layer in
+   * quick succession merge into one undo step.
+   */
+  nudgeLayer: ({
+    layerId,
+    dx,
+    dy,
+    now,
+  }: {
+    layerId: string
+    dx: number
+    dy: number
+    now?: number
+  }) => void
+  /** Move a layer one place up (towards the top) or down its panel (#157). */
+  moveLayer: ({
+    layerId,
+    direction,
+  }: {
+    layerId: string
+    direction: 'up' | 'down'
+  }) => void
   setNeck: ({ neck }: { neck: NeckId }) => void
   setStructural: ({ structural }: { structural: StructuralParams }) => void
   addPattern: ({
@@ -569,6 +593,39 @@ const INITIAL_EDITOR_STATE = {
 /** The tee's canonical v2 document, for cloud saving (S04 #173). */
 export function getCanonicalDocument(): CanonicalDocument {
   return tee.stack.document
+}
+
+/**
+ * Where a layer sits in its panel's stack: index 0 is the bottom. Only the
+ * tee's canonical layers can be reordered; null for anything else.
+ */
+export function layerPlacement({
+  layerId,
+}: {
+  layerId: string
+}): { panel: PanelId; index: number; count: number } | null {
+  if (!teeActive()) {
+    return null
+  }
+
+  const found = findLayer({ document: tee.stack.document, layerId })
+
+  if (!found) {
+    return null
+  }
+
+  return {
+    panel: renderPanel({ panel: found.panel }),
+    index: found.index,
+    count: tee.stack.document.panels[found.panel].layers.length,
+  }
+}
+
+/** The last nudge, so the next one of the same layer can merge into it. */
+let lastNudge: { layerId: string; at: number; marker: unknown } | null = null
+
+function historyMarker() {
+  return teeActive() ? tee.stack : commandStack
 }
 
 /** Asset id → drawable source for the tee engine (uploads, S01 #170). */
@@ -1383,6 +1440,83 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         },
       }),
     )
+  },
+  nudgeLayer: ({ layerId, dx, dy, now = Date.now() }) => {
+    set((state) => {
+      const layer = state.document.layers.find((entry) => entry.id === layerId)
+
+      if (
+        !layer ||
+        (layer.kind !== 'graphic' && layer.kind !== 'text' && layer.kind !== 'pattern')
+      ) {
+        return state
+      }
+
+      const patch = {
+        x: Math.min(1, Math.max(0, layer.x + dx)),
+        y: Math.min(1, Math.max(0, layer.y + dy)),
+      }
+
+      if (!layerPatchChanges({ layer, patch })) {
+        return state
+      }
+
+      const before = historyMarker()
+      const merge =
+        lastNudge !== null &&
+        lastNudge.layerId === layerId &&
+        lastNudge.marker === before &&
+        now - lastNudge.at < NUDGE_MERGE_MS
+      const next = runCommand({
+        command: { type: 'updateLayer', layerId, patch },
+        extra: { selectedLayerId: layerId, activeLayerEdit: null },
+      })
+
+      if (historyMarker() === before) {
+        // Refused (a limit notice) or unchanged: no step to merge.
+        return next
+      }
+
+      if (merge) {
+        // Drop the step this nudge pushed; the earlier nudge's step now
+        // undoes both.
+        if (teeActive()) {
+          tee = { ...tee, stack: { ...tee.stack, past: tee.stack.past.slice(0, -1) } }
+        } else {
+          commandStack = { ...commandStack, past: commandStack.past.slice(0, -1) }
+        }
+      }
+
+      lastNudge = { layerId, at: now, marker: historyMarker() }
+      return merge ? syncFromStack({ extra: { selectedLayerId: layerId, activeLayerEdit: null } }) : next
+    })
+  },
+  moveLayer: ({ layerId, direction }) => {
+    set((state) => {
+      const placement = layerPlacement({ layerId })
+
+      if (!placement) {
+        return state
+      }
+
+      const toIndex = placement.index + (direction === 'up' ? 1 : -1)
+
+      if (toIndex < 0 || toIndex >= placement.count) {
+        return state
+      }
+
+      const step = runTeeCommand({
+        engine: tee,
+        command: { type: 'moveLayer', layerId, toIndex },
+      })
+
+      if (!step.changed) {
+        return step.refusal ? { limitNotice: step.refusal } : state
+      }
+
+      tee = step.engine
+      return syncFromStack()
+    })
   },
   setNeck: ({ neck }) => {
     set(() =>

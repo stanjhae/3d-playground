@@ -58,9 +58,16 @@ export const STUDIO_TOOL_COLUMN = '22rem'
 export const STUDIO_CHROME_BOTTOM_VAR = '--studio-chrome-bottom'
 export const STUDIO_TOP_VAR = '--studio-top'
 
-/** Fills the viewport below the sticky site header instead of overflowing it. */
-export function studioSectionClass() {
-  return 'relative h-[calc(100dvh_-_var(--studio-top,0px))] min-h-[30rem] overflow-hidden'
+/**
+ * Fills the viewport below the sticky site header instead of overflowing it.
+ * With the Draw canvas in flow the overlay is the one scroller, so the
+ * section never grows past the viewport: at 200% zoom a second, page-level
+ * scroll would park focused controls under the sticky header (#163).
+ */
+export function studioSectionClass({ drawInFlow = false }: { drawInFlow?: boolean } = {}) {
+  return drawInFlow
+    ? 'relative h-[calc(100dvh_-_var(--studio-top,0px))] overflow-hidden'
+    : 'relative h-[calc(100dvh_-_var(--studio-top,0px))] min-h-[30rem] overflow-hidden'
 }
 
 export function studioHeaderClass() {
