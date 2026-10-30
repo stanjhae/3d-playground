@@ -17,6 +17,21 @@ import { isLinkVisibleLook } from './design-schema.ts'
 import { resolveVoteId } from './paths.ts'
 import { rankDesigns } from './rank-designs.ts'
 
+/**
+ * The guest board takes no new looks or votes wherever the alpha requires
+ * sign-in (F09 #144): the same rule as `AUTH_REQUIRED` in the browser,
+ * enforced here so hiding the UI is not the only guard. Reads stay open
+ * for links that already exist.
+ */
+export function guestBoardClosed({
+  env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {},
+}: {
+  env?: Record<string, string | undefined>
+} = {}) {
+  const supabase = Boolean(env.SUPABASE_URL || env.VITE_SUPABASE_URL)
+  return supabase && env.VITE_FLP_REQUIRE_AUTH !== 'false'
+}
+
 function isVoteRequest({ request }: { request: Request }) {
   const url = new URL(request.url)
 
@@ -153,6 +168,13 @@ export async function handleDesignsRequest({
 
         if (request.method === 'GET' && !isVote) {
           return listDesignsResponse({ request })
+        }
+
+        if (request.method === 'POST' && guestBoardClosed()) {
+          return Response.json(
+            { error: 'Posting to the guest board is closed. Sign in and publish from My Studio.' },
+            { status: 403 },
+          )
         }
 
         if (request.method === 'POST' && isVote) {

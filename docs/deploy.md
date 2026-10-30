@@ -45,7 +45,7 @@ Set these per environment (Preview = staging, Production = production). **Never 
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | Browser | `https://<ref>.supabase.co` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser | Project publishable (anon) key |
-| `VITE_FLP_REQUIRE_AUTH` | Browser | `true` |
+| `VITE_FLP_REQUIRE_AUTH` | Browser and server | `true`. `api/designs.ts` also reads it: with Supabase configured, the legacy guest board refuses new looks and votes unless this is `false` (#144). |
 | `VITE_FLP_CONCEPT` | Browser | `false` (non-tee concept features stay off) |
 | `VITE_FLP_CONTACT_EMAIL` | Browser | The alpha contact address. It's shown on `/privacy` and in "Report this design". |
 | `SUPABASE_URL` | Server only | Same as `VITE_SUPABASE_URL` |
