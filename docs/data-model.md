@@ -24,7 +24,7 @@ browser ──(session JWT)──▶ API (Vercel function)
 | --- | --- | --- |
 | `designs` | One owned design | `visibility` defaults to `private` (NOT NULL). `head_seq` → its own latest version. |
 | `design_versions` | Immutable revisions | PK `(design_id, seq)`, unique `(owner_id, mutation_key)`. UPDATE and DELETE are rejected by a trigger. `kind` is `autosave`, `checkpoint`, `restore` or `import`. `restored_from_seq` must point at an earlier version of the same design. |
-| `assets` | Uploaded originals (S01 #170) | IDs match the canonical `asset_…` pattern. `ready` requires the type, size, dimensions, hash and storage path. |
+| `assets` | Uploaded images (S01 #170, S02 #171) | IDs match the canonical `asset_…` pattern but never `asset_lib_…`. `ready` requires the type, size, dimensions, hash and storage path. `rejected` requires a `rejection_reason`. Once ready or rejected a row never changes (trigger). See [Image uploads](#image-uploads). |
 | `render_artifacts` | Derivatives of one version (P02 #180) | Composite FK to `(design_id, version_seq)`. One row per kind. |
 | `publications` | One per design for its lifetime | Stable 16-hex `slug`. `published` ⇔ `version_seq` is set. When the design is deleted, a revoked tombstone keeps the slug so it is never reused. |
 
@@ -43,7 +43,7 @@ Owner consistency uses composite foreign keys to `designs (id, owner_id)`, so ev
 
 A design that is missing and one owned by someone else raise the same `FL404`, so a response never reveals whether a design exists.
 
-Not yet covered here: checking that render artifacts are ready before publishing (P02/P03), asset upload (S01/S02), quotas and rate limits (S09 #178, Q02 #187), and anonymous public reads (P04 #182).
+Not yet covered here: checking that render artifacts are ready before publishing (P02/P03), quotas and rate limits (S09 #178, Q02 #187), and anonymous public reads (P04 #182).
 
 ## Error envelope
 
@@ -55,9 +55,9 @@ Not yet covered here: checking that render artifacts are ready before publishing
 | --- | --- | --- |
 | 401 | `unauthenticated` | No verified session (`FL401`) |
 | 404 | `not_found` | Missing **or not owned** (`FL404`); always "Design not found" |
-| 409 | `conflict` | Stale `baseSeq` (includes `headSeq`) or a mutation key reused on another design (`FL409`) |
+| 409 | `conflict` | Stale `baseSeq` (includes `headSeq`), a mutation key reused on another design (`FL409`), or finalize before the upload arrived |
 | 413 | `too_large` | Normalized content over 2,000,000 bytes (`prepareContent` or `FL413`) |
-| 422 | `invalid` | Request or content validation failed, with `issues[].path` (or `FL422`) |
+| 422 | `invalid` | Request or content validation failed, with `issues[].path` (or `FL422`). A rejected image adds `reason`. |
 | 429 | `rate_limited` | Throttling (A01 #145, Q02 #187) |
 
 Unknown database errors are logged and returned as a plain 500 with no details.
@@ -91,7 +91,35 @@ The create, save, restore, list and read routes are live in `api/flp.ts` (`src/l
 
 A reused `mutationKey` with the same content returns the original version. With **different** content it returns `409` ("mutation key reused with different content"); this is enforced by migration `20261031090000_flp_isolation.sql`.
 
-Original uploads go in the private `design-assets` bucket under `<owner_id>/…`. Owners can read their own objects, and nobody can write directly; uploads will use server-issued signed URLs (S01 #170).
+## Image uploads
+
+Migration `20261101090000_flp_asset_lifecycle.sql`, server `src/lib/flp-api/server.ts`, validator `src/lib/image-validate.ts`, browser helper `src/lib/flp-api/assets.ts` (`uploadAsset`, `assetReadUrl`).
+
+```
+POST /api/flp/assets
+→ 201 { "assetId": "asset_<32 hex>", "status": "staged", "upload": { "url": "<signed upload URL>", "method": "PUT", "maxBytes": 10485760 } }
+
+PUT <upload.url>   (browser → Supabase Storage, path <owner>/<assetId>/original)
+
+POST /api/flp/assets/:id/finalize
+→ 200 { "assetId", "status": "ready", "mimeType", "width", "height", "byteSize", "sha256", "readUrl", "readUrlExpiresIn": 600 }
+→ 409 conflict (upload not received yet; retry) | 422 invalid { reason } | 404
+
+GET /api/flp/assets/:id
+→ 200 { "assetId", "status": "staged" } | { …, "status": "rejected", "reason" } | the ready body with a fresh readUrl
+```
+
+- **Reserve** inserts a `staged` row for the verified owner and signs a one-time upload to `<owner>/<assetId>/original` in the private `design-assets` bucket. Clients still cannot write to the bucket or the table.
+- **Finalize** downloads the original with the service role and validates the **bytes**; the filename and declared MIME are ignored. Only PNG and baseline/progressive 8-bit JPEG (greyscale or YCbCr) are accepted, at most 10 MB and 4096×4096 from the IHDR/SOF header, checked before any decoding. PNG chunk CRCs are verified, and the image data is inflated as a stream and capped at the size the header implies. This stops decompression bombs and catches truncated or corrupt data. APNG (`acTL`/`fcTL`/`fdAT`), SVG, HTML, GIF, WebP and anything else are rejected.
+- **Normalization** rewrites the container without re-encoding pixels. PNG keeps only `IHDR`, `PLTE`, `IDAT`, `IEND` and the colour chunks (`tRNS`, `gAMA`, `cHRM`, `sRGB`, `iCCP`, `sBIT`, `cICP`), so text, `eXIf` and time chunks are removed. JPEG drops every APPn and comment except the ICC profile (APP2) and Adobe colour transform (APP14). EXIF orientation is kept as a minimal one-tag APP1, and `width`/`height` are the display size after orientation. Bytes after IEND/EOI are dropped.
+- The normalized bytes are stored at `<owner>/<assetId>/normalized`. The row becomes `ready` with the type, size, dimensions and SHA-256 of those bytes, and the original is deleted. If validation fails, the row becomes `rejected` with a `rejection_reason` (`unsupported_type`, `too_large`, `dimensions`, `animated`, `corrupt`) and the original is deleted. To retry, reserve a new asset.
+- Finalize is **idempotent** and safe to race. Settled rows are immutable, the normalized object is deterministic, and the transition only applies while the row is `staged`. Repeating it returns the settled result.
+- Another owner's asset, a missing one and an `asset_lib_…` id all return the same `404 Asset not found`. Rows are read as the user, so RLS applies.
+- **Read URLs** are signed as the user for 600 seconds. Nothing in the bucket is public, and documents store only `assetId`.
+
+**Saves.** Create and save refuse (`422`, one issue per use at `$.panels.<panel>.layers[<i>].assetId`) any image layer whose `assetId` is neither `asset_lib_…` (built-in library graphics, no row) nor a `ready` asset of the caller. This covers staged, rejected, unknown and other owners' ids. Restore copies an earlier version whose assets were checked when it was saved, and ready assets never change.
+
+Not yet: reclaiming abandoned `staged` rows and originals, per-account upload quotas (S09 #178), and uploading legacy graphics (`asset_legacy_…` ids from `legacy-import.ts`) so that designs using them can be saved.
 
 ## Local development
 
@@ -102,7 +130,7 @@ supabase test db
 FLP_INTEGRATION=1 pnpm test:integration
 ```
 
-`pnpm test:integration` runs the API against the local stack with real user JWTs. It covers neutral 404s across owners, one-wins concurrent saves, idempotent retries, key reuse, the publication pointer, failed-write atomicity and attempts to bypass the API through REST. It needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local` (see `.env.example`).
+`pnpm test:integration` runs the API against the local stack with real user JWTs. It covers neutral 404s across owners, one-wins concurrent saves, idempotent retries, key reuse, the publication pointer, failed-write atomicity and attempts to bypass the API through REST. `assets.integration.test.ts` adds reserve → upload → finalize → save, metadata stripping, cross-owner refusal, blocked saves for unfinalized or rejected assets, and retrying an interrupted upload. It needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local` (see `.env.example`).
 
 `supabase start` needs Docker. `supabase db reset` applies the migrations to an empty database, and `supabase test db` runs the pgTAP suite. No hosted project is linked yet.
 
