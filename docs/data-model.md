@@ -148,7 +148,7 @@ FLP_INTEGRATION=1 pnpm test:integration
 - Only the exact revision sent is acknowledged. A `409` becomes **Changed elsewhere**, with **Open cloud version** or **Save mine as a copy**; nothing is overwritten.
 - A design with images that aren't uploaded yet shows **Waiting for images**. Library graphics (`asset_lib_<slug>`, `src/lib/library-assets.ts`) need no upload.
 
-**Known issue for A07 #151:** deleting an auth user who owns designs fails. The cascade into `design_versions` is blocked by the immutability trigger, which only allows deletes inside `flp_delete_design`. Account deletion must delete the user's designs through that function first, or the trigger must also allow cascades.
+**Account deletion (A07 #151):** deleting an auth user removes all of their designs, versions, publications and assets through the foreign-key cascades. The immutability trigger allows a version delete only inside `flp_delete_design` or as part of a cascade (`pg_trigger_depth() > 1`, migration `20261102090000_flp_cascade_deletes.sql`). A direct delete from a client, REST or SQL is still refused.
 
 ## Publishing and the public page (P01–P05, #179–#183)
 
