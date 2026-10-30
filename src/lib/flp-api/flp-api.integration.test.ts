@@ -326,7 +326,7 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
       path: 'designs',
       method: 'POST',
       token: a.token,
-      body: { mutationKey: crypto.randomUUID(), content: GOLDEN_DOCUMENT },
+      body: { mutationKey: crypto.randomUUID(), content: savable({ text: 'start' }) },
     })
     const autosaved = ((await created.json()) as { designId: string }).designId
     let settled: () => void = () => {}
