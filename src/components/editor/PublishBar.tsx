@@ -3,6 +3,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { trackAssumption } from '../../lib/assumption-events'
+import { useSessionStore } from '../../lib/auth/session-store'
+import { AUTH_REQUIRED } from '../../lib/auth/supabase-client'
 import { listChallenges } from '../../lib/challenges'
 import { cn } from '../../lib/cn'
 import {
@@ -188,6 +190,14 @@ export function PublishBar({
         event.preventDefault()
 
         if (busy || submittingRef.current) {
+          return
+        }
+
+        if (
+          AUTH_REQUIRED &&
+          useSessionStore.getState().status !== 'signed-in'
+        ) {
+          setInkError(HOUSE_COPY.signInToPublish)
           return
         }
 
