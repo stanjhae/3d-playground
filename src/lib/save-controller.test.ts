@@ -141,6 +141,31 @@ describe('save controller', () => {
     expect(h.requests[1]?.request.revision).toBe(11)
   })
 
+  test('rate limited: pauses, ignores edits until the server wait ends, then retries the same key', async () => {
+    const h = harness()
+
+    h.controller.notify({ revision: 11, document: doc('a') })
+    h.controller.flush()
+    h.requests[0]!.resolve({ ok: false, code: 'rate_limited', message: 'Too many requests', retryAfter: 30 })
+    await flushMicrotasks()
+
+    expect(h.controller.getState()).toMatchObject({ status: 'paused', savedRevision: 10 })
+    expect(h.timers.map((timer) => timer.ms)).toEqual([30_000])
+
+    // An edit during the pause keeps the scheduled retry.
+    h.controller.notify({ revision: 12, document: doc('ab') })
+    expect(h.controller.getState().status).toBe('paused')
+    expect(h.timers.map((timer) => timer.ms)).toEqual([30_000])
+
+    await h.tick()
+
+    expect(h.requests).toHaveLength(2)
+    expect(h.requests[1]?.request.revision).toBe(12)
+    h.requests[1]!.resolve(ok(2))
+    await flushMicrotasks()
+    expect(h.controller.getState()).toMatchObject({ status: 'saved', savedRevision: 12 })
+  })
+
   test('a stale base becomes a conflict and stops saving', async () => {
     const h = harness()
 

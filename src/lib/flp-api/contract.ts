@@ -29,6 +29,8 @@ export const API_ERROR_STATUS = {
   conflict: 409,
   too_large: 413,
   invalid: 422,
+  /** An account or design limit is full (S09 #178); nothing was evicted. */
+  quota_exceeded: 409,
   rate_limited: 429,
 } as const
 
@@ -215,6 +217,7 @@ const SQLSTATE_CODES: Record<string, ApiErrorCode> = {
   FL409: 'conflict',
   FL413: 'too_large',
   FL422: 'invalid',
+  FL429: 'quota_exceeded',
 }
 
 /**

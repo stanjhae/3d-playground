@@ -57,7 +57,24 @@ export type FlpServerEnv = {
   url: string
   publishableKey: string
   secretKey: string
+  /** Per-minute overrides (tests); defaults are `RATE_LIMITS`. */
+  rateLimits?: Partial<Record<RateBucket, number>>
 }
+
+/**
+ * Requests per account per minute (Q02 #187). Autosave sends at most one
+ * request every couple of seconds, so `save` only stops runaway clients.
+ */
+export const RATE_LIMITS = {
+  save: 120,
+  upload: 20,
+  publish: 10,
+  details: 30,
+} as const
+
+export type RateBucket = keyof typeof RATE_LIMITS
+
+const RATE_WINDOW_SECONDS = 60
 
 type DesignVersionRow = {
   design_id: string
@@ -411,8 +428,13 @@ async function finalizeAsset({
     .eq('status', 'staged')
 
   if (updateError) {
-    console.error('flp asset settle failed', { code: updateError.code })
-    return internalError()
+    // The normalized copy is useless without a ready row (e.g. the upload
+    // quota is full), so it is not kept.
+    if (result.ok) {
+      await bucket.remove([settle.storage_path as string])
+    }
+
+    return writeFailed({ fn: 'asset settle', error: updateError })
   }
 
   // The original may hold private metadata; only normalized bytes are kept.
@@ -785,6 +807,78 @@ async function handleProfile({
   return json({ status: 200, body: profile })
 }
 
+/** Which limit a mutation counts against; reads are not limited. */
+function rateBucket({
+  method,
+  collection,
+  designId,
+  action,
+}: {
+  method: string
+  collection?: string
+  designId?: string
+  action?: string
+}): RateBucket | null {
+  if (method === 'GET') {
+    return null
+  }
+
+  if (collection === 'assets') {
+    return 'upload'
+  }
+
+  if (action === 'renders' || action === 'publication') {
+    return 'publish'
+  }
+
+  // Rename, delete and the public name.
+  if (collection === 'profile' || (designId && !action)) {
+    return 'details'
+  }
+
+  return 'save'
+}
+
+async function rateLimited({
+  admin,
+  userId,
+  bucket,
+  env,
+}: {
+  admin: SupabaseClient
+  userId: string
+  bucket: RateBucket
+  env: FlpServerEnv
+}) {
+  const { data, error } = await admin.rpc('flp_take_token', {
+    p_owner_id: userId,
+    p_bucket: bucket,
+    p_limit: env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
+    p_window_seconds: RATE_WINDOW_SECONDS,
+  })
+
+  // A limiter outage must not block saving.
+  if (error) {
+    console.error('flp rate limit check failed', { code: error.code })
+    return null
+  }
+
+  const wait = Number(data ?? 0)
+
+  if (wait <= 0) {
+    return null
+  }
+
+  const limited = apiError({
+    code: 'rate_limited',
+    message: 'Too many requests. Your work is kept; it will retry shortly.',
+  })
+  return Response.json(limited.body, {
+    status: limited.status,
+    headers: { 'Cache-Control': 'no-store', 'Retry-After': String(wait) },
+  })
+}
+
 export async function handleFlpRequest({
   request,
   env = flpServerEnv(),
@@ -845,6 +939,16 @@ export async function handleFlpRequest({
 
   if (!user) {
     return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  const bucket = rateBucket({ method: request.method, collection, designId, action })
+
+  if (bucket) {
+    const limited = await rateLimited({ admin, userId: user.userId, bucket, env })
+
+    if (limited) {
+      return limited
+    }
   }
 
   const asUser = createClient(env.url, env.publishableKey, {

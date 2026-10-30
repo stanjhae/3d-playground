@@ -115,6 +115,7 @@ const LABELS: Record<SaveState['status'], string> = {
   unsaved: 'Unsaved changes',
   saving: 'Saving…',
   offline: 'Offline — not saved',
+  paused: 'Saving paused, retrying',
   failed: 'Save failed',
   conflict: 'Changed elsewhere',
   'waiting-for-images': 'Waiting for images',
