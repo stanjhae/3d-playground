@@ -9,6 +9,7 @@ import {
   normalizeCanonicalDocument,
   serializeCanonicalDocument,
 } from '../canonical-hash.ts'
+import type { ImageMimeType, ImageRejectReason } from '../image-validate.ts'
 
 /**
  * FLP design API contract (F08 #143): request shapes, server-side content
@@ -40,6 +41,7 @@ export type ApiError = {
       message: string
       issues?: ValidationIssue[]
       headSeq?: number | null
+      reason?: ImageRejectReason
     }
   }
 }
@@ -86,6 +88,30 @@ export type PublicationResponse = {
   seq: number | null
 }
 
+/** `GET /assets/:id` and finalize (S01 #170). */
+export type AssetResponse =
+  | { assetId: string; status: 'staged' }
+  | { assetId: string; status: 'rejected'; reason: ImageRejectReason }
+  | {
+      assetId: string
+      status: 'ready'
+      mimeType: ImageMimeType
+      width: number
+      height: number
+      byteSize: number
+      sha256: string
+      /** Short-lived signed read URL; the bucket is never public. */
+      readUrl: string
+      readUrlExpiresIn: number
+    }
+
+/** `POST /assets`: a staged reservation and where to PUT the original. */
+export type AssetReservation = {
+  assetId: string
+  status: 'staged'
+  upload: { url: string; method: 'PUT'; maxBytes: number }
+}
+
 export type PreparedContent = {
   content: CanonicalDocument
   contentHash: ContentHash
@@ -100,11 +126,13 @@ export function apiError({
   message,
   issues,
   headSeq,
+  reason,
 }: {
   code: ApiErrorCode
   message: string
   issues?: ValidationIssue[]
   headSeq?: number | null
+  reason?: ImageRejectReason
 }): ApiError {
   return {
     status: API_ERROR_STATUS[code],
@@ -114,6 +142,7 @@ export function apiError({
         message,
         ...(issues ? { issues } : {}),
         ...(headSeq !== undefined ? { headSeq } : {}),
+        ...(reason ? { reason } : {}),
       },
     },
   }
@@ -341,4 +370,28 @@ export function parsePublishVersionRequest({ value }: { value: unknown }) {
       ...textIssue({ value: record.displayName, path: '$.displayName', max: 40 }),
     ],
   })
+}
+
+/** Built-in library graphics: valid in documents without an asset row. */
+export const LIBRARY_ASSET_PREFIX = 'asset_lib_'
+
+/**
+ * Uploaded assets a document references, with the path of each use, so a
+ * save can be refused unless every one is a ready asset of the caller.
+ */
+export function uploadedAssetReferences({ document }: { document: CanonicalDocument }) {
+  const references: Array<{ assetId: string; path: string }> = []
+
+  for (const [panelId, panel] of Object.entries(document.panels)) {
+    panel.layers.forEach((layer, index) => {
+      if (layer.kind === 'image' && !layer.assetId.startsWith(LIBRARY_ASSET_PREFIX)) {
+        references.push({
+          assetId: layer.assetId,
+          path: `$.panels.${panelId}.layers[${index}].assetId`,
+        })
+      }
+    })
+  }
+
+  return references
 }

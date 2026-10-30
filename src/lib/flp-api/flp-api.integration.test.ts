@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import type { CanonicalDocument } from '../canonical-document'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
+import { withImageAsset } from './integration-harness'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
 
 /**
@@ -20,8 +21,11 @@ const env =
 
 type Account = { id: string; token: string; client: SupabaseClient }
 
+/** Saves may only reference library graphics or ready uploads (S01 #170). */
+const DOCUMENT = withImageAsset({ document: GOLDEN_DOCUMENT, assetId: 'asset_lib_crest' })
+
 function withText({ text }: { text: string }): CanonicalDocument {
-  const document = structuredClone(GOLDEN_DOCUMENT)
+  const document = structuredClone(DOCUMENT)
   const layer = document.panels.back.layers[0]
 
   if (layer?.kind === 'text') {
@@ -112,7 +116,7 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
       path: 'designs',
       method: 'POST',
       token: a.token,
-      body: { mutationKey: crypto.randomUUID(), title: 'Crest tee', content: GOLDEN_DOCUMENT },
+      body: { mutationKey: crypto.randomUUID(), title: 'Crest tee', content: DOCUMENT },
     })
     expect(created.status).toBe(201)
     designId = ((await created.json()) as { designId: string }).designId
@@ -149,7 +153,7 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
       path: `designs/${designId}/versions`,
       method: 'POST',
       token: b.token,
-      body: { baseSeq: 1, mutationKey: crypto.randomUUID(), kind: 'autosave', content: GOLDEN_DOCUMENT },
+      body: { baseSeq: 1, mutationKey: crypto.randomUUID(), kind: 'autosave', content: DOCUMENT },
     })
 
     expect(read.status).toBe(404)
@@ -162,7 +166,7 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
     const body = (await response.json()) as { head: { content: unknown; seq: number } }
 
     expect(body.head.seq).toBe(1)
-    expect(body.head.content).toEqual(GOLDEN_DOCUMENT)
+    expect(body.head.content).toEqual(DOCUMENT)
   })
 
   test('invalid content is refused with paths', async () => {
@@ -174,7 +178,7 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
         baseSeq: 1,
         mutationKey: crypto.randomUUID(),
         kind: 'autosave',
-        content: { ...GOLDEN_DOCUMENT, camera: { azimuth: 1 } },
+        content: { ...DOCUMENT, camera: { azimuth: 1 } },
       },
     })
 
@@ -288,7 +292,7 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
       owner_id: a.id,
       kind: 'autosave',
       schema_version: 2,
-      content: GOLDEN_DOCUMENT,
+      content: DOCUMENT,
       content_hash: `sha256:${'1'.repeat(64)}`,
       content_bytes: 10,
       mutation_key: crypto.randomUUID(),
@@ -298,7 +302,7 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
       p_design_id: designId,
       p_base_seq: await headSeq(),
       p_mutation_key: crypto.randomUUID(),
-      p_content: GOLDEN_DOCUMENT,
+      p_content: DOCUMENT,
       p_content_hash: `sha256:${'2'.repeat(64)}`,
     })
     const guessed = await b.client.from('design_versions').select('seq').eq('design_id', designId)

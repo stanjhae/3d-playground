@@ -1,8 +1,18 @@
 import { type SupabaseClient, createClient } from '@supabase/supabase-js'
 
+import type { CanonicalDocument } from '../canonical-document.ts'
 import type { ContentHash } from '../canonical-hash.ts'
 import {
+  IMAGE_LIMITS,
+  type ImageMimeType,
+  type ImageRejectReason,
+  validateImage,
+} from '../image-validate.ts'
+import {
   type ApiError,
+  type AssetReservation,
+  type AssetResponse,
+  LIBRARY_ASSET_PREFIX,
   MAX_CONTENT_BYTES,
   type VersionResponse,
   apiError,
@@ -11,6 +21,7 @@ import {
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
   prepareContent,
+  uploadedAssetReferences,
 } from './contract.ts'
 
 /**
@@ -19,7 +30,9 @@ import {
  * - the owner comes from a JWT verified with Supabase Auth, never the body;
  * - reads run as that user, so RLS applies even if a filter is wrong;
  * - writes call the service-role `flp_*` functions with re-validated,
- *   re-hashed content.
+ *   re-hashed content;
+ * - uploaded images (S01 #170, S02 #171) are validated and normalized here
+ *   before a document may reference them.
  */
 
 export type FlpServerEnv = {
@@ -37,8 +50,26 @@ type DesignVersionRow = {
   created_at: string
 }
 
+type AssetRow = {
+  id: string
+  owner_id: string
+  status: 'staged' | 'ready' | 'rejected'
+  rejection_reason: ImageRejectReason | null
+  mime_type: ImageMimeType | null
+  byte_size: number | null
+  width: number | null
+  height: number | null
+  sha256: string | null
+  storage_path: string | null
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const ASSET_ID = /^asset_[A-Za-z0-9_-]{8,64}$/
 const MAX_BODY_BYTES = MAX_CONTENT_BYTES * 2
+const ASSET_BUCKET = 'design-assets'
+const ASSET_COLUMNS =
+  'id, owner_id, status, rejection_reason, mime_type, byte_size, width, height, sha256, storage_path'
+const READ_URL_SECONDS = 600
 
 export function flpServerEnv(
   source: Record<string, string | undefined> = (
@@ -160,6 +191,278 @@ async function callWrite({
   return json({ status, body: versionResponse({ row: data }) })
 }
 
+function assetNotFound() {
+  return apiError({ code: 'not_found', message: 'Asset not found' })
+}
+
+/**
+ * A document may only reference library graphics or the caller's own
+ * ready uploads. Read as the user, so another owner's id looks missing.
+ */
+async function unusableAssets({
+  asUser,
+  document,
+}: {
+  asUser: SupabaseClient
+  document: CanonicalDocument
+}) {
+  const references = uploadedAssetReferences({ document })
+
+  if (references.length === 0) {
+    return null
+  }
+
+  const { data, error } = await asUser
+    .from('assets')
+    .select('id')
+    .eq('status', 'ready')
+    .in('id', [...new Set(references.map(({ assetId }) => assetId))])
+
+  if (error) {
+    console.error('flp asset check failed', { code: error.code })
+    return internalError()
+  }
+
+  const ready = new Set(data.map((row) => row.id as string))
+  const issues = references
+    .filter(({ assetId }) => !ready.has(assetId))
+    .map(({ path }) => ({ path, message: 'asset is not uploaded and ready' }))
+
+  return issues.length > 0
+    ? fromError({ error: apiError({ code: 'invalid', message: 'Design references unavailable images', issues }) })
+    : null
+}
+
+function newAssetId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  // Hex never spells the `asset_lib_` library prefix.
+  return `asset_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+}
+
+async function assetResponse({
+  asUser,
+  row,
+}: {
+  asUser: SupabaseClient
+  row: AssetRow
+}): Promise<AssetResponse | null> {
+  if (row.status === 'staged') {
+    return { assetId: row.id, status: 'staged' }
+  }
+
+  if (row.status === 'rejected') {
+    return { assetId: row.id, status: 'rejected', reason: row.rejection_reason ?? 'corrupt' }
+  }
+
+  // Signed as the user, so the bucket's owner-prefix policy applies too.
+  const { data, error } = await asUser.storage
+    .from(ASSET_BUCKET)
+    .createSignedUrl(row.storage_path ?? '', READ_URL_SECONDS)
+
+  if (error || !data) {
+    console.error('flp asset sign failed', { message: error?.message })
+    return null
+  }
+
+  return {
+    assetId: row.id,
+    status: 'ready',
+    mimeType: row.mime_type ?? 'image/png',
+    width: row.width ?? 0,
+    height: row.height ?? 0,
+    byteSize: row.byte_size ?? 0,
+    sha256: row.sha256 ?? '',
+    readUrl: data.signedUrl,
+    readUrlExpiresIn: READ_URL_SECONDS,
+  }
+}
+
+async function readAsset({ asUser, assetId }: { asUser: SupabaseClient; assetId: string }) {
+  const { data, error } = await asUser
+    .from('assets')
+    .select(ASSET_COLUMNS)
+    .eq('id', assetId)
+    .maybeSingle<AssetRow>()
+
+  if (error) {
+    console.error('flp asset read failed', { code: error.code })
+    return { ok: false as const }
+  }
+
+  return { ok: true as const, row: data }
+}
+
+async function settledResponse({
+  asUser,
+  row,
+}: {
+  asUser: SupabaseClient
+  row: AssetRow
+}) {
+  if (row.status === 'rejected') {
+    const reason = row.rejection_reason ?? 'corrupt'
+    return fromError({
+      error: apiError({ code: 'invalid', message: 'This image cannot be used', reason }),
+    })
+  }
+
+  const body = await assetResponse({ asUser, row })
+  return body ? json({ status: 200, body }) : internalError()
+}
+
+/**
+ * Downloads the staged original, validates and normalizes it, stores the
+ * normalized bytes and settles the row. Safe to repeat or race: settled
+ * rows never change, the normalized object is deterministic, and the
+ * transition only applies while the row is still staged.
+ */
+async function finalizeAsset({
+  admin,
+  asUser,
+  row,
+}: {
+  admin: SupabaseClient
+  asUser: SupabaseClient
+  row: AssetRow
+}) {
+  const bucket = admin.storage.from(ASSET_BUCKET)
+  const originalPath = `${row.owner_id}/${row.id}/original`
+  const { data: blob, error: downloadError } = await bucket.download(originalPath)
+
+  if (downloadError || !blob) {
+    // A racing finalize may have settled the row and removed the original.
+    const again = await readAsset({ asUser, assetId: row.id })
+
+    if (again.ok && again.row && again.row.status !== 'staged') {
+      return settledResponse({ asUser, row: again.row })
+    }
+
+    return fromError({
+      error: apiError({ code: 'conflict', message: 'The upload has not been received yet' }),
+    })
+  }
+
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  const result = await validateImage({ bytes })
+  const settle = result.ok
+    ? {
+        status: 'ready',
+        mime_type: result.image.mimeType,
+        byte_size: result.image.byteSize,
+        width: result.image.width,
+        height: result.image.height,
+        sha256: result.image.sha256,
+        storage_path: `${row.owner_id}/${row.id}/normalized`,
+      }
+    : { status: 'rejected', rejection_reason: result.reason }
+
+  if (result.ok) {
+    const { error } = await bucket.upload(settle.storage_path as string, result.image.bytes, {
+      contentType: result.image.mimeType,
+      upsert: true,
+    })
+
+    if (error) {
+      console.error('flp asset store failed', { message: error.message })
+      return internalError()
+    }
+  }
+
+  const { error: updateError } = await admin
+    .from('assets')
+    .update(settle)
+    .eq('id', row.id)
+    .eq('owner_id', row.owner_id)
+    .eq('status', 'staged')
+
+  if (updateError) {
+    console.error('flp asset settle failed', { code: updateError.code })
+    return internalError()
+  }
+
+  // The original may hold private metadata; only normalized bytes are kept.
+  await bucket.remove([originalPath])
+
+  const settled = await readAsset({ asUser, assetId: row.id })
+
+  if (!settled.ok || !settled.row) {
+    return internalError()
+  }
+
+  return settledResponse({ asUser, row: settled.row })
+}
+
+async function handleAssetRequest({
+  request,
+  admin,
+  asUser,
+  userId,
+  assetId,
+  action,
+}: {
+  request: Request
+  admin: SupabaseClient
+  asUser: SupabaseClient
+  userId: string
+  assetId: string | undefined
+  action: string | undefined
+}) {
+  // POST /assets — reserve a staged asset and a signed upload URL.
+  if (request.method === 'POST' && !assetId) {
+    const id = newAssetId()
+    const { error } = await admin.from('assets').insert({ id, owner_id: userId })
+
+    if (error) {
+      console.error('flp asset reserve failed', { code: error.code })
+      return internalError()
+    }
+
+    const { data, error: signError } = await admin.storage
+      .from(ASSET_BUCKET)
+      .createSignedUploadUrl(`${userId}/${id}/original`)
+
+    if (signError || !data) {
+      console.error('flp asset upload sign failed', { message: signError?.message })
+      return internalError()
+    }
+
+    const body: AssetReservation = {
+      assetId: id,
+      status: 'staged',
+      upload: { url: data.signedUrl, method: 'PUT', maxBytes: IMAGE_LIMITS.maxBytes },
+    }
+    return json({ status: 201, body })
+  }
+
+  const isStatus = request.method === 'GET' && !action
+  const isFinalize = request.method === 'POST' && action === 'finalize'
+
+  if (!assetId || (!isStatus && !isFinalize)) {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const found = await readAsset({ asUser, assetId })
+
+  if (!found.ok) {
+    return internalError()
+  }
+
+  if (!found.row) {
+    return fromError({ error: assetNotFound() })
+  }
+
+  // GET /assets/:id — status, and a signed read URL once ready.
+  if (isStatus) {
+    const body = await assetResponse({ asUser, row: found.row })
+    return body ? json({ status: 200, body }) : internalError()
+  }
+
+  // POST /assets/:id/finalize — validate, normalize and settle.
+  return found.row.status === 'staged'
+    ? finalizeAsset({ admin, asUser, row: found.row })
+    : settledResponse({ asUser, row: found.row })
+}
+
 export async function handleFlpRequest({
   request,
   env = flpServerEnv(),
@@ -176,7 +479,15 @@ export async function handleFlpRequest({
 
   const [collection, designId, action, ...rest] = flpRoute({ request })
 
-  if (collection !== 'designs' || rest.length > 0 || (designId && !UUID.test(designId))) {
+  if (collection === 'assets') {
+    if (
+      rest.length > 0 ||
+      (designId && (!ASSET_ID.test(designId) || designId.startsWith(LIBRARY_ASSET_PREFIX))) ||
+      (action && action !== 'finalize')
+    ) {
+      return fromError({ error: assetNotFound() })
+    }
+  } else if (collection !== 'designs' || rest.length > 0 || (designId && !UUID.test(designId))) {
     return fromError({ error: apiError({ code: 'not_found', message: 'Design not found' }) })
   }
 
@@ -193,6 +504,10 @@ export async function handleFlpRequest({
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${user.token}` } },
   })
+
+  if (collection === 'assets') {
+    return handleAssetRequest({ request, admin, asUser, userId: user.userId, assetId: designId, action })
+  }
 
   // GET /designs — the signed-in owner's designs, newest first.
   if (request.method === 'GET' && !designId) {
@@ -285,6 +600,12 @@ export async function handleFlpRequest({
       return fromError({ error: prepared.error })
     }
 
+    const unusable = await unusableAssets({ asUser, document: prepared.prepared.content })
+
+    if (unusable) {
+      return unusable
+    }
+
     return callWrite({
       admin,
       fn: 'flp_create_design',
@@ -311,6 +632,12 @@ export async function handleFlpRequest({
 
     if (!prepared.ok) {
       return fromError({ error: prepared.error })
+    }
+
+    const unusable = await unusableAssets({ asUser, document: prepared.prepared.content })
+
+    if (unusable) {
+      return unusable
     }
 
     return callWrite({

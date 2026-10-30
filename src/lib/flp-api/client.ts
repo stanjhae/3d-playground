@@ -1,5 +1,6 @@
 import type { CanonicalDocument } from '../canonical-document.ts'
 import { accountGuard, useSessionStore } from '../auth/session-store.ts'
+import type { ImageRejectReason } from '../image-validate.ts'
 import type {
   ApiErrorCode,
   CreateDesignRequest,
@@ -39,9 +40,11 @@ export type FlpResult<T> =
       code: ApiErrorCode | 'account-changed' | 'network' | 'internal'
       message: string
       headSeq?: number | null
+      /** Why an uploaded image was rejected (S02 #171). */
+      reason?: ImageRejectReason
     }
 
-async function call<T>({
+export async function call<T>({
   path,
   method = 'GET',
   body,
@@ -78,7 +81,14 @@ async function call<T>({
 
   const payload = (await response.json().catch(() => null)) as
     | (T & { error?: undefined })
-    | { error?: { code?: string; message?: string; headSeq?: number | null } }
+    | {
+        error?: {
+          code?: string
+          message?: string
+          headSeq?: number | null
+          reason?: ImageRejectReason
+        }
+      }
     | null
 
   if (!stillSameAccount()) {
@@ -93,6 +103,7 @@ async function call<T>({
       code: (error?.code as ApiErrorCode | undefined) ?? 'internal',
       message: error?.message ?? 'Something went wrong',
       ...(error && 'headSeq' in error ? { headSeq: error.headSeq } : {}),
+      ...(error?.reason ? { reason: error.reason } : {}),
     }
   }
 
