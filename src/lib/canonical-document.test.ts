@@ -5,8 +5,15 @@ import {
   type GarmentBase,
   type ValidationIssue,
   createEmptyCanonicalDocument,
+  imageBox,
   validateCanonicalDocument,
 } from './canonical-document'
+import { ATLAS_SIZE } from './paint-atlas'
+import {
+  DEFAULT_PANEL_UV,
+  atlasPixelForUv,
+  panelPointToUv,
+} from './panel-uv'
 
 function fullDocument({ base }: { base: GarmentBase }): CanonicalDocument {
   return {
@@ -49,7 +56,7 @@ function fullDocument({ base }: { base: GarmentBase }): CanonicalDocument {
             x: 0.5,
             y: 0.4,
             scale: 0.32,
-            rotation: -12.5,
+            rotation: -0.218166,
           },
         ],
       },
@@ -83,7 +90,7 @@ function fullDocument({ base }: { base: GarmentBase }): CanonicalDocument {
             x: 0.5,
             y: 0.5,
             scale: 0.1,
-            rotation: 180,
+            rotation: 3.141593,
           },
         ],
       },
@@ -94,7 +101,7 @@ function fullDocument({ base }: { base: GarmentBase }): CanonicalDocument {
 
 const BASES: GarmentBase[] = [
   { kind: 'solid', color: '#f7f3ea' },
-  { kind: 'stripes', colors: ['#111318', '#f4ead4'], period: 0.08, angle: 45 },
+  { kind: 'stripes', colors: ['#111318', '#f4ead4'], period: 0.08, angle: 0.785398 },
   { kind: 'check', colors: ['#6b7c4a', '#f7f3ea'], period: 0.12 },
 ]
 
@@ -182,7 +189,7 @@ describe('validateCanonicalDocument — rejects with paths', () => {
       d.panels.front.layers[1].x = Number.NaN
       d.panels.front.layers[1].scale = 0
       d.panels.front.layers[0].strokes[0].points[3] = Number.POSITIVE_INFINITY
-      d.panels.back.layers[0].rotation = -180
+      d.panels.back.layers[0].rotation = -3.141593
     })
 
     expect(issuesFor({ value })).toEqual([
@@ -192,8 +199,8 @@ describe('validateCanonicalDocument — rejects with paths', () => {
       },
       { path: '$.panels.front.layers[1].opacity', message: 'out of range [0, 1]' },
       { path: '$.panels.front.layers[1].x', message: 'expected a finite number' },
-      { path: '$.panels.front.layers[1].scale', message: 'out of range (0, 4]' },
-      { path: '$.panels.back.layers[0].rotation', message: 'out of range (-180, 180]' },
+      { path: '$.panels.front.layers[1].scale', message: 'out of range (0, 1]' },
+      { path: '$.panels.back.layers[0].rotation', message: 'out of range (-3.141593, 3.141593]' },
     ])
   })
 
@@ -261,5 +268,39 @@ describe('validateCanonicalDocument — rejects with paths', () => {
       '$.panels.front.layers[0].strokes[0].points',
       '$.panels.back.layers[0].content',
     ])
+  })
+})
+
+describe('coordinate contract', () => {
+  test('panel y grows up: y = 0 is the bottom row of the print region', () => {
+    const bottom = panelPointToUv({ panel: 'front', x: 0, y: 0 })
+    const top = panelPointToUv({ panel: 'front', x: 0, y: 1 })
+    const atlas = { width: ATLAS_SIZE, height: ATLAS_SIZE }
+
+    expect(bottom).toEqual({
+      u: DEFAULT_PANEL_UV.front.u0,
+      v: DEFAULT_PANEL_UV.front.v0,
+    })
+    expect(atlasPixelForUv({ ...bottom, ...atlas }).row).toBeGreaterThan(
+      atlasPixelForUv({ ...top, ...atlas }).row,
+    )
+  })
+
+  test('aspect 1 reproduces the legacy square image stamp', () => {
+    expect(imageBox({ scale: 0.32, aspect: 1 })).toEqual({
+      width: 0.32,
+      height: 0.32,
+    })
+  })
+
+  test('non-square images are contained in the scale square', () => {
+    expect(imageBox({ scale: 0.3, aspect: 2 })).toEqual({
+      width: 0.3,
+      height: 0.15,
+    })
+    expect(imageBox({ scale: 0.3, aspect: 0.5 })).toEqual({
+      width: 0.15,
+      height: 0.3,
+    })
   })
 })

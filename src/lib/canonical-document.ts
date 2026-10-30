@@ -7,9 +7,13 @@
  * unknown fields, unknown kinds, out-of-range or non-finite numbers all
  * fail with a path so callers can surface or migrate them explicitly.
  *
- * Coordinates are panel-normalized: x grows right, y grows down, both in
- * [0, 1] across the panel's print region. Sizes are fractions of panel
- * width. Rotation is degrees, clockwise, in (-180, 180].
+ * Coordinates are panel-normalized with a bottom-left origin: x grows
+ * right, y grows up, both in [0, 1] across the panel's print region, and
+ * map to atlas UV through `panelPointToUv` unchanged. Sizes (object scale,
+ * stroke width, pattern period) are fractions of atlas width, as the
+ * renderer already draws them. Angles are radians in (-π, π], positive
+ * turning clockwise on screen. None of these carry a physical unit.
+ * See docs/canonical-document.md.
  */
 
 export const CANONICAL_SCHEMA_VERSION = 2
@@ -43,12 +47,15 @@ export const CANONICAL_LIMITS = {
   pointsPerStroke: 4_096,
   minStrokeWidth: 0.002,
   maxStrokeWidth: 0.25,
-  maxObjectScale: 4,
+  maxObjectScale: 1,
   minPatternPeriod: 0.02,
   maxPatternPeriod: 0.5,
   maxImageAspect: 20,
   maxIssues: 50,
 } as const
+
+/** Stored numbers keep six decimals, so π itself rounds to this bound. */
+export const MAX_ANGLE = 3.141593
 
 /** Pinned garment template. Changing geometry means a new version. */
 export type TemplateRef = {
@@ -121,7 +128,10 @@ export type CanonicalImageLayer = LayerCommon &
     kind: 'image'
     /** Immutable uploaded asset; bytes never live in the document. */
     assetId: string
-    /** Natural width / height of the asset. */
+    /**
+     * Natural width / height of the asset. The image is contained in a
+     * `scale`-sided square, so aspect 1 reproduces legacy square stamps.
+     */
     aspect: number
   }
 
@@ -450,8 +460,8 @@ function checkBase({
         context,
         value: value.angle,
         path: `${path}.angle`,
-        min: -180,
-        max: 180,
+        min: -MAX_ANGLE,
+        max: MAX_ANGLE,
         minExclusive: true,
       })
     }
@@ -577,8 +587,8 @@ function checkPlacement({
     context,
     value: value.rotation,
     path: `${path}.rotation`,
-    min: -180,
-    max: 180,
+    min: -MAX_ANGLE,
+    max: MAX_ANGLE,
     minExclusive: true,
   })
 }
@@ -806,4 +816,20 @@ export function createEmptyCanonicalDocument(): CanonicalDocument {
       right: { layers: [] },
     },
   }
+}
+
+/**
+ * Atlas-relative size of an image layer: contained in a `scale`-sided
+ * square, longest side equal to `scale`. Aspect 1 is the legacy square.
+ */
+export function imageBox({
+  scale,
+  aspect,
+}: {
+  scale: number
+  aspect: number
+}) {
+  return aspect >= 1
+    ? { width: scale, height: scale / aspect }
+    : { width: scale * aspect, height: scale }
 }
