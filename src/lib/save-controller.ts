@@ -4,6 +4,8 @@ import type { FlpResult } from './flp-api/client.ts'
 import type { VersionResponse } from './flp-api/contract.ts'
 import { isLibraryAssetId } from './library-assets.ts'
 
+const LEGACY_ASSET_PREFIX = 'asset_legacy_'
+
 /**
  * Cloud autosave (FLP S04 #173), as a pure state machine with injected
  * I/O so its guarantees are testable:
@@ -53,11 +55,18 @@ export type SaveControllerOptions = {
   clearTimer?: (handle: unknown) => void
 }
 
-/** Library graphics ship with the app; anything else must be uploaded first. */
+/**
+ * Library graphics ship with the app and uploads are placed only once
+ * ready (S01 #170); a legacy placeholder id means bytes still exist only
+ * in this browser and must be uploaded first.
+ */
 export function imagesReady({ document }: { document: CanonicalDocument }) {
   return CANONICAL_PANEL_IDS.every((panel) =>
     document.panels[panel].layers.every(
-      (layer) => layer.kind !== 'image' || isLibraryAssetId({ assetId: layer.assetId }),
+      (layer) =>
+        layer.kind !== 'image' ||
+        isLibraryAssetId({ assetId: layer.assetId }) ||
+        !layer.assetId.startsWith(LEGACY_ASSET_PREFIX),
     ),
   )
 }

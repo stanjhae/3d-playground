@@ -13,6 +13,7 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+import { uploadForStudio } from '../../lib/uploaded-images'
 
 function inkWidthLabel({ width }: { width: number }) {
   if (width === INK_WIDTHS[0]) {
@@ -50,6 +51,7 @@ export function PaintToolbar({
   const setPaintHardness = useEditorStore((state) => state.setPaintHardness)
   const clearInk = useEditorStore((state) => state.clearInk)
   const addGraphic = useEditorStore((state) => state.addGraphic)
+  const addUploadedImage = useEditorStore((state) => state.addUploadedImage)
   const addPattern = useEditorStore((state) => state.addPattern)
   const v2Tee = useEditorStore((state) => isCanonicalGarment({ garmentId: state.garmentId }))
   const textFace = useEditorStore((state) => state.textFace)
@@ -63,6 +65,8 @@ export function PaintToolbar({
   const updateLayer = useEditorStore((state) => state.updateLayer)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [artworkError, setArtworkError] = useState<string | null>(null)
+  const cloudDesign = useEditorStore((state) => state.cloud !== null)
+  const [uploading, setUploading] = useState(false)
   const selectedWord = selectedTextLayer({
     document: documentState,
     selectedLayerId,
@@ -209,13 +213,34 @@ export function PaintToolbar({
             <input
               ref={fileRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept={
+                cloudDesign
+                  ? 'image/png,image/jpeg'
+                  : 'image/png,image/jpeg,image/webp,image/gif'
+              }
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0]
                 event.target.value = ''
 
                 if (!file) {
+                  return
+                }
+
+                // A cloud design stores only finalized uploads (S01 #170):
+                // upload first, then place the ready asset.
+                if (cloudDesign) {
+                  setArtworkError(null)
+                  setUploading(true)
+                  void uploadForStudio({ file }).then((result) => {
+                    setUploading(false)
+
+                    if (result.ok) {
+                      addUploadedImage(result.data)
+                    } else if (result.code !== 'account-changed') {
+                      setArtworkError(`Upload failed: ${result.message}`)
+                    }
+                  })
                   return
                 }
 
@@ -243,6 +268,7 @@ export function PaintToolbar({
             />
             <button
               type="button"
+              disabled={uploading}
               onClick={() => {
                 fileRef.current?.click()
               }}
@@ -251,7 +277,7 @@ export function PaintToolbar({
                 chromeTextClass(),
               )}
             >
-              {HOUSE_COPY.artwork}
+              {uploading ? 'Uploading…' : HOUSE_COPY.artwork}
             </button>
             <label className="flex min-w-0 flex-1 items-center gap-2">
               <span className="sr-only">{HOUSE_COPY.type}</span>
@@ -351,8 +377,13 @@ export function PaintToolbar({
           </div>
         </>
       ) : null}
+      {uploading ? (
+        <p className="font-body text-sm text-flv-muted" role="status">
+          Uploading your image. It is placed once the upload is checked.
+        </p>
+      ) : null}
       {artworkError ? (
-        <p className="font-body text-sm text-flv-muted">{artworkError}</p>
+        <p className="font-body text-sm text-flv-accent" role="alert">{artworkError}</p>
       ) : null}
     </aside>
   )

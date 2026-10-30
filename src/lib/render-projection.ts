@@ -126,6 +126,7 @@ export function toRenderDocument({
           rotation: layer.rotation,
           opacity: layer.opacity,
           visible: layer.visible,
+          ...(layer.aspect !== 1 ? { aspect: layer.aspect } : {}),
           ...label,
         })
         continue

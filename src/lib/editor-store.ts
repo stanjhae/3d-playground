@@ -65,8 +65,9 @@ import {
   undoTee,
 } from './editor-canonical'
 import type { ImportNote } from './legacy-import'
-import type { CanonicalDocument } from './canonical-document'
+import { type CanonicalDocument, CANONICAL_LIMITS } from './canonical-document'
 import { replaceDocument } from './canonical-commands'
+import { canonicalPanel } from './render-projection'
 
 export type EditorMode = 'design' | 'atelier'
 
@@ -294,6 +295,22 @@ type EditorState = {
   }) => void
   /** Record a cloud acknowledgement (autosave, S04 #173). */
   setCloudHead: ({ headSeq }: { headSeq: number }) => void
+  /** Put recovered local work over the open cloud design as a new revision (S05 #174). */
+  recoverCanonical: ({ document }: { document: CanonicalDocument }) => void
+  /** Place an uploaded, ready asset (S01 #170); `src` is what the renderer draws. */
+  addUploadedImage: ({
+    assetId,
+    aspect,
+    src,
+    panel,
+  }: {
+    assetId: string
+    aspect: number
+    src: string
+    panel?: PanelId
+  }) => void
+  /** Teach the renderer how to draw asset ids (uploads resolved after load). */
+  registerAssetSources: ({ sources }: { sources: Record<string, string> }) => void
   rememberMorning: ({ title }: { title: string }) => void
   rememberEnteredLook: ({
     title,
@@ -538,6 +555,11 @@ const INITIAL_EDITOR_STATE = {
 /** The tee's canonical v2 document, for cloud saving (S04 #173). */
 export function getCanonicalDocument(): CanonicalDocument {
   return tee.stack.document
+}
+
+/** Asset id → drawable source for the tee engine (uploads, S01 #170). */
+export function getAssetSources(): Readonly<Record<string, string>> {
+  return tee.assetSources
 }
 
 export const useEditorStore = create<EditorState>()((set, get) => ({
@@ -1393,6 +1415,62 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setCloudHead: ({ headSeq }) => {
     set((state) => (state.cloud ? { cloud: { ...state.cloud, headSeq } } : state))
+  },
+  recoverCanonical: ({ document }) => {
+    if (!get().cloud || !teeActive()) {
+      return
+    }
+
+    tee = { ...tee, stack: replaceDocument({ stack: tee.stack, document }) }
+    set({
+      ...syncFromStack(),
+      activeStroke: null,
+      activeLayerEdit: null,
+      selectedLayerId: null,
+    })
+  },
+  addUploadedImage: ({ assetId, aspect, src, panel }) => {
+    if (!teeActive()) {
+      return
+    }
+
+    const layerId = createObjectId({ prefix: 'mark' })
+    const step = runTeeCommand({
+      engine: { ...tee, assetSources: { ...tee.assetSources, [assetId]: src } },
+      command: {
+        type: 'addLayer',
+        panel: canonicalPanel({ renderPanel: panel ?? get().paintPanel }),
+        layer: {
+          id: layerId,
+          kind: 'image',
+          visible: true,
+          opacity: 1,
+          x: 0.5,
+          y: 0.48,
+          scale: 0.28,
+          rotation: 0,
+          assetId,
+          aspect: Math.min(
+            CANONICAL_LIMITS.maxImageAspect,
+            Math.max(1 / CANONICAL_LIMITS.maxImageAspect, aspect),
+          ),
+        },
+      },
+    })
+
+    if (!step.changed) {
+      return
+    }
+
+    tee = step.engine
+    set(syncFromStack({ extra: { selectedLayerId: layerId } }))
+  },
+  registerAssetSources: ({ sources }) => {
+    tee = { ...tee, assetSources: { ...tee.assetSources, ...sources } }
+
+    if (teeActive()) {
+      set(syncFromStack())
+    }
   },
   rememberMorning: ({ title }) => {
     const { snapshots } = rememberSnapshot({

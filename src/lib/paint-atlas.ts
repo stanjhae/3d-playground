@@ -1,4 +1,5 @@
 import type { DesignDocument, DesignLayer, Stroke } from './design-document'
+import { imageBox } from './canonical-document'
 import { MAX_ART_MAP_CHARS, isSafeDataImage } from './look-thumbnail'
 import {
   atlasPixelForUv,
@@ -572,16 +573,18 @@ function drawGraphicMark({
     width: buffer.width,
     height: buffer.height,
   })
-  const size = Math.max(12, Math.round(layer.scale * buffer.width))
+  const box = imageBox({ scale: layer.scale, aspect: layer.aspect ?? 1 })
+  const width = Math.max(12, Math.round(box.width * buffer.width))
+  const height = Math.max(12, Math.round(box.height * buffer.width))
   const tint = layer.color ? hexToRgb({ color: layer.color }) : undefined
 
   blitBuffer({
     dest: buffer,
     source: image,
-    destX: pixel.column - size / 2,
-    destY: pixel.row - size / 2,
-    destWidth: size,
-    destHeight: size,
+    destX: pixel.column - width / 2,
+    destY: pixel.row - height / 2,
+    destWidth: width,
+    destHeight: height,
     rotation: layer.rotation,
     opacity: layer.opacity ?? 1,
     ...(tint ? { tint: { r: tint.r, g: tint.g, b: tint.b } } : {}),

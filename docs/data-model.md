@@ -146,6 +146,23 @@ FLP_INTEGRATION=1 pnpm test:integration
 - Saves 2 seconds after the last change, or on **Save now**.
 - One request in flight, with newer revisions coalesced into one pending save. Each revision keeps its mutation key across retries.
 - Only the exact revision sent is acknowledged. A `409` becomes **Changed elsewhere**, with **Open cloud version** or **Save mine as a copy**; nothing is overwritten.
-- A design with images that aren't uploaded yet shows **Waiting for images**. Library graphics (`asset_lib_<slug>`, `src/lib/library-assets.ts`) need no upload.
+- A design with images that aren't uploaded yet (`asset_legacy_…` placeholders) shows **Waiting for images**. Library graphics (`asset_lib_<slug>`, `src/lib/library-assets.ts`) need no upload, and finalized uploads save as they are.
+
+**Uploading in the studio** (S01 #170, `src/lib/uploaded-images.ts`): in a cloud design, **Artwork** uploads the PNG or JPEG with `uploadAsset` and only then places an image layer with the ready `assetId` and the image's natural aspect. While it uploads the button reads **Uploading…**, and a failure is shown with nothing placed. The renderer draws only same-origin bytes, so the signed read URL is fetched once and handed to the engine as an object URL in `assetSources`. When a design is reopened, its uploaded ids are resolved the same way through `GET /assets/:id`. Documents store only the id. Copying or duplicating a placed upload keeps its id.
+
+## Local recovery (S05 #174)
+
+`src/lib/cloud-recovery.ts`, bound by `startCloudRecovery` in `src/lib/cloud-autosave.ts`.
+
+- **What and where.** Every revision the cloud has not acknowledged is written to IndexedDB `flv-recovery` / `records` under `recovery/v1/<ownerId>/<designId>/<schemaVersion>/<baseSeq>`. A record holds the owner and design ids, schema version, cloud base, studio revision, time, and the canonical document. It holds no token, email or image bytes; uploaded images are referenced by `assetId`. There is one record per design, and a write on a new base removes the old one.
+- **Clearing.** When the cloud acknowledges a revision, the record is cleared if nothing newer exists. Otherwise it is rewritten on the new head.
+- **Opening a cloud design** reads the record for the signed-in owner and that design only:
+  - same base: **Recover unsaved changes** (applied as a new revision, which autosave then saves) or **Discard**;
+  - different base, another schema version, or invalid content: **Open cloud version** (discards the local copy) or **Save mine as a copy** (a new design). The cloud head is never overwritten;
+  - content identical to the cloud: cleared silently.
+  Nothing is written locally until the creator has chosen.
+- **Failures.** If IndexedDB is unavailable, full, or a write fails, the studio shows a warning that unsaved changes exist only in this tab. A damaged record is reported and not loaded. The save label never says saved for a local copy; it reads e.g. **Offline — not saved · Kept on this device**.
+- **Accounts.** Records are looked up only under the signed-in owner, so account B never lists or loads A's. Writes stop when the account changes. Records are not deleted on sign-out, so A can recover after a session expires or after signing in again on the same browser. They remain readable by anyone with access to that browser profile's storage, like any IndexedDB data.
+- **Guest draft.** `flv:draft:current` is now used only while signed out (outside cloud designs), so signed-in work never lands in the shared guest slot.
 
 **Known issue for A07 #151:** deleting an auth user who owns designs fails. The cascade into `design_versions` is blocked by the immutability trigger, which only allows deletes inside `flp_delete_design`. Account deletion must delete the user's designs through that function first, or the trigger must also allow cascades.

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { type CanonicalDocument, createEmptyCanonicalDocument } from './canonical-document'
 import type { FlpResult } from './flp-api/client'
 import type { VersionResponse } from './flp-api/contract'
-import { type SaveRequest, createSaveController } from './save-controller'
+import { type SaveRequest, createSaveController, imagesReady } from './save-controller'
 
 type Pending = {
   request: SaveRequest
@@ -195,5 +195,15 @@ describe('save controller', () => {
 
     expect(h.controller.getState().status).toBe('waiting-for-images')
     expect(h.requests).toHaveLength(0)
+  })
+
+  test('a finalized upload id saves like a library graphic', () => {
+    const document = createEmptyCanonicalDocument()
+    document.panels.front.layers.push({
+      id: 'img', kind: 'image', visible: true, opacity: 1, x: 0.5, y: 0.5, scale: 0.3, rotation: 0,
+      assetId: 'asset_0123456789abcdef', aspect: 2,
+    })
+
+    expect(imagesReady({ document })).toBe(true)
   })
 })

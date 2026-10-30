@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { AvatarRail } from '../components/editor/AvatarRail'
 import { CameraPresetBar } from '../components/editor/CameraPresetBar'
@@ -23,8 +23,21 @@ import {
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
 import { RequireSession } from '../components/auth/RequireSession'
-import { CloudSaveStatus, useCloudAutosave } from '../components/editor/CloudSave'
-import { waitForSession } from '../lib/auth/session-store'
+import {
+  CloudSaveStatus,
+  RecoveryPrompt,
+  useCloudAutosave,
+  useRecoveryStore,
+} from '../components/editor/CloudSave'
+import { accountGuard, useSessionStore, waitForSession } from '../lib/auth/session-store'
+import {
+  RECOVERY_WARNINGS,
+  type RecoveryRead,
+  clearRecovery,
+  readRecovery,
+  recoveryOffer,
+} from '../lib/cloud-recovery'
+import { resolveUploadedSources, uploadedAssetIds } from '../lib/uploaded-images'
 import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { isCanonicalGarment } from '../lib/concept-flags'
 import { validateCanonicalDocument } from '../lib/canonical-document'
@@ -43,7 +56,7 @@ import {
 import { parseCreateSearch } from '../lib/create-search'
 import { loadDraft, saveDraft } from '../lib/design-draft'
 import { createDesign, getDesign } from '../lib/designs-api'
-import { useEditorStore } from '../lib/editor-store'
+import { getAssetSources, getCanonicalDocument, useEditorStore } from '../lib/editor-store'
 import { garmentCanPaint } from '../lib/garments'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
@@ -131,9 +144,18 @@ function AtelierHome() {
 
     let cancelled = false
     setCloudStatus('loading')
+    const stillSameAccount = accountGuard()
+    const ownerId = useSessionStore.getState().account?.userId ?? null
+    const storage = useRecoveryStore.getState().storage
+    useRecoveryStore.setState({ designId: null, offer: null, warning: null })
 
-    void getOwnedDesign({ designId: cloudId }).then((result) => {
-      if (cancelled) {
+    // Local recovery is looked up only under the signed-in owner (S05 #174).
+    const recovery: Promise<RecoveryRead> = ownerId
+      ? readRecovery({ storage, ownerId, designId: cloudId })
+      : Promise.resolve({ status: 'none' })
+
+    void Promise.all([getOwnedDesign({ designId: cloudId }), recovery]).then(([result, read]) => {
+      if (cancelled || !stillSameAccount()) {
         return
       }
 
@@ -170,6 +192,28 @@ function AtelierHome() {
           title: result.data.title,
         },
       })
+
+      const offer = recoveryOffer({
+        read,
+        cloudHeadSeq: result.data.head.seq,
+        cloudDocument: checked.document,
+      })
+
+      // A local copy identical to the cloud needs no question.
+      if (offer.kind === 'none' && read.status === 'found' && ownerId) {
+        void clearRecovery({ storage, ownerId, designId: result.data.id })
+      }
+
+      useRecoveryStore.setState({
+        designId: result.data.id,
+        offer: offer.kind === 'none' ? null : offer,
+        warning:
+          read.status === 'unavailable'
+            ? RECOVERY_WARNINGS[read.reason]
+            : read.status === 'corrupt'
+              ? RECOVERY_WARNINGS.corrupt
+              : null,
+      })
       setCloudStatus('loaded')
     })
 
@@ -177,6 +221,47 @@ function AtelierHome() {
       cancelled = true
     }
   }, [cloudId])
+
+  // Uploaded images in an opened (or recovered) cloud design: fetch bytes
+  // for any asset id the renderer cannot draw yet.
+  const revision = useEditorStore((state) => state.revision)
+  const resolving = useRef(new Set<string>())
+
+  useEffect(() => {
+    if (cloudStatus !== 'loaded') {
+      return
+    }
+
+    const stillSameAccount = accountGuard()
+    const known = { ...getAssetSources() }
+    const document = getCanonicalDocument()
+    const missing = uploadedAssetIds({ document }).filter(
+      (assetId) => !known[assetId] && !resolving.current.has(assetId),
+    )
+
+    if (missing.length === 0) {
+      return
+    }
+
+    // Ids already being fetched count as known so each is fetched once.
+    for (const assetId of resolving.current) {
+      known[assetId] = 'pending'
+    }
+
+    for (const assetId of missing) {
+      resolving.current.add(assetId)
+    }
+
+    void resolveUploadedSources({ document, known }).then((sources) => {
+      for (const assetId of missing) {
+        resolving.current.delete(assetId)
+      }
+
+      if (stillSameAccount() && Object.keys(sources).length > 0) {
+        useEditorStore.getState().registerAssetSources({ sources })
+      }
+    })
+  }, [cloudStatus, revision])
 
   useEffect(() => {
     if (remixId || cloudId) {
@@ -273,6 +358,8 @@ function AtelierHome() {
     void loadDraft().then((draft) => {
       if (
         cancelled ||
+        // The guest draft is shared by the browser; never into an account.
+        useSessionStore.getState().status === 'signed-in' ||
         !draft ||
         remixId ||
         cloudId ||
@@ -310,8 +397,9 @@ function AtelierHome() {
     const interval = window.setInterval(() => {
       const state = useEditorStore.getState()
 
-      // Cloud designs autosave to the account (S04 #173), not the guest draft.
-      if (state.cloud) {
+      // Cloud designs autosave to the account (S04 #173) with owner-scoped
+      // recovery (S05 #174); the shared guest draft is for signed-out work.
+      if (state.cloud || useSessionStore.getState().status === 'signed-in') {
         return
       }
 
@@ -403,6 +491,7 @@ function AtelierHome() {
             <GownCredit garmentId={garmentId} />
           ) : null}
           {cloudStatus === 'loaded' ? <CloudSaveStatus /> : null}
+          {cloudStatus === 'loaded' ? <RecoveryPrompt /> : null}
           {cloudStatus === 'loading' ? (
             <p className="font-body text-sm text-flv-muted">Opening your design…</p>
           ) : null}
