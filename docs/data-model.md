@@ -149,3 +149,26 @@ FLP_INTEGRATION=1 pnpm test:integration
 - A design with images that aren't uploaded yet shows **Waiting for images**. Library graphics (`asset_lib_<slug>`, `src/lib/library-assets.ts`) need no upload.
 
 **Known issue for A07 #151:** deleting an auth user who owns designs fails. The cascade into `design_versions` is blocked by the immutability trigger, which only allows deletes inside `flp_delete_design`. Account deletion must delete the user's designs through that function first, or the trigger must also allow cascades.
+
+## Publishing and the public page (P01–P05, #179–#183)
+
+Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/CloudPublish.tsx`, and the public page `src/routes/s.$slug.tsx`.
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /api/flp/designs/:id/renders` | Owner | `{ seq, renders: [{ kind, data }] }` with exactly `view_front`, `view_three_quarter` and `view_back`, base64 JPEG or PNG. Each image is checked by `validateImage` and stored privately at `<owner>/<design>/v<seq>/<kind>.jpg`; the `render_artifacts` rows become `ready`. |
+| `GET /api/flp/designs/:id/publication` | Owner | `{ publication: { slug, status, seq, displayName, rendersReadyForHead } \| null }` |
+| `POST /api/flp/designs/:id/publication` | Owner | `{ seq, displayName? }`. Refused (`422`, one issue per missing view) unless all three views of that exact version are ready. Then `flp_publish_version` moves the pointer in one step. Republishing keeps the slug. |
+| `DELETE /api/flp/designs/:id/publication` | Owner | `204`. The public page returns 404 immediately. |
+| `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where the render URLs are signed for **5 minutes**. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
+
+**Studio flow:**
+- **Publish…** is available only when the design shows **Saved to cloud**.
+- The review names the exact version and explains that anyone with the link can view it and copy its images.
+- **Confirm** captures the three views of that exact version, refusing if the design changed meanwhile, then uploads them and publishes.
+- The panel then shows "Published vX · draft vY", the link, **Copy link** and **Unpublish**.
+- Without a cloud design, and wherever sign-in is required, the legacy guest board publish is not offered.
+
+**Limits:**
+- A render URL issued before unpublishing works until it expires, at most 5 minutes later. Images someone already downloaded can't be recalled (PRD §6.3).
+- The public page is static views only; read-only 3D (PRD S3) would need the published texture.
