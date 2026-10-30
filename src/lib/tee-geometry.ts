@@ -12,6 +12,17 @@ import type { HemId, NeckId, SleeveId } from './design-document'
 
 export const TORSO_V0 = 0.28
 
+/** Where each sleeve meets the body (x for the wearer's right; left mirrors). */
+export const SLEEVE_PIVOT = { x: 0.215, y: 1.16 } as const
+
+/**
+ * Worn sleeves hang this far (radians) off vertical so they fall over a
+ * mannequin's arms; flat sleeves stand out near-horizontal for the editor.
+ */
+export const WORN_SLEEVE_DROP = 0.42
+
+export type ClothingPose = 'flat' | 'worn'
+
 function cotton() {
   return new MeshPhysicalMaterial({
     color: '#f3efe6',
@@ -231,9 +242,11 @@ function mapOpenCylinder({
 function buildSleeve({
   side,
   sleeve,
+  pose,
 }: {
   side: 'left' | 'right'
   sleeve: SleeveId
+  pose: ClothingPose
 }) {
   const sign = side === 'left' ? -1 : 1
   const length = sleeve === 'long' ? 0.42 : 0.14
@@ -246,8 +259,18 @@ function buildSleeve({
     v0: 0,
     v1: TORSO_V0 - 0.002,
   })
-  geometry.rotateZ(sign * (Math.PI / 2 - 0.32))
-  geometry.translate(sign * reach, 1.14, 0)
+  if (pose === 'worn') {
+    // Narrow (+y) end on the shoulder pivot, hanging down and out.
+    geometry.rotateZ(sign * WORN_SLEEVE_DROP)
+    geometry.translate(
+      sign * (SLEEVE_PIVOT.x + Math.sin(WORN_SLEEVE_DROP) * (length / 2)),
+      SLEEVE_PIVOT.y - Math.cos(WORN_SLEEVE_DROP) * (length / 2),
+      0,
+    )
+  } else {
+    geometry.rotateZ(sign * (Math.PI / 2 - 0.32))
+    geometry.translate(sign * reach, 1.14, 0)
+  }
   const mesh = new Mesh(geometry, cotton())
   mesh.name = side === 'left' ? 'body-sleeve-left' : 'body-sleeve-right'
   mesh.castShadow = true
@@ -281,10 +304,12 @@ export function createClothingMesh({
   neck = 'crew',
   hem = 'long',
   sleeve = 'short',
+  pose = 'flat',
 }: {
   neck?: NeckId
   hem?: HemId
   sleeve?: SleeveId
+  pose?: ClothingPose
 } = {}) {
   const group = new Group()
   group.name = 'body'
@@ -303,8 +328,8 @@ export function createClothingMesh({
   group.add(body)
 
   group.add(
-    buildSleeve({ side: 'left', sleeve }),
-    buildSleeve({ side: 'right', sleeve }),
+    buildSleeve({ side: 'left', sleeve, pose }),
+    buildSleeve({ side: 'right', sleeve, pose }),
     buildCollar({ neck }),
   )
   return group
@@ -314,12 +339,14 @@ export function createTeeMesh({
   neck = 'crew',
   hem = 'long',
   sleeve = 'short',
+  pose = 'flat',
 }: {
   neck?: NeckId
   hem?: HemId
   sleeve?: SleeveId
+  pose?: ClothingPose
 } = {}) {
-  return createClothingMesh({ neck, hem, sleeve })
+  return createClothingMesh({ neck, hem, sleeve, pose })
 }
 
 export function isHouseForm({
