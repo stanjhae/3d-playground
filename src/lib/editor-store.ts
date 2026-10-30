@@ -113,6 +113,8 @@ type EditorState = {
   importNotes: ImportNote[]
   /** The owned cloud design open in the studio, if any (A05 #149). */
   cloud: CloudContext | null
+  /** Bumped by every `loadCanonical`, so autosave restarts on a reload. */
+  cloudLoad: number
   title: string
   author: string
   lastPublished: Omit<Design, 'id' | 'votes'> | null
@@ -497,6 +499,7 @@ const INITIAL_EDITOR_STATE = {
   revision: 0,
   importNotes: [] as ImportNote[],
   cloud: null as CloudContext | null,
+  cloudLoad: 0,
   title: '',
   author: 'Guest',
   lastPublished: null as Omit<Design, 'id' | 'votes'> | null,
@@ -1384,6 +1387,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({
       ...syncFromStack(),
       cloud,
+      cloudLoad: get().cloudLoad + 1,
       title: cloud.title,
       importNotes: [],
       activeStroke: null,

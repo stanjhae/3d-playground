@@ -197,3 +197,102 @@ describe('save controller', () => {
     expect(h.requests).toHaveLength(0)
   })
 })
+
+describe('checkpoints, settle and hold (S07 #176, S08 #177)', () => {
+  test('a checkpoint waits for the save in flight, then saves against its head', async () => {
+    const h = harness()
+
+    h.controller.notify({ revision: 11, document: doc('a') })
+    h.controller.flush()
+    const checkpoint = h.controller.checkpoint({ label: 'Before sleeves', revision: 12, document: doc('ab') })
+    await flushMicrotasks()
+
+    expect(h.requests).toHaveLength(1)
+
+    h.requests[0]!.resolve(ok(2))
+    await flushMicrotasks()
+
+    expect(h.requests).toHaveLength(2)
+    expect(h.requests[1]?.request).toMatchObject({ kind: 'checkpoint', label: 'Before sleeves', baseSeq: 2, revision: 12 })
+
+    h.requests[1]!.resolve(ok(3))
+    expect((await checkpoint).ok).toBe(true)
+    expect(h.controller.getState()).toMatchObject({ status: 'saved', headSeq: 3, savedRevision: 12 })
+    expect(h.acks).toEqual([2, 3])
+  })
+
+  test('autosave started during a checkpoint never races it', async () => {
+    const h = harness()
+
+    const checkpoint = h.controller.checkpoint({ label: 'Named', revision: 10, document: doc('a') })
+    h.controller.notify({ revision: 11, document: doc('ab') })
+    await h.tick()
+
+    expect(h.requests).toHaveLength(1)
+
+    h.requests[0]!.resolve(ok(2))
+    await checkpoint
+    await h.tick()
+
+    expect(h.requests).toHaveLength(2)
+    expect(h.requests[1]?.request).toMatchObject({ baseSeq: 2, revision: 11 })
+    expect(h.requests[1]?.request.kind).toBeUndefined()
+  })
+
+  test('a failed checkpoint leaves pending edits to autosave', async () => {
+    const h = harness()
+
+    h.controller.notify({ revision: 11, document: doc('a') })
+    const checkpoint = h.controller.checkpoint({ label: 'Named', revision: 11, document: doc('a') })
+    h.requests[0]!.resolve({ ok: false, code: 'invalid', message: 'Name the checkpoint' })
+
+    expect(await checkpoint).toMatchObject({ ok: false, code: 'invalid' })
+    expect(h.controller.getState()).toMatchObject({ status: 'unsaved', headSeq: 1 })
+    expect(h.timers).toHaveLength(1)
+  })
+
+  test('settle saves pending work now and reports the outcome', async () => {
+    const h = harness()
+
+    h.controller.notify({ revision: 11, document: doc('a') })
+    const settled = h.controller.settle()
+    await flushMicrotasks()
+
+    expect(h.requests).toHaveLength(1)
+    h.requests[0]!.resolve(ok(2))
+
+    expect(await settled).toMatchObject({ status: 'saved', headSeq: 2, savedRevision: 11 })
+  })
+
+  test('settle reports a failure instead of hanging', async () => {
+    const h = harness()
+
+    h.controller.notify({ revision: 11, document: doc('a') })
+    const settled = h.controller.settle()
+    await flushMicrotasks()
+    h.requests[0]!.resolve({ ok: false, code: 'network', message: 'offline' })
+
+    expect((await settled).status).toBe('offline')
+  })
+
+  test('hold waits for the save in flight and starts no more until released', async () => {
+    const h = harness()
+
+    h.controller.notify({ revision: 11, document: doc('a') })
+    h.controller.flush()
+    h.controller.notify({ revision: 12, document: doc('ab') })
+    const held = h.controller.hold()
+    h.requests[0]!.resolve(ok(2))
+
+    expect(await held).toMatchObject({ headSeq: 2 })
+
+    await h.tick()
+    h.controller.flush()
+    expect(h.requests).toHaveLength(1)
+
+    h.controller.release()
+    await h.tick()
+    expect(h.requests).toHaveLength(2)
+    expect(h.requests[1]?.request).toMatchObject({ revision: 12, baseSeq: 2 })
+  })
+})

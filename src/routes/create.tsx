@@ -14,6 +14,7 @@ import { StructureRail } from '../components/editor/StructureRail'
 import { StudioViewToggle } from '../components/editor/StudioViewToggle'
 import { TechInspector } from '../components/editor/TechInspector'
 import { VersionRail } from '../components/editor/VersionRail'
+import { HistoryPanel } from '../components/editor/HistoryPanel'
 import { GownCredit } from '../components/editor/GownCredit'
 import { ModeToggle } from '../components/editor/ModeToggle'
 import {
@@ -27,9 +28,7 @@ import { CloudSaveStatus, useCloudAutosave } from '../components/editor/CloudSav
 import { waitForSession } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { isCanonicalGarment } from '../lib/concept-flags'
-import { validateCanonicalDocument } from '../lib/canonical-document'
-import { getOwnedDesign } from '../lib/flp-api/client'
-import { resolveTemplate } from '../lib/template-manifest'
+import { loadCloudDesign } from '../lib/cloud-design-load'
 import { FLV_COPY } from '../lib/flv-copy'
 import {
   allowsDrawView,
@@ -132,45 +131,12 @@ function AtelierHome() {
     let cancelled = false
     setCloudStatus('loading')
 
-    void getOwnedDesign({ designId: cloudId }).then((result) => {
+    void loadCloudDesign({ designId: cloudId, isCurrent: () => !cancelled }).then((result) => {
       if (cancelled) {
         return
       }
 
-      if (!result.ok) {
-        setCloudStatus(
-          result.code === 'not_found'
-            ? 'missing'
-            : result.code === 'account-changed'
-              ? 'idle'
-              : 'error',
-        )
-        return
-      }
-
-      const checked = result.data.head
-        ? validateCanonicalDocument({ value: result.data.head.content })
-        : null
-
-      if (!checked?.ok || !result.data.head) {
-        setCloudStatus('error')
-        return
-      }
-
-      if (!resolveTemplate(checked.document.template).ok) {
-        setCloudStatus('unsupported')
-        return
-      }
-
-      useEditorStore.getState().loadCanonical({
-        document: checked.document,
-        cloud: {
-          designId: result.data.id,
-          headSeq: result.data.head.seq,
-          title: result.data.title,
-        },
-      })
-      setCloudStatus('loaded')
+      setCloudStatus(result.ok ? 'loaded' : result.reason === 'account-changed' ? 'idle' : result.reason)
     })
 
     return () => {
@@ -463,6 +429,7 @@ function AtelierHome() {
                   <LayerRail />
                   {designEditMode === 'tech' ? <TechInspector /> : null}
                   <VersionRail />
+                  <HistoryPanel />
                 </>
               ) : null}
               {showsDesignRails({ step: createStep }) && !canPaint ? (

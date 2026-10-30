@@ -16,10 +16,10 @@ import {
 export function startCloudAutosave({
   designId,
   onState,
-  save = ({ designId: id, baseSeq, mutationKey, document }) =>
+  save = ({ designId: id, baseSeq, mutationKey, document, kind = 'autosave', label }) =>
     saveDesignVersion({
       designId: id,
-      request: { baseSeq, mutationKey, kind: 'autosave', content: document },
+      request: { baseSeq, mutationKey, kind, ...(label ? { label } : {}), content: document },
     }),
   ...timing
 }: {
@@ -42,7 +42,13 @@ export function startCloudAutosave({
   onState?.(controller.getState(), controller)
   const stopState = controller.subscribe((state) => onState?.(state, controller))
   const stopEditor = useEditorStore.subscribe((state, previous) => {
-    if (state.revision !== previous.revision && state.cloud?.designId === designId) {
+    // A reload (e.g. after a restore) is not an edit; the hook starts a
+    // fresh controller for it.
+    if (
+      state.revision !== previous.revision &&
+      state.cloudLoad === previous.cloudLoad &&
+      state.cloud?.designId === designId
+    ) {
       controller.notify({ revision: state.revision, document: getCanonicalDocument() })
     }
   })
