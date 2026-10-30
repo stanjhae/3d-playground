@@ -12,6 +12,12 @@ import {
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 import { useEditorStore } from '../../lib/editor-store'
+import {
+  LANDING_CAMERA_POSITIONS,
+  studioEnvAppearance,
+  type LandingCameraView,
+  type StudioEnvMode,
+} from '../../lib/landing-demo'
 import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
 
 export const STUDIO_CAMERA = {
@@ -32,22 +38,30 @@ export const CAMERA_PRESET_POSITIONS = {
 export const INTRO_DURATION = 1.2
 const INTRO_FROM = [3.05, 1.82, 4.25] as const
 
-export function StudioRenderer() {
+export function StudioRenderer({
+  exposure = 1.12,
+}: {
+  exposure?: number
+}) {
   const gl = useThree((state) => state.gl)
 
   useLayoutEffect(() => {
     gl.outputColorSpace = SRGBColorSpace
     gl.toneMapping = ACESFilmicToneMapping
-    gl.toneMappingExposure = 1.12
+    gl.toneMappingExposure = exposure
     gl.shadowMap.enabled = true
     // PCFSoftShadowMap is deprecated in three@0.185 (falls back with a warning).
     gl.shadowMap.type = PCFShadowMap
-  }, [gl])
+  }, [exposure, gl])
 
   return null
 }
 
-export function StudioEnvironment() {
+export function StudioEnvironment({
+  intensity = 0.72,
+}: {
+  intensity?: number
+}) {
   const scene = useThree((state) => state.scene)
   const gl = useThree((state) => state.gl)
 
@@ -55,32 +69,54 @@ export function StudioEnvironment() {
     const generator = new PMREMGenerator(gl)
     const env = generator.fromScene(new RoomEnvironment(), 0.04).texture
     scene.environment = env
-    scene.environmentIntensity = 0.72
+    scene.environmentIntensity = intensity
 
     return () => {
       scene.environment = null
       env.dispose()
       generator.dispose()
     }
-  }, [gl, scene])
+  }, [gl, intensity, scene])
 
   return null
 }
 
-export function StudioLights() {
+export function StudioLights({
+  keyIntensity = 1.85,
+  envMode = 'studio',
+}: {
+  keyIntensity?: number
+  envMode?: StudioEnvMode
+}) {
+  const outdoor = envMode === 'outdoor'
+
   return (
     <>
-      <hemisphereLight args={['#f4ead4', '#1a1612', 0.28]} />
+      <hemisphereLight
+        args={[
+          outdoor ? '#d7e8f5' : '#f4ead4',
+          outdoor ? '#6a8a4a' : '#1a1612',
+          outdoor ? 0.55 : 0.28,
+        ]}
+      />
       <directionalLight
         castShadow
-        color="#fff6e8"
-        intensity={1.85}
-        position={[2.2, 3.4, 1.6]}
+        color={outdoor ? '#fff8e8' : '#fff6e8'}
+        intensity={keyIntensity}
+        position={outdoor ? [3.2, 4.2, 1.2] : [2.2, 3.4, 1.6]}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
       />
-      <directionalLight color="#9bb4d0" intensity={0.38} position={[-2.4, 1.2, -1.2]} />
-      <directionalLight color="#c4a15a" intensity={0.42} position={[0.2, 1.8, -2.4]} />
+      <directionalLight
+        color={outdoor ? '#8ec5e8' : '#9bb4d0'}
+        intensity={outdoor ? 0.62 : 0.38}
+        position={[-2.4, 1.2, -1.2]}
+      />
+      <directionalLight
+        color={outdoor ? '#ffe0a8' : '#c4a15a'}
+        intensity={outdoor ? 0.55 : 0.42}
+        position={[0.2, 1.8, -2.4]}
+      />
     </>
   )
 }
@@ -215,21 +251,55 @@ export function IntroCamera({
   return <StudioCamera intro={enabled} />
 }
 
+function LandingCameraSeat({
+  cameraView,
+}: {
+  cameraView: LandingCameraView
+}) {
+  const camera = useThree((state) => state.camera) as PerspectiveCamera
+  const controls = useThree((state) => state.controls) as
+    | {
+        target: { set: (x: number, y: number, z: number) => void }
+        update: () => void
+      }
+    | null
+    | undefined
+
+  useLayoutEffect(() => {
+    const seat = LANDING_CAMERA_POSITIONS[cameraView]
+    camera.position.set(seat[0], seat[1], seat[2])
+    camera.lookAt(...STUDIO_CAMERA.target)
+    controls?.target.set(...STUDIO_CAMERA.target)
+    controls?.update()
+  }, [camera, cameraView, controls])
+
+  return null
+}
+
 export function StudioStage({
   children,
   picking = false,
   intro = false,
+  envMode,
 }: {
   children?: ReactNode
   picking?: boolean
   intro?: boolean
+  envMode?: StudioEnvMode
 }) {
+  const storeEnv = useEditorStore((state) => state.studioEnv)
+  const resolvedEnv = envMode ?? storeEnv
+  const appearance = studioEnvAppearance({ envMode: resolvedEnv })
+
   return (
     <>
-      <color attach="background" args={['#1c1814']} />
-      <StudioRenderer />
-      <StudioEnvironment />
-      <StudioLights />
+      <color attach="background" args={[appearance.background]} />
+      <StudioRenderer exposure={appearance.exposure} />
+      <StudioEnvironment intensity={appearance.environmentIntensity} />
+      <StudioLights
+        keyIntensity={appearance.keyIntensity}
+        envMode={resolvedEnv}
+      />
       <StudioFloor picking={picking} />
       <StudioCamera intro={intro} />
       {children}
@@ -240,13 +310,18 @@ export function StudioStage({
 export function StudioOrbit({
   intro = false,
   turntable = false,
+  cameraView,
 }: {
   intro?: boolean
   turntable?: boolean
+  cameraView?: LandingCameraView
 }) {
   const reducedMotion = prefersReducedMotion()
   const [enabled, setEnabled] = useState(() => !intro || reducedMotion)
-  const [spinning, setSpinning] = useState(turntable && !reducedMotion)
+  const lockedView = Boolean(cameraView)
+  const [spinning, setSpinning] = useState(
+    turntable && !reducedMotion && !lockedView,
+  )
   const painting = useEditorStore((state) => Boolean(state.activeStroke))
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
 
@@ -267,28 +342,33 @@ export function StudioOrbit({
   }, [intro, reducedMotion])
 
   useEffect(() => {
-    setSpinning(turntable && !reducedMotion)
-  }, [reducedMotion, turntable])
+    setSpinning(turntable && !reducedMotion && !lockedView)
+  }, [lockedView, reducedMotion, turntable])
 
   return (
-    <OrbitControls
-      autoRotate={turntable && spinning && enabled && !capturingAngles}
-      autoRotateSpeed={0.35}
-      enabled={enabled && !painting && !capturingAngles}
-      enablePan={false}
-      maxDistance={6.5}
-      maxPolarAngle={Math.PI / 2.05}
-      minDistance={3.2}
-      minPolarAngle={Math.PI / 4}
-      onStart={() => {
-        setSpinning(false)
-      }}
-      onEnd={() => {
-        if (turntable && !reducedMotion) {
-          setSpinning(true)
+    <>
+      {cameraView ? <LandingCameraSeat cameraView={cameraView} /> : null}
+      <OrbitControls
+        autoRotate={
+          turntable && spinning && enabled && !capturingAngles && !lockedView
         }
-      }}
-      target={[...STUDIO_CAMERA.target]}
-    />
+        autoRotateSpeed={0.35}
+        enabled={enabled && !painting && !capturingAngles && !lockedView}
+        enablePan={false}
+        maxDistance={6.5}
+        maxPolarAngle={Math.PI / 2.05}
+        minDistance={3.2}
+        minPolarAngle={Math.PI / 4}
+        onStart={() => {
+          setSpinning(false)
+        }}
+        onEnd={() => {
+          if (turntable && !reducedMotion && !lockedView) {
+            setSpinning(true)
+          }
+        }}
+        target={[...STUDIO_CAMERA.target]}
+      />
+    </>
   )
 }

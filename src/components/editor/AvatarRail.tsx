@@ -100,7 +100,8 @@ export function AvatarRail() {
     (state) => state.resetAvatarMeasurements,
   )
   const [filter, setFilter] = useState<AvatarFilter | 'all'>('all')
-  const [envPreview, setEnvPreview] = useState<EnvPreview>('studio')
+  const studioEnv = useEditorStore((state) => state.studioEnv)
+  const setStudioEnv = useEditorStore((state) => state.setStudioEnv)
   const avatars = useMemo(
     () =>
       visibleAvatarsForFilter({
@@ -212,17 +213,17 @@ export function AvatarRail() {
               key={entry.id}
               type="button"
               role="radio"
-              aria-checked={envPreview === entry.id}
+              aria-checked={studioEnv === entry.id}
               onClick={() => {
-                setEnvPreview(entry.id)
+                setStudioEnv({ studioEnv: entry.id })
               }}
               className={cn(
                 'min-h-9 rounded-full border px-3',
                 chromeTextClass(),
                 {
-                  'border-flv-accent text-flv-accent': envPreview === entry.id,
+                  'border-flv-accent text-flv-accent': studioEnv === entry.id,
                   'border-flv-line text-flv-muted hover:text-flv-accent':
-                    envPreview !== entry.id,
+                    studioEnv !== entry.id,
                 },
               )}
             >

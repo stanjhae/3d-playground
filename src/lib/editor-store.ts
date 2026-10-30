@@ -44,6 +44,7 @@ import type {
   MaterialOverride,
 } from './design-schema'
 import { resolveGarmentId } from './design-schema'
+import type { StudioEnvMode } from './landing-demo'
 import {
   listSnapshots,
   rememberSnapshot,
@@ -115,6 +116,7 @@ type EditorState = {
   avatarMeasurements: AvatarMeasurements
   cameraPreset: CameraPreset
   capturingAngles: boolean
+  studioEnv: StudioEnvMode
   basePatternId: BasePatternId
   baseFinishId: BaseFinishId
   setMode: ({ mode }: { mode: EditorMode }) => void
@@ -172,6 +174,7 @@ type EditorState = {
   }: {
     capturingAngles: boolean
   }) => void
+  setStudioEnv: ({ studioEnv }: { studioEnv: StudioEnvMode }) => void
   setBasePattern: ({ patternId }: { patternId: BasePatternId }) => void
   setBaseFinish: ({ finishId }: { finishId: BaseFinishId }) => void
   copyLayerToOpposite: ({ layerId }: { layerId: string }) => void
@@ -437,6 +440,7 @@ const INITIAL_EDITOR_STATE = {
   },
   cameraPreset: 'threeQuarter' as CameraPreset,
   capturingAngles: false,
+  studioEnv: 'studio' as StudioEnvMode,
   basePatternId: 'solid' as BasePatternId,
   baseFinishId: 'matte' as BaseFinishId,
 }
@@ -763,6 +767,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setCapturingAngles: ({ capturingAngles }) => {
     set({ capturingAngles })
+  },
+  setStudioEnv: ({ studioEnv }) => {
+    set({ studioEnv })
   },
   setBasePattern: ({ patternId }) => {
     set((state) => {

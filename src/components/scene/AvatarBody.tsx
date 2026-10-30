@@ -4,15 +4,19 @@ import type { Group } from 'three'
 import {
   createProceduralAvatar,
   disposeAvatarGroup,
+  type AvatarMeasurements,
 } from '../../lib/avatar-geometry'
 import { useEditorStore } from '../../lib/editor-store'
 
 export function AvatarBody({
   children,
+  measurements: measurementsProp,
 }: {
   children?: ReactNode
+  measurements?: AvatarMeasurements
 }) {
-  const avatarMeasurements = useEditorStore((state) => state.avatarMeasurements)
+  const storeMeasurements = useEditorStore((state) => state.avatarMeasurements)
+  const avatarMeasurements = measurementsProp ?? storeMeasurements
   const [mount, setMount] = useState<{
     root: Group
     garmentOffsetY: number

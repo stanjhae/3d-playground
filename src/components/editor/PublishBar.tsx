@@ -24,6 +24,7 @@ import {
 import { getFabricById } from '../../lib/fabrics'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
+import { CANNED_STILLS } from '../../lib/landing-demo'
 import { decodeDocumentImages } from '../../lib/layer-images'
 import { resolveDraftTitle } from '../../lib/look-title'
 import { bakePublishedArt } from '../../lib/paint-atlas'
@@ -545,6 +546,18 @@ export function PublishBar({
             )
           })}
         </div>
+        {attachments.includes('shoot') || attachments.includes('video') ? (
+          <div className="grid grid-cols-4 gap-2">
+            {CANNED_STILLS.slice(0, 4).map((src) => (
+              <img
+                key={src}
+                src={src}
+                alt=""
+                className="aspect-square rounded-lg border border-flv-line object-cover"
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.challenge}</p>

@@ -39,6 +39,7 @@ import { useEditorStore } from '../lib/editor-store'
 import { garmentCanPaint } from '../lib/garments'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
+import { consumeLandingHandoff } from '../lib/landing-handoff'
 import {
   coverHeaderSpacerClass,
   emptyStepClass,
@@ -81,6 +82,37 @@ function AtelierHome() {
   const [remixStatus, setRemixStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'missing' | 'error'
   >('idle')
+
+  useEffect(() => {
+    if (remixId) {
+      return
+    }
+
+    const handoff = consumeLandingHandoff()
+
+    if (!handoff) {
+      return
+    }
+
+    useEditorStore.getState().hydrateDocument({
+      document: handoff.document,
+      garmentId: handoff.garmentId,
+    })
+
+    if (handoff.color) {
+      useEditorStore.getState().applyBaseColor({ color: handoff.color })
+    }
+
+    if (handoff.neck || handoff.hem || handoff.sleeve) {
+      useEditorStore.getState().setStructural({
+        structural: {
+          ...(handoff.neck ? { neck: handoff.neck } : {}),
+          ...(handoff.hem ? { hem: handoff.hem } : {}),
+          ...(handoff.sleeve ? { sleeve: handoff.sleeve } : {}),
+        },
+      })
+    }
+  }, [remixId])
 
   useEffect(() => {
     if (!entryStep) {
