@@ -17,17 +17,18 @@ import {
  *   privately under `<owner>/<design>/v<seq>/<kind>.jpg`.
  * - Publish: only a version whose three views are ready; the pointer moves
  *   atomically in `flp_publish_version`, and the slug survives republish.
- * - Public read: anonymous, returns only title, display name and 5-minute
- *   signed render URLs, and only while published. Never the document,
- *   history or owner. Unpublish makes it 404 at once.
+ * - Public read: anonymous, returns only title, display name and our own
+ *   seq-pinned image URLs, and only while published. Never the document,
+ *   history or owner (signed storage URLs would leak the owner ID in the
+ *   path). Unpublish makes it 404 at once; images are cached for a minute.
  */
 
 export const PUBLIC_RENDER_KINDS = ['view_front', 'view_three_quarter', 'view_back'] as const
 
 export type PublicRenderKind = (typeof PUBLIC_RENDER_KINDS)[number]
 
-/** Signed render URLs expire quickly so revoked media stops loading. */
-export const SIGNED_URL_SECONDS = 300
+/** Public views are cached briefly so an unpublish takes hold quickly. */
+export const PUBLIC_IMAGE_MAX_AGE = 60
 
 const BUCKET = 'design-assets'
 const SLUG = /^[a-f0-9]{16}$/
@@ -350,6 +351,88 @@ export async function unpublish({
   return respond({ status: 204 })
 }
 
+export type PublishedDesign = {
+  slug: string
+  title: string
+  displayName: string | null
+  seq: number
+  publishedAt: string
+  renderPaths: Map<string, string>
+}
+
+/**
+ * The live publication behind `slug`, or null when it is unknown, revoked
+ * or missing a view. The one place public reads decide what is published.
+ */
+export async function findPublishedDesign({
+  admin,
+  slug,
+}: {
+  admin: SupabaseClient
+  slug: string | undefined
+}): Promise<PublishedDesign | null> {
+  if (!slug || !SLUG.test(slug)) {
+    return null
+  }
+
+  const { data: publication } = await admin
+    .from('publications')
+    .select('slug, design_id, version_seq, display_name, published_at, status')
+    .eq('slug', slug)
+    .maybeSingle()
+
+  if (!publication || publication.status !== 'published' || !publication.design_id || !publication.version_seq) {
+    return null
+  }
+
+  const { data: design } = await admin
+    .from('designs')
+    .select('title')
+    .eq('id', publication.design_id)
+    .maybeSingle()
+  const renderPaths = await readyRenderKinds({
+    client: admin,
+    designId: publication.design_id as string,
+    seq: publication.version_seq as number,
+  })
+
+  if (!design || PUBLIC_RENDER_KINDS.some((kind) => !renderPaths.has(kind))) {
+    return null
+  }
+
+  return {
+    slug,
+    title: design.title as string,
+    displayName: (publication.display_name as string | null) ?? null,
+    seq: publication.version_seq as number,
+    publishedAt: publication.published_at as string,
+    renderPaths,
+  }
+}
+
+/**
+ * Our own stable URL for one published view. Storage paths (and so signed
+ * URLs) carry the owner ID, so public pages never see them; `seq` pins the
+ * version so a page never mixes views across a republish.
+ */
+export function publicImagePath({
+  slug,
+  kind = 'view_front',
+  seq,
+}: {
+  slug: string
+  kind?: PublicRenderKind
+  seq?: number
+}) {
+  const query = new URLSearchParams()
+
+  if (kind !== 'view_front') query.set('view', kind)
+  if (seq !== undefined) query.set('seq', String(seq))
+
+  const search = query.toString()
+  return `/api/flp/public/${slug}/image${search ? `?${search}` : ''}`
+}
+
 /** GET /public/:slug — anonymous; only what the owner chose to publish. */
 export async function readPublicDesign({
   admin,
@@ -360,59 +443,72 @@ export async function readPublicDesign({
   slug: string | undefined
   respond: Respond
 }) {
-  const gone = () => respond({ status: 404, body: { error: { code: 'not_found', message: 'This design is not available' } } })
+  const published = await findPublishedDesign({ admin, slug })
 
-  if (!slug || !SLUG.test(slug)) {
-    return gone()
+  if (!published) {
+    return respond({ status: 404, body: { error: { code: 'not_found', message: 'This design is not available' } } })
   }
 
-  const { data: publication } = await admin
-    .from('publications')
-    .select('slug, design_id, version_seq, display_name, published_at, status')
-    .eq('slug', slug)
-    .maybeSingle()
-
-  if (!publication || publication.status !== 'published' || !publication.design_id || !publication.version_seq) {
-    return gone()
-  }
-
-  const { data: design } = await admin
-    .from('designs')
-    .select('title')
-    .eq('id', publication.design_id)
-    .maybeSingle()
-  const ready = await readyRenderKinds({
-    client: admin,
-    designId: publication.design_id as string,
-    seq: publication.version_seq as number,
-  })
-
-  if (!design || PUBLIC_RENDER_KINDS.some((kind) => !ready.has(kind))) {
-    return gone()
-  }
-
-  const renders = {} as Record<PublicRenderKind, string>
-
-  for (const kind of PUBLIC_RENDER_KINDS) {
-    const signed = await admin.storage
-      .from(BUCKET)
-      .createSignedUrl(ready.get(kind)!, SIGNED_URL_SECONDS)
-
-    if (signed.error || !signed.data) {
-      return gone()
-    }
-
-    renders[kind] = signed.data.signedUrl
-  }
+  const renders = Object.fromEntries(
+    PUBLIC_RENDER_KINDS.map((kind) => [kind, publicImagePath({ slug: published.slug, kind, seq: published.seq })]),
+  ) as Record<PublicRenderKind, string>
 
   const body: PublicDesign = {
-    slug,
-    title: design.title as string,
-    displayName: (publication.display_name as string | null) ?? null,
-    seq: publication.version_seq as number,
-    publishedAt: publication.published_at as string,
+    slug: published.slug,
+    title: published.title,
+    displayName: published.displayName,
+    seq: published.seq,
+    publishedAt: published.publishedAt,
     renders,
   }
 
   return respond({ status: 200, body })
+}
+
+/**
+ * GET /public/:slug/image[?view=&seq=] — streams one view of the published
+ * version (the front by default, for link previews). 404 once unpublished,
+ * or when `seq` is no longer the published version.
+ */
+export async function readPublicImage({
+  admin,
+  slug,
+  search,
+}: {
+  admin: SupabaseClient
+  slug: string | undefined
+  search: URLSearchParams
+}) {
+  const gone = () =>
+    Response.json(
+      { error: { code: 'not_found', message: 'This design is not available' } },
+      { status: 404, headers: { 'Cache-Control': 'no-store' } },
+    )
+  const view = search.get('view') ?? 'view_front'
+  const seq = search.get('seq')
+
+  if (!isRenderKind(view) || (seq !== null && !/^[1-9][0-9]{0,9}$/.test(seq))) {
+    return gone()
+  }
+
+  const published = await findPublishedDesign({ admin, slug })
+
+  if (!published || (seq !== null && Number(seq) !== published.seq)) {
+    return gone()
+  }
+
+  const { data, error } = await admin.storage.from(BUCKET).download(published.renderPaths.get(view)!)
+
+  if (error || !data) {
+    return gone()
+  }
+
+  return new Response(data, {
+    status: 200,
+    headers: {
+      'Content-Type': data.type || 'image/jpeg',
+      'Cache-Control': `public, max-age=${PUBLIC_IMAGE_MAX_AGE}`,
+      'X-Content-Type-Options': 'nosniff',
+    },
+  })
 }

@@ -33,6 +33,7 @@ import {
   publishVersion,
   readOwnerPublication,
   readPublicDesign,
+  readPublicImage,
   unpublish,
   uploadRenders,
 } from './publication.ts'
@@ -638,19 +639,20 @@ export async function handleFlpRequest({
 
   const [collection, designId, action, ...rest] = flpRoute({ request })
 
-  // GET /public/:slug — anonymous read of a published design (P04 #182).
+  // GET /public/:slug — anonymous read of a published design (P04 #182);
+  // GET /public/:slug/image — its published views, also for link previews (#184).
   if (collection === 'public') {
-    if (request.method !== 'GET' || action || rest.length > 0) {
+    if (request.method !== 'GET' || (action && action !== 'image') || rest.length > 0) {
       return fromError({ error: apiError({ code: 'not_found', message: 'This design is not available' }) })
     }
 
-    return readPublicDesign({
-      admin: createClient(env.url, env.secretKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      }),
-      slug: designId,
-      respond,
+    const publicAdmin = createClient(env.url, env.secretKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
     })
+
+    return action === 'image'
+      ? readPublicImage({ admin: publicAdmin, slug: designId, search: new URL(request.url).searchParams })
+      : readPublicDesign({ admin: publicAdmin, slug: designId, respond })
   }
 
   if (collection === 'assets') {

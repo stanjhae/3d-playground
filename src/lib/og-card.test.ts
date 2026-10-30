@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { GET as getOg } from '../../api/og'
 import { GET as getOgPage } from '../../api/og-page'
+import { handleSharePage } from './flp-api/share-page'
 import { createStoredDesign, resetDesignsStore } from './designs-store'
 import {
   escapeXml,
@@ -9,6 +10,7 @@ import {
   lookShareImage,
   ogDefaultRelativePath,
   ogStillRelativePath,
+  shareCardHtml,
 } from './og-card'
 
 const TINY_JPEG =
@@ -186,5 +188,57 @@ describe('lookShareImage', () => {
       imageUrl: 'https://house.test/api/og?lookId=look-guest',
       imageType: 'image/jpeg',
     })
+  })
+})
+
+describe('shareCardHtml', () => {
+  const shared = {
+    slug: '0123456789abcdef',
+    title: 'Tee "01" <script>alert(1)</script> & co',
+    displayName: '<b>Ada</b> & "friends"',
+    imageUrl: 'https://house.test/api/flp/public/0123456789abcdef/image',
+    imageType: 'image/jpeg',
+  }
+
+  test('a published design shows its title, display name and our stable image', () => {
+    const html = shareCardHtml({ origin: 'https://house.test', shared })
+
+    expect(html).toContain('og:title" content="Tee &quot;01&quot; &lt;script&gt;alert(1)&lt;/script&gt; &amp; co"')
+    expect(html).toContain('By &lt;b&gt;Ada&lt;/b&gt; &amp; &quot;friends&quot; on Fashion Leader Vote.')
+    expect(html).toContain('og:image" content="https://house.test/api/flp/public/0123456789abcdef/image"')
+    expect(html).toContain('twitter:image" content="https://house.test/api/flp/public/0123456789abcdef/image"')
+    expect(html).toContain('og:image:type" content="image/jpeg"')
+    expect(html).toContain('og:url" content="https://house.test/s/0123456789abcdef"')
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('<b>')
+  })
+
+  test('without a display name it does not invent an author', () => {
+    const html = shareCardHtml({ origin: 'https://house.test', shared: { ...shared, title: 'Tee', displayName: null } })
+
+    expect(html).toContain('og:description" content="A design on Fashion Leader Vote."')
+    expect(html).not.toContain('By ')
+  })
+
+  test('an unknown or unpublished design gets the site card only', () => {
+    const html = shareCardHtml({ origin: 'https://house.test', shared: null })
+
+    expect(html).toContain('og:title" content="Fashion Leader Vote"')
+    expect(html).toContain('og:image" content="https://house.test/og-default.png"')
+    expect(html).toContain('og:url" content="https://house.test/"')
+    expect(html).not.toContain('/api/flp/public/')
+  })
+
+  test('the share page never reflects the requested slug when nothing is published', async () => {
+    const response = await handleSharePage({
+      env: null,
+      request: new Request('https://house.test/api/og-share?slug=%22%3E%3Cscript%3Ex%3C%2Fscript%3E'),
+    })
+    const html = await response.text()
+
+    expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8')
+    expect(html).toContain('og:title" content="Fashion Leader Vote"')
+    expect(html).not.toContain('<script')
+    expect(html).not.toContain('&lt;script')
   })
 })

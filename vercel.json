@@ -21,6 +21,17 @@
       "destination": "/api/og-page?id=:id"
     },
     {
+      "source": "/s/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(Twitterbot|facebookexternalhit|Slackbot|WhatsApp|Telegram|LinkedInBot|Discordbot|Applebot|Googlebot|bingbot|preview|bot|crawl).*"
+        }
+      ],
+      "destination": "/api/og-share?slug=:slug"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
@@ -42,6 +53,9 @@
       "includeFiles": "{src/lib/**}"
     },
     "api/flp.ts": {
+      "includeFiles": "{src/lib/**}"
+    },
+    "api/og-share.ts": {
       "includeFiles": "{src/lib/**}"
     }
   }
