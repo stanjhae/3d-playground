@@ -281,6 +281,30 @@ export function recoveryOffer({
   }
 }
 
+/**
+ * The offer as of now, not as of load. If the cloud head moved past the
+ * local copy's base, or there are edits not yet saved, applying the local
+ * copy would overwrite newer work: it becomes `stale`, which only offers
+ * "open cloud version" or "save mine as a copy".
+ */
+export function liveRecoveryOffer({
+  offer,
+  cloudHeadSeq,
+  hasUnsavedEdits,
+}: {
+  offer: Exclude<RecoveryOffer, { kind: 'none' }>
+  cloudHeadSeq: number
+  hasUnsavedEdits: boolean
+}): Exclude<RecoveryOffer, { kind: 'none' }> {
+  if (offer.kind !== 'recover') {
+    return offer
+  }
+
+  return offer.record.baseSeq !== cloudHeadSeq || hasUnsavedEdits
+    ? { kind: 'stale', record: offer.record, document: offer.document }
+    : offer
+}
+
 export const RECOVERY_WARNINGS: Record<StorageFailure | 'corrupt', string> = {
   unavailable: 'This browser is not keeping a local copy. Unsaved changes are only in this tab.',
   quota: 'This device is out of space for a local copy. Unsaved changes are only in this tab.',
