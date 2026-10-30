@@ -117,7 +117,7 @@ GET /api/flp/assets/:id
 - Another owner's asset, a missing one and an `asset_lib_…` id all return the same `404 Asset not found`. Rows are read as the user, so RLS applies.
 - **Read URLs** are signed as the user for 600 seconds. Nothing in the bucket is public, and documents store only `assetId`.
 
-**Saves.** Create and save refuse (`422`, one issue per use at `$.panels.<panel>.layers[<i>].assetId`) any image layer whose `assetId` is neither `asset_lib_…` (built-in library graphics, no row) nor a `ready` asset of the caller. This covers staged, rejected, unknown and other owners' ids. Restore copies an earlier version whose assets were checked when it was saved, and ready assets never change.
+**Saves.** Create and save refuse (`422`, one issue per use at `$.panels.<panel>.layers[<i>].assetId`) any image layer whose `assetId` is neither a shipped library graphic (`asset_lib_<slug>` listed in `src/lib/library-assets.ts`; no row needed) nor a `ready` asset of the caller. An `asset_lib_…` id naming no shipped graphic gets `not a library graphic`. This covers staged, rejected, unknown and other owners' ids. Restore copies an earlier version whose assets were checked when it was saved, and ready assets never change.
 
 Not yet: reclaiming abandoned `staged` rows and originals, per-account upload quotas (S09 #178), and uploading legacy graphics (`asset_legacy_…` ids from `legacy-import.ts`) so that designs using them can be saved.
 

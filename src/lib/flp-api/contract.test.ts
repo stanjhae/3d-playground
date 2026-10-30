@@ -10,6 +10,7 @@ import {
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
   prepareContent,
+  unknownLibraryReferences,
   uploadedAssetReferences,
 } from './contract'
 
@@ -139,6 +140,27 @@ describe('apiErrorFromDatabase', () => {
   })
 })
 
+describe('unknownLibraryReferences', () => {
+  test('flags asset_lib ids that name no shipped graphic, and only those', () => {
+    const document = structuredClone(GOLDEN_DOCUMENT)
+    const real = structuredClone(document.panels.front.layers[1]!)
+    const fake = structuredClone(document.panels.front.layers[1]!)
+
+    if (real.kind === 'image' && fake.kind === 'image') {
+      real.id = 'real-library'
+      real.assetId = 'asset_lib_flame-rise'
+      fake.id = 'fake-library'
+      fake.assetId = 'asset_lib_not-a-graphic'
+    }
+
+    document.panels.back.layers.push(real, fake)
+
+    expect(unknownLibraryReferences({ document })).toEqual([
+      { assetId: 'asset_lib_not-a-graphic', path: '$.panels.back.layers[2].assetId' },
+    ])
+  })
+})
+
 describe('uploadedAssetReferences', () => {
   test('lists uploaded image ids with their paths and skips library graphics', () => {
     const document = structuredClone(GOLDEN_DOCUMENT)
@@ -146,7 +168,7 @@ describe('uploadedAssetReferences', () => {
 
     if (library.kind === 'image') {
       library.id = 'image-library'
-      library.assetId = 'asset_lib_crest'
+      library.assetId = 'asset_lib_cross-simple'
     }
 
     document.panels.back.layers.push(library)

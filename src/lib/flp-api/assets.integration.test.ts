@@ -274,8 +274,17 @@ describe.skipIf(!env)('FLP asset uploads against local Supabase', () => {
   })
 
   test('library graphics need no asset row; their ids are not asset routes', async () => {
-    expect((await createDesign({ token: a.token, assetId: 'asset_lib_crest' })).status).toBe(201)
-    expect((await api({ path: 'assets/asset_lib_crest', token: a.token })).status).toBe(404)
+    expect((await createDesign({ token: a.token, assetId: 'asset_lib_cross-simple' })).status).toBe(201)
+    expect((await api({ path: 'assets/asset_lib_cross-simple', token: a.token })).status).toBe(404)
+  })
+
+  test('a library id that names no shipped graphic is refused with its path', async () => {
+    const response = await createDesign({ token: a.token, assetId: 'asset_lib_not-a-graphic' })
+
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({
+      error: { issues: [{ path: '$.panels.front.layers[1].assetId', message: 'not a library graphic' }] },
+    })
   })
 
   test('owners cannot settle or plant assets through Supabase directly', async () => {

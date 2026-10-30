@@ -10,6 +10,7 @@ import {
   serializeCanonicalDocument,
 } from '../canonical-hash.ts'
 import type { ImageMimeType, ImageRejectReason } from '../image-validate.ts'
+import { isLibraryAssetId } from '../library-assets.ts'
 
 /**
  * FLP design API contract (F08 #143): request shapes, server-side content
@@ -372,8 +373,33 @@ export function parsePublishVersionRequest({ value }: { value: unknown }) {
   })
 }
 
-/** Built-in library graphics: valid in documents without an asset row. */
+/**
+ * Built-in library graphics: valid in documents without an asset row, but
+ * only for graphics that actually ship (`src/lib/library-assets.ts`).
+ */
 export const LIBRARY_ASSET_PREFIX = 'asset_lib_'
+
+/** `asset_lib_*` ids that name no shipped graphic; nothing could draw them. */
+export function unknownLibraryReferences({ document }: { document: CanonicalDocument }) {
+  const references: Array<{ assetId: string; path: string }> = []
+
+  for (const [panelId, panel] of Object.entries(document.panels)) {
+    panel.layers.forEach((layer, index) => {
+      if (
+        layer.kind === 'image' &&
+        layer.assetId.startsWith(LIBRARY_ASSET_PREFIX) &&
+        !isLibraryAssetId({ assetId: layer.assetId })
+      ) {
+        references.push({
+          assetId: layer.assetId,
+          path: `$.panels.${panelId}.layers[${index}].assetId`,
+        })
+      }
+    })
+  }
+
+  return references
+}
 
 /**
  * Uploaded assets a document references, with the path of each use, so a

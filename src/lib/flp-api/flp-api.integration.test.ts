@@ -23,7 +23,7 @@ const env =
 type Account = { id: string; token: string; client: SupabaseClient }
 
 /** Saves may only reference library graphics or ready uploads (S01 #170). */
-const DOCUMENT = withImageAsset({ document: GOLDEN_DOCUMENT, assetId: 'asset_lib_crest' })
+const DOCUMENT = withImageAsset({ document: GOLDEN_DOCUMENT, assetId: 'asset_lib_cross-simple' })
 
 function withText({ text }: { text: string }): CanonicalDocument {
   const document = structuredClone(DOCUMENT)

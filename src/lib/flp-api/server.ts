@@ -21,6 +21,7 @@ import {
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
   prepareContent,
+  unknownLibraryReferences,
   uploadedAssetReferences,
 } from './contract.ts'
 
@@ -206,10 +207,18 @@ async function unusableAssets({
   asUser: SupabaseClient
   document: CanonicalDocument
 }) {
+  const unknownLibrary = unknownLibraryReferences({ document }).map(({ path }) => ({
+    path,
+    message: 'not a library graphic',
+  }))
   const references = uploadedAssetReferences({ document })
 
   if (references.length === 0) {
-    return null
+    return unknownLibrary.length > 0
+      ? fromError({
+          error: apiError({ code: 'invalid', message: 'Design references unavailable images', issues: unknownLibrary }),
+        })
+      : null
   }
 
   const { data, error } = await asUser
@@ -224,9 +233,12 @@ async function unusableAssets({
   }
 
   const ready = new Set(data.map((row) => row.id as string))
-  const issues = references
-    .filter(({ assetId }) => !ready.has(assetId))
-    .map(({ path }) => ({ path, message: 'asset is not uploaded and ready' }))
+  const issues = [
+    ...unknownLibrary,
+    ...references
+      .filter(({ assetId }) => !ready.has(assetId))
+      .map(({ path }) => ({ path, message: 'asset is not uploaded and ready' })),
+  ]
 
   return issues.length > 0
     ? fromError({ error: apiError({ code: 'invalid', message: 'Design references unavailable images', issues }) })
