@@ -8,6 +8,8 @@ import type {
   RestoreVersionRequest,
   PublicationResponse,
   SaveVersionRequest,
+  VersionDetail,
+  VersionPage,
   VersionResponse,
 } from './contract.ts'
 import type { OwnerPublication, PublicDesign, PublicRenderKind } from './publication.ts'
@@ -241,4 +243,46 @@ export async function getPublicDesign({
   } catch {
     return { ok: false, code: 'network' }
   }
+}
+
+/** One newest-first page of a design's history (S07 #176). */
+export function listDesignVersions({
+  designId,
+  before = null,
+  limit,
+  fetchImpl,
+}: {
+  designId: string
+  before?: number | null
+  limit?: number
+  fetchImpl?: typeof fetch
+}) {
+  const params = new URLSearchParams()
+
+  if (before !== null) {
+    params.set('before', String(before))
+  }
+
+  if (limit !== undefined) {
+    params.set('limit', String(limit))
+  }
+
+  const query = params.toString()
+  return call<VersionPage>({
+    path: `designs/${designId}/versions${query ? `?${query}` : ''}`,
+    fetchImpl,
+  })
+}
+
+/** One version's content, for read-only preview (S07 #176). */
+export function getDesignVersion({
+  designId,
+  seq,
+  fetchImpl,
+}: {
+  designId: string
+  seq: number
+  fetchImpl?: typeof fetch
+}) {
+  return call<VersionDetail>({ path: `designs/${designId}/versions/${seq}`, fetchImpl })
 }

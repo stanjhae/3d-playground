@@ -94,3 +94,30 @@ describe('studio autosave binding', () => {
     expect(store().cloud?.headSeq).toBe(1)
   })
 })
+
+describe('reloading after a restore (S08 #177)', () => {
+  beforeEach(() => {
+    store().reset()
+    store().loadCanonical({
+      document: createEmptyCanonicalDocument(),
+      cloud: { designId: DESIGN, headSeq: 1, title: 'Tee' },
+    })
+  })
+
+  test('loading the restored head is not an edit and is never autosaved', async () => {
+    const h = harness()
+    const loads = store().cloudLoad
+    const revision = store().revision
+
+    store().loadCanonical({
+      document: createEmptyCanonicalDocument(),
+      cloud: { designId: DESIGN, headSeq: 5, title: 'Tee' },
+    })
+    await h.elapse()
+
+    expect(store().cloudLoad).toBe(loads + 1)
+    expect(store().revision).not.toBe(revision)
+    expect(h.sent).toHaveLength(0)
+    h.autosave.stop()
+  })
+})

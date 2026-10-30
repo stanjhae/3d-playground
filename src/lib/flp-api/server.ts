@@ -14,12 +14,17 @@ import {
   type AssetResponse,
   LIBRARY_ASSET_PREFIX,
   MAX_CONTENT_BYTES,
+  type VersionDetail,
+  type VersionPage,
   type VersionResponse,
+  type VersionSummary,
   apiError,
   apiErrorFromDatabase,
   parseCreateDesignRequest,
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
+  parseVersionListQuery,
+  parseVersionSeq,
   prepareContent,
   unknownLibraryReferences,
   uploadedAssetReferences,
@@ -58,6 +63,15 @@ type DesignVersionRow = {
   created_at: string
 }
 
+type VersionSummaryRow = {
+  seq: number
+  kind: VersionResponse['kind']
+  label: string | null
+  content_hash: ContentHash
+  restored_from_seq: number | null
+  created_at: string
+}
+
 type AssetRow = {
   id: string
   owner_id: string
@@ -78,6 +92,7 @@ const ASSET_BUCKET = 'design-assets'
 const ASSET_COLUMNS =
   'id, owner_id, status, rejection_reason, mime_type, byte_size, width, height, sha256, storage_path'
 const READ_URL_SECONDS = 600
+const VERSION_SUMMARY_COLUMNS = 'seq, kind, label, content_hash, restored_from_seq, created_at'
 
 export function flpServerEnv(
   source: Record<string, string | undefined> = (
@@ -489,6 +504,124 @@ async function handleAssetRequest({
     : settledResponse({ asUser, row: found.row })
 }
 
+function designNotFound() {
+  return fromError({ error: apiError({ code: 'not_found', message: 'Design not found' }) })
+}
+
+function versionSummary({ row }: { row: VersionSummaryRow }): VersionSummary {
+  return {
+    seq: row.seq,
+    kind: row.kind,
+    label: row.label,
+    contentHash: row.content_hash,
+    restoredFromSeq: row.restored_from_seq,
+    createdAt: row.created_at,
+  }
+}
+
+/**
+ * History reads (S07 #176), all as the user so RLS applies: another
+ * owner's design, a missing one and a missing version are the same 404.
+ * - `GET /designs/:id/versions?before=<seq>&limit=<n>`: newest first.
+ * - `GET /designs/:id/versions/:seq`: one version's content, for preview.
+ */
+async function handleVersionHistory({
+  request,
+  asUser,
+  designId,
+  seqSegment,
+}: {
+  request: Request
+  asUser: SupabaseClient
+  designId: string
+  seqSegment: string | undefined
+}) {
+  const seq = seqSegment === undefined ? null : parseVersionSeq({ segment: seqSegment })
+
+  if (seqSegment !== undefined && seq === null) {
+    return designNotFound()
+  }
+
+  const { data: design, error: designError } = await asUser
+    .from('designs')
+    .select('id, head_seq')
+    .eq('id', designId)
+    .maybeSingle<{ id: string; head_seq: number | null }>()
+
+  if (designError) {
+    console.error('flp history design read failed', { code: designError.code })
+    return internalError()
+  }
+
+  if (!design) {
+    return designNotFound()
+  }
+
+  if (seq !== null) {
+    const { data, error } = await asUser
+      .from('design_versions')
+      .select(`${VERSION_SUMMARY_COLUMNS}, content`)
+      .eq('design_id', designId)
+      .eq('seq', seq)
+      .maybeSingle<VersionSummaryRow & { content: VersionDetail['content'] }>()
+
+    if (error) {
+      console.error('flp version read failed', { code: error.code })
+      return internalError()
+    }
+
+    if (!data) {
+      return fromError({ error: apiError({ code: 'not_found', message: 'Version not found' }) })
+    }
+
+    const body: VersionDetail = { ...versionSummary({ row: data }), designId, content: data.content }
+    return json({ status: 200, body })
+  }
+
+  const parsed = parseVersionListQuery({ params: new URL(request.url).searchParams })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  const { before, limit } = parsed.query
+  let query = asUser
+    .from('design_versions')
+    .select(VERSION_SUMMARY_COLUMNS)
+    .eq('design_id', designId)
+    .order('seq', { ascending: false })
+    // One extra row says whether an older page exists.
+    .limit(limit + 1)
+
+  if (before !== null) {
+    query = query.lt('seq', before)
+  }
+
+  const [{ data: rows, error }, { data: publication, error: publicationError }] = await Promise.all([
+    query.returns<VersionSummaryRow[]>(),
+    asUser
+      .from('publications')
+      .select('version_seq')
+      .eq('design_id', designId)
+      .eq('status', 'published')
+      .maybeSingle<{ version_seq: number | null }>(),
+  ])
+
+  if (error || publicationError) {
+    console.error('flp history read failed', { code: error?.code ?? publicationError?.code })
+    return internalError()
+  }
+
+  const page = rows.slice(0, limit)
+  const body: VersionPage = {
+    headSeq: design.head_seq,
+    publishedSeq: publication?.version_seq ?? null,
+    versions: page.map((row) => versionSummary({ row })),
+    nextBefore: rows.length > limit ? (page.at(-1)?.seq ?? null) : null,
+  }
+  return json({ status: 200, body })
+}
+
 export async function handleFlpRequest({
   request,
   env = flpServerEnv(),
@@ -528,7 +661,12 @@ export async function handleFlpRequest({
     ) {
       return fromError({ error: assetNotFound() })
     }
-  } else if (collection !== 'designs' || rest.length > 0 || (designId && !UUID.test(designId))) {
+  } else if (
+    collection !== 'designs' ||
+    // Only `/designs/:id/versions/:seq` has a fourth segment.
+    rest.length > (action === 'versions' ? 1 : 0) ||
+    (designId && !UUID.test(designId))
+  ) {
     return fromError({ error: apiError({ code: 'not_found', message: 'Design not found' }) })
   }
 
@@ -573,6 +711,15 @@ export async function handleFlpRequest({
     return action === 'renders'
       ? uploadRenders({ value: body.value, admin, asUser, designId, respond })
       : publishVersion({ value: body.value, admin, asUser, userId: user.userId, designId, respond })
+  }
+
+  if (request.method === 'GET' && designId && action === 'versions') {
+    return handleVersionHistory({ request, asUser, designId, seqSegment: rest[0] })
+  }
+
+  // Only POST /designs/:id/versions takes no `:seq`.
+  if (rest.length > 0) {
+    return designNotFound()
   }
 
   // GET /designs — the signed-in owner's designs, newest first.

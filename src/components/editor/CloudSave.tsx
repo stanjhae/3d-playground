@@ -15,11 +15,13 @@ export const useCloudSaveStore = create<{
 }>(() => ({ state: null, controller: null }))
 
 /**
- * Autosave the open cloud design (S04 #173). One controller per design;
- * cancelled on unmount, design change or account change.
+ * Autosave the open cloud design (S04 #173). One controller per loaded
+ * design; cancelled on unmount, design change, reload (restore) or
+ * account change.
  */
 export function useCloudAutosave() {
   const designId = useEditorStore((state) => state.cloud?.designId ?? null)
+  const cloudLoad = useEditorStore((state) => state.cloudLoad)
   const accountEpoch = useSessionStore((state) => state.accountEpoch)
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export function useCloudAutosave() {
       window.removeEventListener('beforeunload', warnBeforeLeaving)
       useCloudSaveStore.setState({ state: null, controller: null })
     }
-  }, [designId, accountEpoch])
+  }, [designId, cloudLoad, accountEpoch])
 }
 
 const LABELS: Record<SaveState['status'], string> = {

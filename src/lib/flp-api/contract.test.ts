@@ -5,10 +5,13 @@ import { hashCanonicalDocument } from '../canonical-hash'
 import {
   MAX_CONTENT_BYTES,
   apiErrorFromDatabase,
+  checkpointLabelIssues,
   parseCreateDesignRequest,
   parsePublishVersionRequest,
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
+  parseVersionListQuery,
+  parseVersionSeq,
   prepareContent,
   unknownLibraryReferences,
   uploadedAssetReferences,
@@ -176,5 +179,50 @@ describe('uploadedAssetReferences', () => {
     expect(uploadedAssetReferences({ document })).toEqual([
       { assetId: 'asset_3f9a1c22b7', path: '$.panels.front.layers[1].assetId' },
     ])
+  })
+})
+
+describe('history requests (S07 #176)', () => {
+  const query = (text: string) => parseVersionListQuery({ params: new URLSearchParams(text) })
+
+  test('a list defaults to the newest 20 and takes a before cursor', () => {
+    expect(query('')).toEqual({ ok: true, query: { before: null, limit: 20 } })
+    expect(query('before=12&limit=5')).toEqual({ ok: true, query: { before: 12, limit: 5 } })
+    expect(query('limit=50&path=designs/x/versions')).toEqual({ ok: true, query: { before: null, limit: 50 } })
+  })
+
+  test('cursor and limit must be positive integers within bounds', () => {
+    for (const text of ['before=0', 'before=-1', 'before=1.5', 'before=abc', 'before=', 'limit=0', 'limit=51', 'limit=1e2']) {
+      expect(query(text)).toMatchObject({ ok: false, error: { status: 422 } })
+    }
+  })
+
+  test('a version segment is a positive integer or nothing', () => {
+    expect(parseVersionSeq({ segment: '7' })).toBe(7)
+
+    for (const segment of ['0', '07', '-1', '1.0', 'head', '9999999999']) {
+      expect(parseVersionSeq({ segment })).toBeNull()
+    }
+  })
+
+  test('checkpoint names are 1–60 plain characters', () => {
+    expect(checkpointLabelIssues({ value: 'Before sleeves' })).toEqual([])
+    expect(checkpointLabelIssues({ value: 'x'.repeat(60) })).toEqual([])
+
+    for (const value of ['', '   ', 'x'.repeat(61), ' padded', 'two\nlines', 'tab\there', 7, null]) {
+      expect(checkpointLabelIssues({ value })).toHaveLength(1)
+    }
+  })
+
+  test('only a checkpoint may carry a name', () => {
+    const base = { baseSeq: 3, mutationKey: KEY, content: {} }
+
+    expect(parseSaveVersionRequest({ value: { ...base, kind: 'checkpoint', label: 'Named' } }).ok).toBe(true)
+    expect(parseSaveVersionRequest({ value: { ...base, kind: 'checkpoint' } }).ok).toBe(true)
+    expect(parseSaveVersionRequest({ value: { ...base, kind: 'autosave', label: 'Named' } })).toMatchObject({
+      ok: false,
+      error: { body: { error: { issues: [{ path: '$.label' }] } } },
+    })
+    expect(parseSaveVersionRequest({ value: { ...base, kind: 'checkpoint', label: ' ' } }).ok).toBe(false)
   })
 })
