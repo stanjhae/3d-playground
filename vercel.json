@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/api/flp/:path*",
+      "destination": "/api/flp?path=:path*"
+    },
+    {
       "source": "/api/designs/:id/vote",
       "destination": "/api/designs?voteId=:id"
     },
@@ -35,6 +39,9 @@
       "includeFiles": "{src/lib/**}"
     },
     "api/events.ts": {
+      "includeFiles": "{src/lib/**}"
+    },
+    "api/flp.ts": {
       "includeFiles": "{src/lib/**}"
     }
   }

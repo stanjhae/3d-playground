@@ -85,7 +85,13 @@ DELETE /api/flp/designs/:id/publication   → 204
 DELETE /api/flp/designs/:id               → 204
 ```
 
-These routes are the contract. They are not yet wired up: route handlers come with auth (A03 #147) and cloud save (S03 #172). The legacy `api/designs.ts` KV board stays as it is until F09 #144.
+The create, save, restore, list and read routes are live in `api/flp.ts` (`src/lib/flp-api/server.ts`), and the browser client is `src/lib/flp-api/client.ts`. Publication and delete routes come with P03 #181 and A07 #151. The legacy `api/designs.ts` KV board stays until F09 #144.
+
+`GET /api/flp/designs` returns the owner's designs, newest first. `GET /api/flp/designs/:id` returns the design and its head version. Both read **as the user**, so RLS applies.
+
+A reused `mutationKey` with the same content returns the original version. With **different** content it returns `409` ("mutation key reused with different content"); this is enforced by migration `20261031090000_flp_isolation.sql`.
+
+Original uploads go in the private `design-assets` bucket under `<owner_id>/…`. Owners can read their own objects, and nobody can write directly; uploads will use server-issued signed URLs (S01 #170).
 
 ## Local development
 
@@ -93,6 +99,9 @@ These routes are the contract. They are not yet wired up: route handlers come wi
 supabase start
 supabase db reset
 supabase test db
+FLP_INTEGRATION=1 pnpm test:integration
 ```
+
+`pnpm test:integration` runs the API against the local stack with real user JWTs. It covers neutral 404s across owners, one-wins concurrent saves, idempotent retries, key reuse, the publication pointer, failed-write atomicity and attempts to bypass the API through REST. It needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local` (see `.env.example`).
 
 `supabase start` needs Docker. `supabase db reset` applies the migrations to an empty database, and `supabase test db` runs the pgTAP suite. No hosted project is linked yet.
