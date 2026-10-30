@@ -395,7 +395,13 @@ function SeatedForm({
     }
 
     lerpClock.current = Math.min(1, lerpClock.current + delta / 0.4)
-    lerpMaterials({ meshes, amount: 0.18 + lerpClock.current * 0.35 })
+    // Finish exactly on the target: with few frames (a background tab, or
+    // a capture right after a change) the partial blends alone stop short,
+    // leaving the garment near its old colour.
+    lerpMaterials({
+      meshes,
+      amount: lerpClock.current >= 1 ? 1 : 0.18 + lerpClock.current * 0.35,
+    })
   })
 
   return <GarmentNode node={tree} picking={picking} />

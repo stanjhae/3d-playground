@@ -23,6 +23,7 @@ import {
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
 import { RequireSession } from '../components/auth/RequireSession'
+import { CloudPublish } from '../components/editor/CloudPublish'
 import { CloudSaveStatus, useCloudAutosave } from '../components/editor/CloudSave'
 import { waitForSession } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
@@ -490,7 +491,16 @@ function AtelierHome() {
                   {enteredLabel}
                 </p>
               ) : null}
-              {showsShareRail({ step: createStep }) ? (
+              {showsShareRail({ step: createStep }) && cloudStatus === 'loaded' ? (
+                <CloudPublish />
+              ) : showsShareRail({ step: createStep }) && AUTH_REQUIRED ? (
+                <p className="font-body text-sm text-flv-muted">
+                  Publishing works from your own designs.{' '}
+                  <Link to="/studio" className="underline">
+                    Open My Studio
+                  </Link>
+                </p>
+              ) : showsShareRail({ step: createStep }) ? (
                 <PublishBar
                   publishing={publishing}
                   onPublish={async ({ design }) => {

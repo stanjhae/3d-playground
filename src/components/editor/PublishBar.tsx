@@ -40,6 +40,11 @@ import { trimAngleStillsForLook } from '../../lib/look-payload'
 
 let studioCanvas: HTMLCanvasElement | null = null
 
+/** The live studio canvas, for captures outside this bar (P02 #180). */
+export function getStudioCanvas() {
+  return studioCanvas
+}
+
 const METHOD_OPTIONS: { id: DesignMethod; label: string }[] = [
   { id: 'draw', label: HOUSE_COPY.drawMode },
   { id: 'tech', label: HOUSE_COPY.techMode },

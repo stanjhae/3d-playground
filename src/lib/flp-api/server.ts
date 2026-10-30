@@ -24,6 +24,13 @@ import {
   unknownLibraryReferences,
   uploadedAssetReferences,
 } from './contract.ts'
+import {
+  publishVersion,
+  readOwnerPublication,
+  readPublicDesign,
+  unpublish,
+  uploadRenders,
+} from './publication.ts'
 
 /**
  * FLP design API (S03 #172) behind `/api/flp/*`. The server is the trust
@@ -91,6 +98,13 @@ function json({ status, body }: { status: number; body: unknown }) {
     status,
     headers: { 'Cache-Control': 'no-store' },
   })
+}
+
+/** JSON response, or an empty one for 204. */
+function respond({ status, body }: { status: number; body?: unknown }) {
+  return status === 204
+    ? new Response(null, { status, headers: { 'Cache-Control': 'no-store' } })
+    : json({ status, body })
 }
 
 function fromError({ error }: { error: ApiError }) {
@@ -491,6 +505,21 @@ export async function handleFlpRequest({
 
   const [collection, designId, action, ...rest] = flpRoute({ request })
 
+  // GET /public/:slug — anonymous read of a published design (P04 #182).
+  if (collection === 'public') {
+    if (request.method !== 'GET' || action || rest.length > 0) {
+      return fromError({ error: apiError({ code: 'not_found', message: 'This design is not available' }) })
+    }
+
+    return readPublicDesign({
+      admin: createClient(env.url, env.secretKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      }),
+      slug: designId,
+      respond,
+    })
+  }
+
   if (collection === 'assets') {
     if (
       rest.length > 0 ||
@@ -519,6 +548,31 @@ export async function handleFlpRequest({
 
   if (collection === 'assets') {
     return handleAssetRequest({ request, admin, asUser, userId: user.userId, assetId: designId, action })
+  }
+
+  // Publication (P01–P05, #179–#183): renders and the public pointer.
+  if (designId && (action === 'renders' || action === 'publication')) {
+    if (action === 'publication' && request.method === 'GET') {
+      return readOwnerPublication({ asUser, designId, respond })
+    }
+
+    if (action === 'publication' && request.method === 'DELETE') {
+      return unpublish({ admin, userId: user.userId, designId, respond })
+    }
+
+    if (request.method !== 'POST') {
+      return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+    }
+
+    const body = await readJson({ request })
+
+    if (!body.ok) {
+      return fromError({ error: body.error })
+    }
+
+    return action === 'renders'
+      ? uploadRenders({ value: body.value, admin, asUser, designId, respond })
+      : publishVersion({ value: body.value, admin, asUser, userId: user.userId, designId, respond })
   }
 
   // GET /designs — the signed-in owner's designs, newest first.
