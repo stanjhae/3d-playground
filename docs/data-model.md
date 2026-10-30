@@ -158,6 +158,31 @@ FLP_INTEGRATION=1 pnpm test:integration
 - Only the exact revision sent is acknowledged. A `409` becomes **Changed elsewhere**, with **Open cloud version** or **Save mine as a copy**; nothing is overwritten.
 - A design with images that aren't uploaded yet shows **Waiting for images**. Library graphics (`asset_lib_<slug>`, `src/lib/library-assets.ts`) need no upload.
 
+**Account deletion (A07 #151):** deleting an auth user removes all of their designs, versions, publications and assets through the foreign-key cascades. The immutability trigger allows a version delete only inside `flp_delete_design` or as part of a cascade (`pg_trigger_depth() > 1`, migration `20261102090000_flp_cascade_deletes.sql`). A direct delete from a client, REST or SQL is still refused.
+
+## Publishing and the public page (P01–P05, #179–#183)
+
+Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/CloudPublish.tsx`, and the public page `src/routes/s.$slug.tsx`.
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /api/flp/designs/:id/renders` | Owner | `{ seq, renders: [{ kind, data }] }` with exactly `view_front`, `view_three_quarter` and `view_back`, base64 JPEG or PNG. Each image is checked by `validateImage` and stored privately at `<owner>/<design>/v<seq>/<kind>.jpg`; the `render_artifacts` rows become `ready`. |
+| `GET /api/flp/designs/:id/publication` | Owner | `{ publication: { slug, status, seq, displayName, rendersReadyForHead } \| null }` |
+| `POST /api/flp/designs/:id/publication` | Owner | `{ seq, displayName? }`. Refused (`422`, one issue per missing view) unless all three views of that exact version are ready. Then `flp_publish_version` moves the pointer in one step. Republishing keeps the slug. |
+| `DELETE /api/flp/designs/:id/publication` | Owner | `204`. The public page returns 404 immediately. |
+| `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where the render URLs are signed for **5 minutes**. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
+
+**Studio flow:**
+- **Publish…** is available only when the design shows **Saved to cloud**.
+- The review names the exact version and explains that anyone with the link can view it and copy its images.
+- **Confirm** captures the three views of that exact version, refusing if the design changed meanwhile, then uploads them and publishes.
+- The panel then shows "Published vX · draft vY", the link, **Copy link** and **Unpublish**.
+- Without a cloud design, and wherever sign-in is required, the legacy guest board publish is not offered.
+
+**Limits:**
+- A render URL issued before unpublishing works until it expires, at most 5 minutes later. Images someone already downloaded can't be recalled (PRD §6.3).
+- The public page is static views only; read-only 3D (PRD S3) would need the published texture.
+
 ## History, checkpoints and restore (S07 #176, S08 #177)
 
 No migration: history reads `design_versions` as the user, and checkpoints and restores use the existing `flp_save_version` and `flp_restore_version`.
@@ -181,5 +206,3 @@ Both read **as the user**. Another owner's design, a missing design and a malfor
 Restore never touches `publications`: the published look stays on its version until the owner republishes.
 
 **Studio:** `HistoryPanel` (`src/components/editor/HistoryPanel.tsx`) appears on `/create?cloud=<id>`. It shows version, name, type, time and **Current**/**Published**/**From vN** markers, plus **Load more**, **Preview** (a read-only summary of base and layers per panel, outside the editor store), **Save checkpoint** and **Restore**.
-
-**Known issue for A07 #151:** deleting an auth user who owns designs fails. The cascade into `design_versions` is blocked by the immutability trigger, which only allows deletes inside `flp_delete_design`. Account deletion must delete the user's designs through that function first, or the trigger must also allow cascades.
