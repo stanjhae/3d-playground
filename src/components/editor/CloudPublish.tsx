@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { captureAngleStills } from '../../lib/capture-still'
 import { useEditorStore } from '../../lib/editor-store'
@@ -38,6 +38,20 @@ export function CloudPublish() {
   const webglStatus = useWebglStore((state) => state.status)
   const [publication, setPublication] = useState<OwnerPublication | null>(null)
   const [reviewing, setReviewing] = useState(false)
+  const reviewRef = useRef<HTMLDivElement | null>(null)
+  const openRef = useRef<HTMLButtonElement | null>(null)
+  const reviewToggled = useRef(false)
+
+  // The review replaces the button that opened it: move focus with it, and
+  // back on Cancel, so keyboard users are not dropped on the page (#163).
+  useEffect(() => {
+    if (!reviewToggled.current) {
+      return
+    }
+
+    reviewToggled.current = false
+    ;(reviewing ? reviewRef.current : openRef.current)?.focus()
+  }, [reviewing])
   const [displayName, setDisplayName] = useState('')
   const [busy, setBusy] = useState<'publishing' | 'unpublishing' | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -198,7 +212,13 @@ export function CloudPublish() {
       )}
 
       {reviewing ? (
-        <div className="flex flex-col gap-3 border-t border-flv-line pt-3">
+        <div
+          ref={reviewRef}
+          tabIndex={-1}
+          role="group"
+          aria-label="Publish review"
+          className="flex flex-col gap-3 border-t border-flv-line pt-3"
+        >
           <p className="font-body text-sm">
             Publishing version <strong>v{headSeq}</strong> of “{cloud.title}”. Anyone with the link can view it, and
             public images can be copied. Later edits stay private until you publish again.
@@ -221,17 +241,28 @@ export function CloudPublish() {
             >
               {busy === 'publishing' ? 'Publishing…' : live ? `Publish v${headSeq}` : 'Confirm publish'}
             </button>
-            <button type="button" className={quietClass} onClick={() => setReviewing(false)}>
+            <button
+              type="button"
+              className={quietClass}
+              onClick={() => {
+                reviewToggled.current = true
+                setReviewing(false)
+              }}
+            >
               Cancel
             </button>
           </div>
         </div>
       ) : (
         <button
+          ref={openRef}
           type="button"
           className={buttonClass}
           disabled={!saved}
-          onClick={() => setReviewing(true)}
+          onClick={() => {
+            reviewToggled.current = true
+            setReviewing(true)
+          }}
         >
           {live ? (publication?.seq === headSeq ? 'Published' : 'Publish latest') : 'Publish…'}
         </button>

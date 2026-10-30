@@ -556,7 +556,15 @@ function PaintSurface({
         width={PANEL_CANVAS_WIDTH}
         height={PANEL_CANVAS_HEIGHT}
         role="img"
-        aria-label={`${HOUSE_COPY.designPanel} ${label}`}
+        aria-label={`${HOUSE_COPY.designPanel} ${label}${active ? ', active' : ''}`}
+        // A tab stop per panel (#163): focusing one makes it the panel a
+        // typed word lands on, with no pointer needed.
+        tabIndex={0}
+        onFocus={() => {
+          if (!active) {
+            onActivate()
+          }
+        }}
         className="h-full w-full cursor-crosshair touch-none bg-ivory"
         onPointerDown={(event) => {
           handlePointerDown({ event })
@@ -724,6 +732,7 @@ export function PaintCanvas({
             <button
               key={panel.id}
               type="button"
+              aria-pressed={paintPanel === panel.id}
               onClick={() => {
                 setPaintPanel({ paintPanel: panel.id })
               }}
