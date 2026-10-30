@@ -15,6 +15,9 @@ test.afterAll(async () => {
 })
 
 test('create → edit → save → publish → view signed out → unpublish → delete', async ({ page, browser }) => {
+  // CI runners render WebGL in software, so capturing the three views of a
+  // drawn design takes far longer than on a laptop.
+  test.setTimeout(240_000)
   const email = newEmail({ label: 'journey' })
   emails.push(email)
   await signIn({ page, email })
@@ -64,7 +67,7 @@ test('create → edit → save → publish → view signed out → unpublish →
   await page.getByRole('button', { name: 'Publish…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
-  await expect(link).toBeVisible({ timeout: 30_000 })
+  await expect(link).toBeVisible({ timeout: 120_000 })
   const shareUrl = (await link.getAttribute('href'))!
   const slug = shareUrl.split('/s/')[1]!
 

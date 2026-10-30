@@ -30,6 +30,8 @@ async function expectAccessible({ page, name }: { page: Page; name: string }) {
 }
 
 test('sign-in, My Studio, studio, shared page and privacy have no serious violations', async ({ page, browser }) => {
+  // Publishing renders three views in software WebGL on CI runners.
+  test.setTimeout(240_000)
   await page.goto('/sign-in')
   await expectAccessible({ page, name: 'sign-in' })
 
@@ -51,7 +53,7 @@ test('sign-in, My Studio, studio, shared page and privacy have no serious violat
   await page.getByRole('button', { name: 'Publish…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
-  await expect(link).toBeVisible({ timeout: 30_000 })
+  await expect(link).toBeVisible({ timeout: 120_000 })
 
   const visitor = await browser.newContext()
   const anonymous = await visitor.newPage()
