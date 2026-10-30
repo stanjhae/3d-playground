@@ -17,6 +17,7 @@ import {
   normalizeCanonicalDocument,
 } from './canonical-hash.ts'
 import { TEE_CREW_SHORT_V1 } from './template-manifest.ts'
+import { libraryAssetId } from './library-assets.ts'
 
 /**
  * Explicit legacy → canonical v2 import (FLP F06 #141).
@@ -464,12 +465,16 @@ function convertGraphicLayer({
     return null
   }
 
-  const assetId = reservedAssetId({ src })
-  context.pendingAssets.set(assetId, { assetId, src })
-  context.warnings.push({
-    path: `${path}.src`,
-    message: `image needs upload before cloud save (reserved ${assetId}); kept square as before`,
-  })
+  const libraryId = libraryAssetId({ src })
+  const assetId = libraryId ?? reservedAssetId({ src })
+
+  if (!libraryId) {
+    context.pendingAssets.set(assetId, { assetId, src })
+    context.warnings.push({
+      path: `${path}.src`,
+      message: `image needs upload before cloud save (reserved ${assetId}); kept square as before`,
+    })
+  }
 
   if (typeof record.color === 'string' && record.color.trim()) {
     context.warnings.push({

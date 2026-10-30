@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SoonRouteImport } from './routes/soon'
+import { Route as StudioRouteImport } from './routes/studio'
 import { Route as VoteRouteImport } from './routes/vote'
 import { Route as LookLookIdRouteImport } from './routes/look.$lookId'
 
@@ -36,6 +37,11 @@ const SoonRoute = SoonRouteImport.update({
   path: '/soon',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VoteRoute = VoteRouteImport.update({
   id: '/vote',
   path: '/vote',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/create': typeof CreateRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
+  '/studio': typeof StudioRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/create': typeof CreateRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
+  '/studio': typeof StudioRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
 }
@@ -69,20 +77,36 @@ export interface FileRoutesById {
   '/create': typeof CreateRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
+  '/studio': typeof StudioRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/create' | '/sign-in' | '/soon' | '/vote' | '/look/$lookId'
+  fullPaths:
+    | '/'
+    | '/create'
+    | '/sign-in'
+    | '/soon'
+    | '/studio'
+    | '/vote'
+    | '/look/$lookId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create' | '/sign-in' | '/soon' | '/vote' | '/look/$lookId'
+  to:
+    | '/'
+    | '/create'
+    | '/sign-in'
+    | '/soon'
+    | '/studio'
+    | '/vote'
+    | '/look/$lookId'
   id:
     | '__root__'
     | '/'
     | '/create'
     | '/sign-in'
     | '/soon'
+    | '/studio'
     | '/vote'
     | '/look/$lookId'
   fileRoutesById: FileRoutesById
@@ -92,6 +116,7 @@ export interface RootRouteChildren {
   CreateRoute: typeof CreateRoute
   SignInRoute: typeof SignInRoute
   SoonRoute: typeof SoonRoute
+  StudioRoute: typeof StudioRoute
   VoteRoute: typeof VoteRoute
   LookLookIdRoute: typeof LookLookIdRoute
 }
@@ -126,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SoonRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vote': {
       id: '/vote'
       path: '/vote'
@@ -148,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreateRoute: CreateRoute,
   SignInRoute: SignInRoute,
   SoonRoute: SoonRoute,
+  StudioRoute: StudioRoute,
   VoteRoute: VoteRoute,
   LookLookIdRoute: LookLookIdRoute,
 }

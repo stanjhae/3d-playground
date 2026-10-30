@@ -28,6 +28,7 @@ import {
   toColor,
   wrapAngle,
 } from './legacy-import.ts'
+import { LIBRARY_ASSET_SOURCES, libraryAssetId } from './library-assets.ts'
 import { canonicalPanel, toRenderDocument } from './render-projection.ts'
 
 /**
@@ -101,7 +102,7 @@ export function teeRenderDocument({ engine }: { engine: TeeEngine }) {
 
   const { document } = toRenderDocument({
     document: engine.stack.document,
-    assetSources: engine.assetSources,
+    assetSources: { ...LIBRARY_ASSET_SOURCES, ...engine.assetSources },
   })
   projectionCache.set(engine.stack.document, document)
   return document
@@ -257,10 +258,11 @@ export function translateCommand({
 
   if (command.type === 'addGraphic') {
     const { layer } = command
-    const assetId = reservedAssetId({ src: layer.src })
+    const libraryId = libraryAssetId({ src: layer.src })
+    const assetId = libraryId ?? reservedAssetId({ src: layer.src })
 
     return {
-      assetSources: { ...same, [assetId]: layer.src },
+      assetSources: libraryId ? same : { ...same, [assetId]: layer.src },
       command: {
         type: 'addLayer',
         panel: canonicalPanel({ renderPanel: layer.panel }),
