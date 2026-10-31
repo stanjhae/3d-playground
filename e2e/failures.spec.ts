@@ -316,6 +316,8 @@ test('a stale save from a second tab shows "Changed elsewhere"; opening the clou
 })
 
 test('a save in one tab never drops another tab’s unsaved local copy', async ({ page, context }) => {
+  // Two studios render at once; CI draws WebGL in software.
+  test.setTimeout(180_000)
   const { designId, url } = await openNewDesign({ page, label: 'twotabkeep' })
   const second = await context.newPage()
   await second.goto(url)
