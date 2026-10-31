@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 import { shareCardHtml } from '../og-card.ts'
-import { findPublishedDesign, publicImagePath } from './publication.ts'
+import { PUBLIC_CACHE_CONTROL, findPublishedDesign, publicImagePath } from './publication.ts'
 import { type FlpServerEnv, flpServerEnv } from './server.ts'
 
 /**
@@ -44,7 +44,7 @@ export async function handleSharePage({
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         // Short, so an unpublish clears the card from caches quickly.
-        'Cache-Control': 'public, max-age=60',
+        'Cache-Control': PUBLIC_CACHE_CONTROL,
       },
     },
   )

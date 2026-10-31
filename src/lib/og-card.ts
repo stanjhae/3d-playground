@@ -142,11 +142,15 @@ export function shareCardHtml({
   return lookCardHtml({
     title: shared.title,
     author: shared.displayName ?? '',
-    description: shared.displayName
-      ? `By ${shared.displayName.slice(0, 40)} on Fashion Leader Vote.`
-      : 'A design on Fashion Leader Vote.',
+    // P02 #180: say whose preview this is and what it is not.
+    description: `${
+      shared.displayName ? `By ${shared.displayName.slice(0, 40)} on Fashion Leader Vote.` : 'A design on Fashion Leader Vote.'
+    } ${PUBLIC_PREVIEW_DISCLAIMER}`,
     imageUrl: shared.imageUrl,
     imageType: shared.imageType,
     pageUrl: `${origin}/s/${encodeURIComponent(shared.slug)}`,
   })
 }
+
+/** Shown wherever a published design is presented publicly (P02 #180). */
+export const PUBLIC_PREVIEW_DISCLAIMER = 'Creator-supplied preview, not a certified fit or manufacturing render.'

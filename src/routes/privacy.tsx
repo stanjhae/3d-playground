@@ -49,8 +49,8 @@ function Privacy() {
         <h2 className={headingClass}>Who can see it</h2>
         <p className={textClass}>
           Only you can see your designs, history and uploads. A published design can be viewed, and its pictures
-          copied, by anyone with its link. Unpublishing or deleting it stops the link working straight away; a picture
-          someone already opened may stay in their browser for up to a minute.
+          copied, by anyone with its link. Unpublishing or deleting it stops the link and its pictures working straight
+          away. Pictures someone already saved can't be taken back.
         </p>
       </div>
 

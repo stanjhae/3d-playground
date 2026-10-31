@@ -148,6 +148,8 @@ describe.skipIf(!env)('publication against local Supabase', () => {
     const front = await handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost${page.renders.view_front}`) })
     expect(front.status).toBe(200)
     expect(front.headers.get('Content-Type')).toMatch(/^image\//)
+    expect(front.headers.get('Cache-Control')).toBe('no-store')
+    expect(anonymous.headers.get('Cache-Control')).toBe('no-store')
 
     // Saving after publish never moves what the public sees.
     const next = await save({ baseSeq: 1 })
