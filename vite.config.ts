@@ -134,7 +134,10 @@ function flvApiPlugin(): Plugin {
     config(_config, { mode }) {
       // Server-only SUPABASE_* values from .env.local for the dev API, the
       // way Vercel provides them in production. Never exposed to the client.
-      for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), 'SUPABASE_'))) {
+      // VITE_FLP_REQUIRE_AUTH tells the guest board whether it is closed (#144).
+      for (const [key, value] of Object.entries(
+        loadEnv(mode, process.cwd(), ['SUPABASE_', 'VITE_FLP_REQUIRE_AUTH']),
+      )) {
         process.env[key] ??= value
       }
     },

@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import { GET, POST } from '../../api/designs'
 import type { Design } from './design-schema'
-import { handleDesignsRequest } from './designs-handlers'
+import { guestBoardClosed, handleDesignsRequest } from './designs-handlers'
 import type { DesignsPersist } from './designs-persist'
 import { HOUSE_COPY } from './house-copy'
 import {
@@ -26,9 +26,53 @@ const GUEST_DRAFT = {
   overrides: [{ meshName: 'body' }],
 }
 
+const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env
+
+describe('guest board closed where sign-in is required (#144)', () => {
+  test('closed with Supabase configured unless sign-in is switched off', () => {
+    expect(guestBoardClosed({ env: {} })).toBe(false)
+    expect(guestBoardClosed({ env: { SUPABASE_URL: 'http://x' } })).toBe(true)
+    expect(guestBoardClosed({ env: { VITE_SUPABASE_URL: 'http://x', VITE_FLP_REQUIRE_AUTH: 'true' } })).toBe(true)
+    expect(guestBoardClosed({ env: { SUPABASE_URL: 'http://x', VITE_FLP_REQUIRE_AUTH: 'false' } })).toBe(false)
+  })
+
+  test('refuses new looks and votes but still lists', async () => {
+    const saved = { url: env.SUPABASE_URL, auth: env.VITE_FLP_REQUIRE_AUTH }
+    env.SUPABASE_URL = 'http://127.0.0.1:54321'
+    delete env.VITE_FLP_REQUIRE_AUTH
+
+    try {
+      const create = await handleDesignsRequest({
+        request: new Request('http://localhost/api/designs', { method: 'POST', body: JSON.stringify(GUEST_DRAFT) }),
+      })
+      const vote = await handleDesignsRequest({
+        request: new Request('http://localhost/api/designs?voteId=seed-1', { method: 'POST' }),
+      })
+      const list = await handleDesignsRequest({ request: new Request('http://localhost/api/designs') })
+
+      expect([create.status, vote.status, list.status]).toEqual([403, 403, 200])
+    } finally {
+      if (saved.url === undefined) delete env.SUPABASE_URL
+      else env.SUPABASE_URL = saved.url
+      if (saved.auth === undefined) delete env.VITE_FLP_REQUIRE_AUTH
+      else env.VITE_FLP_REQUIRE_AUTH = saved.auth
+    }
+  })
+})
+
 describe('designs HTTP handlers', () => {
+  // These cover the guest app, where sign-in is switched off.
+  let requireAuth: string | undefined
+
   beforeEach(() => {
     resetDesignsStore()
+    requireAuth = env.VITE_FLP_REQUIRE_AUTH
+    env.VITE_FLP_REQUIRE_AUTH = 'false'
+  })
+
+  afterEach(() => {
+    if (requireAuth === undefined) delete env.VITE_FLP_REQUIRE_AUTH
+    else env.VITE_FLP_REQUIRE_AUTH = requireAuth
   })
 
   test('GET lists ranked seed looks', async () => {

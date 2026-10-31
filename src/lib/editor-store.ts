@@ -230,7 +230,8 @@ type EditorState = {
     pressure?: number
   }) => void
   endStroke: () => void
-  clearInk: () => void
+  /** Clears the ink on one panel (default: the panel being drawn on). */
+  clearInk: ({ panel }?: { panel?: PanelId }) => void
   addGraphic: ({
     src,
     panel,
@@ -1284,10 +1285,10 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       }
     })
   },
-  clearInk: () => {
-    set(() =>
+  clearInk: ({ panel } = {}) => {
+    set((state) =>
       runCommand({
-        command: { type: 'clearPaint' },
+        command: { type: 'clearPaint', panel: panel ?? state.paintPanel },
         extra: { activeStroke: null },
       }),
     )

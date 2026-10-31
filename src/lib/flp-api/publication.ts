@@ -377,7 +377,7 @@ export async function findPublishedDesign({
 
   const { data: publication } = await admin
     .from('publications')
-    .select('slug, design_id, version_seq, display_name, published_at, status')
+    .select('slug, design_id, version_seq, display_name, title, published_at, status')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -385,24 +385,21 @@ export async function findPublishedDesign({
     return null
   }
 
-  const { data: design } = await admin
-    .from('designs')
-    .select('title')
-    .eq('id', publication.design_id)
-    .maybeSingle()
+  // The title the owner published with; a later rename shows only after
+  // publishing again (#150).
   const renderPaths = await readyRenderKinds({
     client: admin,
     designId: publication.design_id as string,
     seq: publication.version_seq as number,
   })
 
-  if (!design || PUBLIC_RENDER_KINDS.some((kind) => !renderPaths.has(kind))) {
+  if (!publication.title || PUBLIC_RENDER_KINDS.some((kind) => !renderPaths.has(kind))) {
     return null
   }
 
   return {
     slug,
-    title: design.title as string,
+    title: publication.title as string,
     displayName: (publication.display_name as string | null) ?? null,
     seq: publication.version_seq as number,
     publishedAt: publication.published_at as string,
