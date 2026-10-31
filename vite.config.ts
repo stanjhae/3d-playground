@@ -5,6 +5,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { loadEnv } from 'vite'
 import { defineConfig, type Plugin } from 'vitest/config'
 
+import { securityHeaders, supabaseMetaPolicy, supabaseOrigin } from './src/lib/security-headers.ts'
+
 async function incomingToRequest({
   req,
 }: {
@@ -100,10 +102,12 @@ async function handleApiRequest({
   req,
   res,
   next,
+  headers,
 }: {
   req: IncomingMessage
   res: ServerResponse
   next: () => void
+  headers: Record<string, string>
 }) {
   const url = req.originalUrl ?? req.url ?? ''
 
@@ -117,6 +121,10 @@ async function handleApiRequest({
     const response = await dispatchApi({ request })
 
     res.statusCode = response.status
+    // Vercel adds vercel.json headers to function responses too.
+    for (const [key, value] of Object.entries(headers)) {
+      res.setHeader(key, value)
+    }
     response.headers.forEach((value, key) => {
       res.setHeader(key, value)
     })
@@ -128,7 +136,13 @@ async function handleApiRequest({
   }
 }
 
-function flvApiPlugin(): Plugin {
+function flvApiPlugin({
+  headers,
+  previewHeaders,
+}: {
+  headers: Record<string, string>
+  previewHeaders: Record<string, string>
+}): Plugin {
   return {
     name: 'flv-api',
     config(_config, { mode }) {
@@ -143,29 +157,64 @@ function flvApiPlugin(): Plugin {
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        void handleApiRequest({ req, res, next })
+        void handleApiRequest({ req, res, next, headers })
       })
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
-        void handleApiRequest({ req, res, next })
+        void handleApiRequest({ req, res, next, headers: previewHeaders })
       })
     },
   }
 }
 
-export default defineConfig({
-  plugins: [
-    tanstackRouter({
-      target: 'react',
-      autoCodeSplitting: true,
-    }),
-    react(),
-    tailwindcss(),
-    flvApiPlugin(),
-  ],
-  test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
-  },
+/**
+ * The page narrows the deployed policy's Supabase wildcard to the
+ * configured project (Q02 #187); see src/lib/security-headers.ts.
+ */
+function supabaseCspPlugin({ supabase }: { supabase: string | null }): Plugin {
+  return {
+    name: 'flv-supabase-csp',
+    transformIndexHtml() {
+      return supabase
+        ? [
+            {
+              tag: 'meta',
+              attrs: { 'http-equiv': 'Content-Security-Policy', content: supabaseMetaPolicy({ supabase }) },
+              injectTo: 'head-prepend',
+            },
+          ]
+        : []
+    },
+  }
+}
+
+export default defineConfig(({ command, mode }) => {
+  const supabase = supabaseOrigin({ url: loadEnv(mode, process.cwd(), 'VITE_').VITE_SUPABASE_URL })
+  // Vite's dev client injects its React refresh preamble and CSS inline;
+  // a per-start nonce lets them run under the same policy as production.
+  const devNonce = command === 'serve' ? crypto.randomUUID().replaceAll('-', '') : undefined
+
+  const headers = securityHeaders({ supabase, devNonce })
+  const previewHeaders = securityHeaders({ supabase })
+
+  return {
+    html: devNonce ? { cspNonce: devNonce } : {},
+    server: { headers },
+    preview: { headers: previewHeaders },
+    plugins: [
+      tanstackRouter({
+        target: 'react',
+        autoCodeSplitting: true,
+      }),
+      react(),
+      tailwindcss(),
+      flvApiPlugin({ headers, previewHeaders }),
+      supabaseCspPlugin({ supabase }),
+    ],
+    test: {
+      environment: 'node',
+      include: ['src/**/*.test.ts'],
+    },
+  }
 })

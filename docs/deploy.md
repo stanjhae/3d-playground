@@ -55,7 +55,33 @@ Set these per environment (Preview = staging, Production = production). **Never 
 
 The functions in `vercel.json` (`api/flp.ts`, `api/og-share.ts`, …) include `src/lib/**`, so no extra build step is needed. Redeploy after changing any variable.
 
-## 4. Smoke checks (about 10 minutes)
+## 4. Security headers (Q02 #187)
+
+Every route, including the API and the crawler pages, gets the headers in `vercel.json` → `headers`: a Content-Security-Policy, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` and a `Permissions-Policy` that turns off camera, microphone, location, payment, sensors and the rest.
+
+The source is `src/lib/security-headers.ts`. `vercel.json` can't import code, so it holds a generated copy: after changing the policy run `node scripts/security-headers.mjs`. `pnpm test` fails while the two differ. The Vite dev and preview servers send the same headers from the same file, so `pnpm e2e` runs under the enforced policy and fails on any violation.
+
+What the policy allows, and why:
+
+| Directive | Value | Why |
+| --- | --- | --- |
+| `default-src` | `'self'` | Everything is served from the app's origin |
+| `script-src` | `'self' 'wasm-unsafe-eval'` | The Draco decoder for the compressed garments is WebAssembly. No `'unsafe-eval'` (three.js and R3F don't need it) and no inline script |
+| `style-src` | `'self'` | Tailwind builds to a file. React `style` props are set through the DOM, which CSP doesn't block |
+| `img-src` | `'self' data: blob:` + Supabase | Data and blob URLs for uploads, captures and textures; signed render URLs from Supabase Storage |
+| `connect-src` | `'self' blob:` + Supabase | The API, Supabase Auth and Storage; three's GLTFLoader fetches embedded textures from blob URLs |
+| `worker-src` | `'self' blob:` | drei runs the Draco decoder in blob-URL workers |
+| `font-src` | `'self' data:` | Bundled fonts |
+| `object-src` / `frame-ancestors` | `'none'` | No plugins; the site can't be framed |
+| `base-uri` / `form-action` | `'self'` | |
+
+**Supabase per environment.** `vercel.json` is shared by Preview and Production, which point at different projects, so the header allows `https://*.supabase.co`. At build time Vite adds a `<meta http-equiv="Content-Security-Policy">` to `index.html` that narrows `connect-src` and `img-src` to the build's `VITE_SUPABASE_URL`. Browsers enforce both policies, so each deployment can only reach its own project. Nothing to set beyond `VITE_SUPABASE_URL` (section 3). If a project ever moves to a custom domain, add it to `DEPLOYED_SUPABASE_SOURCE` and regenerate `vercel.json`.
+
+In dev, the header names the local stack (`http://127.0.0.1:54321`) exactly. It adds a per-start nonce for the React refresh preamble and the CSS that Vite's dev client injects inline. Nothing else differs from production.
+
+**Origin policy.** `/api/flp` refuses `POST`, `PATCH` and `DELETE` whose `Origin` isn't the deployment's own origin (`403 cross_origin`, see [data-model.md](data-model.md#trust-boundary)). It compares against the URL the function receives, which on Vercel is the public `https://` host. If saving fails on a new environment with `cross_origin`, a proxy in front is rewriting the host.
+
+## 5. Smoke checks (about 10 minutes)
 
 On the deployed URL:
 
@@ -67,6 +93,12 @@ On the deployed URL:
 6. Unpublish. The private window, reloaded, shows "This design is not available".
 7. Delete the design from My Studio.
 8. `/privacy` shows the contact address, and "Report this design" opens an email.
+9. `curl -sI https://staging.<domain>/` shows the `Content-Security-Policy` and the other headers from section 4. On any page, the DevTools console shows no "Content Security Policy" errors.
+10. A mutation from another origin is refused:
+    ```bash
+    curl -s -X DELETE -H 'Origin: https://example.com' https://staging.<domain>/api/flp/designs/00000000-0000-0000-0000-000000000000
+    ```
+    returns `403` with `cross_origin`.
 
 Then run the automated journey against the environment. This needs a test inbox the suite can read: point `MAILPIT_URL` at a staging mail catcher, or run only the signed-out checks.
 
@@ -76,13 +108,13 @@ E2E_BASE_URL=https://staging.<domain> SUPABASE_URL=… SUPABASE_SECRET_KEY=… p
 
 The suite creates `e2e-*@example.test` accounts and deletes them afterwards with the admin API. On staging, use a mail catcher (custom SMTP pointed at it) so codes are readable. Never run it against production.
 
-## 5. Rollback
+## 6. Rollback
 
 - **App:** in Vercel → Deployments, promote the previous deployment. Nothing else depends on the deployment version.
 - **Database:** migrations only add things. To undo one, write a new forward migration; don't edit an applied file. Before any risky migration, take a backup (Dashboard → Database → Backups, or `supabase db dump --linked -f backup.sql`). Restore-from-backup is drilled under Q09 #194.
 - **Leaked secret:** rotate the secret key in Supabase (Settings → API), update `SUPABASE_SECRET_KEY` in Vercel, and redeploy. The publishable key is public by design.
 
-## 6. Operations
+## 7. Operations
 
 - **Orphaned uploads:** run the cleanup weekly, dry run first.
   ```bash
