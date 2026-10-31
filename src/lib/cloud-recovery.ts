@@ -10,8 +10,13 @@ import { serializeCanonicalDocument } from './canonical-hash.ts'
  *
  * While a revision is not yet acknowledged by the cloud, the canonical
  * document is kept in IndexedDB under
- * `recovery/v1/<owner>/<design>/<schemaVersion>/<baseSeq>`; it is cleared
- * once the cloud acknowledges that revision. Records hold the document and
+ * `recovery/v1/<owner>/<design>/<writer>/<schemaVersion>/<baseSeq>`; it is
+ * cleared once the cloud acknowledges that revision. The writer is one tab
+ * (one page load), so two tabs on one design never replace or clear each
+ * other's unsaved work; opening the design offers the newest record of any
+ * writer, and choosing what to do with it deletes that record only. Records
+ * written before writers existed sit directly under the design and are
+ * still read. Records hold the document and
  * its cloud base only (never tokens or emails), and are looked up by owner,
  * so another account never lists or loads them. They are not deleted on
  * sign-out, so the same owner can recover after a session expires.
@@ -25,11 +30,15 @@ export type RecoveryStorage = {
   put: (key: string, value: string) => Promise<void>
   delete: (key: string) => Promise<void>
   keys: (prefix: string) => Promise<string[]>
+  /** Keys and values under a prefix in one round trip, where supported. */
+  readAll?: (prefix: string) => Promise<Array<[string, unknown]>>
 }
 
 export type RecoveryRecord = {
   ownerId: string
   designId: string
+  /** The tab that wrote it; absent on records from before writers. */
+  writerId?: string
   schemaVersion: number
   baseSeq: number
   /** Studio revision when written; only meaningful within one session. */
@@ -43,44 +52,109 @@ export type StorageFailure = 'unavailable' | 'quota' | 'failed'
 
 export type RecoveryWriteResult = { ok: true } | { ok: false; reason: StorageFailure }
 
+export type RecoveryEntry = { key: string; record: RecoveryRecord }
+
 export type RecoveryRead =
   | { status: 'none' }
-  | { status: 'found'; key: string; record: RecoveryRecord }
+  /** `key`/`record` are the newest; `entries` holds every record, newest first. */
+  | { status: 'found'; key: string; record: RecoveryRecord; entries: RecoveryEntry[] }
   | { status: 'corrupt'; keys: string[] }
   | { status: 'unavailable'; reason: StorageFailure }
+
+/** How long opening a design waits for local recovery before going on. */
+export const RECOVERY_READ_TIMEOUT_MS = 4000
+
+/**
+ * A recovery read that stops holding up the open after `ms` (#190). A slow
+ * or stuck read (seen on CI runners) resolves as `late`: the design opens,
+ * and the caller applies the read when it does answer, so a real local
+ * copy is still offered, just later.
+ */
+export function withRecoveryTimeout({
+  read,
+  ms,
+  setTimer = (callback, delay) => setTimeout(callback, delay),
+}: {
+  read: Promise<RecoveryRead>
+  ms: number
+  setTimer?: (callback: () => void, delay: number) => unknown
+}): Promise<RecoveryRead | { status: 'late' }> {
+  return new Promise((resolve) => {
+    let settled = false
+    setTimer(() => {
+      if (!settled) {
+        settled = true
+        console.warn(`[recovery] local read still pending after ${ms} ms; opening without it`)
+        resolve({ status: 'late' })
+      }
+    }, ms)
+    void read.then((value) => {
+      if (!settled) {
+        settled = true
+        resolve(value)
+      }
+    })
+  })
+}
 
 /** What opening a cloud design should offer, given what was found locally. */
 export type RecoveryOffer =
   | { kind: 'none' }
   /** Same owner, design and base: the local edits apply cleanly. */
-  | { kind: 'recover'; record: RecoveryRecord; document: CanonicalDocument }
+  | { kind: 'recover'; key: string; record: RecoveryRecord; document: CanonicalDocument }
   /** The cloud moved on since these edits; never overwrite it silently. */
-  | { kind: 'stale'; record: RecoveryRecord; document: CanonicalDocument }
+  | { kind: 'stale'; key: string; record: RecoveryRecord; document: CanonicalDocument }
   /** Written by another schema version, or no longer valid. */
-  | { kind: 'unsupported'; record: RecoveryRecord }
+  | { kind: 'unsupported'; key: string; record: RecoveryRecord }
 
 const ROOT = 'recovery/v1'
+
+/**
+ * This tab's writer id. Per page load, not per session storage: a
+ * duplicated tab must not share it, and a reload is offered the copy the
+ * previous load left.
+ */
+export const RECOVERY_WRITER_ID = `w-${
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}`
 
 function part(value: string) {
   return encodeURIComponent(value)
 }
 
-export function recoveryPrefix({ ownerId, designId }: { ownerId: string; designId?: string }) {
-  return designId ? `${ROOT}/${part(ownerId)}/${part(designId)}/` : `${ROOT}/${part(ownerId)}/`
+export function recoveryPrefix({
+  ownerId,
+  designId,
+  writerId,
+}: {
+  ownerId: string
+  designId?: string
+  writerId?: string
+}) {
+  if (!designId) {
+    return `${ROOT}/${part(ownerId)}/`
+  }
+
+  const design = `${ROOT}/${part(ownerId)}/${part(designId)}/`
+  return writerId ? `${design}${part(writerId)}/` : design
 }
 
 export function recoveryKey({
   ownerId,
   designId,
+  writerId,
   schemaVersion,
   baseSeq,
 }: {
   ownerId: string
   designId: string
+  writerId: string
   schemaVersion: number
   baseSeq: number
 }) {
-  return `${recoveryPrefix({ ownerId, designId })}${schemaVersion}/${baseSeq}`
+  return `${recoveryPrefix({ ownerId, designId, writerId })}${schemaVersion}/${baseSeq}`
 }
 
 export function storageFailure({ error }: { error: unknown }): StorageFailure {
@@ -101,6 +175,7 @@ export async function writeRecovery({
   storage,
   ownerId,
   designId,
+  writerId,
   baseSeq,
   revision,
   document,
@@ -109,6 +184,7 @@ export async function writeRecovery({
   storage: RecoveryStorage
   ownerId: string
   designId: string
+  writerId: string
   baseSeq: number
   revision: number
   document: CanonicalDocument
@@ -117,19 +193,21 @@ export async function writeRecovery({
   const record: RecoveryRecord = {
     ownerId,
     designId,
+    writerId,
     schemaVersion: document.schemaVersion,
     baseSeq,
     revision,
     savedAt: now,
     document,
   }
-  const key = recoveryKey({ ownerId, designId, schemaVersion: document.schemaVersion, baseSeq })
+  const key = recoveryKey({ ownerId, designId, writerId, schemaVersion: document.schemaVersion, baseSeq })
 
   try {
     await storage.put(key, JSON.stringify(record))
 
-    // One record per design: drop older bases once the new one is down.
-    for (const other of await storage.keys(recoveryPrefix({ ownerId, designId }))) {
+    // One record per writer: drop this tab's older bases once the new one
+    // is down. Other tabs' records are theirs.
+    for (const other of await storage.keys(recoveryPrefix({ ownerId, designId, writerId }))) {
       if (other !== key) {
         await storage.delete(other)
       }
@@ -141,17 +219,42 @@ export async function writeRecovery({
   }
 }
 
+/**
+ * Clear one writer's records for a design (its work was acknowledged), or
+ * every record for the design when no writer is given (the design is gone).
+ */
 export async function clearRecovery({
   storage,
   ownerId,
   designId,
+  writerId,
 }: {
   storage: RecoveryStorage
   ownerId: string
   designId: string
+  writerId?: string
 }): Promise<RecoveryWriteResult> {
   try {
-    for (const key of await storage.keys(recoveryPrefix({ ownerId, designId }))) {
+    for (const key of await storage.keys(recoveryPrefix({ ownerId, designId, writerId }))) {
+      await storage.delete(key)
+    }
+
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, reason: storageFailure({ error }) }
+  }
+}
+
+/** Delete exactly the records named (an offer that was answered). */
+export async function deleteRecovery({
+  storage,
+  keys,
+}: {
+  storage: RecoveryStorage
+  keys: string[]
+}): Promise<RecoveryWriteResult> {
+  try {
+    for (const key of keys) {
       await storage.delete(key)
     }
 
@@ -196,6 +299,7 @@ function parseRecord({
     typeof record.baseSeq !== 'number' ||
     typeof record.revision !== 'number' ||
     typeof record.savedAt !== 'number' ||
+    (record.writerId !== undefined && typeof record.writerId !== 'string') ||
     !('document' in record)
   ) {
     return null
@@ -214,22 +318,30 @@ export async function readRecovery({
   designId: string
 }): Promise<RecoveryRead> {
   try {
-    const keys = await storage.keys(recoveryPrefix({ ownerId, designId }))
-    let found: { key: string; record: RecoveryRecord } | null = null
+    const prefix = recoveryPrefix({ ownerId, designId })
+    // One transaction when the storage supports it: on a busy main thread
+    // each IndexedDB round trip can take seconds (#190).
+    const stored: Array<[string, unknown]> = storage.readAll
+      ? await storage.readAll(prefix)
+      : await Promise.all((await storage.keys(prefix)).map(async (key) => [key, await storage.get(key)] as [string, unknown]))
+    const entries: RecoveryEntry[] = []
     const corrupt: string[] = []
 
-    for (const key of keys) {
-      const record = parseRecord({ value: await storage.get(key), ownerId, designId })
+    for (const [key, value] of stored) {
+      const record = parseRecord({ value, ownerId, designId })
 
-      if (!record) {
+      if (record) {
+        entries.push({ key, record })
+      } else {
         corrupt.push(key)
-      } else if (!found || record.savedAt > found.record.savedAt) {
-        found = { key, record }
       }
     }
 
-    if (found) {
-      return { status: 'found', ...found }
+    entries.sort((a, b) => b.record.savedAt - a.record.savedAt)
+    const [newest] = entries
+
+    if (newest) {
+      return { status: 'found', ...newest, entries }
     }
 
     return corrupt.length > 0 ? { status: 'corrupt', keys: corrupt } : { status: 'none' }
@@ -238,9 +350,42 @@ export async function readRecovery({
   }
 }
 
+function entryOffer({
+  entry: { key, record },
+  cloudHeadSeq,
+  cloudSerialized,
+}: {
+  entry: RecoveryEntry
+  cloudHeadSeq: number
+  cloudSerialized: string
+}): RecoveryOffer {
+  if (record.schemaVersion !== CANONICAL_SCHEMA_VERSION) {
+    return { kind: 'unsupported', key, record }
+  }
+
+  const checked = validateCanonicalDocument({ value: record.document })
+
+  if (!checked.ok) {
+    return { kind: 'unsupported', key, record }
+  }
+
+  if (serializeCanonicalDocument({ document: checked.document }) === cloudSerialized) {
+    return { kind: 'none' }
+  }
+
+  return {
+    kind: record.baseSeq === cloudHeadSeq ? 'recover' : 'stale',
+    key,
+    record,
+    document: checked.document,
+  }
+}
+
 /**
- * Decide what to offer when a cloud design opens. Local work that matches
- * the cloud exactly is not worth a prompt; anything else needs a choice.
+ * Decide what to offer when a cloud design opens: the newest record of any
+ * writer that differs from the cloud. Local work that matches the cloud
+ * exactly is not worth a prompt (`settled` lists those records, safe to
+ * delete); anything else needs a choice, one record at a time.
  */
 export function recoveryOffer({
   read,
@@ -250,35 +395,26 @@ export function recoveryOffer({
   read: RecoveryRead
   cloudHeadSeq: number
   cloudDocument: CanonicalDocument
-}): RecoveryOffer {
+}): RecoveryOffer & { settled: string[] } {
+  const settled: string[] = []
+
   if (read.status !== 'found') {
-    return { kind: 'none' }
+    return { kind: 'none', settled }
   }
 
-  const { record } = read
+  const cloudSerialized = serializeCanonicalDocument({ document: cloudDocument })
 
-  if (record.schemaVersion !== CANONICAL_SCHEMA_VERSION) {
-    return { kind: 'unsupported', record }
+  for (const entry of read.entries) {
+    const offer = entryOffer({ entry, cloudHeadSeq, cloudSerialized })
+
+    if (offer.kind !== 'none') {
+      return { ...offer, settled }
+    }
+
+    settled.push(entry.key)
   }
 
-  const checked = validateCanonicalDocument({ value: record.document })
-
-  if (!checked.ok) {
-    return { kind: 'unsupported', record }
-  }
-
-  if (
-    serializeCanonicalDocument({ document: checked.document }) ===
-    serializeCanonicalDocument({ document: cloudDocument })
-  ) {
-    return { kind: 'none' }
-  }
-
-  return {
-    kind: record.baseSeq === cloudHeadSeq ? 'recover' : 'stale',
-    record,
-    document: checked.document,
-  }
+  return { kind: 'none', settled }
 }
 
 /**
@@ -301,7 +437,7 @@ export function liveRecoveryOffer({
   }
 
   return offer.record.baseSeq !== cloudHeadSeq || hasUnsavedEdits
-    ? { kind: 'stale', record: offer.record, document: offer.document }
+    ? { kind: 'stale', key: offer.key, record: offer.record, document: offer.document }
     : offer
 }
 
@@ -382,6 +518,19 @@ export const indexedDbRecoveryStorage: RecoveryStorage = {
       'readonly',
     )
     return keys.filter((key): key is string => typeof key === 'string')
+  },
+  readAll: async (prefix) => {
+    const range = IDBKeyRange.bound(prefix, `${prefix}￿`)
+    let values: unknown[] = []
+    // Keys and values from one transaction, in the same key order.
+    const keys = await request((store) => {
+      const valuesRequest = store.getAll(range)
+      valuesRequest.onsuccess = () => {
+        values = valuesRequest.result
+      }
+      return store.getAllKeys(range)
+    }, 'readonly')
+    return keys.flatMap((key, index) => (typeof key === 'string' ? [[key, values[index]] as [string, unknown]] : []))
   },
 }
 

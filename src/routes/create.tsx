@@ -39,8 +39,10 @@ import { accountGuard, useSessionStore, waitForSession } from '../lib/auth/sessi
 import {
   RECOVERY_WARNINGS,
   type RecoveryRead,
-  clearRecovery,
+  deleteRecovery,
+  RECOVERY_READ_TIMEOUT_MS,
   readRecovery,
+  withRecoveryTimeout,
   recoveryOffer,
 } from '../lib/cloud-recovery'
 import { resolveUploadedSources, uploadedAssetIds } from '../lib/uploaded-images'
@@ -157,6 +159,7 @@ function AtelierHome() {
     'idle' | 'loading' | 'loaded' | 'missing' | 'error'
   >('idle')
   useCloudAutosave()
+  const [openAttempt, setOpenAttempt] = useState(0)
   const [cloudStatus, setCloudStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'missing' | 'unsupported' | 'error'
   >('idle')
@@ -175,35 +178,29 @@ function AtelierHome() {
     useRecoveryStore.setState({ designId: null, offer: null, warning: null })
 
     // Local recovery is looked up only under the signed-in owner (S05 #174).
-    const recovery: Promise<RecoveryRead> = ownerId
+    // Opening a design never waits on local storage for long: a slow or
+    // stuck read opens the cloud version with the storage warning (#190).
+    // Opening a design never waits on local storage for long (#190): after
+    // RECOVERY_READ_TIMEOUT_MS the cloud version opens, and the local read
+    // is applied whenever it answers, so a real copy is still offered.
+    const fullRead: Promise<RecoveryRead> = ownerId
       ? readRecovery({ storage, ownerId, designId: cloudId })
       : Promise.resolve({ status: 'none' })
 
-    void Promise.all([
-      loadCloudDesign({ designId: cloudId, isCurrent: () => !cancelled }),
-      recovery,
-    ]).then(([result, read]) => {
-      if (cancelled || !stillSameAccount()) {
-        return
-      }
-
-      if (!result.ok) {
-        setCloudStatus(result.reason === 'account-changed' ? 'idle' : result.reason)
-        return
-      }
-
+    const applyRead = (read: RecoveryRead) => {
       const loaded = useEditorStore.getState().cloud
-      const offer = loaded
+      const { settled, ...offer } = loaded
         ? recoveryOffer({
             read,
             cloudHeadSeq: loaded.headSeq,
             cloudDocument: getCanonicalDocument(),
           })
-        : ({ kind: 'none' } as const)
+        : { kind: 'none' as const, settled: [] }
 
-      // A local copy identical to the cloud needs no question.
-      if (offer.kind === 'none' && read.status === 'found' && ownerId) {
-        void clearRecovery({ storage, ownerId, designId: cloudId })
+      // Local copies identical to the cloud need no question. Only those
+      // records go; other tabs' differing copies stay for their own offer.
+      if (settled.length > 0 && ownerId) {
+        void deleteRecovery({ storage, keys: settled })
       }
 
       if (offer.kind !== 'none') {
@@ -220,13 +217,47 @@ function AtelierHome() {
               ? RECOVERY_WARNINGS.corrupt
               : null,
       })
+    }
+
+    void Promise.all([
+      loadCloudDesign({ designId: cloudId, isCurrent: () => !cancelled }),
+      withRecoveryTimeout({ read: fullRead, ms: RECOVERY_READ_TIMEOUT_MS }),
+    ]).then(([result, read]) => {
+      if (cancelled) {
+        return
+      }
+
+      // The account settled or changed while opening: open again for the
+      // current one rather than staying on "Opening your design…".
+      if (!stillSameAccount()) {
+        console.warn('[cloud open] account changed while opening; opening again')
+        setOpenAttempt((attempt) => attempt + 1)
+        return
+      }
+
+      if (!result.ok) {
+        setCloudStatus(result.reason === 'account-changed' ? 'idle' : result.reason)
+        return
+      }
+
+      if (read.status === 'late') {
+        useRecoveryStore.setState({ designId: cloudId, offer: null, warning: null })
+        void fullRead.then((lateRead) => {
+          if (!cancelled && stillSameAccount() && useEditorStore.getState().cloud?.designId === cloudId) {
+            applyRead(lateRead)
+          }
+        })
+      } else {
+        applyRead(read)
+      }
+
       setCloudStatus('loaded')
     })
 
     return () => {
       cancelled = true
     }
-  }, [cloudId])
+  }, [cloudId, openAttempt])
 
   // Uploaded images in an opened (or recovered) cloud design: fetch bytes
   // for any asset id the renderer cannot draw yet.
