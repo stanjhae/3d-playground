@@ -219,6 +219,7 @@ function drawStroke({
     stroke.points.length === 1
       ? [stroke.points[0], stroke.points[0]]
       : stroke.points
+  const dots: { u: number; v: number; radius: number }[] = []
 
   for (let index = 1; index < points.length; index += 1) {
     const from = points[index - 1]
@@ -249,14 +250,79 @@ function drawStroke({
 
     for (let step = 0; step <= steps; step += 1) {
       const t = step / steps
-      stampDot({
-        buffer,
+      dots.push({
         u: start.u + (end.u - start.u) * t,
         v: start.v + (end.v - start.v) * t,
         radius,
-        color: stroke.color,
-        erase: stroke.tool === 'eraser',
       })
+    }
+  }
+
+  const { a } = hexToRgb({ color: stroke.color })
+
+  if (stroke.tool === 'eraser' || a >= 255) {
+    for (const dot of dots) {
+      stampDot({ buffer, ...dot, color: stroke.color, erase: stroke.tool === 'eraser' })
+    }
+    return
+  }
+
+  coverStroke({ buffer, dots, color: stroke.color })
+}
+
+/**
+ * A translucent brush stroke: the dots overlap many times along a stroke,
+ * so stamping each at the stroke's alpha would darken it toward opaque.
+ * Mark the covered pixels once, then composite each at the alpha exactly
+ * once, so a 30% stroke reads as 30% wherever it lies (#158).
+ */
+function coverStroke({
+  buffer,
+  dots,
+  color,
+}: {
+  buffer: AtlasBuffer
+  dots: { u: number; v: number; radius: number }[]
+  color: string
+}) {
+  const disks = dots.map((dot) => ({
+    ...atlasPixelForUv({ u: dot.u, v: dot.v, width: buffer.width, height: buffer.height }),
+    pixelRadius: Math.max(1, Math.round(dot.radius * buffer.width)),
+  }))
+  const x0 = Math.max(0, Math.min(...disks.map((disk) => disk.column - disk.pixelRadius)))
+  const y0 = Math.max(0, Math.min(...disks.map((disk) => disk.row - disk.pixelRadius)))
+  const x1 = Math.min(buffer.width - 1, Math.max(...disks.map((disk) => disk.column + disk.pixelRadius)))
+  const y1 = Math.min(buffer.height - 1, Math.max(...disks.map((disk) => disk.row + disk.pixelRadius)))
+
+  if (x1 < x0 || y1 < y0) {
+    return
+  }
+
+  const spanX = x1 - x0 + 1
+  const covered = new Uint8Array(spanX * (y1 - y0 + 1))
+
+  for (const { column, row, pixelRadius } of disks) {
+    for (let dy = -pixelRadius; dy <= pixelRadius; dy += 1) {
+      for (let dx = -pixelRadius; dx <= pixelRadius; dx += 1) {
+        const x = column + dx
+        const y = row + dy
+
+        if (dx * dx + dy * dy > pixelRadius * pixelRadius || x < x0 || y < y0 || x > x1 || y > y1) {
+          continue
+        }
+
+        covered[(y - y0) * spanX + (x - x0)] = 1
+      }
+    }
+  }
+
+  const { r, g, b, a } = hexToRgb({ color })
+
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
+      if (covered[(y - y0) * spanX + (x - x0)]) {
+        writePixel({ buffer, index: (y * buffer.width + x) * 4, r, g, b, a })
+      }
     }
   }
 }
@@ -497,6 +563,11 @@ function drawPatternMark({
   buffer: AtlasBuffer
   layer: Extract<DesignLayer, { kind: 'pattern' }>
 }) {
+  if (layer.period !== undefined && layer.patternId !== 'gradient') {
+    drawPeriodicPattern({ buffer, layer, period: layer.period })
+    return
+  }
+
   const tile = 64
   const source = createAtlasBuffer({ width: tile, height: tile })
   const { r, g, b, a } = hexToRgb({ color: layer.color })
@@ -562,6 +633,100 @@ function drawPatternMark({
   })
 }
 
+/**
+ * Stripes or check whose repeat is `period` atlas widths (half stripe,
+ * half gap), computed per atlas pixel so the period holds at every atlas
+ * size: 2D panel, scene and published art agree (#161). The stamp is the
+ * same rotated square as the legacy tile, and the phase starts at its
+ * top-left corner.
+ */
+function drawPeriodicPattern({
+  buffer,
+  layer,
+  period,
+}: {
+  buffer: AtlasBuffer
+  layer: Extract<DesignLayer, { kind: 'pattern' }>
+  period: number
+}) {
+  const { r, g, b, a } = hexToRgb({ color: layer.color })
+  const alpha = Math.round(a * Math.min(1, Math.max(0, layer.opacity ?? 1)))
+
+  if (alpha === 0) {
+    return
+  }
+
+  const origin = panelPointToUv({ panel: layer.panel, x: layer.x, y: layer.y })
+  const pixel = atlasPixelForUv({
+    u: origin.u,
+    v: origin.v,
+    width: buffer.width,
+    height: buffer.height,
+  })
+  const size = Math.max(18, Math.round(layer.scale * buffer.width))
+  const band = Math.max(1, (period * buffer.width) / 2)
+  const half = size / 2
+  const pad = Math.ceil(Math.hypot(size, size) / 2)
+  const cos = Math.cos(-layer.rotation)
+  const sin = Math.sin(-layer.rotation)
+  // Only visit pixels that can be written: the stamp within the clip.
+  const clip = buffer.clip ?? { x0: 0, y0: 0, x1: buffer.width, y1: buffer.height }
+  const row0 = Math.max(0, clip.y0, pixel.row - pad)
+  const row1 = Math.min(buffer.height - 1, clip.y1 - 1, pixel.row + pad)
+  const column0 = Math.max(0, clip.x0, pixel.column - pad)
+  const column1 = Math.min(buffer.width - 1, clip.x1 - 1, pixel.column + pad)
+
+  for (let row = row0; row <= row1; row += 1) {
+    for (let column = column0; column <= column1; column += 1) {
+
+      const localX = column - pixel.column
+      const localY = row - pixel.row
+      const x = localX * cos - localY * sin + half
+      const y = localX * sin + localY * cos + half
+
+      if (x < 0 || y < 0 || x >= size || y >= size) {
+        continue
+      }
+
+      const stripe = Math.floor(y / band)
+      const fill =
+        layer.patternId === 'check'
+          ? (Math.floor(x / band) + stripe) % 2 === 0
+          : stripe % 2 === 0
+
+      if (fill) {
+        writePixel({ buffer, index: (row * buffer.width + column) * 4, r, g, b, a: alpha })
+      }
+    }
+  }
+}
+
+/**
+ * What an image layer with no bytes shows (#154): a hatched box with a
+ * thin border at the layer's own box, at full strength whatever the
+ * layer's opacity, so a missing or undecodable asset is never invisible.
+ */
+export const PLACEHOLDER_INK = '#8c8478'
+
+function placeholderBuffer({ width, height }: { width: number; height: number }) {
+  const source = createAtlasBuffer({ width, height })
+  const { r, g, b } = hexToRgb({ color: PLACEHOLDER_INK })
+  const border = Math.max(1, Math.round(Math.min(width, height) / 48))
+  const spacing = Math.max(5, Math.round(Math.min(width, height) / 8))
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const edge = x < border || y < border || x >= width - border || y >= height - border
+      const hatch = (x + y) % spacing < Math.max(1, border)
+      const a = edge ? 235 : hatch ? 170 : 36
+
+      writePixel({ buffer: source, index: (y * width + x) * 4, r, g, b, a })
+    }
+  }
+
+  return source
+}
+
 function drawGraphicMark({
   buffer,
   layer,
@@ -571,10 +736,6 @@ function drawGraphicMark({
   layer: Extract<DesignLayer, { kind: 'graphic' }>
   image?: AtlasBuffer
 }) {
-  if (!image) {
-    return
-  }
-
   const origin = panelPointToUv({
     panel: layer.panel,
     x: layer.x,
@@ -590,6 +751,19 @@ function drawGraphicMark({
   const width = Math.max(12, Math.round(box.width * buffer.width))
   const height = Math.max(12, Math.round(box.height * buffer.width))
   const tint = layer.color ? hexToRgb({ color: layer.color }) : undefined
+
+  if (!image) {
+    blitBuffer({
+      dest: buffer,
+      source: placeholderBuffer({ width, height }),
+      destX: pixel.column - width / 2,
+      destY: pixel.row - height / 2,
+      destWidth: width,
+      destHeight: height,
+      rotation: layer.rotation,
+    })
+    return
+  }
 
   blitBuffer({
     dest: buffer,
@@ -674,9 +848,28 @@ export function rasterizeLayers({
     }
 
     if (layer.kind === 'paint') {
-      for (const stroke of layer.strokes) {
-        drawStroke({ buffer: target(stroke), stroke })
+      const opacity = Math.min(1, Math.max(0, layer.opacity ?? 1))
+
+      if (opacity >= 1) {
+        for (const stroke of layer.strokes) {
+          drawStroke({ buffer: target(stroke), stroke })
+        }
+        continue
       }
+
+      // A translucent layer is drawn on its own and composited once (#158),
+      // so its erasers only clear its own strokes, not what lies beneath.
+      const own = createAtlasBuffer({ width, height })
+
+      for (const stroke of layer.strokes) {
+        drawStroke({
+          buffer: document.garmentId === 'tee' ? clipToPanel({ buffer: own, panel: stroke.panel }) : own,
+          stroke,
+        })
+      }
+
+      blitBuffer({ dest: buffer, source: own, destX: 0, destY: 0, destWidth: width, destHeight: height, opacity })
+      continue
     }
 
     if (layer.kind === 'text') {

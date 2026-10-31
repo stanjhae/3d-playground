@@ -12,14 +12,17 @@ export function bindInkMap({
   inkMap: Texture | null
 }) {
   for (const mesh of meshes) {
+    // Trim such as the tee collar is built with `printable: false` (#165).
+    const meshInk = mesh.userData.printable === false ? null : inkMap
+
     for (const material of meshMaterials({ mesh })) {
       if (!(material instanceof MeshStandardMaterial)) {
         continue
       }
 
-      material.userData.inkMap = inkMap
+      material.userData.inkMap = meshInk
 
-      if (!inkMap) {
+      if (!meshInk) {
         material.customProgramCacheKey = () => 'cloth'
         material.onBeforeCompile = () => {}
         material.needsUpdate = true
@@ -28,7 +31,7 @@ export function bindInkMap({
 
       material.customProgramCacheKey = () => 'cloth-ink'
       material.onBeforeCompile = (shader) => {
-        shader.uniforms.inkMap = { value: inkMap }
+        shader.uniforms.inkMap = { value: meshInk }
         shader.vertexShader = shader.vertexShader.replace(
           '#include <common>',
           `#include <common>

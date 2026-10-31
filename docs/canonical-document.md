@@ -11,7 +11,7 @@ The 2D document is the source of truth. The renderer, saves and publication all 
 | Point `x`, `y` (layer centre, stroke points) | Panel-normalized `[0, 1]`. **Origin bottom-left, y up.** | `panelPointToUv` maps `y` straight to `v`, and atlas rows are `(1 − v) · height` |
 | Object `scale` | Fraction of **atlas width**, `(0, 1]` | Text font size and image size are `scale × atlas width` |
 | Stroke `width` | Fraction of atlas width, `[0.002, 0.25]` | Same meaning as v1 `stroke.width` |
-| Base pattern `period` | Fraction of atlas width, `[0.02, 0.5]` | New in v2 |
+| Base pattern `period` | Fraction of atlas width, `[0.02, 0.5]` | New in v2: one stripe plus one gap (#161) |
 | `rotation`, stripe `angle` | **Radians**, `(−π, π]`, stored as `(−3.141593, 3.141593]`. Positive turns clockwise on screen. | `context.rotate(rotation)` on a y-down canvas |
 
 Panels are **wearer-oriented**: `left` is the wearer's left sleeve. Each panel's print region and render mapping come from the pinned template manifest (`src/lib/template-manifest.ts`, F07 #142). Front and back are the upper half of the atlas and the sleeves the lower half. Canonical `left` and `right` use the opposite `DEFAULT_PANEL_UV` sleeve ids, because the render path names sleeves by mesh side, not wearer side.
@@ -99,8 +99,10 @@ Placement (`x`, `y`, `scale`, `rotation`) copies across unchanged, so `panelPoin
 `src/lib/render-projection.ts` is the **only** v2 → v1 conversion. It feeds the existing atlas, paint canvas and layer UI until R01 #164 renders from v2 directly.
 - Panels map through the template manifest (`canonicalPanel` and `renderPanel`).
 - The document's template version sets each panel's x direction. On `@2` the back is mirrored into render space (seen from behind), and `@1` keeps it as stored. The editor maps input back the same way. See docs/template-manifest.md (R02 #165).
-- Images need an `assetSources` map; one without a source is reported in `missingAssets` and not drawn.
-- Known gaps until R01/E10: the stripe/check period, brush and layer opacity, and image aspect (v1 stamps images square).
+- Images need an `assetSources` map. One without a source is reported in `missingAssets` and projected as a `missing` graphic with no `src`. The atlas, and so the 2D panel and the scene, draws it, or an image whose bytes failed to decode, as a placeholder at the layer's box: a hatched fill with a thin border in `#8c8478`, at full strength whatever the layer's opacity (#154). It cannot be copied, because there are no bytes to copy.
+- Brush opacity is carried in the stroke colour as `#rrggbbaa`, the encoding the live stroke already uses, so the slider's value is stored as the 8-bit alpha it was drawn with. Paint layer opacity is carried as the layer's `opacity`. A translucent stroke is composited once, not dot by dot, so a 30% stroke is 30% along its whole length. A translucent layer is drawn on its own and then composited, so its erasers clear only its own strokes. An opaque layer's erasers still clear everything beneath them (#158).
+- The base `period` becomes the base stamps' `period`. One stripe plus one gap spans `period` atlas widths, computed per atlas pixel, so the 512px atlas and the 256/160px published art agree. Switching stripes ↔ check keeps the period. Local drafts carry it back through the importer (#161).
+- Known gaps until R01: a local v1 draft drops image `aspect` and placeholder images on reload (the v1 parser keeps neither). Cloud saves are canonical and keep both.
 
 A test checks that a legacy design imported and then projected puts every supported layer and stroke back at the same atlas position.
 

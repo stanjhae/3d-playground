@@ -120,7 +120,10 @@ describe('editor uploads (S01 #170)', () => {
     const revision = store().revision
 
     expect(uploadedAssetIds({ document })).toEqual([ASSET])
-    expect(store().document.layers.some((layer) => layer.kind === 'graphic')).toBe(false)
+    // Until the bytes arrive the image is a placeholder (#154).
+    expect(store().document.layers).toContainEqual(
+      expect.objectContaining({ kind: 'graphic', src: '', missing: true }),
+    )
 
     const sources = await resolveUploadedSources({ document, fetchImpl: fakeServer().fetchImpl, createUrl: () => 'blob:y' })
     store().registerAssetSources({ sources })

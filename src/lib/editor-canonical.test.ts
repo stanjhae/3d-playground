@@ -119,9 +119,10 @@ describe('v1 → v2 store switch keeps the atlas pixel-identical', () => {
     expect(differingPixels({ a: before, b: after })).toBe(0)
   })
 
-  // Intentional change: v1 appended base-fill stamps after existing ink, so
-  // stripes chosen late covered earlier prints. v2 keeps the base under
-  // every print; with the stamps first, v1 renders identically.
+  // Intentional changes: v1 appended base-fill stamps after existing ink, so
+  // stripes chosen late covered earlier prints, and drew them at a fixed
+  // tile size. v2 keeps the base under every print at the base's own period
+  // (#161); with the stamps first and that period, v1 renders identically.
   test('the stripe base pattern (as the ground, under prints)', () => {
     const { before, after } = runBoth({
       extraV1: (document) => ({
@@ -139,6 +140,7 @@ describe('v1 → v2 store switch keeps the atlas pixel-identical', () => {
             rotation: 0,
             opacity: 0.55,
             visible: true,
+            period: 0.08,
           })),
           ...document.layers,
         ],

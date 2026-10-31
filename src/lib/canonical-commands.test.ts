@@ -297,10 +297,12 @@ describe('render projection', () => {
     ])
   })
 
-  test('an image without bytes is reported, not drawn', () => {
+  test('an image without bytes is reported and projected as a placeholder (#154)', () => {
     const { document: projected, missingAssets } = toRenderDocument({ document: GOLDEN_DOCUMENT })
 
     expect(missingAssets).toEqual(['asset_3f9a1c22b7'])
-    expect(projected.layers.some((layer) => layer.id === 'image-front')).toBe(false)
+    expect(projected.layers).toContainEqual(
+      expect.objectContaining({ id: 'image-front', kind: 'graphic', src: '', missing: true }),
+    )
   })
 })

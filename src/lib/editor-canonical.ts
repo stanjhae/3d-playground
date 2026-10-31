@@ -146,17 +146,20 @@ export function basePatternCommand({
 }): CanonicalCommand | null {
   const ground = baseGround({ document: engine.stack.document })
   const fill = toColor({ value: fillColor }) ?? ground
+  const current = engine.stack.document.base
+  // Switching stripes ↔ check keeps the chosen period (#161).
+  const period = current.kind === 'solid' ? 0.08 : current.period
 
   if (patternId === 'solid') {
     return { type: 'setBase', base: { kind: 'solid', color: ground } }
   }
 
   if (patternId === 'stripe') {
-    return { type: 'setBase', base: { kind: 'stripes', colors: [ground, fill], period: 0.08, angle: 0 } }
+    return { type: 'setBase', base: { kind: 'stripes', colors: [ground, fill], period, angle: 0 } }
   }
 
   if (patternId === 'check') {
-    return { type: 'setBase', base: { kind: 'check', colors: [ground, fill], period: 0.08 } }
+    return { type: 'setBase', base: { kind: 'check', colors: [ground, fill], period } }
   }
 
   return null
@@ -296,6 +299,11 @@ export function translateCommand({
   }
 
   if (command.type === 'addGraphic') {
+    // A placeholder (#154) has no bytes to copy from; it stays where it is.
+    if (!command.layer.src) {
+      return null
+    }
+
     const layer = fromRender(canonicalPanel({ renderPanel: command.layer.panel }), command.layer)
     const libraryId = libraryAssetId({ src: layer.src })
     // A copy of a placed upload keeps its finalized asset id (S01 #170).

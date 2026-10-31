@@ -2,6 +2,7 @@ import type {
   AngleCameraPreset,
   CameraPreset,
 } from './editor-store'
+import { STILL_FRAME } from './studio-camera'
 
 export type StudioCanvasProbe = {
   width: number
@@ -252,8 +253,7 @@ export async function frameStill({
 
     image.onload = () => {
       const frame = document.createElement('canvas')
-      const width = 480
-      const height = 600
+      const { width, height } = STILL_FRAME
       frame.width = width
       frame.height = height
 
@@ -264,7 +264,7 @@ export async function frameStill({
         return
       }
 
-      context.fillStyle = '#1c1814'
+      context.fillStyle = STILL_FRAME.fill
       context.fillRect(0, 0, width, height)
 
       const sourceRatio = image.width / Math.max(1, image.height)
