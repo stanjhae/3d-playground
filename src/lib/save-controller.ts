@@ -14,6 +14,7 @@ const LEGACY_ASSET_PREFIX = 'asset_legacy_'
  * - one mutation key per revision, reused on retry;
  * - only the exact revision sent is acknowledged as saved;
  * - a stale base (409) becomes `conflict` and stops; nothing is overwritten;
+ * - a server error (5xx) retries the same key with backoff (Q05 #190);
  * - cancel (navigation, account switch) drops late responses;
  * - a named checkpoint (S07 #176) waits its turn behind any save in flight
  *   and moves the same head, so autosave never races it;
@@ -65,6 +66,9 @@ export type SaveControllerOptions = {
 const CONFLICT_MESSAGE =
   'This design changed somewhere else. Open the cloud version or save yours as a copy.'
 
+const SERVER_FAILED_MESSAGE = 'The server could not save. Your work is kept here and will retry.'
+const MAX_RETRY_MS = 60_000
+
 /**
  * Library graphics ship with the app and uploads are placed only once
  * ready (S01 #170); a legacy placeholder id means bytes still exist only
@@ -104,6 +108,8 @@ export function createSaveController(options: SaveControllerOptions) {
   let timer: unknown = null
   let generation = 0
   let held = false
+  /** Server errors in a row, for backoff; reset on acknowledgement. */
+  let serverFailures = 0
   let idleWaiters: Array<() => void> = []
   const keys = new Map<number, string>()
   const listeners = new Set<(next: SaveState) => void>()
@@ -199,6 +205,7 @@ export function createSaveController(options: SaveControllerOptions) {
     settleInFlight()
 
     if (result.ok) {
+      serverFailures = 0
       keys.delete(sent.revision)
       emit({ savedRevision: sent.revision, headSeq: result.data.seq, message: null })
       onAcknowledged?.({ headSeq: result.data.seq, revision: sent.revision })
@@ -227,6 +234,15 @@ export function createSaveController(options: SaveControllerOptions) {
     if (result.code === 'rate_limited') {
       emit({ status: 'paused', message: 'Saving paused for a moment. It will retry by itself.' })
       schedule(Math.max(retryMs, (result.retryAfter ?? 0) * 1000))
+      return
+    }
+
+    // A passing server fault must not leave work unsaved until the creator
+    // notices; anything else (invalid, quota, signed out) needs them.
+    if (result.code === 'internal') {
+      serverFailures += 1
+      emit({ status: 'failed', message: SERVER_FAILED_MESSAGE })
+      schedule(Math.min(retryMs * 2 ** (serverFailures - 1), MAX_RETRY_MS))
       return
     }
 

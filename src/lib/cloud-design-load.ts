@@ -13,14 +13,32 @@ export type CloudLoadResult =
  * `/create?cloud=` and after a restore (S08 #177). `isCurrent` lets a
  * caller drop a response that arrives after it moved on.
  */
+/** Waits between tries when the server or network fails for a moment. */
+const RETRY_MS = [500, 1500]
+
 export async function loadCloudDesign({
   designId,
   isCurrent = () => true,
+  get = getOwnedDesign,
+  wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }: {
   designId: string
   isCurrent?: () => boolean
+  get?: typeof getOwnedDesign
+  wait?: (ms: number) => Promise<unknown>
 }): Promise<CloudLoadResult> {
-  const result = await getOwnedDesign({ designId })
+  let result = await get({ designId })
+
+  // A passing failure must not end as "could not open" while the design,
+  // and any local copy of it, are fine (Q05 #190).
+  for (const ms of RETRY_MS) {
+    if (result.ok || (result.code !== 'internal' && result.code !== 'network') || !isCurrent()) {
+      break
+    }
+
+    await wait(ms)
+    result = await get({ designId })
+  }
 
   if (!isCurrent()) {
     return { ok: false, reason: 'account-changed' }
