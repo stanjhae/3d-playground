@@ -59,6 +59,41 @@ export type RecoveryRead =
   | { status: 'corrupt'; keys: string[] }
   | { status: 'unavailable'; reason: StorageFailure }
 
+/** How long opening a design waits for local recovery before going on. */
+export const RECOVERY_READ_TIMEOUT_MS = 4000
+
+/**
+ * A recovery read that gives up after `ms`: storage that never answers
+ * (seen on slow CI runners) must not keep a design from opening. It is
+ * reported as unavailable, so the editor shows the storage warning.
+ */
+export function withRecoveryTimeout({
+  read,
+  ms,
+  setTimer = (callback, delay) => setTimeout(callback, delay),
+}: {
+  read: Promise<RecoveryRead>
+  ms: number
+  setTimer?: (callback: () => void, delay: number) => unknown
+}): Promise<RecoveryRead> {
+  return new Promise((resolve) => {
+    let settled = false
+    setTimer(() => {
+      if (!settled) {
+        settled = true
+        console.warn(`[recovery] local read timed out after ${ms} ms`)
+        resolve({ status: 'unavailable', reason: 'unavailable' })
+      }
+    }, ms)
+    void read.then((value) => {
+      if (!settled) {
+        settled = true
+        resolve(value)
+      }
+    })
+  })
+}
+
 /** What opening a cloud design should offer, given what was found locally. */
 export type RecoveryOffer =
   | { kind: 'none' }

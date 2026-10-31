@@ -12,6 +12,7 @@ import {
   recoveryKey,
   recoveryOffer,
   writeRecovery,
+  withRecoveryTimeout,
 } from './cloud-recovery'
 import { getCanonicalDocument, useEditorStore } from './editor-store'
 import type { FlpResult } from './flp-api/client'
@@ -398,5 +399,31 @@ describe('recovery binding', () => {
 
     expect(storage.entries.size).toBe(0)
     h.stop()
+  })
+})
+
+describe('withRecoveryTimeout (#190)', () => {
+  test('a read that never answers opens as unavailable after the limit', async () => {
+    let fire: (() => void) | null = null
+    const result = withRecoveryTimeout({
+      read: new Promise(() => {}),
+      ms: 4000,
+      setTimer: (callback) => {
+        fire = callback
+      },
+    })
+    fire!()
+
+    expect(await result).toEqual({ status: 'unavailable', reason: 'unavailable' })
+  })
+
+  test('a read that answers in time is passed through', async () => {
+    const result = withRecoveryTimeout({
+      read: Promise.resolve({ status: 'none' } as const),
+      ms: 4000,
+      setTimer: () => undefined,
+    })
+
+    expect(await result).toEqual({ status: 'none' })
   })
 })

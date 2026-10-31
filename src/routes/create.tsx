@@ -40,7 +40,9 @@ import {
   RECOVERY_WARNINGS,
   type RecoveryRead,
   deleteRecovery,
+  RECOVERY_READ_TIMEOUT_MS,
   readRecovery,
+  withRecoveryTimeout,
   recoveryOffer,
 } from '../lib/cloud-recovery'
 import { resolveUploadedSources, uploadedAssetIds } from '../lib/uploaded-images'
@@ -157,6 +159,7 @@ function AtelierHome() {
     'idle' | 'loading' | 'loaded' | 'missing' | 'error'
   >('idle')
   useCloudAutosave()
+  const [openAttempt, setOpenAttempt] = useState(0)
   const [cloudStatus, setCloudStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'missing' | 'unsupported' | 'error'
   >('idle')
@@ -175,15 +178,28 @@ function AtelierHome() {
     useRecoveryStore.setState({ designId: null, offer: null, warning: null })
 
     // Local recovery is looked up only under the signed-in owner (S05 #174).
+    // Opening a design never waits on local storage for long: a slow or
+    // stuck read opens the cloud version with the storage warning (#190).
     const recovery: Promise<RecoveryRead> = ownerId
-      ? readRecovery({ storage, ownerId, designId: cloudId })
+      ? withRecoveryTimeout({
+          read: readRecovery({ storage, ownerId, designId: cloudId }),
+          ms: RECOVERY_READ_TIMEOUT_MS,
+        })
       : Promise.resolve({ status: 'none' })
 
     void Promise.all([
       loadCloudDesign({ designId: cloudId, isCurrent: () => !cancelled }),
       recovery,
     ]).then(([result, read]) => {
-      if (cancelled || !stillSameAccount()) {
+      if (cancelled) {
+        return
+      }
+
+      // The account settled or changed while opening: open again for the
+      // current one rather than staying on "Opening your design…".
+      if (!stillSameAccount()) {
+        console.warn('[cloud open] account changed while opening; opening again')
+        setOpenAttempt((attempt) => attempt + 1)
         return
       }
 
@@ -227,7 +243,7 @@ function AtelierHome() {
     return () => {
       cancelled = true
     }
-  }, [cloudId])
+  }, [cloudId, openAttempt])
 
   // Uploaded images in an opened (or recovered) cloud design: fetch bytes
   // for any asset id the renderer cannot draw yet.
