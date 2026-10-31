@@ -166,6 +166,20 @@ function versionResponse({ row }: { row: DesignVersionRow }): VersionResponse {
   }
 }
 
+/**
+ * Mutations refuse a cross-origin `Origin` (Q02 #187). The bearer token is
+ * the credential, so this is defence in depth against CSRF, not access
+ * control; a missing `Origin` (curl, server-to-server) is allowed.
+ */
+export function crossOriginMutation({ request }: { request: Request }) {
+  if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS') {
+    return false
+  }
+
+  const origin = request.headers.get('origin')
+  return origin !== null && origin !== new URL(request.url).origin
+}
+
 /** Splits `/api/flp/designs/:id/versions` (or a rewritten `?path=`). */
 export function flpRoute({ request }: { request: Request }) {
   const url = new URL(request.url)
@@ -886,6 +900,13 @@ export async function handleFlpRequest({
   request: Request
   env?: FlpServerEnv | null
 }): Promise<Response> {
+  if (crossOriginMutation({ request })) {
+    return json({
+      status: 403,
+      body: { error: { code: 'cross_origin', message: 'Cross-origin requests are not allowed' } },
+    })
+  }
+
   if (!env) {
     return json({
       status: 503,

@@ -15,6 +15,7 @@ browser ──(session JWT)──▶ API (Vercel function)
 ```
 
 - **Clients** can only `SELECT` their own rows, enforced by RLS on every table. Every direct `INSERT`, `UPDATE` or `DELETE` is revoked, and the `flp_*` write functions are not executable by `anon` or `authenticated`.
+- **Origin policy (Q02 #187).** `POST`, `PATCH` and `DELETE` on `/api/flp` are refused with `403 cross_origin` when the request has an `Origin` header that isn't the API's own origin (scheme, host and port must match; `Origin: null` counts as cross-origin). Requests with no `Origin` (curl, server-to-server) and all reads are unaffected. The bearer token stays the credential: the browser sends it from JavaScript, never as a cookie, so this is defence in depth against cross-site requests, not access control. The check runs before the session is verified, so a refused request does no work. CORS is not relied on either: the API sends no `Access-Control-Allow-*` headers, and a refused mutation fails the same way whether or not the browser would have let the page read the response.
 - **The API** derives `p_owner_id` from the verified session. A request body containing an owner field is rejected as an unknown field. The API never trusts a hash or size sent by the client; it recomputes both.
 - **The database** checks structure again: `schemaVersion` matches, the hash format is valid, and size is bounded. It also enforces ownership, sequencing and cross-design references, so a bug in the API cannot corrupt history.
 
@@ -57,6 +58,7 @@ Quotas, retention and rate limits are described in [Quotas, retention and rate l
 | HTTP | `code` | Source |
 | --- | --- | --- |
 | 401 | `unauthenticated` | No verified session (`FL401`) |
+| 403 | `cross_origin` | A mutation from another origin (Q02 #187); checked first, before the session |
 | 404 | `not_found` | Missing **or not owned** (`FL404`); always "Design not found" |
 | 409 | `conflict` | Stale `baseSeq` (includes `headSeq`), a mutation key reused on another design (`FL409`), or finalize before the upload arrived |
 | 413 | `too_large` | Normalized content over 2,000,000 bytes (`prepareContent` or `FL413`) |
@@ -151,7 +153,7 @@ supabase test db
 FLP_INTEGRATION=1 pnpm test:integration
 ```
 
-`pnpm test:integration` runs the API against the local stack with real user JWTs. It covers neutral 404s across owners, one-wins concurrent saves, idempotent retries, key reuse, the publication pointer, failed-write atomicity and attempts to bypass the API through REST. `history.integration.test.ts` covers paging, preview reads, cross-owner 404s, checkpoint names, restore metadata with an unchanged publication, and concurrent restores. `assets.integration.test.ts` adds reserve → upload → finalize → save, metadata stripping, cross-owner refusal, blocked saves for unfinalized or rejected assets, and retrying an interrupted upload. It needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local` (see `.env.example`).
+`pnpm test:integration` runs the API against the local stack with real user JWTs. It covers neutral 404s across owners, one-wins concurrent saves, idempotent retries, key reuse, the publication pointer, failed-write atomicity and attempts to bypass the API through REST. `history.integration.test.ts` covers paging, preview reads, cross-owner 404s, checkpoint names, restore metadata with an unchanged publication, and concurrent restores. `assets.integration.test.ts` adds reserve → upload → finalize → save, metadata stripping, cross-owner refusal, blocked saves for unfinalized or rejected assets, and retrying an interrupted upload. `origin.integration.test.ts` checks that a valid token from another origin can't create, rename, unpublish or delete. It needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local` (see `.env.example`).
 
 `supabase start` needs Docker. `supabase db reset` applies the migrations to an empty database, and `supabase test db` runs the pgTAP suite. No hosted project is linked yet.
 
