@@ -75,6 +75,8 @@ export type PaintLayer = {
   visible: boolean
   strokes: Stroke[]
   label?: string
+  /** Whole-layer opacity; absent means 1 (#158). */
+  opacity?: number
 }
 
 export type GraphicLayer = {
@@ -92,6 +94,11 @@ export type GraphicLayer = {
   label?: string
   /** Natural width / height of an uploaded image; absent means square. */
   aspect?: number
+  /**
+   * The asset has no bytes to draw (`src` is empty): the atlas draws a
+   * hatched placeholder at the layer's box instead (#154).
+   */
+  missing?: true
 }
 
 export type TextLayer = {
@@ -132,6 +139,12 @@ export type PatternLayer = {
   opacity: number
   visible: boolean
   label?: string
+  /**
+   * One stripe + gap repeat, as a fraction of atlas width, drawn at the
+   * atlas's own resolution (the canonical base `period`, #161). Absent
+   * keeps the legacy stamp: a 64px tile scaled to the stamp.
+   */
+  period?: number
 }
 
 export type DesignLayer =
@@ -294,6 +307,9 @@ function parsePaintLayer({
     ...(parseLabel({ value: record.label })
       ? { label: parseLabel({ value: record.label }) }
       : {}),
+    ...(record.opacity !== undefined && parseOpacity({ value: record.opacity }) < 1
+      ? { opacity: parseOpacity({ value: record.opacity }) }
+      : {}),
   }
 }
 
@@ -442,6 +458,9 @@ function parsePatternLayer({
     visible: asBoolean({ value: record.visible, fallback: true }),
     ...(parseLabel({ value: record.label })
       ? { label: parseLabel({ value: record.label }) }
+      : {}),
+    ...(typeof record.period === 'number' && Number.isFinite(record.period) && record.period > 0
+      ? { period: record.period }
       : {}),
   }
 }

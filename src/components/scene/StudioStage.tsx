@@ -19,21 +19,13 @@ import {
   type StudioEnvMode,
 } from '../../lib/landing-demo'
 import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
+import {
+  CAMERA_PRESET_POSITIONS,
+  captureFov,
+  STUDIO_CAMERA,
+} from '../../lib/studio-camera'
 
-export const STUDIO_CAMERA = {
-  position: [2.35, 1.52, 3.45] as const,
-  target: [0, 0.78, 0] as const,
-  fov: 36,
-  near: 0.1,
-  far: 2000,
-}
-
-export const CAMERA_PRESET_POSITIONS = {
-  front: [0, 1.48, 4.1] as const,
-  threeQuarter: STUDIO_CAMERA.position,
-  back: [0.15, 1.48, -4.05] as const,
-  orbit: STUDIO_CAMERA.position,
-} as const
+export { CAMERA_PRESET_POSITIONS, STUDIO_CAMERA }
 
 export const INTRO_DURATION = 1.2
 const INTRO_FROM = [3.05, 1.82, 4.25] as const
@@ -184,7 +176,10 @@ export function StudioCamera({
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
     camera.far = STUDIO_CAMERA.far
-    camera.fov = STUDIO_CAMERA.fov
+    // Stills crop the canvas to 4:5; keep the garment inside it (#167).
+    camera.fov = capturingAngles
+      ? captureFov({ aspect: camera.aspect })
+      : STUDIO_CAMERA.fov
     camera.updateProjectionMatrix()
 
     if (freeOrbit) {

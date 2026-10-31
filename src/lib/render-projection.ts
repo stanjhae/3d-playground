@@ -19,9 +19,12 @@ import { CURRENT_TEMPLATE, resolveTemplate } from './template-manifest.ts'
  *   back exactly as stored (R02 #165). `mirrorToRender` is its own
  *   inverse, and the editor uses it to map render-space input back.
  * - Images need their bytes: `assetSources` maps asset id → src. An image
- *   without a source is skipped and reported, never drawn as a placeholder.
- * - Known gaps until R01/E10: base stripe/check period, brush and layer
- *   opacity, and image aspect (v1 stamps images square).
+ *   without a source is reported in `missingAssets` and projected as a
+ *   `missing` graphic with no src, which the atlas draws as a hatched
+ *   placeholder at the layer's box (#154).
+ * - Brush opacity rides in the stroke colour as `#rrggbbaa`, the same
+ *   encoding the live stroke uses, and paint layer opacity as the layer's
+ *   `opacity` (#158). The base `period` becomes the stamps' `period` (#161).
  */
 
 export type RenderProjection = {
@@ -90,6 +93,15 @@ export function mirrorToRender<T extends { x?: number; rotation?: number }>({
   }
 }
 
+/** `#rrggbb` when opaque, else `#rrggbbaa`, as `startStroke` encodes it. */
+function strokeColor({ color, opacity }: { color: string; opacity: number }) {
+  if (opacity >= 1) {
+    return color
+  }
+
+  return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`
+}
+
 export function toRenderDocument({
   document,
   assetSources = {},
@@ -122,6 +134,7 @@ export function toRenderDocument({
         }).rotation,
         opacity: 0.55,
         visible: true,
+        period: base.period,
       })
     }
   }
@@ -140,6 +153,7 @@ export function toRenderDocument({
           id: layer.id,
           kind: 'paint',
           visible: layer.visible,
+          ...(layer.opacity < 1 ? { opacity: layer.opacity } : {}),
           ...label,
           strokes: layer.strokes.map((stroke) => {
             const points = []
@@ -153,7 +167,7 @@ export function toRenderDocument({
               id: stroke.id,
               panel: render,
               points,
-              color: stroke.tool === 'brush' ? stroke.color : '#000000',
+              color: stroke.tool === 'brush' ? strokeColor(stroke) : '#000000',
               width: stroke.width,
               tool: stroke.tool,
             }
@@ -167,14 +181,14 @@ export function toRenderDocument({
 
         if (!src) {
           missingAssets.push(layer.assetId)
-          continue
         }
 
         layers.push({
           id: layer.id,
           kind: 'graphic',
           panel: render,
-          src,
+          src: src ?? '',
+          ...(src ? {} : { missing: true as const }),
           ...place(layer),
           y: layer.y,
           scale: layer.scale,
