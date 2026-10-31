@@ -30,6 +30,7 @@ import { atlasSourceRect } from '../../lib/panel-uv'
 import { cn } from '../../lib/cn'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
+import { CANONICAL_LIMITS } from '../../lib/canonical-document'
 
 const PANEL_CANVAS_WIDTH = 360
 const PANEL_CANVAS_HEIGHT = 420
@@ -207,6 +208,7 @@ function WordOnCloth({
       <input
         autoFocus
         value={draftWord}
+        maxLength={CANONICAL_LIMITS.textLength}
         onChange={(event) => {
           setDraftWord(event.target.value)
         }}
@@ -217,7 +219,9 @@ function WordOnCloth({
               editStartContent,
             })
           ) {
-            onCommit({ content: draftWord.slice(0, 32) })
+            // The whole word; the canonical limit is enforced (with a
+            // message) by the command, never by silently cutting it (#155).
+            onCommit({ content: draftWord })
           }
 
           onClose()

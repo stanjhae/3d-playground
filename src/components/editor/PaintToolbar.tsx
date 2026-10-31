@@ -15,6 +15,7 @@ import {
   railFrameClass,
 } from '../../lib/studio-chrome'
 import { uploadForStudio } from '../../lib/uploaded-images'
+import { ImportNotice } from './ImportNotice'
 import { LimitMeter } from './LimitMeter'
 
 function inkWidthLabel({ width }: { width: number }) {
@@ -85,6 +86,7 @@ export function PaintToolbar({
 
   return (
     <aside className={railFrameClass()}>
+      <ImportNotice />
       <LimitMeter />
       {showInk ? (
         <>

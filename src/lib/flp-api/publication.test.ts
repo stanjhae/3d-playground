@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { PUBLIC_RENDER_KINDS, PUBLIC_IMAGE_MAX_AGE, parseRenderUpload, publicImagePath } from './publication'
+import { PUBLIC_CACHE_CONTROL, PUBLIC_RENDER_KINDS, parseRenderUpload, publicImagePath } from './publication'
 
 const renders = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data: 'AAAA' }))
 
@@ -22,8 +22,8 @@ describe('parseRenderUpload', () => {
     expect(result.ok ? null : result.error.body.error.issues?.[0]?.path).toBe(path)
   })
 
-  test('public images are cached only briefly', () => {
-    expect(PUBLIC_IMAGE_MAX_AGE).toBeLessThanOrEqual(60)
+  test('public images and pages are never cached (#183)', () => {
+    expect(PUBLIC_CACHE_CONTROL).toBe('no-store')
   })
 })
 

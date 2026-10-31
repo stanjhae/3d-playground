@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { reportDesignHref } from '../lib/alpha-contact'
+import { PUBLIC_PREVIEW_DISCLAIMER } from '../lib/og-card'
 import { getPublicDesign } from '../lib/flp-api/client'
 import type { PublicDesign } from '../lib/flp-api/publication'
 
@@ -105,7 +106,7 @@ function SharedDesign() {
       </ul>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 font-body text-xs text-flv-muted">
-        <p>A garment visualization on a fixed T-shirt template, not a fit or manufacturing preview.</p>
+        <p>{PUBLIC_PREVIEW_DISCLAIMER} Shown on a fixed T-shirt template.</p>
         <p className="flex gap-4">
           {reportHref ? (
             <a className="underline hover:text-flv-accent" href={reportHref}>
