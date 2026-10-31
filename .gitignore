@@ -13,3 +13,6 @@ public/models/garment-house.glb
 /test-results/
 /playwright-report/
 /blob-report/
+
+# Demo fallback video (#201); recorded locally, never committed
+/demo-fallback.webm
