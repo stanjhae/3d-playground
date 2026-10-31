@@ -48,9 +48,26 @@ Legacy v1 imports (`legacy-import.ts`) still pin `@1`, because v1 placement is r
 
 ### Other findings
 
-- **Collar overlap.** The collar band samples the front panel above y ≈ 0.861, so marks drawn there also appear on the collar.
+- **Collar (R02 #165).** The collar band's UVs overlap the front panel above y ≈ 0.861. The collar is trim, so it never takes the print: `buildCollar` marks the mesh `userData.printable = false` and `bindInkMap` leaves it on the base fabric (base colour, roughness and fabric map). A mark at the top of the front shows on the body only (`collar-print.test.ts`). No UVs changed, so the front, back and sleeve prints are where they were, the GLB hash is unchanged, and this needs no new template version. Both `@1` and `@2` designs render this way, because the scene builds one geometry for both.
 - **Sleeve names.** The render panel `left` is built at −x, which is the wearer's right. The studio labels sleeves by wearer side (E02 #153).
 - **Panel clipping.** `rasterizeLayers` clips every tee stroke, text, image and pattern stamp to its own panel's atlas rectangle. A mark near an edge therefore never lands on the other sleeve or on the torso (E02 #153). Concept garments are not clipped.
+
+## Capture and framing (R04 #167)
+
+Studio views and published stills share one camera setup, `src/lib/studio-camera.ts`. The scene (`StudioStage.tsx`) and the capture path (`capture-still.ts`) both read it. The camera is separate from canonical content: switching views never changes the document or its revision.
+
+| Part | Contract |
+| --- | --- |
+| Camera | Perspective, vertical fov 36°, near 0.1, far 2000, always looking at `(0, 0.78, 0)` |
+| Presets | `front` (0, 1.48, 4.1), `threeQuarter` (2.35, 1.52, 3.45), `back` (0.15, 1.48, −4.05). `orbit` is free orbit (distance 3.2 to 6.5, polar 45° to 88°) and resets to `threeQuarter`. |
+| Published stills | Three, in order: `front`, `threeQuarter`, `back` (`captureAngleStills`). Orbit, auto-rotate and the intro are off while capturing, and each still waits for the preset to settle. |
+| Size and aspect | 480 × 600 (4:5), centre-cropped from the live canvas to cover the frame (`frameStill`) |
+| Canvas shape | A canvas wider than 4:5 is cropped at the sides at fov 36°. A narrower (portrait) canvas would be cropped top and bottom, so during capture its fov widens (`captureFov`) until the crop spans 36° vertically. Every canvas shape gives the same still. |
+| Margins | The whole garment, every vertex of the tee flat or worn, lies inside the still with at least 20% of the still's width or height clear on each side (`STILL_FRAME.minMargin`). Today the tee fills about the middle 35% across and 37% down. |
+| Background | Opaque, never transparent. The pixels are the scene background of the current environment: studio `#1c1814` (the default) or outdoor `#87a4b8`. The frame fill, `#1c1814`, only shows if the canvas fails to cover the frame. |
+| Encoding | JPEG, quality 0.72 after framing (the canvas is read at 0.82). Rendering: sRGB output, ACES filmic tone mapping, environment exposure, shadows on. |
+
+`capture-framing.test.ts` builds the tee (flat and worn), projects every vertex through each preset at canvas aspects 0.46 to 2.4, applies the same crop, and checks the margins and that every canvas shape gives the same still. Not covered: the try-on mannequin preview, which places the garment by avatar measurements.
 
 ## Versioning rule
 

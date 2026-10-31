@@ -296,6 +296,9 @@ function buildCollar({
   geometry.translate(0, neck === 'v' ? 1.24 : 1.32, 0)
   const mesh = new Mesh(geometry, cotton())
   mesh.name = 'body-collar'
+  // The band's UVs overlap the front print above y ≈ 0.861; it is trim,
+  // so it takes the base fabric only, never the print atlas (#165).
+  mesh.userData.printable = false
   mesh.castShadow = true
   return mesh
 }

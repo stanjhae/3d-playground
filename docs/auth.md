@@ -41,7 +41,7 @@ Wherever Supabase is configured, `/create` and `/studio` require a session (A05 
 
 ## Known gaps (tracked)
 
-- **Snapshots are not owner-scoped.** Cloud designs recover per owner (S05 #174, see `docs/data-model.md`), and the guest draft `flv:draft:current` is only used while signed out. Snapshots (`design-snapshots.ts`) still belong to no account.
+- **Snapshots are owner-scoped** (#147). Cloud designs recover per owner (S05 #174, see `docs/data-model.md`), and the guest draft `flv:draft:current` is only used while signed out. Snapshots (`design-snapshots.ts`) are stored under `flv:draft:mornings:<userId>` while signed in; signed-out guests keep `flv:draft:mornings`. The list refreshes on every account change.
 - **A signed-in publish still goes to the legacy guest board.** F09 #144 retires that path; P03 #181 publishes owned versions.
 - **No hosted project yet.** "Codes arrive on the deployed domain" (#145) is verified once one exists.
 

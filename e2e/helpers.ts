@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test'
+import { type BrowserContext, type Page, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { loadEnv } from 'vite'
 
@@ -85,4 +85,34 @@ export async function drawStroke({ page, panel }: { page: Page; panel: 'Front' |
 
 export async function expectSaved({ page }: { page: Page }) {
   await expect(page.getByRole('status').filter({ hasText: 'Saved to cloud' })).toBeVisible({ timeout: 20_000 })
+}
+
+/**
+ * Records every Content-Security-Policy violation on pages in `context`
+ * (into `violations` when given, to share one list across contexts)
+ * (Q02 #187): `securitypolicyviolation` events and the console reports
+ * Chromium logs for blocked loads. Assert with `expectNoCspViolations`.
+ */
+export async function watchCsp({ context, violations = [] }: { context: BrowserContext; violations?: string[] }) {
+  await context.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (event) => {
+      console.error(`CSP violation: ${event.effectiveDirective} blocked ${event.blockedURI || 'inline'} at ${event.sourceFile}:${event.lineNumber}`)
+    })
+  })
+  const listen = (page: Page) => {
+    page.on('console', (message) => {
+      const text = message.text()
+
+      if (/CSP violation|Content Security Policy/i.test(text)) {
+        violations.push(`${page.url()}: ${text}`)
+      }
+    })
+  }
+  context.pages().forEach(listen)
+  context.on('page', listen)
+  return violations
+}
+
+export function expectNoCspViolations({ violations }: { violations: string[] }) {
+  expect(violations, 'CSP violations').toEqual([])
 }

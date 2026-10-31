@@ -290,6 +290,8 @@ test('a stale save from a second tab shows "Changed elsewhere"; opening the clou
   page,
   context,
 }) => {
+  // Two studios render at once; CI draws WebGL in software.
+  test.setTimeout(180_000)
   const { designId, url } = await openNewDesign({ page, label: 'conflictopen' })
   const second = await context.newPage()
   await second.goto(url)
@@ -354,6 +356,8 @@ test('"Save mine as a copy" makes exactly one copy despite a lost answer and a d
   page,
   context,
 }) => {
+  // Two studios render at once; CI draws WebGL in software.
+  test.setTimeout(180_000)
   const { designId, url } = await openNewDesign({ page, label: 'conflictcopy' })
   const second = await context.newPage()
   await second.goto(url)

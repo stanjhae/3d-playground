@@ -20,15 +20,16 @@ import {
  * - Public read: anonymous, returns only title, display name and our own
  *   seq-pinned image URLs, and only while published. Never the document,
  *   history or owner (signed storage URLs would leak the owner ID in the
- *   path). Unpublish makes it 404 at once; images are cached for a minute.
+ *   path). Unpublish makes it 404 at once, and nothing public is cached
+ *   (#183), so no copy outlives the publication.
  */
 
 export const PUBLIC_RENDER_KINDS = ['view_front', 'view_three_quarter', 'view_back'] as const
 
 export type PublicRenderKind = (typeof PUBLIC_RENDER_KINDS)[number]
 
-/** Public views are cached briefly so an unpublish takes hold quickly. */
-export const PUBLIC_IMAGE_MAX_AGE = 60
+/** Public views and pages are never cached, so unpublishing is instant (#183). */
+export const PUBLIC_CACHE_CONTROL = 'no-store'
 
 const BUCKET = 'design-assets'
 const SLUG = /^[a-f0-9]{16}$/
@@ -504,7 +505,7 @@ export async function readPublicImage({
     status: 200,
     headers: {
       'Content-Type': data.type || 'image/jpeg',
-      'Cache-Control': `public, max-age=${PUBLIC_IMAGE_MAX_AGE}`,
+      'Cache-Control': PUBLIC_CACHE_CONTROL,
       'X-Content-Type-Options': 'nosniff',
     },
   })

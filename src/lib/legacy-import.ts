@@ -403,7 +403,7 @@ function convertPaintLayer({
       id: split ? `${id}--${panel}`.slice(0, CANONICAL_LIMITS.idLength) : id,
       kind: 'paint',
       visible: record.visible !== false,
-      opacity: 1,
+      opacity: isFiniteNumber(record.opacity) ? Math.min(1, Math.max(0, record.opacity)) : 1,
       ...layerName({ value: record.label }),
       strokes: panelStrokes,
     },
@@ -735,11 +735,19 @@ export function convertLegacyDesign({ value }: { value: unknown }): ConvertResul
       const fill = toColor({ value: layer.color })
       const ground = document.base.kind === 'solid' ? document.base.color : document.base.colors[0]
 
+      // A projected v2 base carries its period (#161); older stamps had none.
+      const period =
+        isFiniteNumber(layer.period) &&
+        layer.period >= CANONICAL_LIMITS.minPatternPeriod &&
+        layer.period <= CANONICAL_LIMITS.maxPatternPeriod
+          ? layer.period
+          : 0.08
+
       if (fill && document.base.kind === 'solid') {
         document.base =
           layer.patternId === 'stripe'
-            ? { kind: 'stripes', colors: [ground, fill], period: 0.08, angle: 0 }
-            : { kind: 'check', colors: [ground, fill], period: 0.08 }
+            ? { kind: 'stripes', colors: [ground, fill], period, angle: 0 }
+            : { kind: 'check', colors: [ground, fill], period }
         context.warnings.push({
           path,
           message: `garment ${layer.patternId === 'stripe' ? 'stripes' : 'check'} became the base pattern`,

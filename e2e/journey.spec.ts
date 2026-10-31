@@ -1,11 +1,21 @@
 import { expect, test } from '@playwright/test'
 
-import { deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
+import {
+  deleteAccounts,
+  drawStroke,
+  expectNoCspViolations,
+  expectSaved,
+  newEmail,
+  panelCanvas,
+  signIn,
+  watchCsp,
+} from './helpers'
 
 /**
  * The alpha journey end to end (Q04 #189): sign in, create, edit, save,
  * reload, rename, checkpoint and restore, publish, view signed out,
- * unpublish, delete.
+ * unpublish, delete. Every page runs under the enforced CSP and the
+ * journey fails on any violation (Q02 #187).
  */
 
 const emails: string[] = []
@@ -14,10 +24,11 @@ test.afterAll(async () => {
   await deleteAccounts({ emails })
 })
 
-test('create → edit → save → publish → view signed out → unpublish → delete', async ({ page, browser }) => {
+test('create → edit → save → publish → view signed out → unpublish → delete', async ({ page, context, browser }) => {
   // CI runners render WebGL in software, so capturing the three views of a
   // drawn design takes far longer than on a laptop.
   test.setTimeout(240_000)
+  const violations = await watchCsp({ context })
   const email = newEmail({ label: 'journey' })
   emails.push(email)
   await signIn({ page, email })
@@ -73,12 +84,16 @@ test('create → edit → save → publish → view signed out → unpublish →
 
   // A signed-out visitor sees the views and nothing private.
   const visitor = await browser.newContext()
+  await watchCsp({ context: visitor, violations })
   const anonymous = await visitor.newPage()
   const publicResponse = anonymous.waitForResponse((response) => response.url().includes(`/api/flp/public/${slug}`))
   await anonymous.goto(`/s/${slug}`)
   const payload = await (await publicResponse).json()
   await expect(anonymous.getByRole('heading', { name: 'E2E tee' })).toBeVisible()
   await expect(anonymous.getByRole('img')).toHaveCount(3)
+  await expect(anonymous.getByText('Creator-supplied preview, not a certified fit or manufacturing render.')).toBeVisible()
+  const image = await anonymous.request.get(payload.renders.view_front)
+  expect(image.headers()['cache-control']).toBe('no-store')
   expect(Object.keys(payload).sort()).toEqual(['displayName', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
   expect(JSON.stringify(payload)).not.toContain(designId)
   expect(JSON.stringify(payload)).not.toContain(email)
@@ -98,4 +113,5 @@ test('create → edit → save → publish → view signed out → unpublish →
   await anonymous.reload()
   await expect(anonymous.getByRole('heading', { name: 'This design is not available' })).toBeVisible()
   await visitor.close()
+  expectNoCspViolations({ violations })
 })

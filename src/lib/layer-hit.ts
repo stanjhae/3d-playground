@@ -6,6 +6,7 @@ import type {
   PatternLayer,
   TextLayer,
 } from './design-document'
+import { imageBox } from './canonical-document'
 
 export type PlaceableLayer = GraphicLayer | TextLayer | PatternLayer
 
@@ -35,9 +36,16 @@ export function layerBox({
     }
   }
 
+  // Uploaded images keep their natural aspect (E03 #154), so selection
+  // matches what is drawn instead of a square around it.
+  const box =
+    layer.kind === 'graphic' && layer.aspect && layer.aspect !== 1
+      ? imageBox({ scale: layer.scale, aspect: layer.aspect })
+      : { width: layer.scale, height: layer.scale }
+
   return {
-    width: Math.max(0.08, layer.scale),
-    height: Math.max(0.08, layer.scale),
+    width: Math.max(0.08, box.width),
+    height: Math.max(0.08, box.height),
   }
 }
 

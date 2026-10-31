@@ -4,6 +4,7 @@ import { createEmptyDocument, createObjectId } from './design-document'
 import {
   SNAPSHOT_STORAGE_KEY,
   createSnapshot,
+  listSnapshots,
   mergeSnapshots,
   parseSnapshots,
   rememberSnapshot,
@@ -130,5 +131,33 @@ describe('design snapshots', () => {
       configurable: true,
       value: undefined,
     })
+  })
+})
+
+describe('snapshots per account (#147)', () => {
+  test('one account never sees another account or a guest', () => {
+    const items = new Map<string, string>()
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => items.get(key) ?? null,
+        setItem: (key: string, value: string) => void items.set(key, value),
+        removeItem: (key: string) => void items.delete(key),
+      },
+    })
+
+    try {
+      const document = createEmptyDocument({ garmentId: 'tee' })
+      writeSnapshots({ ownerId: 'user-a', snapshots: [createSnapshot({ title: 'A morning', document })] })
+      writeSnapshots({ ownerId: null, snapshots: [createSnapshot({ title: 'Guest morning', document })] })
+
+      expect(listSnapshots({ ownerId: 'user-a' }).map((entry) => entry.title)).toEqual(['A morning'])
+      expect(listSnapshots({ ownerId: 'user-b' })).toEqual([])
+      expect(listSnapshots({ ownerId: null }).map((entry) => entry.title)).toEqual(['Guest morning'])
+      expect(items.has(SNAPSHOT_STORAGE_KEY)).toBe(true)
+      expect(items.has(`${SNAPSHOT_STORAGE_KEY}:user-a`)).toBe(true)
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: undefined })
+    }
   })
 })

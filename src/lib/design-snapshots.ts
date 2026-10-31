@@ -4,9 +4,21 @@ import {
   type DesignDocument,
 } from './design-document'
 import { createObjectId } from './design-document'
+import { useSessionStore } from './auth/session-store'
 import { isSafeThumbnail } from './look-thumbnail'
 
+/** Signed-out (guest) snapshots; a signed-in account gets its own key. */
 export const SNAPSHOT_STORAGE_KEY = 'flv:draft:mornings'
+
+/**
+ * Snapshots belong to the account that made them (A03 #147), so the next
+ * person on a shared browser never sees them. Guests keep the old key.
+ */
+export function snapshotStorageKey({
+  ownerId = useSessionStore.getState().account?.userId ?? null,
+}: { ownerId?: string | null } = {}) {
+  return ownerId ? `${SNAPSHOT_STORAGE_KEY}:${ownerId}` : SNAPSHOT_STORAGE_KEY
+}
 export const MAX_SNAPSHOTS = 8
 export const MAX_MORNINGS = 4
 export const MAX_ENTERED = 4
@@ -110,9 +122,9 @@ function memoryStore() {
   return (globalThis as { localStorage?: Storage }).localStorage ?? null
 }
 
-export function listSnapshots(): DesignSnapshot[] {
+export function listSnapshots({ ownerId }: { ownerId?: string | null } = {}): DesignSnapshot[] {
   return parseSnapshots({
-    value: memoryStore()?.getItem(SNAPSHOT_STORAGE_KEY),
+    value: memoryStore()?.getItem(snapshotStorageKey({ ownerId })),
   })
 }
 
@@ -134,12 +146,14 @@ function snapshotsWithoutStill({
 function tryWrite({
   store,
   snapshots,
+  key,
 }: {
   store: Storage
   snapshots: DesignSnapshot[]
+  key: string
 }) {
   store.setItem(
-    SNAPSHOT_STORAGE_KEY,
+    key,
     JSON.stringify(snapshots.slice(0, MAX_SNAPSHOTS)),
   )
 }
@@ -172,8 +186,10 @@ export function mergeSnapshots({
 
 export function writeSnapshots({
   snapshots,
+  ownerId,
 }: {
   snapshots: DesignSnapshot[]
+  ownerId?: string | null
 }) {
   const store = memoryStore()
 
@@ -181,10 +197,12 @@ export function writeSnapshots({
     return
   }
 
+  const key = snapshotStorageKey({ ownerId })
+
   const capped = snapshots.slice(0, MAX_SNAPSHOTS)
 
   try {
-    tryWrite({ store, snapshots: capped })
+    tryWrite({ store, snapshots: capped, key })
     return
   } catch {
     // The stills from a guest publish can fill the house. Keep the documents.
@@ -193,7 +211,7 @@ export function writeSnapshots({
   const slim = snapshotsWithoutStill({ snapshots: capped })
 
   try {
-    tryWrite({ store, snapshots: slim })
+    tryWrite({ store, snapshots: slim, key })
     return
   } catch {
     // Keep mornings before we empty the shelf.
@@ -204,10 +222,10 @@ export function writeSnapshots({
     .slice(0, MAX_MORNINGS)
 
   try {
-    tryWrite({ store, snapshots: mornings })
+    tryWrite({ store, snapshots: mornings, key })
   } catch {
     try {
-      store.setItem(SNAPSHOT_STORAGE_KEY, '[]')
+      store.setItem(key, '[]')
     } catch {
       return
     }

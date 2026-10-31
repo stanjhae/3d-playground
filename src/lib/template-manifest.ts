@@ -75,7 +75,7 @@ export type TemplateManifest = {
 
 const TORSO_V0 = 0.28
 
-/** Front panel height at which the collar band starts sampling it. */
+/** Front panel height above which the collar band's UVs overlap it. */
 const COLLAR_START_Y = 0.861
 
 export const TEE_CREW_SHORT_V1: TemplateManifest = Object.freeze({
@@ -121,7 +121,7 @@ export const TEE_CREW_SHORT_V1: TemplateManifest = Object.freeze({
         wearerLeftSideSeam: { x: 1, y: 0.5 },
       },
       notes: [
-        `The collar band reuses this panel above y ≈ ${COLLAR_START_Y}; marks there also show on the collar.`,
+        `The collar band's UVs overlap this panel above y ≈ ${COLLAR_START_Y}, but the collar is trim and never takes the print (#165): marks there show on the body only.`,
       ],
     },
     back: {

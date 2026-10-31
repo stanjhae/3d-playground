@@ -118,3 +118,31 @@ The CI limits sit about 15% over today. Raising one is a deliberate change: upda
 To re-measure: `pnpm build`, then `pnpm preview`, then load `/create?step=design` at 1440×900 with the cache disabled and sum the Network panel by type. For frame time, sample `requestAnimationFrame` deltas for ~10 s with vsync off.
 
 Cheap wins, not done here: drop the default-gown `useGLTF.preload` on the editor (saves ~900 KiB when another garment is chosen), and split `@supabase/supabase-js` out of the first paint.
+
+## Save and public-page timing (S04 #173, P04 #182)
+
+Measured 31 October 2026 with `e2e/measure.spec.ts` (`MEASURE=1`). Production build served by `pnpm preview` (API through the same middleware), local Supabase, headless Chromium on an Apple M3 laptop. Run it against any environment:
+
+```bash
+pnpm build && pnpm preview --port 5399
+MEASURE=1 E2E_BASE_URL=http://localhost:5399 pnpm exec playwright test measure
+```
+
+| Measure | Result | Target | Status |
+| --- | --- | --- | --- |
+| Save acknowledgement (save request sent → response), 25 autosaves | p50 134 ms, p95 255 ms, max 291 ms | p95 ≤ 2 s | Met |
+| Edit → "Saved to cloud" as seen, 5 edits | p50 2.36 s, max 2.75 s | 2 s quiet period by design, plus the acknowledgement | As designed |
+| ↳ of which edit → save request (the quiet period) | p50 1.86 s | 2 s debounce | As designed |
+| First public image, Fast 3G (562 ms RTT, 1.44 Mbit/s), cold cache, 390×844 | 4.6 s | ≤ 3 s | **Missed** |
+| First public image, Fast 3G, 1366×768 | 4.1 s | ≤ 3 s | **Missed** |
+
+The 390 px public page shows three stacked views, the disclaimer and the privacy link, with nothing clipped.
+
+**Why the public page misses on Fast 3G:** the first image waits on a chain of four round trips at 562 ms each: HTML, then the app JS (React, router and the Supabase client, which the public page doesn't need), then `/api/flp/public/:slug`, then the image. Fixes, in order of effect:
+1. Split the public route so it doesn't load the Supabase client or the editor.
+2. Have the server inline the public payload, or a `<link rel="preload">` for the front image, into the `/s/:slug` HTML, the same way the OG rewrite already reads the publication.
+3. Serve a smaller first image (e.g. 800 px WebP) for narrow screens.
+
+On a normal connection the first image appears in well under a second. These measurements are local; they need repeating on staging (#186).
+
+These are dev-server figures only if `E2E_BASE_URL` is unset. The dev server loads hundreds of unbundled modules, so its public-page time (≈47 s on Fast 3G) is meaningless; always measure a production build.
