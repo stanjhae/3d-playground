@@ -403,7 +403,7 @@ describe('recovery binding', () => {
 })
 
 describe('withRecoveryTimeout (#190)', () => {
-  test('a read that never answers opens as unavailable after the limit', async () => {
+  test('a read that has not answered by the limit resolves as late', async () => {
     let fire: (() => void) | null = null
     const result = withRecoveryTimeout({
       read: new Promise(() => {}),
@@ -414,7 +414,7 @@ describe('withRecoveryTimeout (#190)', () => {
     })
     fire!()
 
-    expect(await result).toEqual({ status: 'unavailable', reason: 'unavailable' })
+    expect(await result).toEqual({ status: 'late' })
   })
 
   test('a read that answers in time is passed through', async () => {

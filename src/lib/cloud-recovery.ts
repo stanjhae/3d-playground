@@ -30,6 +30,8 @@ export type RecoveryStorage = {
   put: (key: string, value: string) => Promise<void>
   delete: (key: string) => Promise<void>
   keys: (prefix: string) => Promise<string[]>
+  /** Keys and values under a prefix in one round trip, where supported. */
+  readAll?: (prefix: string) => Promise<Array<[string, unknown]>>
 }
 
 export type RecoveryRecord = {
@@ -63,9 +65,10 @@ export type RecoveryRead =
 export const RECOVERY_READ_TIMEOUT_MS = 4000
 
 /**
- * A recovery read that gives up after `ms`: storage that never answers
- * (seen on slow CI runners) must not keep a design from opening. It is
- * reported as unavailable, so the editor shows the storage warning.
+ * A recovery read that stops holding up the open after `ms` (#190). A slow
+ * or stuck read (seen on CI runners) resolves as `late`: the design opens,
+ * and the caller applies the read when it does answer, so a real local
+ * copy is still offered, just later.
  */
 export function withRecoveryTimeout({
   read,
@@ -75,14 +78,14 @@ export function withRecoveryTimeout({
   read: Promise<RecoveryRead>
   ms: number
   setTimer?: (callback: () => void, delay: number) => unknown
-}): Promise<RecoveryRead> {
+}): Promise<RecoveryRead | { status: 'late' }> {
   return new Promise((resolve) => {
     let settled = false
     setTimer(() => {
       if (!settled) {
         settled = true
-        console.warn(`[recovery] local read timed out after ${ms} ms`)
-        resolve({ status: 'unavailable', reason: 'unavailable' })
+        console.warn(`[recovery] local read still pending after ${ms} ms; opening without it`)
+        resolve({ status: 'late' })
       }
     }, ms)
     void read.then((value) => {
@@ -315,12 +318,17 @@ export async function readRecovery({
   designId: string
 }): Promise<RecoveryRead> {
   try {
-    const keys = await storage.keys(recoveryPrefix({ ownerId, designId }))
+    const prefix = recoveryPrefix({ ownerId, designId })
+    // One transaction when the storage supports it: on a busy main thread
+    // each IndexedDB round trip can take seconds (#190).
+    const stored: Array<[string, unknown]> = storage.readAll
+      ? await storage.readAll(prefix)
+      : await Promise.all((await storage.keys(prefix)).map(async (key) => [key, await storage.get(key)] as [string, unknown]))
     const entries: RecoveryEntry[] = []
     const corrupt: string[] = []
 
-    for (const key of keys) {
-      const record = parseRecord({ value: await storage.get(key), ownerId, designId })
+    for (const [key, value] of stored) {
+      const record = parseRecord({ value, ownerId, designId })
 
       if (record) {
         entries.push({ key, record })
@@ -510,6 +518,19 @@ export const indexedDbRecoveryStorage: RecoveryStorage = {
       'readonly',
     )
     return keys.filter((key): key is string => typeof key === 'string')
+  },
+  readAll: async (prefix) => {
+    const range = IDBKeyRange.bound(prefix, `${prefix}￿`)
+    let values: unknown[] = []
+    // Keys and values from one transaction, in the same key order.
+    const keys = await request((store) => {
+      const valuesRequest = store.getAll(range)
+      valuesRequest.onsuccess = () => {
+        values = valuesRequest.result
+      }
+      return store.getAllKeys(range)
+    }, 'readonly')
+    return keys.flatMap((key, index) => (typeof key === 'string' ? [[key, values[index]] as [string, unknown]] : []))
   },
 }
 

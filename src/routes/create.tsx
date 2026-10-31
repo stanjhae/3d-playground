@@ -180,34 +180,14 @@ function AtelierHome() {
     // Local recovery is looked up only under the signed-in owner (S05 #174).
     // Opening a design never waits on local storage for long: a slow or
     // stuck read opens the cloud version with the storage warning (#190).
-    const recovery: Promise<RecoveryRead> = ownerId
-      ? withRecoveryTimeout({
-          read: readRecovery({ storage, ownerId, designId: cloudId }),
-          ms: RECOVERY_READ_TIMEOUT_MS,
-        })
+    // Opening a design never waits on local storage for long (#190): after
+    // RECOVERY_READ_TIMEOUT_MS the cloud version opens, and the local read
+    // is applied whenever it answers, so a real copy is still offered.
+    const fullRead: Promise<RecoveryRead> = ownerId
+      ? readRecovery({ storage, ownerId, designId: cloudId })
       : Promise.resolve({ status: 'none' })
 
-    void Promise.all([
-      loadCloudDesign({ designId: cloudId, isCurrent: () => !cancelled }),
-      recovery,
-    ]).then(([result, read]) => {
-      if (cancelled) {
-        return
-      }
-
-      // The account settled or changed while opening: open again for the
-      // current one rather than staying on "Opening your design…".
-      if (!stillSameAccount()) {
-        console.warn('[cloud open] account changed while opening; opening again')
-        setOpenAttempt((attempt) => attempt + 1)
-        return
-      }
-
-      if (!result.ok) {
-        setCloudStatus(result.reason === 'account-changed' ? 'idle' : result.reason)
-        return
-      }
-
+    const applyRead = (read: RecoveryRead) => {
       const loaded = useEditorStore.getState().cloud
       const { settled, ...offer } = loaded
         ? recoveryOffer({
@@ -237,6 +217,40 @@ function AtelierHome() {
               ? RECOVERY_WARNINGS.corrupt
               : null,
       })
+    }
+
+    void Promise.all([
+      loadCloudDesign({ designId: cloudId, isCurrent: () => !cancelled }),
+      withRecoveryTimeout({ read: fullRead, ms: RECOVERY_READ_TIMEOUT_MS }),
+    ]).then(([result, read]) => {
+      if (cancelled) {
+        return
+      }
+
+      // The account settled or changed while opening: open again for the
+      // current one rather than staying on "Opening your design…".
+      if (!stillSameAccount()) {
+        console.warn('[cloud open] account changed while opening; opening again')
+        setOpenAttempt((attempt) => attempt + 1)
+        return
+      }
+
+      if (!result.ok) {
+        setCloudStatus(result.reason === 'account-changed' ? 'idle' : result.reason)
+        return
+      }
+
+      if (read.status === 'late') {
+        useRecoveryStore.setState({ designId: cloudId, offer: null, warning: null })
+        void fullRead.then((lateRead) => {
+          if (!cancelled && stillSameAccount() && useEditorStore.getState().cloud?.designId === cloudId) {
+            applyRead(lateRead)
+          }
+        })
+      } else {
+        applyRead(read)
+      }
+
       setCloudStatus('loaded')
     })
 
