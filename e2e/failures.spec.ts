@@ -214,22 +214,23 @@ test('429 pauses saving and retries the same save after Retry-After', async ({ p
   expect((await cloudDesign({ page, designId })).layers).toBe(1)
 })
 
-test('a 500 on save shows the failure, keeps the work and saves on retry', async ({ page }) => {
+test('500s on save show the failure, keep the work and retry the same save by themselves', async ({ page }) => {
   const { designId, gate } = await openNewDesign({ page, label: 'servererror' })
-  gate.plan.push(apiError({ status: 500, code: 'internal' }))
+  gate.plan.push(apiError({ status: 500, code: 'internal' }), apiError({ status: 500, code: 'internal' }))
 
   await drawStroke({ page, panel: 'Front' })
   await statusShows({ page, text: 'Save failed' })
   await gate.arm()
   await statusShows({ page, text: 'Kept on this device' })
-  await page.waitForTimeout(3_000)
-  await expect(page.getByRole('status').filter({ hasText: STATUS_SAVED })).toHaveCount(0)
+  await statusShows({ page, text: 'will retry' })
   expect((await cloudDesign({ page, designId })).layers).toBe(0)
 
-  await page.getByRole('button', { name: 'Save now' }).click()
+  // Backs off (4 s, then 8 s) and lands without the creator doing anything.
   await expectSaved({ page })
   expect(gate.early).toBe(0)
-  expect(gate.sent[1]!.mutationKey).toBe(gate.sent[0]!.mutationKey)
+  expect(gate.sent).toHaveLength(3)
+  expect(new Set(gate.sent.map((save) => save.mutationKey)).size).toBe(1)
+  expect(gate.sent[2]!.at - gate.sent[1]!.at).toBeGreaterThan(gate.sent[1]!.at - gate.sent[0]!.at)
   expect((await cloudDesign({ page, designId })).layers).toBe(1)
 })
 

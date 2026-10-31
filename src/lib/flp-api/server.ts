@@ -1027,22 +1027,34 @@ export async function handleFlpRequest({
 
   // GET /designs/:id — the design and its head version.
   if (request.method === 'GET' && designId && !action) {
-    const { data: design } = await asUser
+    const { data: design, error: designError } = await asUser
       .from('designs')
       .select('id, title, visibility, head_seq, updated_at')
       .eq('id', designId)
       .maybeSingle()
 
+    // A failed read is not a missing design: the owner would be told it is
+    // gone and never offered their local copy (Q05 #190).
+    if (designError) {
+      console.error('flp read failed', { code: designError.code, message: designError.message })
+      return internalError()
+    }
+
     if (!design) {
       return fromError({ error: apiError({ code: 'not_found', message: 'Design not found' }) })
     }
 
-    const { data: head } = await asUser
+    const { data: head, error: headError } = await asUser
       .from('design_versions')
       .select('seq, kind, content, content_hash, created_at')
       .eq('design_id', designId)
       .eq('seq', design.head_seq)
       .maybeSingle()
+
+    if (headError) {
+      console.error('flp read failed', { code: headError.code, message: headError.message })
+      return internalError()
+    }
 
     return json({
       status: 200,
