@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 
 import { reportDesignHref } from '../lib/alpha-contact'
 import { PUBLIC_PREVIEW_DISCLAIMER } from '../lib/og-card'
-import { getPublicDesign } from '../lib/flp-api/client'
+import { getPublicDesign } from '../lib/flp-api/public-read'
 import type { PublicDesign } from '../lib/flp-api/publication'
+import { STATIC_SHARE_ELEMENT_ID, takeEmbeddedPublicDesign } from '../lib/public-embed'
 
 /**
  * Public, read-only page for a published design (P04 #182). No sign-in.
@@ -26,10 +27,19 @@ function SharedDesign() {
   const { slug } = Route.useParams()
   const [state, setState] = useState<
     { status: 'loading' } | { status: 'missing' } | { status: 'error' } | { status: 'ready'; design: PublicDesign }
-  >({ status: 'loading' })
+  >(() => {
+    // The share page embeds the payload in the HTML, so the first render
+    // already has the views and the browser fetches the front at once.
+    const embedded = takeEmbeddedPublicDesign({ slug })
+    return embedded ? { status: 'ready', design: embedded } : { status: 'loading' }
+  })
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
+    if (state.status === 'ready' && state.design.slug === slug) {
+      return
+    }
+
     let cancelled = false
     setState({ status: 'loading' })
 
@@ -49,6 +59,14 @@ function SharedDesign() {
       cancelled = true
     }
   }, [slug])
+
+  // The server's pre-rendered views cover the app until this page has
+  // rendered (#182); take them away once there is something to show.
+  useEffect(() => {
+    if (state.status !== 'loading') {
+      document.getElementById(STATIC_SHARE_ELEMENT_ID)?.remove()
+    }
+  }, [state.status])
 
   if (state.status === 'loading') {
     return <p className="mx-auto max-w-4xl px-4 py-24 font-body text-sm text-flv-muted">Opening the design…</p>
