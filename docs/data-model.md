@@ -198,7 +198,7 @@ Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/
 | `GET /api/flp/designs/:id/publication` | Owner | `{ publication: { slug, status, seq, displayName, rendersReadyForHead } \| null }` |
 | `POST /api/flp/designs/:id/publication` | Owner | `{ seq, displayName? }`. Refused (`422`, one issue per missing view) unless all three views of that exact version are ready. Then `flp_publish_version` moves the pointer in one step. Republishing keeps the slug. |
 | `DELETE /api/flp/designs/:id/publication` | Owner | `204`. The public page returns 404 immediately. |
-| `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where the render URLs are signed for **5 minutes**. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
+| `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where each render URL is our own seq-pinned image route (`/api/flp/public/:slug/image…`), which checks the publication on every request. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
 
 **Studio flow:**
 - **Publish…** is available only when the design shows **Saved to cloud**.
@@ -208,7 +208,7 @@ Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/
 - Without a cloud design, and wherever sign-in is required, the legacy guest board publish is not offered.
 
 **Limits:**
-- A render URL issued before unpublishing works until it expires, at most 5 minutes later. Images someone already downloaded can't be recalled (PRD §6.3).
+- Public images, the public payload and the share page are sent with `Cache-Control: no-store` (#183), so unpublishing takes effect immediately for every viewer and CDN. Images someone already downloaded can't be recalled (PRD §6.3).
 - The public page is static views only; read-only 3D (PRD S3) would need the published texture.
 
 ## History, checkpoints and restore (S07 #176, S08 #177)

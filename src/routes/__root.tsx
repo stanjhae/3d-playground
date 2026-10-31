@@ -13,6 +13,7 @@ import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
 import { useEditorStore } from '../lib/editor-store'
 import { listDesigns } from '../lib/designs-api'
+import { listSnapshots } from '../lib/design-snapshots'
 import { FLV_COPY } from '../lib/flv-copy'
 import { HOUSE_LOOK_FALLBACK_ID, lookIdFromPathname } from '../lib/paths'
 import { rankDesigns } from '../lib/rank-designs'
@@ -29,6 +30,10 @@ onAccountChange((next) => {
   if (next && lastSignedInUserId && next.userId !== lastSignedInUserId) {
     useEditorStore.getState().reset()
   }
+
+  // Snapshots are kept per account (#147): show this account's, or the
+  // guest's after signing out.
+  useEditorStore.setState({ snapshots: listSnapshots({ ownerId: next?.userId ?? null }) })
 
   if (next) {
     lastSignedInUserId = next.userId

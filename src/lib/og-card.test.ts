@@ -216,7 +216,9 @@ describe('shareCardHtml', () => {
   test('without a display name it does not invent an author', () => {
     const html = shareCardHtml({ origin: 'https://house.test', shared: { ...shared, title: 'Tee', displayName: null } })
 
-    expect(html).toContain('og:description" content="A design on Fashion Leader Vote."')
+    expect(html).toContain(
+      'og:description" content="A design on Fashion Leader Vote. Creator-supplied preview, not a certified fit or manufacturing render."',
+    )
     expect(html).not.toContain('By ')
   })
 

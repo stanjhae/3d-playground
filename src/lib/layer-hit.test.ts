@@ -173,4 +173,24 @@ describe('layer hit', () => {
       }),
     ).toBe(false)
   })
+
+  test('a wide image selects its own box, not a square (#154)', () => {
+    const image = {
+      id: 'mark-wide',
+      kind: 'graphic' as const,
+      panel: 'front' as const,
+      src: 'blob:wide',
+      x: 0.5,
+      y: 0.5,
+      scale: 0.4,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      aspect: 2,
+    }
+
+    expect(layerBox({ layer: image })).toEqual({ width: 0.4, height: 0.2 })
+    expect(layerBox({ layer: { ...image, aspect: 0.5 } })).toEqual({ width: 0.2, height: 0.4 })
+    expect(layerBox({ layer: { ...image, aspect: undefined } })).toEqual({ width: 0.4, height: 0.4 })
+  })
 })

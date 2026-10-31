@@ -6,7 +6,9 @@ import { defineConfig, devices } from '@playwright/test'
  * `E2E_BASE_URL` at a deployed environment to run the same suite there.
  */
 
-const PORT = 5199
+// Each checkout can pick its own port; a server already on it is never
+// reused, so a run can't silently test another worktree's code.
+const PORT = Number(process.env.E2E_PORT ?? 5199)
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`
 
 export default defineConfig({
@@ -30,7 +32,7 @@ export default defineConfig({
         command: `pnpm dev --port ${PORT} --strictPort`,
         url: baseURL,
         env: { VITE_FLP_REQUIRE_AUTH: 'true' },
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 120_000,
       },
 })
