@@ -63,21 +63,37 @@ export function lookShareImage({
   }
 }
 
-export function lookCardHtml({
-  title,
-  author,
-  description,
-  imageUrl,
-  imageType = 'image/png',
-  pageUrl,
-}: {
+type CardInput = {
   title: string
   author: string
   description?: string
   imageUrl: string
   imageType?: string
   pageUrl: string
-}) {
+}
+
+export function lookCardHtml(card: CardInput) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+${lookCardHead(card)}
+  </head>
+  <body>
+    <p>Opening the look.</p>
+  </body>
+</html>`
+}
+
+/** The card's escaped head tags, for a crawler page or the app shell. */
+export function lookCardHead({
+  title,
+  author,
+  description,
+  imageUrl,
+  imageType = 'image/png',
+  pageUrl,
+}: CardInput) {
   const safeTitle = escapeXml({
     value: title.slice(0, 80) || 'Fashion Leader Vote',
   })
@@ -89,11 +105,24 @@ export function lookCardHtml({
   const safeImage = escapeXml({ value: imageUrl })
   const safePage = escapeXml({ value: pageUrl })
 
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>${safeTitle} — Fashion Leader Vote</title>
+  return cardHeadTags({ safeTitle, safeDescription, safeImage, safePage, imageType })
+}
+
+/** Title, description and link-preview tags for one card; inputs are escaped. */
+function cardHeadTags({
+  safeTitle,
+  safeDescription,
+  safeImage,
+  safePage,
+  imageType,
+}: {
+  safeTitle: string
+  safeDescription: string
+  safeImage: string
+  safePage: string
+  imageType: string
+}) {
+  return `    <title>${safeTitle} — Fashion Leader Vote</title>
     <meta name="description" content="${safeDescription}" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${safeTitle}" />
@@ -104,12 +133,7 @@ export function lookCardHtml({
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDescription}" />
-    <meta name="twitter:image" content="${safeImage}" />
-  </head>
-  <body>
-    <p>Opening the look.</p>
-  </body>
-</html>`
+    <meta name="twitter:image" content="${safeImage}" />`
 }
 
 /**
@@ -117,29 +141,34 @@ export function lookCardHtml({
  * title, display name and our stable image endpoint (never a signed URL,
  * which would expire in caches); anything else gets the site card.
  */
-export function shareCardHtml({
-  origin,
-  shared,
-}: {
-  origin: string
-  shared: {
-    slug: string
-    title: string
-    displayName: string | null
-    imageUrl: string
-    imageType: string
-  } | null
-}) {
+type SharedCard = {
+  slug: string
+  title: string
+  displayName: string | null
+  imageUrl: string
+  imageType: string
+} | null
+
+export function shareCardHtml({ origin, shared }: { origin: string; shared: SharedCard }) {
+  return lookCardHtml(shareCard({ origin, shared }))
+}
+
+/** The same card as head tags only, for the app shell at `/s/:slug`. */
+export function shareCardHead({ origin, shared }: { origin: string; shared: SharedCard }) {
+  return lookCardHead(shareCard({ origin, shared }))
+}
+
+function shareCard({ origin, shared }: { origin: string; shared: SharedCard }): CardInput {
   if (!shared) {
-    return lookCardHtml({
+    return {
       title: 'Fashion Leader Vote',
       author: '',
       imageUrl: `${origin}/og-default.png`,
       pageUrl: `${origin}/`,
-    })
+    }
   }
 
-  return lookCardHtml({
+  return {
     title: shared.title,
     author: shared.displayName ?? '',
     // P02 #180: say whose preview this is and what it is not.
@@ -149,7 +178,7 @@ export function shareCardHtml({
     imageUrl: shared.imageUrl,
     imageType: shared.imageType,
     pageUrl: `${origin}/s/${encodeURIComponent(shared.slug)}`,
-  })
+  }
 }
 
 /** Shown wherever a published design is presented publicly (P02 #180). */

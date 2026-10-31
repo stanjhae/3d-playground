@@ -110,15 +110,19 @@ async function handleApiRequest({
   headers: Record<string, string>
 }) {
   const url = req.originalUrl ?? req.url ?? ''
+  // `/s/:slug` is served by the share page for everyone, as on Vercel (#182).
+  const isSharePage = /^\/s\/[^/?.]+\/?(\?.*)?$/.test(url)
 
-  if (!url.startsWith('/api/')) {
+  if (!url.startsWith('/api/') && !isSharePage) {
     next()
     return
   }
 
   try {
     const request = await incomingToRequest({ req })
-    const response = await dispatchApi({ request })
+    const response = isSharePage
+      ? await (await import('./src/lib/flp-api/share-page.ts')).handleSharePage({ request })
+      : await dispatchApi({ request })
 
     res.statusCode = response.status
     // Vercel adds vercel.json headers to function responses too.

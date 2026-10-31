@@ -232,15 +232,19 @@ describe('shareCardHtml', () => {
   })
 
   test('the share page never reflects the requested slug when nothing is published', async () => {
-    const response = await handleSharePage({
-      env: null,
-      request: new Request('https://house.test/api/og-share?slug=%22%3E%3Cscript%3Ex%3C%2Fscript%3E'),
-    })
-    const html = await response.text()
+    for (const loadShell of [async () => null, async () => '<!doctype html><html><head><title>x</title></head><body></body></html>']) {
+      const response = await handleSharePage({
+        env: null,
+        loadShell,
+        request: new Request('https://house.test/api/og-share?slug=%22%3E%3Cscript%3Ex%3C%2Fscript%3E'),
+      })
+      const html = await response.text()
 
-    expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8')
-    expect(html).toContain('og:title" content="Fashion Leader Vote"')
-    expect(html).not.toContain('<script')
-    expect(html).not.toContain('&lt;script')
+      expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8')
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      expect(html).toContain('og:title" content="Fashion Leader Vote"')
+      expect(html).not.toContain('<script')
+      expect(html).not.toContain('&lt;script')
+    }
   })
 })

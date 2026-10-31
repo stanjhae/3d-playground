@@ -133,15 +133,18 @@ MEASURE=1 E2E_BASE_URL=http://localhost:5399 pnpm exec playwright test measure
 | Save acknowledgement (save request sent → response), 25 autosaves | p50 134 ms, p95 255 ms, max 291 ms | p95 ≤ 2 s | Met |
 | Edit → "Saved to cloud" as seen, 5 edits | p50 2.36 s, max 2.75 s | 2 s quiet period by design, plus the acknowledgement | As designed |
 | ↳ of which edit → save request (the quiet period) | p50 1.86 s | 2 s debounce | As designed |
-| First public image, Fast 3G (562 ms RTT, 1.44 Mbit/s), cold cache, 390×844 | 4.6 s | ≤ 3 s | **Missed** |
-| First public image, Fast 3G, 1366×768 | 4.1 s | ≤ 3 s | **Missed** |
+| First public image, Fast 3G (562 ms RTT, 1.44 Mbit/s), cold cache, 390×844 | 4.6 s → **2.14 s** | ≤ 3 s | **Met** (#182, 31 Oct) |
+| First public image, Fast 3G, 1366×768 | 4.1 s → **2.13 s** | ≤ 3 s | **Met** |
 
 The 390 px public page shows three stacked views, the disclaimer and the privacy link, with nothing clipped.
 
-**Why the public page misses on Fast 3G:** the first image waits on a chain of four round trips at 562 ms each: HTML, then the app JS (React, router and the Supabase client, which the public page doesn't need), then `/api/flp/public/:slug`, then the image. Fixes, in order of effect:
-1. Split the public route so it doesn't load the Supabase client or the editor.
-2. Have the server inline the public payload, or a `<link rel="preload">` for the front image, into the `/s/:slug` HTML, the same way the OG rewrite already reads the publication.
-3. Serve a smaller first image (e.g. 800 px WebP) for narrow screens.
+**How the public page got under 3 s (#182):** the first image used to wait on four round trips in a row: HTML, then the app JS, then `/api/flp/public/:slug`, then the image. Now `/s/:slug` is served by the share page for every visitor (`src/lib/flp-api/share-page.ts`, through the `vercel.json` rewrite and the dev/preview middleware). It returns the app shell with:
+- the share card in the head;
+- `<link rel="preload">` for the front view;
+- the public payload as a JSON data block (CSP-safe; it doesn't execute);
+- the three views pre-rendered as plain HTML in an overlay outside `#root`.
+
+The image therefore downloads in parallel with the app, shows before React mounts, and the page removes the overlay once it has rendered. A frame-by-frame check showed no blank gap and no duplicate images. Timing starts at navigation commit and ends when the first `main img` has decoded; until 31 Oct the spec waited for the `load` event, which also counted the full JS download.
 
 On a normal connection the first image appears in well under a second. These measurements are local; they need repeating on staging (#186).
 

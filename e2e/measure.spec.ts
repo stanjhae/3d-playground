@@ -81,7 +81,7 @@ test('save acknowledgement and public first image', async ({ page, browser }) =>
     })
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
     const start = Date.now()
-    await visitor.goto(path)
+    await visitor.goto(path, { waitUntil: 'commit' })
     await visitor.waitForFunction(() => {
       const img = document.querySelector('main img') as HTMLImageElement | null
       return Boolean(img && img.complete && img.naturalWidth > 0)

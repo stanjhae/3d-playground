@@ -86,9 +86,16 @@ test('create → edit → save → publish → view signed out → unpublish →
   const visitor = await browser.newContext()
   await watchCsp({ context: visitor, violations })
   const anonymous = await visitor.newPage()
-  const publicResponse = anonymous.waitForResponse((response) => response.url().includes(`/api/flp/public/${slug}`))
+  // The share page embeds the public payload in its HTML (#182); read it
+  // as a visitor receives it, and check the whole page leaks nothing.
+  const pageHtml = await (await anonymous.request.get(`/s/${slug}`)).text()
+  const embedded = pageHtml.match(/<script type="application\/json" id="flp-public">([\s\S]*?)<\/script>/)?.[1]
+  expect(embedded, 'embedded public payload').toBeTruthy()
+  const payload = JSON.parse(embedded!)
+  expect(pageHtml).not.toContain(designId)
+  expect(pageHtml).not.toContain(email)
+  expect(pageHtml).toContain(`rel="preload" as="image" href="${payload.renders.view_front}"`)
   await anonymous.goto(`/s/${slug}`)
-  const payload = await (await publicResponse).json()
   await expect(anonymous.getByRole('heading', { name: 'E2E tee' })).toBeVisible()
   await expect(anonymous.getByRole('img')).toHaveCount(3)
   await expect(anonymous.getByText('Creator-supplied preview, not a certified fit or manufacturing render.')).toBeVisible()
