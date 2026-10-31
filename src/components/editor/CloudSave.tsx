@@ -14,7 +14,8 @@ import {
   type RecoveryOffer,
   type RecoveryStorage,
   RECOVERY_WARNINGS,
-  clearRecovery,
+  RECOVERY_WRITER_ID,
+  deleteRecovery,
   liveRecoveryOffer,
   indexedDbRecoveryStorage,
 } from '../../lib/cloud-recovery'
@@ -253,11 +254,12 @@ export function RecoveryPrompt() {
     hasUnsavedEdits: saveStatus !== 'saved',
   })
 
+  // Answering the offer deletes that record only, so it is not offered
+  // again; other tabs' copies of this design are left alone.
   const forget = async () => {
-    const cleared = await clearRecovery({
+    const cleared = await deleteRecovery({
       storage: useRecoveryStore.getState().storage,
-      ownerId,
-      designId: cloud.designId,
+      keys: [offer.key],
     })
     useRecoveryStore.setState({
       offer: null,
@@ -318,6 +320,13 @@ export function RecoveryPrompt() {
 
                 useEditorStore.getState().recoverCanonical({ document: now.document })
                 useRecoveryStore.setState({ offer: null })
+                // The recovered work is kept again under this tab's writer
+                // once the offer closes, so the old record goes: it must not
+                // be offered twice. This tab's own record is replaced by its
+                // next write instead, never deleted after it.
+                if (now.record.writerId !== RECOVERY_WRITER_ID) {
+                  void deleteRecovery({ storage: useRecoveryStore.getState().storage, keys: [now.key] })
+                }
                 void trackAssumption({ name: 'recovery_used' })
               }}
             >

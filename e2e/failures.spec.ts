@@ -315,6 +315,39 @@ test('a stale save from a second tab shows "Changed elsewhere"; opening the clou
   expect((await cloudDesign({ page, designId })).layers).toBe(1)
 })
 
+test('a save in one tab never drops another tab’s unsaved local copy', async ({ page, context }) => {
+  const { designId, url } = await openNewDesign({ page, label: 'twotabkeep' })
+  const second = await context.newPage()
+  await second.goto(url)
+  await expectSaved({ page: second })
+
+  // Tab A saves; tab B's edit then conflicts and is only on this device.
+  await drawStroke({ page, panel: 'Front' })
+  await expectSaved({ page })
+  await drawStroke({ page: second, panel: 'Back' })
+  await statusShows({ page: second, text: 'Changed elsewhere' })
+  await statusShows({ page: second, text: 'Kept on this device' })
+
+  // Tab A saves again: its acknowledgement clears its own copy only.
+  expect((await cloudDesign({ page, designId })).headSeq).toBe(2)
+  await drawStroke({ page, panel: 'Back' })
+  await expect.poll(async () => (await cloudDesign({ page, designId })).headSeq, { timeout: 20_000 }).toBe(3)
+  await expectSaved({ page })
+
+  // Tab B reloads and is still offered its work, as changes to an older version.
+  await second.goto(url)
+  const prompt = second.getByRole('alertdialog')
+  await expect(prompt.getByText(/changes to an older version of this design/)).toBeVisible()
+  await prompt.getByRole('button', { name: 'Open cloud version' }).click()
+  await expect(prompt).toHaveCount(0)
+
+  // Answered once, never offered twice.
+  await second.goto(url)
+  await expectSaved({ page: second })
+  await expect(second.getByRole('alertdialog')).toHaveCount(0)
+  expect(await cloudDesign({ page, designId })).toEqual({ headSeq: 3, layers: 2 })
+})
+
 test('"Save mine as a copy" makes exactly one copy despite a lost answer and a double click', async ({
   page,
   context,

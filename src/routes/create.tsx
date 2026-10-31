@@ -39,7 +39,7 @@ import { accountGuard, useSessionStore, waitForSession } from '../lib/auth/sessi
 import {
   RECOVERY_WARNINGS,
   type RecoveryRead,
-  clearRecovery,
+  deleteRecovery,
   readRecovery,
   recoveryOffer,
 } from '../lib/cloud-recovery'
@@ -193,17 +193,18 @@ function AtelierHome() {
       }
 
       const loaded = useEditorStore.getState().cloud
-      const offer = loaded
+      const { settled, ...offer } = loaded
         ? recoveryOffer({
             read,
             cloudHeadSeq: loaded.headSeq,
             cloudDocument: getCanonicalDocument(),
           })
-        : ({ kind: 'none' } as const)
+        : { kind: 'none' as const, settled: [] }
 
-      // A local copy identical to the cloud needs no question.
-      if (offer.kind === 'none' && read.status === 'found' && ownerId) {
-        void clearRecovery({ storage, ownerId, designId: cloudId })
+      // Local copies identical to the cloud need no question. Only those
+      // records go; other tabs' differing copies stay for their own offer.
+      if (settled.length > 0 && ownerId) {
+        void deleteRecovery({ storage, keys: settled })
       }
 
       if (offer.kind !== 'none') {
