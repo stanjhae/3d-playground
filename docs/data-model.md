@@ -262,6 +262,15 @@ Migration `20261104090000_flp_quotas`. Every check runs inside the write functio
 | Files of an account deleted another way | The next weekly cleanup | `scripts/cleanup-orphans.mjs --delete` lists and removes every file under an owner folder with no account |
 | Local recovery copies (browser) | Acknowledged by the cloud, or answered in the prompt | Per tab and design, in IndexedDB (#174, #255) |
 
+**Deletion windows (alpha defaults, A07 #151).** Once an account or design is deleted, its data leaves the **active** database and storage within **7 days**, and any **backup** copy expires within **30 days**:
+
+| Default | Locally | Hosted |
+| --- | --- | --- |
+| Active data: gone within 7 days of deletion | Met at once: `DELETE /designs/:id` and `delete-account.mjs --confirm` remove rows and files immediately; leftovers from an interrupted run go on the rerun or the weekly `cleanup-orphans.mjs --delete`, inside the window | Pending #186 (weekly cleanup scheduled against the hosted project) |
+| Backups: deleted data gone within 30 days | Backups made with `scripts/backup.mjs` are operator copies; delete each folder within 30 days of making it ([backup-restore.md](backup-restore.md)) | Pending #186: the provider's backup and point-in-time-recovery retention must be 30 days or less on the chosen plan |
+
+Neither default is revised for the alpha. `delete-account.integration.test.ts` interrupts the deletion twice and checks a rerun leaves no rows, no files and no account.
+
 Every cleanup step is a dry run by default and safe to rerun. A run interrupted after removing files finishes on the next run, because the listings are rebuilt from what is still stored.
 
 **Orphaned uploads.** `flp_orphan_assets(grace)` lists uploads that no saved version of the owner's designs references, older than the grace window (24 h by default). It only lists. `scripts/cleanup-orphans.mjs` runs it with the service key as a **dry run** by default and prints each asset. `--delete` removes the files, then the row, and keeps any row whose files could not be removed for the next run.
