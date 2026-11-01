@@ -22,6 +22,7 @@ import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
 import {
   CAMERA_PRESET_POSITIONS,
   captureFov,
+  presetTarget,
   STUDIO_CAMERA,
 } from '../../lib/studio-camera'
 
@@ -196,6 +197,8 @@ export function StudioCamera({
     cameraPreset === 'orbit'
       ? CAMERA_PRESET_POSITIONS.threeQuarter
       : CAMERA_PRESET_POSITIONS[cameraPreset]
+  // The sleeve views aim at their sleeve; every other preset at the garment.
+  const presetAim = presetTarget({ preset: cameraPreset === 'orbit' ? 'threeQuarter' : cameraPreset })
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
@@ -217,7 +220,7 @@ export function StudioCamera({
         ? INTRO_FROM
         : presetSeat
     camera.position.set(seat[0], seat[1], seat[2])
-    camera.lookAt(...STUDIO_CAMERA.target)
+    camera.lookAt(...presetAim)
   }, [
     camera,
     cameraPreset,
@@ -225,6 +228,7 @@ export function StudioCamera({
     freeOrbit,
     intro,
     invalidate,
+    presetAim,
     presetSeat,
     reducedMotion,
   ])
@@ -239,7 +243,7 @@ export function StudioCamera({
 
     if (capturingAngles) {
       camera.position.set(presetSeat[0], presetSeat[1], presetSeat[2])
-      camera.lookAt(...STUDIO_CAMERA.target)
+      camera.lookAt(...presetAim)
       return
     }
 
@@ -252,7 +256,7 @@ export function StudioCamera({
         INTRO_FROM[1] + (presetSeat[1] - INTRO_FROM[1]) * t,
         INTRO_FROM[2] + (presetSeat[2] - INTRO_FROM[2]) * t,
       )
-      camera.lookAt(...STUDIO_CAMERA.target)
+      camera.lookAt(...presetAim)
       moving.current = true
       invalidate()
       return
@@ -263,7 +267,7 @@ export function StudioCamera({
     current.x += (presetSeat[0] - current.x) * blend
     current.y += (presetSeat[1] - current.y) * blend
     current.z += (presetSeat[2] - current.z) * blend
-    camera.lookAt(...STUDIO_CAMERA.target)
+    camera.lookAt(...presetAim)
 
     // Keep drawing until the camera reaches its seat.
     if (current.distanceToSquared({ x: presetSeat[0], y: presetSeat[1], z: presetSeat[2] }) > 1e-8) {
