@@ -15,7 +15,7 @@ import {
   type SaveState,
   createSaveController,
 } from './save-controller.ts'
-import { trackAssumptionOnce } from './assumption-events.ts'
+import { trackAssumptionOnce, trackTiming } from './assumption-events.ts'
 
 /**
  * Binds the editor store to a save controller for one open cloud design
@@ -42,7 +42,17 @@ export function startCloudAutosave({
     designId,
     headSeq: editor.cloud?.headSeq ?? 1,
     revision: editor.revision,
-    save,
+    // Request to acknowledgement (Q08 #193): acknowledged saves only.
+    save: async (request) => {
+      const sentAt = performance.now()
+      const result = await save(request)
+
+      if (result.ok) {
+        trackTiming({ name: 'save_ack', ms: performance.now() - sentAt })
+      }
+
+      return result
+    },
     onAcknowledged: ({ headSeq }) => {
       useEditorStore.getState().setCloudHead({ headSeq })
       trackAssumptionOnce({ name: 'design_saved', scope: designId })

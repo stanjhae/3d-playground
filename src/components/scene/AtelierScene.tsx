@@ -8,6 +8,7 @@ import { HOUSE_COPY } from '../../lib/house-copy'
 import { lookRecipe } from '../../lib/look-recipe'
 import { rankDesigns } from '../../lib/rank-designs'
 import { AvatarBody } from './AvatarBody'
+import { EditRenderProbe } from './EditRenderProbe'
 import { FashionLoader } from './FashionLoader'
 import { Garment } from './Garment'
 import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
@@ -122,6 +123,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
           </StudioStage>
           <StudioOrbit intro turntable={isHouse} />
           <WebglContextWatcher />
+          {isHouse ? null : <EditRenderProbe />}
         </Canvas>
       </WebglGuard>
     </div>
