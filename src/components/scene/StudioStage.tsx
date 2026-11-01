@@ -30,6 +30,25 @@ export { CAMERA_PRESET_POSITIONS, STUDIO_CAMERA }
 export const INTRO_DURATION = 1.2
 const INTRO_FROM = [3.05, 1.82, 4.25] as const
 
+/**
+ * The canvases render on demand (`frameloop="demand"`): an idle studio
+ * draws nothing, so two open tabs on software WebGL no longer starve the
+ * page (IndexedDB reads stalled for seconds in CI). Anything that changes
+ * the picture asks for a frame; animations ask for the next one until they
+ * settle. A frame after an idle gap reports the whole gap as its delta, so
+ * animations step by at most this much.
+ */
+export const MAX_FRAME_STEP = 1 / 30
+
+/** Every editor change (document, paint, camera preset, capture) redraws. */
+function RenderOnEditorChange() {
+  const invalidate = useThree((state) => state.invalidate)
+
+  useEffect(() => useEditorStore.subscribe(() => invalidate()), [invalidate])
+
+  return null
+}
+
 export function StudioRenderer({
   exposure = 1.12,
 }: {
@@ -163,6 +182,7 @@ export function StudioCamera({
   intro?: boolean
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
+  const invalidate = useThree((state) => state.invalidate)
   const cameraPreset = useEditorStore((state) => state.cameraPreset)
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
   const reducedMotion = prefersReducedMotion()
@@ -181,6 +201,7 @@ export function StudioCamera({
       ? captureFov({ aspect: camera.aspect })
       : STUDIO_CAMERA.fov
     camera.updateProjectionMatrix()
+    invalidate()
 
     if (freeOrbit) {
       return
@@ -199,11 +220,14 @@ export function StudioCamera({
     capturingAngles,
     freeOrbit,
     intro,
+    invalidate,
     presetSeat,
     reducedMotion,
   ])
 
-  useFrame((_, delta) => {
+  useFrame((_, frameDelta) => {
+    const delta = Math.min(frameDelta, MAX_FRAME_STEP)
+
     if (freeOrbit) {
       return
     }
@@ -224,6 +248,7 @@ export function StudioCamera({
         INTRO_FROM[2] + (presetSeat[2] - INTRO_FROM[2]) * t,
       )
       camera.lookAt(...STUDIO_CAMERA.target)
+      invalidate()
       return
     }
 
@@ -233,6 +258,11 @@ export function StudioCamera({
     current.y += (presetSeat[1] - current.y) * blend
     current.z += (presetSeat[2] - current.z) * blend
     camera.lookAt(...STUDIO_CAMERA.target)
+
+    // Keep drawing until the camera reaches its seat.
+    if (current.distanceToSquared({ x: presetSeat[0], y: presetSeat[1], z: presetSeat[2] }) > 1e-8) {
+      invalidate()
+    }
   })
 
   return null
@@ -297,6 +327,7 @@ export function StudioStage({
       />
       <StudioFloor picking={picking} />
       <StudioCamera intro={intro} />
+      <RenderOnEditorChange />
       {children}
     </>
   )
