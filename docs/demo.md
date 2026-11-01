@@ -141,7 +141,7 @@ itself), and fall back to the video if it isn't back in about 30 seconds.
 ## Recording the fallback
 
 `demo-fallback.webm` is a 1440×900 recording of the script above (about
-95 s), made by Playwright against the preview build. It is ignored by git:
+60 s), made by Playwright against the preview build. It is ignored by git:
 record it on the demo laptop, never commit it.
 
 ```bash

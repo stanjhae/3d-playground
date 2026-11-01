@@ -23,6 +23,7 @@ Demo polish before the 12 Nov freeze (`docs/decisions.md`, 1 Nov), plus the visu
 ### Fixed
 - **The eraser only erases its own layer.** On a fully opaque paint layer it used to cut through the words, graphics, base pattern and paint beneath. The live preview while dragging now matches what is committed (#159).
 - Landing designs' images could never upload, because the security policy blocks `fetch` on data URLs; they're now decoded directly (#261).
+- The in-place word editor was as narrow as the word's frame, so a short word in large type scrolled inside it (found in the rc.2 demo dry run, #276).
 - "Publish…" sometimes ignored the first click: a status line under the button disappeared as the 3D view loaded and moved the button mid-click (#270).
 
 ### Known limits for the alpha
@@ -30,6 +31,7 @@ Demo polish before the 12 Nov freeze (`docs/decisions.md`, 1 Nov), plus the visu
 - The tee reads very thin from exactly side-on; front, back, three-quarter and sleeve views are credible (owner review, #166).
 - WebKit stands in for recent Safari. Real iPhone Safari and Android aren't tested, and editing on phones isn't claimed (#191).
 - Deferred past the freeze: a revision-tagged atlas (#164).
+- The "not available" page's title repeats the site name ("Fashion Leader Vote — Fashion Leader Vote"); cosmetic.
 - Owner items: rights (#138), the contact email (#195), branch protection (#192), the operator for alerts (#193), the claims-audit questions (#199), and validation and pitch work (#196–#201).
 
 ## 0.9.0-rc.1: alpha release candidate (1 Nov 2026)
