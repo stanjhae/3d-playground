@@ -1033,7 +1033,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             y: 0.5,
             scale: 1.05,
             rotation: 0,
-            opacity: patternId === 'gradient' ? 0.85 : 0.55,
+            opacity: patternId === 'gradient' ? 0.85 : 1,
             visible: true,
           })
         }

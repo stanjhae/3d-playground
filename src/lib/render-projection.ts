@@ -132,7 +132,8 @@ export function toRenderDocument({
           mirrored: manifest.regions[panel].renderMirrorX,
           value: { rotation: angle },
         }).rotation,
-        opacity: 0.55,
+        // The picked colour at full strength: what you pick is what prints.
+        opacity: 1,
         visible: true,
         period: base.period,
       })
