@@ -84,7 +84,7 @@ export type StudioView = 'draw' | 'cloth'
 export type EditorPaintTool = StrokeTool | 'type'
 export type CreateStep = CreateStepId
 export type DesignEditMode = 'draw' | 'tech'
-export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'orbit'
+export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'left' | 'right' | 'orbit'
 export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
 export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
 

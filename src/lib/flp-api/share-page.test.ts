@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { shareCardHead } from '../og-card'
 import { takeEmbeddedPublicDesign } from '../public-embed'
-import { PUBLIC_PAYLOAD_ELEMENT_ID, injectShareHead } from './share-page'
+import { PUBLIC_PAYLOAD_ELEMENT_ID, SLEEVE_GRID_CLASS, injectShareHead } from './share-page'
 import type { PublicDesign } from './publication'
 
 const SHELL = `<!doctype html>
@@ -31,6 +31,15 @@ const PAYLOAD: PublicDesign = {
     view_front: '/api/flp/public/3f9a1c22b7e04d11/image?seq=4',
     view_three_quarter: '/api/flp/public/3f9a1c22b7e04d11/image?view=view_three_quarter&seq=4',
     view_back: '/api/flp/public/3f9a1c22b7e04d11/image?view=view_back&seq=4',
+  },
+}
+
+const WITH_SLEEVES: PublicDesign = {
+  ...PAYLOAD,
+  renders: {
+    ...PAYLOAD.renders,
+    view_left: '/api/flp/public/3f9a1c22b7e04d11/image?view=view_left&seq=4',
+    view_right: '/api/flp/public/3f9a1c22b7e04d11/image?view=view_right&seq=4',
   },
 }
 
@@ -91,5 +100,42 @@ describe('share page head (#182, #184)', () => {
     expect(root).not.toContain('<script')
     expect(root).toContain('By Ada &amp; co · version 4')
     expect(html).toContain('<div id="root"></div>')
+  })
+
+  test('a three-view publication (before #179) shows no sleeve row', () => {
+    const html = injectShareHead({ shell: SHELL, head: headFor(PAYLOAD), payload: PAYLOAD })
+
+    expect(html).not.toContain(SLEEVE_GRID_CLASS)
+    expect(html).not.toContain("Wearer&#39;s")
+  })
+
+  test('sleeve views sit under the main three, labelled by the wearer\'s side; the preload stays on the front', () => {
+    const html = injectShareHead({ shell: SHELL, head: headFor(WITH_SLEEVES), payload: WITH_SLEEVES })
+    const root = html.slice(html.indexOf('<div id="flp-static-share"'), html.indexOf('<div id="root">'))
+    const sleeveRow = root.slice(root.indexOf(SLEEVE_GRID_CLASS))
+
+    expect(root.match(/<img /g)).toHaveLength(5)
+    expect(root.indexOf('view=view_back')).toBeGreaterThan(0)
+    expect(root.indexOf('view=view_back')).toBeLessThan(root.indexOf(SLEEVE_GRID_CLASS))
+    expect(sleeveRow.indexOf('view=view_left')).toBeGreaterThan(0)
+    expect(sleeveRow.indexOf('view=view_left')).toBeLessThan(sleeveRow.indexOf('view=view_right'))
+    expect(sleeveRow).toContain('Wearer&#39;s right</span>')
+    expect(sleeveRow).toContain('Wearer&#39;s left</span>')
+    expect(html.match(/rel="preload"/g)).toHaveLength(1)
+    expect(html).toContain(`<link rel="preload" as="image" href="${WITH_SLEEVES.renders.view_front}"`)
+  })
+
+  test('a payload with sleeves round-trips; one with a malformed sleeve does not', () => {
+    const docFor = (value: unknown) => ({
+      getElementById: () => ({ textContent: JSON.stringify(value), remove() {} }) as unknown as HTMLElement,
+    })
+
+    expect(takeEmbeddedPublicDesign({ slug: PAYLOAD.slug, doc: docFor(WITH_SLEEVES) })).toEqual(WITH_SLEEVES)
+    expect(
+      takeEmbeddedPublicDesign({
+        slug: PAYLOAD.slug,
+        doc: docFor({ ...WITH_SLEEVES, renders: { ...WITH_SLEEVES.renders, view_left: 7 } }),
+      }),
+    ).toBeNull()
   })
 })

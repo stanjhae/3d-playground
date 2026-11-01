@@ -196,16 +196,16 @@ Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/
 
 | Route | Who | What |
 | --- | --- | --- |
-| `POST /api/flp/designs/:id/renders` | Owner | `{ seq, renders: [{ kind, data }] }` with exactly `view_front`, `view_three_quarter` and `view_back`, base64 JPEG or PNG. Each image is checked by `validateImage` and stored privately at `<owner>/<design>/v<seq>/<kind>.jpg`; the `render_artifacts` rows become `ready`. |
+| `POST /api/flp/designs/:id/renders` | Owner | `{ seq, renders: [{ kind, data }] }` with exactly `view_front`, `view_three_quarter`, `view_back`, `view_left` and `view_right` (the sleeves, named like the render panels: `view_left` is the wearer's right), base64 JPEG or PNG. Each image is checked by `validateImage` and stored privately at `<owner>/<design>/v<seq>/<kind>.jpg`; the `render_artifacts` rows become `ready`. |
 | `GET /api/flp/designs/:id/publication` | Owner | `{ publication: { slug, status, seq, displayName, rendersReadyForHead } \| null }` |
-| `POST /api/flp/designs/:id/publication` | Owner | `{ seq, displayName? }`. Refused (`422`, one issue per missing view) unless all three views of that exact version are ready. Then `flp_publish_version` moves the pointer in one step. Republishing keeps the slug. |
+| `POST /api/flp/designs/:id/publication` | Owner | `{ seq, displayName? }`. Refused (`422`, one issue per missing view) unless all five views of that exact version are ready. Then `flp_publish_version` moves the pointer in one step. Republishing keeps the slug. |
 | `DELETE /api/flp/designs/:id/publication` | Owner | `204`. The public page returns 404 immediately. |
-| `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where each render URL is our own seq-pinned image route (`/api/flp/public/:slug/image…`), which checks the publication on every request. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
+| `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where each render URL is our own seq-pinned image route (`/api/flp/public/:slug/image…`), which checks the publication on every request. A version published before the sleeve views (#179) has only the front, three-quarter and back; it stays public, and `renders` lists only the views that exist. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
 
 **Studio flow:**
 - **Publish…** is available only when the design shows **Saved to cloud**.
 - The review names the exact version and explains that anyone with the link can view it and copy its images.
-- **Confirm** captures the three views of that exact version, refusing if the design changed meanwhile, then uploads them and publishes.
+- **Confirm** captures the five views of that exact version (front, three-quarter, back, wearer's right, wearer's left), refusing if the design changed meanwhile, then uploads them and publishes.
 - The panel then shows "Published vX · draft vY", the link, **Copy link** and **Unpublish**.
 - Without a cloud design, and wherever sign-in is required, the legacy guest board publish is not offered.
 

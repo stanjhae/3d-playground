@@ -13,7 +13,7 @@ import { loadEnv } from 'vite'
  * - seeds three designs through the real API, so every document passes the
  *   same validation the studio's saves do:
  *   1. "Night Market" — published: the app's own publish flow renders the
- *      three views in headless Chromium and makes the link live;
+ *      five views in headless Chromium and makes the link live;
  *   2. "Studio draft" — autosaves, a named checkpoint and a restore;
  *   3. "Crest upload" — an uploaded PNG on the front.
  * - prints the share link and how to sign in.
@@ -305,7 +305,7 @@ async function seedUpload({ api }) {
 }
 
 /**
- * Publishes through the studio itself, so the three views are the app's
+ * Publishes through the studio itself, so the five views are the app's
  * own WebGL captures of the saved version, exactly as a person's would be.
  */
 async function publishInBrowser({ session, designId }) {

@@ -23,6 +23,13 @@ export const PUBLIC_PAYLOAD_ELEMENT_ID = 'flp-public'
 /** The pre-rendered views; `s.$slug.tsx` removes it once it has rendered. */
 export const STATIC_SHARE_ELEMENT_ID = 'flp-static-share'
 
+/**
+ * The sleeve row under the three main views: two up at every width, and on
+ * wider screens two-thirds wide, so each sleeve matches a main view's size.
+ * `s.$slug.tsx` uses the same classes.
+ */
+export const SLEEVE_GRID_CLASS = 'grid grid-cols-2 gap-4 sm:mx-auto sm:w-2/3'
+
 type ShellLoader = (origin: string) => Promise<string | null>
 
 /** The built app shell, fetched from this deployment's own origin. */
@@ -56,10 +63,18 @@ function escapeHtml({ value }: { value: string }) {
     .replace(/'/g, '&#39;')
 }
 
-const STATIC_VIEWS: Array<{ kind: keyof PublicDesign['renders']; label: string }> = [
-  { kind: 'view_front', label: 'Front' },
-  { kind: 'view_three_quarter', label: 'Three-quarter' },
-  { kind: 'view_back', label: 'Back' },
+type StaticView = { kind: keyof PublicDesign['renders']; label: string; alt: string }
+
+const STATIC_VIEWS: StaticView[] = [
+  { kind: 'view_front', label: 'Front', alt: 'front view' },
+  { kind: 'view_three_quarter', label: 'Three-quarter', alt: 'three-quarter view' },
+  { kind: 'view_back', label: 'Back', alt: 'back view' },
+]
+
+/** Named from the wearer's side: render `left` is the wearer's right (#179). */
+const STATIC_SLEEVE_VIEWS: StaticView[] = [
+  { kind: 'view_left', label: "Wearer's right", alt: "wearer's right sleeve" },
+  { kind: 'view_right', label: "Wearer's left", alt: "wearer's left sleeve" },
 ]
 
 /**
@@ -72,11 +87,18 @@ const STATIC_VIEWS: Array<{ kind: keyof PublicDesign['renders']; label: string }
 function staticShareMarkup({ payload }: { payload: PublicDesign }) {
   const title = escapeHtml({ value: payload.title })
   const byline = `${payload.displayName ? `By ${escapeHtml({ value: payload.displayName })} · ` : ''}version ${payload.seq}`
-  const views = STATIC_VIEWS.map(
-    (view) => `<li class="flex flex-col gap-2"><img src="${escapeHtml({ value: payload.renders[view.kind] })}" alt="${title}, ${view.label.toLowerCase()} view" class="aspect-[3/4] w-full border border-flv-line bg-flv-paper object-contain" /><span class="font-body text-xs tracking-[0.08em] text-flv-muted uppercase">${view.label}</span></li>`,
-  ).join('')
+  // Sleeves sit below the fold: lazy, so they never slow the front view.
+  const item = (view: StaticView, src: string, lazy = false) =>
+    `<li class="flex min-w-0 flex-col gap-2"><img src="${escapeHtml({ value: src })}"${lazy ? ' loading="lazy"' : ''} alt="${title}, ${escapeHtml({ value: view.alt })}" class="aspect-[3/4] w-full border border-flv-line bg-flv-paper object-contain" /><span class="font-body text-xs tracking-[0.08em] text-flv-muted uppercase">${escapeHtml({ value: view.label })}</span></li>`
+  const views = STATIC_VIEWS.map((view) => item(view, payload.renders[view.kind]!)).join('')
+  // Older publications have no sleeve views; show only what exists.
+  const sleeves = STATIC_SLEEVE_VIEWS.flatMap((view) => {
+    const src = payload.renders[view.kind]
+    return src ? [item(view, src, true)] : []
+  }).join('')
+  const sleeveList = sleeves ? `<ul class="${SLEEVE_GRID_CLASS}">${sleeves}</ul>` : ''
 
-  return `<div id="${STATIC_SHARE_ELEMENT_ID}" class="fixed inset-0 z-50 overflow-auto bg-flv-paper text-flv-ink"><main class="relative min-h-dvh bg-flv-paper text-flv-ink"><section class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16"><header class="flex flex-col gap-1"><p class="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Shared design</p><h1 class="font-display text-4xl leading-tight [overflow-wrap:anywhere]">${title}</h1><p class="font-body text-sm text-flv-muted">${byline}</p></header><ul class="grid gap-4 sm:grid-cols-3">${views}</ul></section></main></div>`
+  return `<div id="${STATIC_SHARE_ELEMENT_ID}" class="fixed inset-0 z-50 overflow-auto bg-flv-paper text-flv-ink"><main class="relative min-h-dvh bg-flv-paper text-flv-ink"><section class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16"><header class="flex flex-col gap-1"><p class="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Shared design</p><h1 class="font-display text-4xl leading-tight [overflow-wrap:anywhere]">${title}</h1><p class="font-body text-sm text-flv-muted">${byline}</p></header><ul class="grid gap-4 sm:grid-cols-3">${views}</ul>${sleeveList}</section></main></div>`
 }
 
 /**

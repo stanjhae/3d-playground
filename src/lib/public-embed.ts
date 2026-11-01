@@ -20,7 +20,9 @@ function isPublicDesign(value: unknown): value is PublicDesign {
     typeof record.seq === 'number' &&
     typeof record.publishedAt === 'string' &&
     !!renders &&
-    ['view_front', 'view_three_quarter', 'view_back'].every((kind) => typeof renders[kind] === 'string')
+    // Sleeve views are optional: older publications have three (#179).
+    ['view_front', 'view_three_quarter', 'view_back'].every((kind) => typeof renders[kind] === 'string') &&
+    ['view_left', 'view_right'].every((kind) => renders[kind] === undefined || typeof renders[kind] === 'string')
   )
 }
 

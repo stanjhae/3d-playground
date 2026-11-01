@@ -188,11 +188,25 @@ function waitFrames({ count }: { count: number }) {
   })
 }
 
+/** The views a cloud publication captures, in upload order (#179). */
+export const PUBLISHED_STILL_PRESETS: AngleCameraPreset[] = [
+  'front',
+  'threeQuarter',
+  'back',
+  // Wearer's right, then wearer's left.
+  'left',
+  'right',
+]
+
+/** The local look keeps its three angle previews. */
+export const LOOK_STILL_PRESETS: AngleCameraPreset[] = ['front', 'threeQuarter', 'back']
+
 export async function captureAngleStills({
   canvas,
   setCameraPreset,
   setCapturingAngles,
   restorePreset,
+  presets = LOOK_STILL_PRESETS,
   settleMs = 220,
 }: {
   canvas: HTMLCanvasElement | null
@@ -207,9 +221,9 @@ export async function captureAngleStills({
     capturingAngles: boolean
   }) => void
   restorePreset: CameraPreset
+  presets?: AngleCameraPreset[]
   settleMs?: number
 }): Promise<string[]> {
-  const presets: AngleCameraPreset[] = ['front', 'threeQuarter', 'back']
   const stills: string[] = []
 
   setCapturingAngles({ capturingAngles: true })
@@ -234,7 +248,7 @@ export async function captureAngleStills({
     await waitFrames({ count: 1 })
   }
 
-  return stills.slice(0, 4)
+  return stills
 }
 
 export async function frameStill({

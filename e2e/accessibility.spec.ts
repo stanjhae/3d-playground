@@ -58,7 +58,7 @@ test('sign-in, My Studio, studio, shared page and privacy have no serious violat
   const visitor = await browser.newContext()
   const anonymous = await visitor.newPage()
   await anonymous.goto(new URL((await link.getAttribute('href'))!).pathname)
-  await expect(anonymous.getByRole('img')).toHaveCount(3)
+  await expect(anonymous.getByRole('img')).toHaveCount(5)
   await expectAccessible({ page: anonymous, name: 'shared design' })
   await visitor.close()
 })
