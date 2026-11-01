@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 
 import {
+  LOOK_STILL_PRESETS,
+  PUBLISHED_STILL_PRESETS,
   canvasHasSceneFromPixels,
   captureFramedStill,
   isLiveStudioCanvas,
@@ -116,5 +118,15 @@ describe('canvas scene', () => {
 describe('captureFramedStill', () => {
   test('returns empty when the cloth is not live', async () => {
     await expect(captureFramedStill({ canvas: null })).resolves.toBe('')
+  })
+})
+
+describe('still presets (#179)', () => {
+  test('a publication captures front, three-quarter, back, wearer\'s right, wearer\'s left', () => {
+    expect(PUBLISHED_STILL_PRESETS).toEqual(['front', 'threeQuarter', 'back', 'left', 'right'])
+  })
+
+  test('the local look keeps its three angles', () => {
+    expect(LOOK_STILL_PRESETS).toEqual(['front', 'threeQuarter', 'back'])
   })
 })

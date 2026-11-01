@@ -17,7 +17,7 @@ import { createClothingMesh } from './tee-geometry'
  * the same crop.
  */
 
-const STILLS = ['front', 'threeQuarter', 'back'] as const
+const STILLS = ['front', 'threeQuarter', 'back', 'left', 'right'] as const
 // Phone portrait, near-square, desktop studio, ultrawide.
 const CANVAS_ASPECTS = [0.46, 0.8, 1, 1.6, 2.4]
 const STILL_ASPECT = STILL_FRAME.width / STILL_FRAME.height
@@ -123,6 +123,18 @@ describe('published still framing (#167)', () => {
       const { top, bottom } = stillBounds({ preset, canvasAspect: 1.6, pose: 'flat' })
       expect(bottom - top).toBeGreaterThan(0.3)
     }
+  })
+
+  test('the sleeve views are side-on: left from −x (wearer\'s right), right from +x (#179)', () => {
+    const [lx, , lz] = CAMERA_PRESET_POSITIONS.left
+    const [rx, , rz] = CAMERA_PRESET_POSITIONS.right
+
+    expect(lx).toBeLessThan(0)
+    expect(rx).toBeGreaterThan(0)
+    expect(Math.abs(lz)).toBeLessThan(Math.abs(lx) * 0.1)
+    expect(Math.abs(rz)).toBeLessThan(Math.abs(rx) * 0.1)
+    // Same distance and height as the front, so the views read as a set.
+    expect(Math.hypot(lx, lz)).toBeCloseTo(Math.hypot(...CAMERA_PRESET_POSITIONS.front.filter((_, i) => i !== 1)), 6)
   })
 
   test('studio views keep the studio fov; only portrait captures widen it', () => {

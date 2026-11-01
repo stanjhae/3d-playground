@@ -25,7 +25,7 @@ test.afterAll(async () => {
 })
 
 test('create → edit → save → publish → view signed out → unpublish → delete', async ({ page, context, browser }) => {
-  // CI runners render WebGL in software, so capturing the three views of a
+  // CI runners render WebGL in software, so capturing the five views of a
   // drawn design takes far longer than on a laptop.
   test.setTimeout(240_000)
   const violations = await watchCsp({ context })
@@ -98,7 +98,32 @@ test('create → edit → save → publish → view signed out → unpublish →
   expect(pageHtml).toContain(`rel="preload" as="image" href="${payload.renders.view_front}"`)
   await anonymous.goto(`/s/${slug}`)
   await expect(anonymous.getByRole('heading', { name: 'E2E tee' })).toBeVisible()
-  await expect(anonymous.getByRole('img')).toHaveCount(3)
+  // Five views: the main three, then the sleeves by the wearer's side (#179).
+  expect(Object.keys(payload.renders)).toEqual(['view_front', 'view_three_quarter', 'view_back', 'view_left', 'view_right'])
+  await expect(anonymous.getByRole('img')).toHaveCount(5)
+  await expect(anonymous.getByRole('img', { name: "E2E tee, wearer's right sleeve" })).toBeVisible()
+  await expect(anonymous.getByRole('img', { name: "E2E tee, wearer's left sleeve" })).toBeVisible()
+  for (const kind of ['view_left', 'view_right']) {
+    const sleeve = await anonymous.request.get(payload.renders[kind])
+    expect(sleeve.status(), kind).toBe(200)
+    expect(sleeve.headers()['content-type']).toMatch(/^image\//)
+  }
+  const overflow = (target: typeof anonymous) =>
+    target.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 }]) {
+    await anonymous.setViewportSize(viewport)
+    expect(await overflow(anonymous), `public page @${viewport.width}`).toBeLessThanOrEqual(0)
+  }
+  // The pre-rendered overlay, as seen before the app's JavaScript runs.
+  // (The dev server styles pages from JS, so its layout is checked on the
+  // production build in measure.spec.ts.)
+  const noScript = await browser.newContext({ javaScriptEnabled: false })
+  const overlay = await noScript.newPage()
+  await overlay.goto(`/s/${slug}`)
+  await expect(overlay.locator('#flp-static-share img')).toHaveCount(5)
+  await expect(overlay.locator('#flp-static-share')).toContainText("Wearer's right")
+  await expect(overlay.locator('#flp-static-share')).toContainText("Wearer's left")
+  await noScript.close()
   await expect(anonymous.getByText('Creator-supplied preview, not a certified fit or manufacturing render.')).toBeVisible()
   const image = await anonymous.request.get(payload.renders.view_front)
   expect(image.headers()['cache-control']).toBe('no-store')

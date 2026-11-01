@@ -87,10 +87,29 @@ test('save acknowledgement and public first image', async ({ page, browser }) =>
       return Boolean(img && img.complete && img.naturalWidth > 0)
     }, undefined, { timeout: 60_000 })
     firstImage[name] = Date.now() - start
-    if (name === '390x844') {
-      await visitor.screenshot({ path: 'test-results/public-390.png', fullPage: true })
-    }
+    await expect(visitor.getByRole('img')).toHaveCount(5)
+    await visitor.screenshot({ path: `test-results/public-${name}.png`, fullPage: true })
+    expect(
+      await visitor.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      `public page @${name}`,
+    ).toBeLessThanOrEqual(0)
     await context.close()
+
+    // The pre-rendered overlay alone, before any JavaScript (#179): the
+    // sleeve row must fit too. Only a production build styles it without JS.
+    const noScript = await browser.newContext({ viewport, javaScriptEnabled: false })
+    const overlay = await noScript.newPage()
+    await overlay.goto(path)
+    await expect(overlay.locator('#flp-static-share img')).toHaveCount(5)
+    await overlay.screenshot({ path: `test-results/overlay-${name}.png`, fullPage: true })
+    expect(
+      await overlay.evaluate(() => {
+        const element = document.getElementById('flp-static-share')!
+        return element.scrollWidth - element.clientWidth
+      }),
+      `overlay @${name}`,
+    ).toBeLessThanOrEqual(0)
+    await noScript.close()
   }
 
   const result = {

@@ -135,14 +135,18 @@ MEASURE=1 E2E_BASE_URL=http://localhost:5399 pnpm exec playwright test measure
 | ↳ of which edit → save request (the quiet period) | p50 1.86 s | 2 s debounce | As designed |
 | First public image, Fast 3G (562 ms RTT, 1.44 Mbit/s), cold cache, 390×844 | 4.6 s → **2.14 s** | ≤ 3 s | **Met** (#182, 31 Oct) |
 | First public image, Fast 3G, 1366×768 | 4.1 s → **2.13 s** | ≤ 3 s | **Met** |
+| First public image with five views (#179), Fast 3G, 390×844 | **2.14 s** | ≤ 3 s | **Met** (1 Nov) |
+| First public image with five views (#179), Fast 3G, 1366×768 | **2.13 s** | ≤ 3 s | **Met** (1 Nov) |
 
-The 390 px public page shows three stacked views, the disclaimer and the privacy link, with nothing clipped.
+Re-measured 1 November 2026 after the sleeve views (#179), same setup (production build, `pnpm preview`, local Supabase, Apple M3); save acknowledgement in that run was p50 59 ms, p95 73 ms. Adding two views didn't move the first image: the front is still the only preload, and the sleeve images are `loading="lazy"` below the main three, so they don't compete with it on a slow link. The run also checks that the page and the pre-rendered overlay (JavaScript off) have no sideways scroll at 390 and 1366 px.
+
+The 390 px public page shows the three main views stacked, the two sleeve views side by side under them ("Wearer's right", "Wearer's left"), then the disclaimer and the privacy link, with nothing clipped. At 1366 px the sleeves sit centred under the main row at the same tile size. Versions published with three views show no sleeve row.
 
 **How the public page got under 3 s (#182):** the first image used to wait on four round trips in a row: HTML, then the app JS, then `/api/flp/public/:slug`, then the image. Now `/s/:slug` is served by the share page for every visitor (`src/lib/flp-api/share-page.ts`, through the `vercel.json` rewrite and the dev/preview middleware). It returns the app shell with:
 - the share card in the head;
 - `<link rel="preload">` for the front view;
 - the public payload as a JSON data block (CSP-safe; it doesn't execute);
-- the three views pre-rendered as plain HTML in an overlay outside `#root`.
+- the views (three, plus the sleeves when the version has them) pre-rendered as plain HTML in an overlay outside `#root`.
 
 The image therefore downloads in parallel with the app, shows before React mounts, and the page removes the overlay once it has rendered. A frame-by-frame check showed no blank gap and no duplicate images. Timing starts at navigation commit and ends when the first `main img` has decoded; until 31 Oct the spec waited for the `load` event, which also counted the full JS download.
 

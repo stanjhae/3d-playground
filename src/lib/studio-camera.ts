@@ -18,6 +18,10 @@ export const CAMERA_PRESET_POSITIONS = {
   front: [0, 1.48, 4.1] as const,
   threeQuarter: STUDIO_CAMERA.position,
   back: [0.15, 1.48, -4.05] as const,
+  // Side-on sleeve views, named like the render panels: `left` sits at −x
+  // and so shows the wearer's right sleeve; `right` the wearer's left.
+  left: [-4.1, 1.48, 0] as const,
+  right: [4.1, 1.48, 0] as const,
   orbit: STUDIO_CAMERA.position,
 } as const
 

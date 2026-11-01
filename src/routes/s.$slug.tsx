@@ -17,11 +17,37 @@ export const Route = createFileRoute('/s/$slug')({
   component: SharedDesign,
 })
 
-const VIEWS: Array<{ kind: keyof PublicDesign['renders']; label: string }> = [
-  { kind: 'view_front', label: 'Front' },
-  { kind: 'view_three_quarter', label: 'Three-quarter' },
-  { kind: 'view_back', label: 'Back' },
+type View = { kind: keyof PublicDesign['renders']; label: string; alt: string }
+
+const VIEWS: View[] = [
+  { kind: 'view_front', label: 'Front', alt: 'front view' },
+  { kind: 'view_three_quarter', label: 'Three-quarter', alt: 'three-quarter view' },
+  { kind: 'view_back', label: 'Back', alt: 'back view' },
 ]
+
+/** Named from the wearer's side: render `left` is the wearer's right (#179). */
+const SLEEVE_VIEWS: View[] = [
+  { kind: 'view_left', label: "Wearer's right", alt: "wearer's right sleeve" },
+  { kind: 'view_right', label: "Wearer's left", alt: "wearer's left sleeve" },
+]
+
+/** Must match `SLEEVE_GRID_CLASS` in `flp-api/share-page.ts`. */
+const SLEEVE_GRID_CLASS = 'grid grid-cols-2 gap-4 sm:mx-auto sm:w-2/3'
+
+function ViewTile({ view, src, title, lazy = false }: { view: View; src: string; title: string; lazy?: boolean }) {
+  return (
+    <li className="flex min-w-0 flex-col gap-2">
+      <img
+        src={src}
+        // Sleeves sit below the fold: lazy, so they never slow the front view.
+        loading={lazy ? 'lazy' : undefined}
+        alt={`${title}, ${view.alt}`}
+        className="aspect-[3/4] w-full border border-flv-line bg-flv-paper object-contain"
+      />
+      <span className="font-body text-xs tracking-[0.08em] text-flv-muted uppercase">{view.label}</span>
+    </li>
+  )
+}
 
 function SharedDesign() {
   const { slug } = Route.useParams()
@@ -87,6 +113,10 @@ function SharedDesign() {
 
   const { design } = state
   const reportHref = reportDesignHref({ slug })
+  const sleeves = SLEEVE_VIEWS.flatMap((view) => {
+    const src = design.renders[view.kind]
+    return src ? [{ view, src }] : []
+  })
 
   return (
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16">
@@ -112,16 +142,18 @@ function SharedDesign() {
 
       <ul className="grid gap-4 sm:grid-cols-3">
         {VIEWS.map((view) => (
-          <li key={view.kind} className="flex flex-col gap-2">
-            <img
-              src={design.renders[view.kind]}
-              alt={`${design.title}, ${view.label.toLowerCase()} view`}
-              className="aspect-[3/4] w-full border border-flv-line bg-flv-paper object-contain"
-            />
-            <span className="font-body text-xs tracking-[0.08em] text-flv-muted uppercase">{view.label}</span>
-          </li>
+          <ViewTile key={view.kind} view={view} src={design.renders[view.kind]!} title={design.title} />
         ))}
       </ul>
+
+      {/* Versions published before the sleeve views have none (#179). */}
+      {sleeves.length > 0 ? (
+        <ul className={SLEEVE_GRID_CLASS}>
+          {sleeves.map(({ view, src }) => (
+            <ViewTile key={view.kind} view={view} src={src} title={design.title} lazy />
+          ))}
+        </ul>
+      ) : null}
 
       <footer className="flex flex-wrap items-center justify-between gap-3 font-body text-xs text-flv-muted">
         <p>{PUBLIC_PREVIEW_DISCLAIMER} Shown on a fixed T-shirt template.</p>

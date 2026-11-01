@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { captureAngleStills } from '../../lib/capture-still'
+import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
 import { useEditorStore } from '../../lib/editor-store'
 import {
   getProfile,
@@ -18,10 +18,12 @@ import { trackAssumption } from '../../lib/assumption-events'
 /**
  * Publish an owned cloud design (P03 #181). Only the exact saved version
  * can be published: the panel needs "Saved to cloud", captures that
- * version's three views, uploads them, then moves the public pointer.
+ * version's five views (front, three-quarter, back and both sleeves),
+ * uploads them, then moves the public pointer.
  */
 
-const KIND_BY_ANGLE: PublicRenderKind[] = ['view_front', 'view_three_quarter', 'view_back']
+/** One kind per `PUBLISHED_STILL_PRESETS` entry, in the same order. */
+const KIND_BY_ANGLE: PublicRenderKind[] = ['view_front', 'view_three_quarter', 'view_back', 'view_left', 'view_right']
 
 const buttonClass =
   'flv-cta inline-flex min-h-11 items-center justify-center px-5 font-body text-xs tracking-[0.1em] uppercase disabled:opacity-50'
@@ -107,6 +109,7 @@ export function CloudPublish() {
       setCameraPreset: editor.setCameraPreset,
       setCapturingAngles: editor.setCapturingAngles,
       restorePreset: editor.cameraPreset,
+      presets: PUBLISHED_STILL_PRESETS,
     })
 
     if (stills.length !== KIND_BY_ANGLE.length) {
@@ -220,8 +223,8 @@ export function CloudPublish() {
           className="flex flex-col gap-3 border-t border-flv-line pt-3"
         >
           <p className="font-body text-sm">
-            Publishing version <strong>v{headSeq}</strong> of “{cloud.title}”. Anyone with the link can view it, and
-            public images can be copied. Later edits stay private until you publish again.
+            Publishing version <strong>v{headSeq}</strong> of “{cloud.title}”. Anyone with the link can view its five
+            views (front, three-quarter, back and both sleeves), and public images can be copied. Later edits stay private until you publish again.
           </p>
           <label className="flex flex-col gap-1 font-body text-sm">
             Public display name (optional)

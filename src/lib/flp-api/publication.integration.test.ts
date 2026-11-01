@@ -4,7 +4,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import { TINY_JPEG } from '../image-fixtures'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
-import { PUBLIC_RENDER_KINDS } from './publication'
+import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './publication'
+import { handleSharePage } from './share-page'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
 
 /**
@@ -145,6 +146,12 @@ describe.skipIf(!env)('publication against local Supabase', () => {
     expect(JSON.stringify(page)).not.toContain('panels')
     expect(page.renders.view_front).toBe(`/api/flp/public/${publication.slug}/image?seq=1`)
 
+    // Every view, sleeves included, is served through the same hash check (#179).
+    for (const kind of PUBLIC_RENDER_KINDS) {
+      const view = await handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost${page.renders[kind]}`) })
+      expect(view.status, kind).toBe(200)
+    }
+
     const front = await handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost${page.renders.view_front}`) })
     expect(front.status).toBe(200)
     expect(front.headers.get('Content-Type')).toMatch(/^image\//)
@@ -205,6 +212,105 @@ describe.skipIf(!env)('publication against local Supabase', () => {
     await admin.storage.from('design-assets').upload(rows!.storage_path as string, swapped, { contentType: 'image/jpeg', upsert: true })
 
     expect((await image()).status).toBe(404)
+  })
+
+  describe('sleeve views (#179)', () => {
+    // Its own account: the publish rate limit is per account.
+    let c: Account
+    let legacyId: string
+    let slug: string
+
+    beforeAll(async () => {
+      c = await createAccount({ admin, env: serverEnv, label: 'pub-c' })
+      const created = await api({
+        path: 'designs',
+        method: 'POST',
+        token: c.token,
+        body: { mutationKey: crypto.randomUUID(), title: 'Three-view tee', content: DOCUMENT },
+      })
+      legacyId = ((await created.json()) as { designId: string }).designId
+      expect((await api({ path: `designs/${legacyId}/renders`, method: 'POST', token: c.token, body: { seq: 1, renders: RENDERS } })).status).toBe(201)
+
+      // Back to what a version uploaded before #179 has: the three base
+      // views, each with the hash recorded at upload, and no sleeves.
+      const { data: sleeves } = await admin
+        .from('render_artifacts')
+        .select('storage_path')
+        .eq('design_id', legacyId)
+        .in('kind', ['view_left', 'view_right'])
+      await admin.storage.from('design-assets').remove((sleeves ?? []).map((row) => row.storage_path as string))
+      await admin.from('render_artifacts').delete().eq('design_id', legacyId).in('kind', ['view_left', 'view_right'])
+    })
+
+    afterAll(async () => {
+      if (c) await admin.auth.admin.deleteUser(c.id)
+    })
+
+    test('an upload of only the three original views is refused', async () => {
+      const response = await api({
+        path: `designs/${legacyId}/renders`,
+        method: 'POST',
+        token: c.token,
+        body: { seq: 1, renders: RENDERS.slice(0, 3) },
+      })
+
+      expect(response.status).toBe(422)
+      expect(await response.json()).toMatchObject({ error: { issues: [{ path: '$.renders' }] } })
+    })
+
+    test('a new publication needs all five views', async () => {
+      const response = await api({ path: `designs/${legacyId}/publication`, method: 'POST', token: c.token, body: { seq: 1 } })
+      const body = (await response.json()) as { error: { issues: Array<{ path: string }> } }
+
+      expect(response.status).toBe(422)
+      expect(body.error.issues.map((issue) => issue.path)).toEqual(['$.renders.view_left', '$.renders.view_right'])
+
+      const owner = (await (await api({ path: `designs/${legacyId}/publication`, token: c.token })).json()) as {
+        publication: { rendersReadyForHead: boolean } | null
+      }
+      expect(owner.publication?.rendersReadyForHead ?? false).toBe(false)
+    })
+
+    test('a publication made with three views stays public and serves them', async () => {
+      // Published before #179, when three views were enough.
+      const { data, error } = await admin
+        .rpc('flp_publish_version', { p_owner_id: c.id, p_design_id: legacyId, p_seq: 1, p_display_name: null })
+        .single<{ slug: string }>()
+      expect(error).toBeNull()
+      slug = data!.slug
+
+      const anonymous = await api({ path: `public/${slug}` })
+      const page = (await anonymous.json()) as { renders: Record<string, string> }
+
+      expect(anonymous.status).toBe(200)
+      expect(Object.keys(page.renders)).toEqual([...BASE_PUBLIC_RENDER_KINDS])
+
+      for (const kind of BASE_PUBLIC_RENDER_KINDS) {
+        const view = await handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost${page.renders[kind]}`) })
+        expect(view.status, kind).toBe(200)
+        expect(view.headers.get('Content-Type')).toMatch(/^image\//)
+      }
+
+      // There is no sleeve view to serve, so asking for one is a plain 404.
+      for (const kind of ['view_left', 'view_right']) {
+        expect((await api({ path: `public/${slug}/image?view=${kind}&seq=1` })).status, kind).toBe(404)
+      }
+    })
+
+    test('its share page embeds the three views and no sleeve row', async () => {
+      const response = await handleSharePage({
+        env: serverEnv,
+        request: new Request(`http://localhost/s/${slug}`),
+        loadShell: async () => '<!doctype html><html><head><title>x</title></head><body><div id="root"></div></body></html>',
+      })
+      const html = await response.text()
+      const overlay = html.slice(html.indexOf('id="flp-static-share"'), html.indexOf('<div id="root">'))
+
+      expect(response.status).toBe(200)
+      expect(overlay.match(/<img /g)).toHaveLength(3)
+      expect(html).not.toContain('view=view_left')
+      expect(html).toContain(`<link rel="preload" as="image" href="/api/flp/public/${slug}/image?seq=1"`)
+    })
   })
 
   test('an unknown or malformed slug is a plain 404', async () => {

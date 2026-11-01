@@ -99,7 +99,7 @@ test('demo fallback recording', async ({ page }) => {
   // the same signed in or out.
   await page.goto(shareUrl)
   await expect(page.getByRole('heading', { name: 'Studio draft' })).toBeVisible()
-  await expect(page.getByRole('img')).toHaveCount(3)
+  await expect(page.getByRole('img')).toHaveCount(5)
   await beat({ page, ms: 4_000 })
 
   // Unpublish: the link is gone at once.

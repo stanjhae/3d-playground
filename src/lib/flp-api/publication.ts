@@ -13,9 +13,9 @@ import {
  * Publication (FLP P01–P05, #179–#183).
  *
  * - Renders: the studio captures the exact saved version (front, three-
- *   quarter, back); the server validates the bytes and stores them
- *   privately under `<owner>/<design>/v<seq>/<kind>.jpg`.
- * - Publish: only a version whose three views are ready; the pointer moves
+ *   quarter, back and both sleeves); the server validates the bytes and
+ *   stores them privately under `<owner>/<design>/v<seq>/<kind>.jpg`.
+ * - Publish: only a version whose five views are ready; the pointer moves
  *   atomically in `flp_publish_version`, and the slug survives republish.
  * - Public read: anonymous, returns only title, display name and our own
  *   seq-pinned image URLs, and only while published. Never the document,
@@ -24,9 +24,28 @@ import {
  *   (#183), so no copy outlives the publication.
  */
 
-export const PUBLIC_RENDER_KINDS = ['view_front', 'view_three_quarter', 'view_back'] as const
+/**
+ * Every view a new publication uploads, in capture order. The sleeves are
+ * named like the render panels: `view_left` is seen from −x, so it shows
+ * the wearer's right sleeve (#179).
+ */
+export const PUBLIC_RENDER_KINDS = [
+  'view_front',
+  'view_three_quarter',
+  'view_back',
+  'view_left',
+  'view_right',
+] as const
+
+/**
+ * The views every live publication has. Versions published before the
+ * sleeve views (#179) have only these, and stay public.
+ */
+export const BASE_PUBLIC_RENDER_KINDS = ['view_front', 'view_three_quarter', 'view_back'] as const
 
 export type PublicRenderKind = (typeof PUBLIC_RENDER_KINDS)[number]
+export type BasePublicRenderKind = (typeof BASE_PUBLIC_RENDER_KINDS)[number]
+export type SleeveRenderKind = Exclude<PublicRenderKind, BasePublicRenderKind>
 
 /** Public views and pages are never cached, so unpublishing is instant (#183). */
 export const PUBLIC_CACHE_CONTROL = 'no-store'
@@ -40,7 +59,8 @@ export type PublicDesign = {
   displayName: string | null
   seq: number
   publishedAt: string
-  renders: Record<PublicRenderKind, string>
+  /** Our image URLs; the sleeves only when that version has them. */
+  renders: Record<BasePublicRenderKind, string> & Partial<Record<SleeveRenderKind, string>>
 }
 
 export type OwnerPublication = PublicationResponse & {
@@ -381,7 +401,9 @@ export type PublishedDesign = {
 
 /**
  * The live publication behind `slug`, or null when it is unknown, revoked
- * or missing a view. The one place public reads decide what is published.
+ * or missing a base view. The one place public reads decide what is
+ * published. Sleeve views are optional here, so a version published with
+ * three views stays public (#179); `renderPaths` holds whichever exist.
  */
 export async function findPublishedDesign({
   admin,
@@ -412,7 +434,7 @@ export async function findPublishedDesign({
     seq: publication.version_seq as number,
   })
 
-  if (!publication.title || PUBLIC_RENDER_KINDS.some((kind) => !renderPaths.has(kind))) {
+  if (!publication.title || BASE_PUBLIC_RENDER_KINDS.some((kind) => !renderPaths.has(kind))) {
     return null
   }
 
@@ -469,11 +491,14 @@ export async function readPublicDesign({
   return respond({ status: 200, body: publicDesignPayload({ published }) })
 }
 
-/** The only fields a public reader ever gets (P04 #182). */
+/** The only fields a public reader ever gets (P04 #182); only views that exist. */
 export function publicDesignPayload({ published }: { published: PublishedDesign }): PublicDesign {
   const renders = Object.fromEntries(
-    PUBLIC_RENDER_KINDS.map((kind) => [kind, publicImagePath({ slug: published.slug, kind, seq: published.seq })]),
-  ) as Record<PublicRenderKind, string>
+    PUBLIC_RENDER_KINDS.filter((kind) => published.renderPaths.has(kind)).map((kind) => [
+      kind,
+      publicImagePath({ slug: published.slug, kind, seq: published.seq }),
+    ]),
+  ) as PublicDesign['renders']
 
   return {
     slug: published.slug,
@@ -513,11 +538,14 @@ export async function readPublicImage({
 
   const published = await findPublishedDesign({ admin, slug })
 
-  if (!published || (seq !== null && Number(seq) !== published.seq)) {
+  // A sleeve view of a version published before #179 does not exist.
+  const path = published?.renderPaths.get(view)
+
+  if (!published || !path || (seq !== null && Number(seq) !== published.seq)) {
     return gone()
   }
 
-  const { data, error } = await admin.storage.from(BUCKET).download(published.renderPaths.get(view)!)
+  const { data, error } = await admin.storage.from(BUCKET).download(path)
 
   if (error || !data) {
     return gone()

@@ -59,7 +59,7 @@ import {
   createTeeEngine,
   limitMessage,
   loadTeeEngine,
-  overLimitNotice,
+  documentNotice,
   redoTee,
   runTeeCommand,
   runTranslated,
@@ -71,6 +71,7 @@ import { type CanonicalDocument, CANONICAL_LIMITS } from './canonical-document'
 import { findLayer, replaceDocument } from './canonical-commands'
 import { canonicalPanel, renderPanel } from './render-projection'
 import { NUDGE_MERGE_MS } from './studio-keys'
+import { roundPlacement } from './transform-fields'
 
 export type EditorMode = 'design' | 'atelier'
 
@@ -83,7 +84,7 @@ export type StudioView = 'draw' | 'cloth'
 export type EditorPaintTool = StrokeTool | 'type'
 export type CreateStep = CreateStepId
 export type DesignEditMode = 'draw' | 'tech'
-export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'orbit'
+export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'left' | 'right' | 'orbit'
 export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
 export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
 
@@ -435,7 +436,7 @@ function syncFromStack({
       revision: tee.stack.revision,
       undoCount: tee.stack.past.length,
       redoCount: tee.stack.future.length,
-      limitNotice: overLimitNotice({ document: tee.stack.document }),
+      limitNotice: documentNotice({ document: tee.stack.document }),
       ...extra,
     }
   }
@@ -1453,9 +1454,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         return state
       }
 
+      // Rounded so repeated steps land on the same number a typed value
+      // does (#156): 0.38 + 7 × 0.01 is 0.45, not 0.45000000000000007.
       const patch = {
-        x: Math.min(1, Math.max(0, layer.x + dx)),
-        y: Math.min(1, Math.max(0, layer.y + dy)),
+        x: roundPlacement({ value: Math.min(1, Math.max(0, layer.x + dx)) }),
+        y: roundPlacement({ value: Math.min(1, Math.max(0, layer.y + dy)) }),
       }
 
       if (!layerPatchChanges({ layer, patch })) {
