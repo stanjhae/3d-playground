@@ -829,9 +829,24 @@ function clipToPanel({
   }
 }
 
+/** The smallest clip holding all of these, or null for none. */
+function unionClip({ clips }: { clips: Array<NonNullable<AtlasBuffer['clip']>> }) {
+  if (clips.length === 0) {
+    return null
+  }
+
+  return clips.reduce((union, clip) => ({
+    x0: Math.min(union.x0, clip.x0),
+    y0: Math.min(union.y0, clip.y0),
+    x1: Math.max(union.x1, clip.x1),
+    y1: Math.max(union.y1, clip.y1),
+  }))
+}
+
 export function rasterizeLayers({
   document,
   extraStroke,
+  extraStrokeLayerId,
   width = ATLAS_SIZE,
   height = ATLAS_SIZE,
   images,
@@ -839,6 +854,13 @@ export function rasterizeLayers({
 }: {
   document: DesignDocument
   extraStroke?: Stroke | null
+  /**
+   * The paint layer a live eraser stroke will be committed to. The eraser
+   * previews inside that layer only; an id not in the document means the
+   * stroke starts a new layer, where it has nothing to erase. Left out, a
+   * live stroke is drawn on top of everything (concept garments).
+   */
+  extraStrokeLayerId?: string | null
   width?: number
   height?: number
   images?: Record<string, AtlasBuffer>
@@ -848,6 +870,20 @@ export function rasterizeLayers({
   // Tee panels are separate print regions; concept garments keep v1 drawing.
   const target = ({ panel }: { panel: Stroke['panel'] }) =>
     document.garmentId === 'tee' ? clipToPanel({ buffer, panel }) : buffer
+  const liveEraser = extraStroke?.tool === 'eraser' && extraStrokeLayerId !== undefined
+  // One scratch buffer, cleared over each paint layer's region in turn.
+  let scratch: AtlasBuffer | null = null
+  const layerBuffer = ({ region }: { region: NonNullable<AtlasBuffer['clip']> }) => {
+    if (!scratch) {
+      scratch = createAtlasBuffer({ width, height })
+      return scratch
+    }
+
+    for (let row = region.y0; row < region.y1; row += 1) {
+      scratch.pixels.fill(0, (row * width + region.x0) * 4, (row * width + region.x1) * 4)
+    }
+    return scratch
+  }
 
   for (const layer of document.layers) {
     if (!layer.visible) {
@@ -864,26 +900,49 @@ export function rasterizeLayers({
 
     if (layer.kind === 'paint') {
       const opacity = Math.min(1, Math.max(0, layer.opacity ?? 1))
+      const live = liveEraser && layer.id === extraStrokeLayerId ? extraStroke : null
 
-      if (opacity >= 1) {
+      // Without an eraser, an opaque layer draws straight onto the atlas.
+      if (opacity >= 1 && !live && !layer.strokes.some((stroke) => stroke.tool === 'eraser')) {
         for (const stroke of layer.strokes) {
           drawStroke({ buffer: target(stroke), stroke })
         }
         continue
       }
 
-      // A translucent layer is drawn on its own and composited once (#158),
-      // so its erasers only clear its own strokes, not what lies beneath.
-      const own = createAtlasBuffer({ width, height })
+      // Otherwise the layer is drawn on its own and composited once (#158,
+      // #159), so its erasers clear only its own strokes, never the text,
+      // graphics, pattern or paint beneath.
+      const strokes = live ? [...layer.strokes, live] : layer.strokes
+      // Only the layer's panels are cleared and composited, not the atlas.
+      const region =
+        document.garmentId === 'tee'
+          ? unionClip({ clips: strokes.map((stroke) => clipToPanel({ buffer, panel: stroke.panel }).clip!) })
+          : { x0: 0, y0: 0, x1: width, y1: height }
 
-      for (const stroke of layer.strokes) {
+      if (!region) {
+        continue
+      }
+
+      region.x0 = Math.max(0, region.x0)
+      region.y0 = Math.max(0, region.y0)
+      region.x1 = Math.min(width, region.x1)
+      region.y1 = Math.min(height, region.y1)
+
+      const own = layerBuffer({ region })
+
+      for (const stroke of strokes) {
         drawStroke({
           buffer: document.garmentId === 'tee' ? clipToPanel({ buffer: own, panel: stroke.panel }) : own,
           stroke,
         })
       }
 
-      blitBuffer({ dest: buffer, source: own, destX: 0, destY: 0, destWidth: width, destHeight: height, opacity })
+      for (let row = region.y0; row < region.y1; row += 1) {
+        for (let column = region.x0; column < region.x1; column += 1) {
+          sampleSource({ dest: buffer, source: own, column, row, srcX: column, srcY: row, opacity })
+        }
+      }
       continue
     }
 
@@ -904,7 +963,9 @@ export function rasterizeLayers({
     }
   }
 
-  if (extraStroke) {
+  // A live eraser on a layer not drawn yet starts a new, empty layer: it
+  // has nothing of its own to erase, as after it is committed.
+  if (extraStroke && !liveEraser) {
     drawStroke({ buffer: target(extraStroke), stroke: extraStroke })
   }
 

@@ -63,6 +63,7 @@ import {
   redoTee,
   runTeeCommand,
   runTranslated,
+  strokeLayerId,
   teeRenderDocument,
   undoTee,
 } from './editor-canonical'
@@ -631,6 +632,18 @@ function historyMarker() {
 }
 
 /** Asset id → drawable source for the tee engine (uploads, S01 #170). */
+/**
+ * Where the live stroke will land: a paint layer id on the tee (null when
+ * it cannot be added), undefined for concept garments, which draw it on top.
+ */
+export function liveStrokeLayerId({ stroke }: { stroke: Stroke | null }): string | null | undefined {
+  if (!stroke || !teeActive()) {
+    return undefined
+  }
+
+  return strokeLayerId({ engine: tee, stroke })
+}
+
 export function getAssetSources(): Readonly<Record<string, string>> {
   return tee.assetSources
 }

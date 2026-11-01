@@ -14,6 +14,7 @@ Demo polish before the 12 Nov freeze (`docs/decisions.md`, 1 Nov).
 - **On-demand 3D rendering:** an idle studio draws nothing, so it uses far less CPU and battery. Two open tabs no longer slow each other down (#264).
 
 ### Fixed
+- **The eraser only erases its own layer.** On a fully opaque paint layer it used to cut through the words, graphics, base pattern and paint beneath. The live preview while dragging now matches what is committed (#159).
 - Landing designs' images could never upload, because the security policy blocks `fetch` on data URLs; they're now decoded directly (#261).
 
 ## 0.9.0-rc.1: alpha release candidate (1 Nov 2026)
