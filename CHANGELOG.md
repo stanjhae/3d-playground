@@ -10,6 +10,7 @@ The first release candidate of the FLP PRD v1.1 alpha: an owned, signed-in T-shi
 - Owner isolation is enforced by row-level security and owner-checked write functions; another account gets a plain 404 (#222).
 - Deleting an account removes its designs, history, publications and stored files (#231, #258, `scripts/delete-account.mjs`).
 - In the alpha, the guest board and vote paths are retired and refuse writes on the server (#237, #249).
+- Reads retry a brief server or network failure. A failed profile read no longer shows your public name as blank (found in the rc.1 demo dry run).
 
 ### Editing the T-shirt
 - One canonical v2 document (`docs/canonical-document.md`) for the front, the back and both sleeves, named from the wearer's side. Draw and Refine share it, with one undo history (#216, #217, #223, #226, #227).
