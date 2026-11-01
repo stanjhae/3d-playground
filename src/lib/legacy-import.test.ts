@@ -280,13 +280,23 @@ describe('importLegacyDesign', () => {
       })),
     })
 
+    // v1 drew the fill at 55% by default; it is pre-mixed over the ground.
     expect(result.document.base).toEqual({
       kind: 'stripes',
-      colors: ['#2b3a55', '#f4ead4'],
+      colors: ['#2b3a55', '#9a9b9b'],
       period: 0.08,
       angle: 0,
     })
     expect(result.unsupported.filter((note) => note.path.startsWith('layers['))).toEqual([])
+  })
+
+  test('a legacy base fill keeps its own opacity when it has one', async () => {
+    const result = await importOk({
+      ...LEGACY_TEE,
+      layers: [{ id: 'base-fill-front', kind: 'pattern', patternId: 'check', panel: 'front', color: '#f4ead4', opacity: 1 }],
+    })
+
+    expect(result.document.base).toMatchObject({ kind: 'check', colors: ['#2b3a55', '#f4ead4'] })
   })
 
   test('rejects corrupt and out-of-scope sources explicitly', async () => {

@@ -153,6 +153,21 @@ function uuidFromHex({ hex }: { hex: string }) {
   ].join('-')
 }
 
+/** `fill` laid over `ground` at `opacity`, as one opaque colour. */
+function mixColor({ ground, fill, opacity }: { ground: Color; fill: Color | null; opacity: number }): Color | null {
+  if (!fill) {
+    return null
+  }
+
+  const channel = (hex: Color, index: number) => parseInt(hex.slice(1 + index * 2, 3 + index * 2), 16)
+  const mixed = [0, 1, 2].map((index) =>
+    Math.round(channel(ground, index) + (channel(fill, index) - channel(ground, index)) * opacity)
+      .toString(16)
+      .padStart(2, '0'),
+  )
+  return `#${mixed.join('')}` as Color
+}
+
 export function toColor({ value }: { value: unknown }): Color | null {
   if (typeof value !== 'string') {
     return null
@@ -732,8 +747,14 @@ export function convertLegacyDesign({ value }: { value: unknown }): ConvertResul
       id.startsWith('base-fill') &&
       (layer.patternId === 'stripe' || layer.patternId === 'check')
     ) {
-      const fill = toColor({ value: layer.color })
       const ground = document.base.kind === 'solid' ? document.base.color : document.base.colors[0]
+      // v1 stamped the base fill at 55% by default; v2 draws it at full
+      // strength, so the fill is pre-mixed over the ground to keep the look.
+      const fill = mixColor({
+        ground,
+        fill: toColor({ value: layer.color }),
+        opacity: isFiniteNumber(layer.opacity) ? Math.min(1, Math.max(0, layer.opacity)) : 0.55,
+      })
 
       // A projected v2 base carries its period (#161); older stamps had none.
       const period =

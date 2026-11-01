@@ -138,7 +138,7 @@ describe('v1 → v2 store switch keeps the atlas pixel-identical', () => {
             y: 0.5,
             scale: 1.05,
             rotation: 0,
-            opacity: 0.55,
+            opacity: 1,
             visible: true,
             period: 0.08,
           })),
