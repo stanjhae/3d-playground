@@ -250,5 +250,19 @@ Migration `20261104090000_flp_quotas`. Every check runs inside the write functio
 
 **Rate limits** (`flp_take_token`, fixed one-minute windows per account, table `rate_limits`): `save` 120 (create, save, restore), `upload` 20, `publish` 10 (renders, publish, unpublish), `details` 30 (rename, delete, public name). Reads are not limited. A refused request returns 429 with `Retry-After`. Autosave shows "Saving paused, retrying", keeps the work locally, and retries the same revision with the same mutation key after the wait. If the limiter itself fails, the request proceeds and the failure is logged.
 
+**Retention windows (A07 #151).**
+
+| What | Kept until | How it goes |
+| --- | --- | --- |
+| Autosaves | The newest 100 per design (see above) | Pruned in the same transaction as the save |
+| Named checkpoints, restores, published and rendered versions | The design is deleted | `flp_delete_design` |
+| Uploads no design uses | 24 h after upload | `scripts/cleanup-orphans.mjs --delete` |
+| Render files of a deleted design | Removed straight after the rows | `DELETE /designs/:id`; leftovers from an interrupted delete go with the weekly cleanup |
+| Everything an account stored | The account is deleted | `scripts/delete-account.mjs --confirm` (files, then the account; the database cascades the rest) |
+| Files of an account deleted another way | The next weekly cleanup | `scripts/cleanup-orphans.mjs --delete` lists and removes every file under an owner folder with no account |
+| Local recovery copies (browser) | Acknowledged by the cloud, or answered in the prompt | Per tab and design, in IndexedDB (#174, #255) |
+
+Every cleanup step is a dry run by default and safe to rerun. A run interrupted after removing files finishes on the next run, because the listings are rebuilt from what is still stored.
+
 **Orphaned uploads.** `flp_orphan_assets(grace)` lists uploads that no saved version of the owner's designs references, older than the grace window (24 h by default). It only lists. `scripts/cleanup-orphans.mjs` runs it with the service key as a **dry run** by default and prints each asset. `--delete` removes the files, then the row, and keeps any row whose files could not be removed for the next run.
 

@@ -121,5 +121,10 @@ The suite creates `e2e-*@example.test` accounts and deletes them afterwards with
   SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/cleanup-orphans.mjs
   ```
   Add `--delete` once the listing looks right (see [data-model.md](data-model.md#quotas-retention-and-rate-limits-s09-178-q02-187)).
-- **Account deletion request:** check the request came from the account's own address, then delete the user in Dashboard → Authentication. Their designs, versions, publications and uploads go with it ([auth.md](auth.md)).
+- **Account deletion request:** check the request came from the account's own address, then run:
+  ```bash
+  SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/delete-account.mjs someone@example.com
+  SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/delete-account.mjs someone@example.com --confirm
+  ```
+  The first command is a dry run that reports the designs and stored files. The second removes the account's files, then the account; its designs, versions, publications and upload rows go with it through the database cascades. **Don't delete accounts from the Dashboard alone:** that leaves their files (including uploaded images) in storage. If it happens, the weekly cleanup below removes them.
 - **Reported design:** open the link from the report. If it breaks the rules, unpublish it by setting its publication to revoked (`select public.flp_revoke_publication(owner_id, design_id)` in the SQL editor), then reply to the reporter.

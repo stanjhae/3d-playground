@@ -176,6 +176,37 @@ describe.skipIf(!env)('publication against local Supabase', () => {
     expect((await api({ path: `public/${publication.slug}/image` })).status).toBe(404)
   })
 
+  test('a view replaced in storage after upload is never served (#180)', async () => {
+    const created = await api({
+      path: 'designs',
+      method: 'POST',
+      token: a.token,
+      body: { mutationKey: crypto.randomUUID(), title: 'Tamper check', content: DOCUMENT },
+    })
+    const tamperId = ((await created.json()) as { designId: string }).designId
+    expect((await api({ path: `designs/${tamperId}/renders`, method: 'POST', token: a.token, body: { seq: 1, renders: RENDERS } })).status).toBe(201)
+    const { slug } = (await (
+      await api({ path: `designs/${tamperId}/publication`, method: 'POST', token: a.token, body: { seq: 1 } })
+    ).json()) as { slug: string }
+    const image = () =>
+      handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost/api/flp/public/${slug}/image?seq=1`) })
+
+    expect((await image()).status).toBe(200)
+
+    // Someone with storage access swaps the stored front view.
+    const { data: rows } = await admin
+      .from('render_artifacts')
+      .select('storage_path')
+      .eq('design_id', tamperId)
+      .eq('kind', 'view_front')
+      .single()
+    const swapped = new Uint8Array(TINY_JPEG)
+    swapped[swapped.length - 3] ^= 0xff
+    await admin.storage.from('design-assets').upload(rows!.storage_path as string, swapped, { contentType: 'image/jpeg', upsert: true })
+
+    expect((await image()).status).toBe(404)
+  })
+
   test('an unknown or malformed slug is a plain 404', async () => {
     expect((await api({ path: 'public/0123456789abcdef' })).status).toBe(404)
     expect((await api({ path: 'public/..%2Fdesigns' })).status).toBe(404)

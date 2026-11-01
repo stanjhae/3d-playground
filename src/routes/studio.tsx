@@ -179,7 +179,7 @@ function MyStudio() {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {list.designs.map((design) => (
-            <li key={design.id}>
+            <li key={design.id} className="min-w-0">
               <DesignCard
                 design={design}
                 ownerId={ownerId ?? ''}

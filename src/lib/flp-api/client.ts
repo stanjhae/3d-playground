@@ -79,17 +79,49 @@ async function renewOrEnd(): Promise<string | null> {
   return null
 }
 
-export async function call<T>({
-  path,
-  method = 'GET',
-  body,
-  fetchImpl = fetch,
-}: {
+type CallOptions = {
   path: string
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   body?: unknown
   fetchImpl?: typeof fetch
-}): Promise<FlpResult<T>> {
+}
+
+/** Waits before re-reading after a passing server or network failure. */
+const READ_RETRY_MS = [500, 1500]
+
+/**
+ * One API call, with reads retried twice on a passing server or network
+ * failure (e.g. a just-issued token briefly refused). Writes are never
+ * retried here: they carry their own keys and retry policy (S04 #173).
+ */
+export async function call<T>({
+  wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
+  ...options
+}: CallOptions & { wait?: (ms: number) => Promise<unknown> }): Promise<FlpResult<T>> {
+  let result = await callOnce<T>(options)
+
+  if ((options.method ?? 'GET') !== 'GET') {
+    return result
+  }
+
+  for (const ms of READ_RETRY_MS) {
+    if (result.ok || (result.code !== 'internal' && result.code !== 'network')) {
+      break
+    }
+
+    await wait(ms)
+    result = await callOnce<T>(options)
+  }
+
+  return result
+}
+
+async function callOnce<T>({
+  path,
+  method = 'GET',
+  body,
+  fetchImpl = fetch,
+}: CallOptions): Promise<FlpResult<T>> {
   // A call made while the stored session is still loading (e.g. on a page
   // that renders before its route guard) waits for it instead of failing.
   if (useSessionStore.getState().status === 'loading') {

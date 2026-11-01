@@ -77,7 +77,7 @@ export function DesignCard({
   }
 
   return (
-    <div className="flex min-h-20 flex-col gap-3 border border-flv-line bg-flv-paper p-4">
+    <div className="flex min-h-20 min-w-0 flex-col gap-3 border border-flv-line bg-flv-paper p-4">
       {mode === 'rename' ? (
         <form
           className="flex flex-wrap items-center gap-2"
@@ -122,7 +122,7 @@ export function DesignCard({
         <Link
           to="/create"
           search={{ cloud: design.id, step: 'design' }}
-          className="font-display text-xl hover:text-flv-accent"
+          className="font-display text-xl [overflow-wrap:anywhere] hover:text-flv-accent"
         >
           {design.title}
         </Link>
@@ -157,7 +157,7 @@ export function DesignCard({
         className="m-auto max-w-md border border-flv-line bg-flv-paper p-6 text-flv-ink backdrop:bg-black/40"
         onCancel={() => setMode('view')}
       >
-        <h2 id={`delete-title-${design.id}`} className="font-display text-2xl">
+        <h2 id={`delete-title-${design.id}`} className="font-display text-2xl [overflow-wrap:anywhere]">
           Delete “{design.title}”?
         </h2>
         <p className="mt-2 font-body text-sm text-flv-muted">
