@@ -59,7 +59,7 @@ import {
   createTeeEngine,
   limitMessage,
   loadTeeEngine,
-  overLimitNotice,
+  documentNotice,
   redoTee,
   runTeeCommand,
   runTranslated,
@@ -436,7 +436,7 @@ function syncFromStack({
       revision: tee.stack.revision,
       undoCount: tee.stack.past.length,
       redoCount: tee.stack.future.length,
-      limitNotice: overLimitNotice({ document: tee.stack.document }),
+      limitNotice: documentNotice({ document: tee.stack.document }),
       ...extra,
     }
   }

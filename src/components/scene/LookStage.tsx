@@ -22,6 +22,7 @@ export function LookStage({
     <div className="relative h-full min-h-80 w-full">
       <Canvas
         shadows
+        frameloop="demand"
         camera={{
           position: [...STUDIO_CAMERA.position],
           fov: STUDIO_CAMERA.fov,

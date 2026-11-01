@@ -3,7 +3,7 @@ import {
   createEmptyCanonicalDocument,
 } from './canonical-document.ts'
 import type { LandingHandoff } from './landing-handoff.ts'
-import { type ImportNote, convertLegacyDesign, toColor } from './legacy-import.ts'
+import { type ImportNote, type PendingAsset, convertLegacyDesign, toColor } from './legacy-import.ts'
 
 /**
  * First content for a new cloud design (A05 #149): the design carried over
@@ -14,9 +14,15 @@ export function initialStudioDocument({
   handoff,
 }: {
   handoff: LandingHandoff | null
-}): { document: CanonicalDocument; notes: ImportNote[]; fromLanding: boolean } {
+}): {
+  document: CanonicalDocument
+  notes: ImportNote[]
+  fromLanding: boolean
+  /** Inline images still to upload before the design is saved (#141). */
+  pendingAssets: PendingAsset[]
+} {
   if (!handoff || handoff.garmentId !== 'tee') {
-    return { document: createEmptyCanonicalDocument(), notes: [], fromLanding: false }
+    return { document: createEmptyCanonicalDocument(), notes: [], fromLanding: false, pendingAssets: [] }
   }
 
   const converted = convertLegacyDesign({
@@ -36,6 +42,7 @@ export function initialStudioDocument({
       document: createEmptyCanonicalDocument(),
       notes: [{ path: '$', message: converted.message }],
       fromLanding: false,
+      pendingAssets: [],
     }
   }
 
@@ -50,5 +57,6 @@ export function initialStudioDocument({
     document,
     notes: [...converted.warnings, ...converted.unsupported],
     fromLanding: true,
+    pendingAssets: converted.pendingAssets,
   }
 }
