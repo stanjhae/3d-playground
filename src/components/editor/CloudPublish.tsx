@@ -214,6 +214,17 @@ export function CloudPublish() {
         <p className="font-body text-sm text-flv-muted">Private. Only you can see this design.</p>
       )}
 
+      {/*
+        Above the actions: the panel is anchored to the bottom of the studio,
+        so a line below them coming or going (the 3D preview starting, Saved
+        to cloud) moved the button out from under a click in progress.
+      */}
+      <p role="status" aria-live="polite" className="min-h-5 font-body text-xs text-flv-accent">
+        {!saved
+          ? 'Publishing is available once the design shows Saved to cloud.'
+          : (message ?? renderBlocked)}
+      </p>
+
       {reviewing ? (
         <div
           ref={reviewRef}
@@ -270,12 +281,6 @@ export function CloudPublish() {
           {live ? (publication?.seq === headSeq ? 'Published' : 'Publish latest') : 'Publish…'}
         </button>
       )}
-
-      <p role="status" aria-live="polite" className="min-h-5 font-body text-xs text-flv-accent">
-        {!saved
-          ? 'Publishing is available once the design shows Saved to cloud.'
-          : (message ?? renderBlocked)}
-      </p>
     </section>
   )
 }
