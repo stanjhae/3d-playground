@@ -51,7 +51,7 @@ Set these per environment (Preview = staging, Production = production). **Never 
 | `SUPABASE_URL` | Server only | Same as `VITE_SUPABASE_URL` |
 | `SUPABASE_PUBLISHABLE_KEY` | Server only | Same publishable key |
 | `SUPABASE_SECRET_KEY` | Server only | The project secret (service-role) key. Used only by `api/flp.ts` and `api/og-share.ts`. |
-| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Server only | Optional. Used by the waitlist and the aggregate usage counts (`api/events.ts`); without them the counts aren't kept. |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Server only | Optional. Used by the waitlist and the aggregate usage counts (`api/events.ts`); without them the counts aren't kept. How to read them and the proposed alerts: [operations.md](operations.md). |
 
 The functions in `vercel.json` (`api/flp.ts`, `api/og-share.ts`, …) include `src/lib/**`, so no extra build step is needed. Redeploy after changing any variable.
 

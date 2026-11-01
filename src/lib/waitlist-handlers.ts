@@ -1,4 +1,4 @@
-import { parseAssumptionEvent } from './assumption-events.ts'
+import { parseEventBody } from './assumption-events.ts'
 import { HOUSE_COPY } from './house-copy.ts'
 import { addWaitlistEmail, incrementAssumption } from './waitlist-store.ts'
 
@@ -111,12 +111,9 @@ export async function handleEventsRequest({
     return Response.json({ error: 'The count could not be read' }, { status: 400 })
   }
 
-  const name = parseAssumptionEvent({
-    value:
-      body && typeof body === 'object' && 'name' in body
-        ? (body as { name?: unknown }).name
-        : null,
-  })
+  // Known names (and, for timings, known buckets) only: nothing else is
+  // stored, so no identifier or content can reach the counts (Q08 #193).
+  const name = parseEventBody({ body })
 
   if (!name) {
     return Response.json({ error: 'Unknown assumption' }, { status: 400 })
