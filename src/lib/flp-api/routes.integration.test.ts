@@ -5,12 +5,20 @@ import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import { TINY_JPEG } from '../image-fixtures'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
 import { PUBLIC_RENDER_KINDS } from './publication'
+import {
+  type FlpRoute as Route,
+  type RouteFixture as Fixture,
+  type RouteMethod as Method,
+  flpRoutes,
+  routeLabel as label,
+} from './route-table'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
 
 /**
  * Every `/api/flp` route against another owner and no session (Q03 #188).
- * One table lists the routes: a new route belongs here, with the scope
- * that says what a stranger may see. Opt-in: `pnpm test:integration`.
+ * The table is in `route-table.ts`, shared with `scripts/hosted-check.mjs`:
+ * a new route belongs there, with the scope that says what a stranger may
+ * see. Opt-in: `pnpm test:integration`.
  */
 
 const processEnv =
@@ -29,69 +37,9 @@ function base64({ bytes }: { bytes: Uint8Array }) {
 
 const RENDERS = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data: base64({ bytes: TINY_JPEG }) }))
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE'
-
-type Fixture = { designId: string; assetId: string; slug: string }
-
-type Route = {
-  method: Method
-  path: (fixture: Fixture) => string
-  body?: () => unknown
-  /**
-   * owner: names one owner's design or asset; anyone else gets 404.
-   * account: acts on the caller's own account; needs a session.
-   * public: readable signed out.
-   */
-  scope: 'owner' | 'account' | 'public'
-}
+const FLP_ROUTES = flpRoutes({ document: DOCUMENT, renders: RENDERS })
 
 const key = () => crypto.randomUUID()
-
-const FLP_ROUTES: Route[] = [
-  { method: 'GET', path: () => 'designs', scope: 'account' },
-  {
-    method: 'POST',
-    path: () => 'designs',
-    body: () => ({ mutationKey: key(), title: 'Stranger', content: DOCUMENT }),
-    scope: 'account',
-  },
-  { method: 'GET', path: ({ designId }) => `designs/${designId}`, scope: 'owner' },
-  { method: 'PATCH', path: ({ designId }) => `designs/${designId}`, body: () => ({ title: 'Taken' }), scope: 'owner' },
-  { method: 'DELETE', path: ({ designId }) => `designs/${designId}`, scope: 'owner' },
-  { method: 'GET', path: ({ designId }) => `designs/${designId}/versions`, scope: 'owner' },
-  {
-    method: 'POST',
-    path: ({ designId }) => `designs/${designId}/versions`,
-    body: () => ({ baseSeq: 1, mutationKey: key(), kind: 'autosave', content: DOCUMENT }),
-    scope: 'owner',
-  },
-  { method: 'GET', path: ({ designId }) => `designs/${designId}/versions/1`, scope: 'owner' },
-  {
-    method: 'POST',
-    path: ({ designId }) => `designs/${designId}/restore`,
-    body: () => ({ baseSeq: 1, mutationKey: key(), fromSeq: 1 }),
-    scope: 'owner',
-  },
-  {
-    method: 'POST',
-    path: ({ designId }) => `designs/${designId}/renders`,
-    body: () => ({ seq: 1, renders: RENDERS }),
-    scope: 'owner',
-  },
-  { method: 'GET', path: ({ designId }) => `designs/${designId}/publication`, scope: 'owner' },
-  { method: 'POST', path: ({ designId }) => `designs/${designId}/publication`, body: () => ({ seq: 1 }), scope: 'owner' },
-  { method: 'DELETE', path: ({ designId }) => `designs/${designId}/publication`, scope: 'owner' },
-  { method: 'POST', path: () => 'assets', scope: 'account' },
-  { method: 'GET', path: ({ assetId }) => `assets/${assetId}`, scope: 'owner' },
-  { method: 'POST', path: ({ assetId }) => `assets/${assetId}/finalize`, scope: 'owner' },
-  { method: 'GET', path: () => 'profile', scope: 'account' },
-  { method: 'POST', path: () => 'profile', body: () => ({ displayName: 'Stranger' }), scope: 'account' },
-  { method: 'GET', path: ({ slug }) => `public/${slug}`, scope: 'public' },
-  { method: 'GET', path: ({ slug }) => `public/${slug}/image?kind=view_front`, scope: 'public' },
-]
-
-const label = (route: Route) =>
-  `${route.method} /${route.path({ designId: ':id', assetId: ':asset', slug: ':slug' })}`
 
 describe.skipIf(!env)('every /api/flp route against strangers', () => {
   const serverEnv = env as FlpServerEnv

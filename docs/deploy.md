@@ -4,6 +4,61 @@ How to stand up a hosted environment for the alpha once a Supabase project exist
 
 Run every Supabase CLI command from the **main checkout** (see [auth.md](auth.md#local-check)).
 
+## Bring up staging in 30 minutes
+
+The short path for the owner. Sections 1–5 below have the detail behind each step.
+
+1. **Create the Supabase project** (about 5 min). Dashboard → New project, name `flp-staging`, the region nearest the demo audience. Save the database password in the team password manager. From Settings → API, note the project URL (`https://<ref>.supabase.co`), the publishable (anon) key and the secret key.
+2. **Link it and push the migrations** (about 5 min), from the main checkout:
+   ```bash
+   supabase link --project-ref <ref>
+   ```
+   ```bash
+   supabase db push
+   ```
+   ```bash
+   supabase test db --linked
+   ```
+   The last command must report **Result: PASS**. Then confirm that the `design-assets` bucket is private (section 1).
+3. **Set up SMTP and the redirect URLs** (about 10 min). Dashboard → Authentication, using the table in section 2: email only with "Confirm email" on, a 6-digit code that expires after 600 s, 60 s resend, `supabase/templates/email-code.html` in both the Magic link and Confirm signup templates, custom SMTP, and the Site URL and Redirect URLs set to the staging origin only. For the automated journey, point staging SMTP at a mail catcher with a Mailpit-compatible API. `e2e/helpers.ts` reads codes from it through `MAILPIT_URL`.
+4. **Set the Vercel environment variables** (about 5 min) for **Preview** from the table in section 3, then redeploy. Give staging a hostname with a `staging` label (for example `staging.<domain>`), or use its `*.vercel.app` preview URL. `hosted:check` refuses any other host.
+5. **Run `pnpm hosted:check`** (about 5 min, plus the e2e suite):
+   ```bash
+   E2E_BASE_URL=https://staging.<domain> SUPABASE_URL=https://<ref>.supabase.co SUPABASE_ANON_KEY=… SUPABASE_SECRET_KEY=… SUPABASE_ACCESS_TOKEN=… MAILPIT_URL=… pnpm hosted:check
+   ```
+   It prints PASS, FAIL or SKIP for each check, then runs `pnpm e2e` against staging. It writes the record to `docs/evidence/hosted-<date>.md`. Commit that file and link it on #186. Exit code 0 means nothing failed. A SKIP names the missing variable, so supply it and rerun for a full record.
+
+**What the variables unlock.** `E2E_BASE_URL`, `SUPABASE_URL` and `SUPABASE_ANON_KEY` are required. Without the others, the checks that need them are skipped, not passed:
+- `SUPABASE_SECRET_KEY` enables the checks that write. They use only `it-*@example.test` and `e2e-*@example.test` accounts that the run creates, and remove them with their files at the end (`deleteAccounts`). It's sent only to `SUPABASE_URL`.
+- `SUPABASE_ACCESS_TOKEN` is a personal access token (Account → Access Tokens). It lets the check read the project's auth config from the Management API.
+- `MAILPIT_URL` lets the e2e suite read sign-in codes.
+
+**Flags.**
+- `--production-readonly` runs against a host without a staging label. It runs only the header and anonymous checks, which write nothing.
+- `--allow-local` permits `localhost`, for testing the kit against `pnpm build && pnpm preview`. That run writes `hosted-<date>-local.md`, which is gitignored.
+- `--skip-e2e` skips the browser suite. `--e2e-args "journey security"` limits it to the named specs.
+
+**What each check re-verifies.** These issues were closed after passing on local Supabase. The check is their "passes against the deployed backend" step (the list on #186).
+
+| Check | Re-verifies | What it asserts |
+| --- | --- | --- |
+| `security-headers` | #187 | `/`, `/sign-in`, `/s/:slug` and `/api/flp/public/:slug` send exactly the headers in `src/lib/security-headers.ts`: CSP, nosniff, referrer, `X-Frame-Options` and permissions |
+| `csp-supabase` | #187 | The header's `connect-src` and `img-src` allow this Supabase project and no local host. The page's `<meta>` policy narrows them to exactly this project, so the build's `VITE_SUPABASE_URL` is right |
+| `bundle-secrets` | #186, #188 | The served entry and preloaded scripts contain no `service_role`, `sb_secret_…` or `SUPABASE_SECRET_KEY` value |
+| `anonymous-routes` | #188, #148, #187, #183 | The route table from #251 (`src/lib/flp-api/route-table.ts`), signed out: every private route returns 401, an unknown public slug returns 404 no-store, and every mutation from another origin returns 403 `cross_origin` |
+| `events-allowlist` | #193, #187 | `/api/events` returns 400 for unknown names, extra fields, unknown timing buckets and non-JSON. Nothing is counted |
+| `auth-providers` | #145, #147 | Supabase Auth allows email only, with "Confirm email" on and sign-up open, so a first sign-in creates the account |
+| `email-code-config` | #145, #146 | Site URL and the redirect allowlist are the staging origin only. The code is 6 digits with 600 s expiry, resend waits 60 s, SMTP is custom, and both templates send the code with no link. Config only: delivery is the e2e sign-in plus one real-inbox sign-in (section 5) |
+| `owner-isolation` | #148, #188, #149, #170 | Another account gets 404 on every owner route in the table, without leaking ids, and the owner's design, publication and asset don't change |
+| `render-hash` | #180, #179, #182 | All five published views are served through the image route with the SHA-256 recorded at upload. A view replaced in storage returns 404 |
+| `public-no-store` | #183, #182 | The public payload, the images and `/s/:slug` are `no-store`, and none of them come from the CDN cache |
+| `unpublish-404` | #183, #181 | After unpublishing, the payload and every image URL return 404 no-store, and the share page loses the title |
+| `e2e` | #189, #146, #149, #152, #172, #174, #175, #176, #177, #181, #187, #190 | `pnpm e2e` with `E2E_BASE_URL` covers the four-panel journey, isolation, CSP and XSS, the failure matrix, publish review and the rest of `e2e/` |
+
+**Still manual** (from #186): `supabase test db --linked` for #143 and #148 (step 2), a dry run of `scripts/cleanup-orphans.mjs` for #178 (section 7), required status checks for #188 and #192, the rights sign-off for #142 (#138), and one real-inbox sign-in for #145 and #146.
+
+For a release candidate, `node scripts/release-record.mjs --hosted docs/evidence/hosted-<date>.md` adds this record to the release record (see [release.md](release.md)).
+
 ## 1. Supabase project
 
 1. Create the project (one per environment: `flp-staging`, later `flp-prod`). Choose the region nearest the demo audience, and save the database password in the team password manager.

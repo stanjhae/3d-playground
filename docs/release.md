@@ -50,6 +50,7 @@ Run it on the exact commit to be tagged, in the main checkout.
 **Tag and notes** (only once everything above is ticked)
 - [ ] Bump `package.json` and `CHANGELOG.md`, merge through a PR
 - [ ] `git tag -a v0.9.0-rc.N -m "…" <commit>` and `git push origin v0.9.0-rc.N`
+- [ ] `node scripts/release-record.mjs --suite "pnpm test=…" --suite "pnpm e2e=…" [--hosted docs/evidence/hosted-<date>.md]` writes `docs/evidence/release-<version>.md`, covering the version, tag, commit, migration checksums, template and schema versions, CI run, suites and known limits. Commit it with the release.
 - [ ] Create a GitHub release from the tag (marked pre-release), with the CHANGELOG entry, the migrations list and the measured numbers
 - [ ] Update the tracker (#125) with the candidate and anything still open
 

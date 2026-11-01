@@ -17,7 +17,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:integration": "FLP_INTEGRATION=1 vitest run integration --testTimeout=20000",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "hosted:check": "node scripts/hosted-check.mjs"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.8",
