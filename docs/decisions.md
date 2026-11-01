@@ -2,6 +2,12 @@
 
 Decisions that change scope or behaviour for the 17 November alpha, with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 1 Nov 2026: the legacy no-auth and no-Postgres rules are superseded for the alpha
+
+**Decided by:** owner, in PRD v1.1 (F09 #144); recorded here so the tracking issues no longer read as current.
+
+The legacy tracking epics #96 and #108 list "Guest author" and "No auth, Postgres" among their constraints, and the guest board they built (#19, #20, #90, #91) took anonymous looks and votes. For the alpha these rules are **superseded**: accounts are required (Supabase Auth), alpha work lives in Postgres behind row-level security, and creating, saving and publishing happen only through the signed-in FLP API. The guest board stays only as a closed, read-only legacy surface: wherever Supabase is configured and sign-in is not switched off, `/api/designs` refuses anonymous looks and votes with 403 on the server and lists no alpha work (`guestBoardClosed` in `src/lib/designs-handlers.ts`; `designs-handlers.integration.test.ts`). The guest-only studio without Supabase is unchanged. The hosted check is on #186.
+
 ## 1 Nov 2026: demo polish pulled forward before the freeze
 
 **Decided by:** owner ("demo polish" for the time left before 12 Nov).
