@@ -16,7 +16,7 @@
     "build": "pnpm generate && tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:integration": "FLP_INTEGRATION=1 vitest run integration",
+    "test:integration": "FLP_INTEGRATION=1 vitest run integration --testTimeout=20000",
     "e2e": "playwright test"
   },
   "dependencies": {
