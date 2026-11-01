@@ -35,10 +35,12 @@ const INTRO_FROM = [3.05, 1.82, 4.25] as const
  * draws nothing, so two open tabs on software WebGL no longer starve the
  * page (IndexedDB reads stalled for seconds in CI). Anything that changes
  * the picture asks for a frame; animations ask for the next one until they
- * settle. A frame after an idle gap reports the whole gap as its delta, so
- * animations step by at most this much.
+ * settle. The first frame after an idle gap reports the whole gap as its
+ * delta, so that one frame steps by this much instead. Frames that follow
+ * an animating frame keep their real delta, so slow machines still finish
+ * on time.
  */
-export const MAX_FRAME_STEP = 1 / 30
+export const IDLE_FRAME_STEP = 1 / 60
 
 /** Every editor change (document, paint, camera preset, capture) redraws. */
 function RenderOnEditorChange() {
@@ -187,6 +189,8 @@ export function StudioCamera({
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
   const reducedMotion = prefersReducedMotion()
   const elapsed = useRef(reducedMotion || !intro ? INTRO_DURATION : 0)
+  // Whether the last frame asked for another one (see IDLE_FRAME_STEP).
+  const moving = useRef(false)
   const freeOrbit = cameraPreset === 'orbit' && !capturingAngles
   const presetSeat =
     cameraPreset === 'orbit'
@@ -226,7 +230,8 @@ export function StudioCamera({
   ])
 
   useFrame((_, frameDelta) => {
-    const delta = Math.min(frameDelta, MAX_FRAME_STEP)
+    const delta = moving.current ? frameDelta : Math.min(frameDelta, IDLE_FRAME_STEP)
+    moving.current = false
 
     if (freeOrbit) {
       return
@@ -248,6 +253,7 @@ export function StudioCamera({
         INTRO_FROM[2] + (presetSeat[2] - INTRO_FROM[2]) * t,
       )
       camera.lookAt(...STUDIO_CAMERA.target)
+      moving.current = true
       invalidate()
       return
     }
@@ -261,6 +267,7 @@ export function StudioCamera({
 
     // Keep drawing until the camera reaches its seat.
     if (current.distanceToSquared({ x: presetSeat[0], y: presetSeat[1], z: presetSeat[2] }) > 1e-8) {
+      moving.current = true
       invalidate()
     }
   })

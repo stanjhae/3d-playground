@@ -37,9 +37,11 @@ test('an idle studio requests no frames, and an edit still redraws', async ({ pa
   await expect(page).toHaveURL(/\/create\?cloud=/)
   await expectSaved({ page })
 
-  // Let the intro camera move and any loading settle.
-  await page.waitForTimeout(2_500)
-  expect(await framesDuring({ page, ms: 2_000 })).toBeLessThanOrEqual(2)
+  // Once the intro camera move and loading settle, nothing draws. CI
+  // renders WebGL in software at a few frames a second, so allow time.
+  await expect
+    .poll(() => framesDuring({ page, ms: 2_000 }), { timeout: 20_000, intervals: [0] })
+    .toBeLessThanOrEqual(2)
 
   // An edit asks for frames again.
   const during = framesDuring({ page, ms: 1_500 })
