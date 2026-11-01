@@ -12,7 +12,8 @@ export function newEmail({ label }: { label: string }) {
   return `e2e-${label}-${crypto.randomUUID().slice(0, 8)}@example.test`
 }
 
-async function latestCode({ email, after }: { email: string; after: number }) {
+/** The newest sign-in code Mailpit caught for `email` since `after`. */
+export async function latestCode({ email, after }: { email: string; after: number }) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const search = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}&limit=1`)
     const { messages = [] } = (await search.json()) as { messages?: Array<{ ID: string; Created: string }> }
@@ -69,7 +70,13 @@ export function panelCanvas({ page, panel }: { page: Page; panel: 'Front' | 'Bac
 }
 
 /** A short diagonal brush stroke across the middle of a panel. */
-export async function drawStroke({ page, panel }: { page: Page; panel: 'Front' | 'Back' }) {
+export async function drawStroke({
+  page,
+  panel,
+}: {
+  page: Page
+  panel: 'Front' | 'Back' | "Wearer's right" | "Wearer's left"
+}) {
   const box = await panelCanvas({ page, panel }).boundingBox()
 
   if (!box) {
