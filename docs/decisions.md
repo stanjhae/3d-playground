@@ -10,7 +10,7 @@ Decisions that change scope or behaviour for the 17 November alpha, with the rea
 | Issue | What | Why it waits | Alpha behaviour instead |
 | --- | --- | --- | --- |
 | #164 R01 | Revision-tagged deterministic atlas composition | A rewrite of the render pipeline. The current v1 projection (`render-projection.ts`) is covered by parity tests and the e2e journey, and replacing it this close to the freeze risks the primary journey. | The projection stays. Known parity gaps are fixed one at a time (#158 opacity, #161 stripe period, #165 collar). |
-| #179 P01 (part) | Sleeve and four-view public renders; template/compiler revision on renders | Needs new camera presets, capture time (already slow on software WebGL in CI) and a manifest change. | Publishing captures three views: front, three-quarter and back. Sleeve prints show in the three-quarter view. The public page says it's a creator-supplied preview. |
+| #179 P01 (part) | Template/compiler revision on renders | A render pipeline change (see #164). | Sleeve views shipped on 1 Nov: publishing captures five views (front, three-quarter, back, wearer's right, wearer's left). Versions published with three views stay public. The public page says it's a creator-supplied preview. |
 | #156 E05 (part) | Numeric transform inputs (x, y, scale, rotation) | A new editing surface plus parity tests. Keyboard nudges (#248) cover the accessibility need. | Drag handles plus arrow-key nudges (Shift for larger steps), each one undo step. |
 
 ## 31 Oct 2026: public media are never cached

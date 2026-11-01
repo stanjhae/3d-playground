@@ -49,13 +49,13 @@ runs `supabase start`. Never run `supabase stop`, `supabase db reset` or
    | --- | --- |
    | Studio draft | Private. History: v1, v2 autosave, v3 checkpoint "First pass", v4 autosave, v5 restore of v3. |
    | Crest upload | Private. An uploaded PNG crest on the front. |
-   | Night Market | Published: the studio itself rendered the three views in headless Chromium. |
+   | Night Market | Published: the studio itself rendered the five views in headless Chromium. |
 
    It prints the share link for Night Market. Running it again gives the
    same state with a new link (the old link stops working). Rerun it after
    every rehearsal; it also clears the account's rate-limit counters.
 5. **Smoke check** (2 minutes):
-   - open the printed share link: "Night Market", three views, "By Demo Studio";
+   - open the printed share link: "Night Market", five views, "By Demo Studio";
    - open <http://127.0.0.1:54324> (Mailpit) in a tab and leave it open;
    - open <http://localhost:4173/> and check the landing shows the 3D tee.
 6. **Fallback video ready.** `demo-fallback.webm` in the repo root opens and
@@ -105,7 +105,7 @@ share link.
    *Say:* "Publishing takes a picture of exactly this saved version."
 7. **Open the link (4:00–4:30).** Press **Copy link**, paste it into a
    private window. Signed out, you see the title, "By Demo Studio" and the
-   three views, and nothing else: no history, no email.
+   five views, and nothing else: no history, no email.
 8. **Unpublish (4:30–5:00).** Back in the studio press **Unpublish**. Reload
    the private window: **This design is not available**.
    *Say:* "Unpublish is instant. Nothing is cached."
