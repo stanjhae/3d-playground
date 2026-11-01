@@ -13,7 +13,7 @@ const record = {
   schemaVersion: 2,
   document,
 } as unknown as Extract<RecoveryOffer, { kind: 'recover' }>['record']
-const recover: Extract<RecoveryOffer, { kind: 'recover' }> = { kind: 'recover', record, document }
+const recover: Extract<RecoveryOffer, { kind: 'recover' }> = { kind: 'recover', key: 'k', record, document }
 
 describe('liveRecoveryOffer', () => {
   test('stays recoverable while nothing changed since the prompt opened', () => {
@@ -23,6 +23,7 @@ describe('liveRecoveryOffer', () => {
   test('an autosave while the prompt was open makes it stale', () => {
     expect(liveRecoveryOffer({ offer: recover, cloudHeadSeq: 6, hasUnsavedEdits: false })).toMatchObject({
       kind: 'stale',
+      key: 'k',
       document,
     })
   })

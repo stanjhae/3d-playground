@@ -1,5 +1,6 @@
 import { accountGuard } from './auth/session-store.ts'
 import {
+  RECOVERY_WRITER_ID,
   type RecoveryStorage,
   type RecoveryWriteResult,
   type StorageFailure,
@@ -81,7 +82,9 @@ export type LocalCopyState =
 /**
  * Keeps unacknowledged revisions of one cloud design in owner-scoped local
  * recovery (S05 #174): written on every revision the cloud has not
- * acknowledged, re-based or cleared on each acknowledgement. Writes are
+ * acknowledged, re-based or cleared on each acknowledgement. Every write
+ * and clear is under this tab's writer id, so another tab on the same
+ * design never loses its own unsaved copy to this one. Writes are
  * serialized and stop once the account or design changes. A failed write
  * is reported, never treated as saved.
  */
@@ -91,9 +94,11 @@ export function startCloudRecovery({
   storage,
   controller,
   onLocal,
+  writerId = RECOVERY_WRITER_ID,
 }: {
   designId: string
   ownerId: string
+  writerId?: string
   storage: RecoveryStorage
   controller: SaveController
   onLocal?: (state: LocalCopyState) => void
@@ -141,7 +146,7 @@ export function startCloudRecovery({
     const document = getCanonicalDocument()
 
     return enqueue(
-      () => writeRecovery({ storage, ownerId, designId, baseSeq, revision, document }),
+      () => writeRecovery({ storage, ownerId, designId, writerId, baseSeq, revision, document }),
       true,
     )
   }
@@ -168,7 +173,7 @@ export function startCloudRecovery({
     if (useEditorStore.getState().revision > acknowledged) {
       void keep()
     } else {
-      void enqueue(() => clearRecovery({ storage, ownerId, designId }), false)
+      void enqueue(() => clearRecovery({ storage, ownerId, designId, writerId }), false)
     }
   })
 
