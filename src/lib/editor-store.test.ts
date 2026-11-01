@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import { createEmptyDesign } from './design-schema'
-import { useEditorStore } from './editor-store'
+import { liveStrokeLayerId, useEditorStore } from './editor-store'
 
 describe('useEditorStore', () => {
   beforeEach(() => {
@@ -550,6 +550,28 @@ describe('useEditorStore', () => {
     ).toBe(false)
     expect(useEditorStore.getState().undoCount).toBe(0)
     expect(useEditorStore.getState().typeDraft).toBe('  ')
+  })
+
+  test('a live eraser names the paint layer it will be committed to (#159)', () => {
+    const store = useEditorStore.getState
+    store().setGarmentId({ garmentId: 'tee' })
+    store().startStroke({ panel: 'front', point: { x: 0.2, y: 0.2 } })
+    store().endStroke()
+    const painted = store().document.layers.find(
+      (layer) => layer.kind === 'paint' && layer.strokes.some((stroke) => stroke.panel === 'front'),
+    )
+
+    store().setPaintTool({ paintTool: 'eraser' })
+    store().startStroke({ panel: 'front', point: { x: 0.2, y: 0.2 } })
+    const live = store().activeStroke
+
+    expect(live?.tool).toBe('eraser')
+    expect(liveStrokeLayerId({ stroke: live })).toBe(painted?.id)
+
+    store().endStroke()
+    const committed = store().document.layers.find((layer) => layer.id === painted?.id)
+    expect(committed?.kind === 'paint' && committed.strokes.at(-1)?.tool).toBe('eraser')
+    expect(liveStrokeLayerId({ stroke: null })).toBeUndefined()
   })
 
   test('clear ink is a single undo', () => {
