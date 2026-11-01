@@ -181,9 +181,6 @@ export function LandingHero({
         </div>
         <div className="hidden shrink-0 flex-col gap-2 lg:flex">
           <ConceptPreviewBadge />
-          <p className="font-body text-xs tracking-[0.08em] text-flv-muted">
-            {FLV_COPY.statWaitlist}
-          </p>
         </div>
       </div>
 
@@ -303,7 +300,7 @@ export function LandingHero({
         <aside className="flv-panel order-3 flex flex-col gap-3 p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="font-body text-xs tracking-[0.16em] text-flv-accent uppercase">
-              {FLV_COPY.suggestionsTitle}
+              {FLV_COPY.graphicsTitle}
             </p>
             <ConceptPreviewBadge />
           </div>
@@ -399,15 +396,15 @@ export function LandingHero({
         {[
           {
             title: '01 Three Creative Workflows',
-            lead: 'Draw / Suggestions / 3D Preview',
+            lead: 'Draw / Graphics / 3D Preview',
           },
           {
             title: '02 Four-Sided Design',
             lead: 'Front / Back / Left / Right',
           },
           {
-            title: '03 Try On. Create Content. Share.',
-            lead: 'Your designs. Your community.',
+            title: '03 Save and Share',
+            lead: 'Private by default. Share a saved version by link.',
           },
         ].map((item) => (
           <div key={item.title} className="flex flex-col gap-1">

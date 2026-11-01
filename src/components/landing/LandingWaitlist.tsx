@@ -3,13 +3,6 @@ import { useState } from 'react'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
 
-const BENEFITS = [
-  FLV_COPY.waitlistBenefitPackages,
-  FLV_COPY.waitlistBenefitNoPayment,
-  FLV_COPY.waitlistBenefitNoSub,
-  FLV_COPY.waitlistBenefitExpires,
-] as const
-
 export function LandingWaitlist() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'joining' | 'joined' | 'error'>(
@@ -29,19 +22,6 @@ export function LandingWaitlist() {
           {FLV_COPY.waitlistOffer}
         </h2>
         <p className="font-body text-sm text-flv-muted">{FLV_COPY.waitlistLead}</p>
-        <ul className="mt-2 flex flex-col gap-2">
-          {BENEFITS.map((benefit) => (
-            <li
-              key={benefit}
-              className="flex items-start gap-2 font-body text-sm text-flv-ink"
-            >
-              <span className="mt-0.5 text-flv-accent" aria-hidden>
-                ✓
-              </span>
-              <span className="tracking-[0.04em] uppercase">{benefit}</span>
-            </li>
-          ))}
-        </ul>
         <p className="font-body text-xs text-flv-muted">
           {FLV_COPY.waitlistEmailOnly}
         </p>

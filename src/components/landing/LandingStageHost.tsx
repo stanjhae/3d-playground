@@ -1,8 +1,10 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
+import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import type { AvatarMeasurements } from '../../lib/avatar-geometry'
+import { isCanonicalGarment } from '../../lib/concept-flags'
 import type { DesignDocument, HemId, NeckId, SleeveId } from '../../lib/design-document'
 import { listDesigns } from '../../lib/designs-api'
 import type { GarmentId, Design } from '../../lib/design-schema'
@@ -430,9 +432,12 @@ function SelectDemo({
         ))}
       </div>
       <aside className="flv-panel flex flex-col gap-3 p-4">
-        <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
-          {FLV_COPY.selectDetails}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
+            {FLV_COPY.selectDetails}
+          </p>
+          {isCanonicalGarment({ garmentId }) ? null : <ConceptPreviewBadge />}
+        </div>
         <h3 className="font-display text-xl text-flv-ink">{garmentLabel}</h3>
         <p className="font-body text-sm text-flv-muted">
           {garmentCredit ?? 'House silhouette with realistic 3D model.'}
@@ -442,6 +447,11 @@ function SelectDemo({
           <li>Live preview on landing</li>
           <li>Open in studio to design</li>
         </ul>
+        {isCanonicalGarment({ garmentId }) ? null : (
+          <p className="font-body text-xs text-flv-muted">
+            {FLV_COPY.selectConceptNote}
+          </p>
+        )}
       </aside>
     </div>
   )
@@ -507,9 +517,12 @@ function ColorDemo({
             <p className="font-body text-xs text-flv-muted">{clothColor}</p>
           </div>
         </div>
-        <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
-          Finish
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
+            Finish
+          </p>
+          <ConceptPreviewBadge />
+        </div>
         <div className="flex flex-wrap gap-2">
           {BASE_FINISH_PRESETS.map((finish) => (
             <button
@@ -566,9 +579,12 @@ function ColorDemo({
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
-            Texture
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
+              Texture
+            </p>
+            <ConceptPreviewBadge />
+          </div>
           <div className="grid grid-cols-3 gap-2">
             {LANDING_TEXTURE_OPTIONS.map((texture) => (
               <button
@@ -608,17 +624,18 @@ function ColorDemo({
             onColorChange({ color: fabricColor })
           }}
         />
-        <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
-          {FLV_COPY.colorMaterial}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
+            {FLV_COPY.colorMaterial}
+          </p>
+          <ConceptPreviewBadge />
+        </div>
         <h3 className="font-display text-lg text-flv-ink">{fabricName}</h3>
         <p className="font-body text-xs text-flv-muted">
           {patternId} · {textureId} · {finishId}
         </p>
         <ul className="flex flex-col gap-1 font-body text-xs text-flv-muted">
-          <li>Premium finish</li>
           <li>Live on cloth</li>
-          <li>Studio-ready</li>
         </ul>
       </aside>
     </div>
@@ -1011,11 +1028,15 @@ function PreviewDemo({
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
       <div className="flv-panel flex flex-col gap-3 p-4">
-        <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
-          {FLV_COPY.previewLive}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
+            {FLV_COPY.previewLive}
+          </p>
+          <ConceptPreviewBadge />
+        </div>
         <p className="font-body text-xs text-flv-muted">
-          Avatar and measurements update the hero 3D stage above.
+          Avatar and measurements update the hero 3D stage above.{' '}
+          {FLV_COPY.visualFitNote}
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {avatars.map((avatar) => (
@@ -1181,7 +1202,7 @@ function ShareDemo({
   const [tags, setTags] = useState('Streetwear, Oversized, Graphic')
   const [method, setMethod] = useState<(typeof methods)[number]>('Combined')
   const [visibility, setVisibility] =
-    useState<(typeof visibilityOptions)[number]>('Public')
+    useState<(typeof visibilityOptions)[number]>('Private')
   const still =
     CANNED_STILLS[angles.indexOf(angle) % CANNED_STILLS.length]!
 
@@ -1223,6 +1244,12 @@ function ShareDemo({
         </div>
       </div>
       <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <ConceptPreviewBadge className="w-fit" />
+          <p className="font-body text-xs text-flv-muted">
+            {FLV_COPY.shareConceptNote}
+          </p>
+        </div>
         <label className="flex flex-col gap-1">
           <span className="font-body text-xs tracking-[0.1em] text-flv-muted uppercase">
             Design title
@@ -1320,10 +1347,16 @@ function CommunityDemo({
     >
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="font-display text-2xl text-flv-ink">
-            {FLV_COPY.voteTitle}
-          </h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-display text-2xl text-flv-ink">
+              {FLV_COPY.voteTitle}
+            </h3>
+            <ConceptPreviewBadge />
+          </div>
           <p className="font-body text-sm text-flv-muted">{FLV_COPY.voteLead}</p>
+          <p className="font-body text-xs text-flv-muted">
+            {FLV_COPY.voteSampleNote}
+          </p>
         </div>
         <Link
           to="/vote"
