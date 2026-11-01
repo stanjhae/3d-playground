@@ -142,6 +142,23 @@ async function readyRenderKinds({
   return new Map((data ?? []).map((row) => [row.kind as string, row.storage_path as string]))
 }
 
+/** The hash recorded for each ready view when it was uploaded (P02 #180). */
+async function renderHashes({ client, designId, seq }: { client: SupabaseClient; designId: string; seq: number }) {
+  const { data } = await client
+    .from('render_artifacts')
+    .select('kind, sha256')
+    .eq('design_id', designId)
+    .eq('version_seq', seq)
+    .eq('status', 'ready')
+
+  return new Map((data ?? []).map((row) => [row.kind as string, row.sha256 as string]))
+}
+
+async function sha256Hex({ bytes }: { bytes: ArrayBuffer }) {
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
 const notFound = () => apiError({ code: 'not_found', message: 'Design not found' })
 
 /** POST /designs/:id/renders — store validated views of one saved version. */
@@ -353,6 +370,7 @@ export async function unpublish({
 }
 
 export type PublishedDesign = {
+  designId: string
   slug: string
   title: string
   displayName: string | null
@@ -399,6 +417,7 @@ export async function findPublishedDesign({
   }
 
   return {
+    designId: publication.design_id as string,
     slug,
     title: publication.title as string,
     displayName: (publication.display_name as string | null) ?? null,
@@ -504,7 +523,17 @@ export async function readPublicImage({
     return gone()
   }
 
-  return new Response(data, {
+  // Only the exact bytes validated at upload are ever served (P02 #180):
+  // a file replaced or corrupted in storage is refused, not shown.
+  const bytes = await data.arrayBuffer()
+  const expected = (await renderHashes({ client: admin, designId: published.designId, seq: published.seq })).get(view)
+
+  if (!expected || (await sha256Hex({ bytes })) !== expected) {
+    console.error('flp public render hash mismatch', { slug: published.slug, view })
+    return gone()
+  }
+
+  return new Response(bytes, {
     status: 200,
     headers: {
       'Content-Type': data.type || 'image/jpeg',

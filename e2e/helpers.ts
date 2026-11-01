@@ -2,6 +2,9 @@ import { type BrowserContext, type Page, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { loadEnv } from 'vite'
 
+// @ts-expect-error plain ESM script shared with scripts/delete-account.mjs
+import { listFilesUnder, removeFiles } from '../scripts/storage-tree.mjs'
+
 /** Shared steps for the journey suites (Q04 #189). */
 
 const fileEnv = loadEnv('development', process.cwd(), ['SUPABASE_', 'MAILPIT_'])
@@ -59,6 +62,8 @@ export async function deleteAccounts({ emails }: { emails: string[] }) {
 
   for (const user of data?.users ?? []) {
     if (user.email && emails.includes(user.email)) {
+      // Files first, as scripts/delete-account.mjs does (#151).
+      await removeFiles({ admin, files: await listFilesUnder({ admin, prefix: user.id }) })
       await admin.auth.admin.deleteUser(user.id)
     }
   }

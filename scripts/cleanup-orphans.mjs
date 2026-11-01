@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { listFilesUnder, removeFiles } from './storage-tree.mjs'
+
 /**
  * Orphaned upload cleanup (S09 #178). Lists uploaded images that no saved
  * version of their owner's designs references, older than the grace
@@ -39,9 +41,78 @@ for (const row of orphans) {
   console.log(`${row.id}\t${row.owner_id}\t${row.status}\t${row.byte_size ?? '-'}\t${row.created_at}`)
 }
 
+// Render files of deleted designs. Deleting a design removes its rows
+// first, then its files; if that second step failed, the files are left
+// under `<owner>/<design uuid>/` with no design row (A07 #151).
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const leftovers = []
+
+async function listAll(prefix) {
+  const { data, error: listError } = await admin.storage.from(BUCKET).list(prefix, { limit: 1000 })
+  if (listError) throw new Error(`listing ${prefix || '/'} failed: ${listError.message}`)
+  return data ?? []
+}
+
+for (const owner of (await listAll('')).filter((entry) => !entry.id && UUID.test(entry.name))) {
+  // Owners whose account is gone are handled as a whole below.
+  const { data: ownerAccount } = await admin.auth.admin.getUserById(owner.name)
+  if (!ownerAccount?.user) continue
+
+  const designFolders = (await listAll(owner.name)).filter((entry) => !entry.id && UUID.test(entry.name))
+  if (designFolders.length === 0) continue
+
+  const { data: live } = await admin
+    .from('designs')
+    .select('id')
+    .in('id', designFolders.map((entry) => entry.name))
+  const liveIds = new Set((live ?? []).map((row) => row.id))
+
+  for (const folder of designFolders.filter((entry) => !liveIds.has(entry.name))) {
+    const root = `${owner.name}/${folder.name}`
+    const files = []
+    for (const entry of await listAll(root)) {
+      if (entry.id) files.push(`${root}/${entry.name}`)
+      else files.push(...(await listAll(`${root}/${entry.name}`)).filter((f) => f.id).map((f) => `${root}/${entry.name}/${f.name}`))
+    }
+    if (files.length > 0) leftovers.push({ root, files })
+  }
+}
+
+// Every file of an account that no longer exists (deleted from the
+// dashboard, or by a run that was interrupted) (A07 #151).
+const { data: accounts, error: accountsError } = await admin.auth.admin.listUsers({ perPage: 1000 })
+
+if (accountsError) {
+  console.error('Listing accounts failed:', accountsError.message)
+  process.exit(1)
+}
+
+const accountIds = new Set(accounts.users.map((account) => account.id))
+const goneOwners = []
+
+for (const owner of (await listAll('')).filter((entry) => !entry.id && UUID.test(entry.name) && !accountIds.has(entry.name))) {
+  goneOwners.push({ root: owner.name, files: await listFilesUnder({ admin, prefix: owner.name }) })
+}
+
+console.log(`${goneOwners.length} deleted account(s) with files left behind (${goneOwners.reduce((n, owner) => n + owner.files.length, 0)} file(s)).`)
+
+console.log(`${leftovers.length} deleted design(s) with render files left behind.`)
+for (const leftover of leftovers) {
+  console.log(`${leftover.root}\t${leftover.files.length} file(s)`)
+}
+
 if (!remove) {
   console.log('Dry run: nothing deleted. Rerun with --delete to remove them.')
   process.exit(0)
+}
+
+for (const leftover of [...leftovers, ...goneOwners]) {
+  try {
+    await removeFiles({ admin, files: leftover.files })
+    console.log(`${leftover.root}: removed ${leftover.files.length} file(s)`)
+  } catch (removeError) {
+    console.log(`${leftover.root}: not removed (${removeError.message}); the next run retries`)
+  }
 }
 
 let deleted = 0
