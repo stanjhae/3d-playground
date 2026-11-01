@@ -93,7 +93,7 @@ function SharedDesign() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Shared design</p>
-          <h1 className="font-display text-4xl leading-tight">{design.title}</h1>
+          <h1 className="font-display text-4xl leading-tight [overflow-wrap:anywhere]">{design.title}</h1>
           <p className="font-body text-sm text-flv-muted">
             {design.displayName ? `By ${design.displayName} · ` : ''}version {design.seq} · published{' '}
             {new Date(design.publishedAt).toLocaleDateString()}

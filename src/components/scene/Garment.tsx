@@ -1,5 +1,5 @@
 import { useGLTF, useTexture } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useContext, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   CanvasTexture,
@@ -313,6 +313,8 @@ function SeatedForm({
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
   const loadedMaps = useTexture(FABRIC_MAP_SRC)
   const lerpClock = useRef(1)
+  // On-demand rendering: each change below asks for a frame.
+  const invalidate = useThree((state) => state.invalidate)
   const atlasRef = useRef<CanvasTexture | null>(null)
   const layerImages = useLayerImages({ document: inkDocument })
   const textFaces = useTextFacesVersion()
@@ -346,7 +348,8 @@ function SeatedForm({
     })
 
     lerpClock.current = picking ? 0 : 1
-  }, [baseMaterials, loadedMaps, meshes, overrides, picking])
+    invalidate()
+  }, [baseMaterials, invalidate, loadedMaps, meshes, overrides, picking])
 
   useLayoutEffect(() => {
     if (typeof document === 'undefined') {
@@ -395,7 +398,8 @@ function SeatedForm({
       meshes,
       inkMap: hasInk ? texture : null,
     })
-  }, [activeLayerEdit, activeStroke, inkDocument, layerImages, meshes, picking, textFaces])
+    invalidate()
+  }, [activeLayerEdit, activeStroke, inkDocument, invalidate, layerImages, meshes, picking, textFaces])
 
   useFrame((_, delta) => {
     if (!picking || lerpClock.current >= 1) {
@@ -410,6 +414,10 @@ function SeatedForm({
       meshes,
       amount: lerpClock.current >= 1 ? 1 : 0.18 + lerpClock.current * 0.35,
     })
+
+    if (lerpClock.current < 1) {
+      invalidate()
+    }
   })
 
   return <GarmentNode node={tree} picking={picking} />

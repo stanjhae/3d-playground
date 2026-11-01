@@ -63,7 +63,8 @@ test('create → edit → save → publish → view signed out → unpublish →
   await history.getByRole('button', { name: 'Save checkpoint' }).click()
   await page.getByLabel('Checkpoint name').fill('Before restore')
   await history.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(history.getByText('Before restore')).toBeVisible()
+  // The list entry, not the "Saved checkpoint" status that may show with it.
+  await expect(history.getByRole('listitem').filter({ hasText: 'Before restore' })).toBeVisible()
   await drawStroke({ page, panel: 'Front' })
   await expectSaved({ page })
   const checkpoint = history.getByRole('listitem').filter({ hasText: 'Before restore' })

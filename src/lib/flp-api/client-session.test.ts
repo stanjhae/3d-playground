@@ -68,4 +68,22 @@ describe('API client and an unaccepted session', () => {
     expect(auth.refreshSession).not.toHaveBeenCalled()
     expect(useSessionStore.getState().status).toBe('signed-in')
   })
+
+  test('a read that fails for a moment is retried; a write is not', async () => {
+    const { call } = await import('./client.ts')
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(respond(500, { error: { code: 'internal', message: 'Something went wrong' } }))
+      .mockResolvedValueOnce(respond(200, { displayName: 'Ada' }))
+    const wait = vi.fn(async () => undefined)
+
+    const read = await call<{ displayName: string }>({ path: 'profile', fetchImpl, wait })
+    expect(read).toEqual({ ok: true, data: { displayName: 'Ada' } })
+    expect(wait).toHaveBeenCalledTimes(1)
+
+    const failingWrite = vi.fn().mockResolvedValue(respond(500, { error: { code: 'internal', message: 'Something went wrong' } }))
+    const write = await call({ path: 'profile', method: 'POST', body: { displayName: 'Ada' }, fetchImpl: failingWrite, wait })
+    expect(write).toMatchObject({ ok: false, code: 'internal' })
+    expect(failingWrite).toHaveBeenCalledTimes(1)
+  })
 })

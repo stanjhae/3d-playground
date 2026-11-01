@@ -76,7 +76,7 @@ function staticShareMarkup({ payload }: { payload: PublicDesign }) {
     (view) => `<li class="flex flex-col gap-2"><img src="${escapeHtml({ value: payload.renders[view.kind] })}" alt="${title}, ${view.label.toLowerCase()} view" class="aspect-[3/4] w-full border border-flv-line bg-flv-paper object-contain" /><span class="font-body text-xs tracking-[0.08em] text-flv-muted uppercase">${view.label}</span></li>`,
   ).join('')
 
-  return `<div id="${STATIC_SHARE_ELEMENT_ID}" class="fixed inset-0 z-50 overflow-auto bg-flv-paper text-flv-ink"><main class="relative min-h-dvh bg-flv-paper text-flv-ink"><section class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16"><header class="flex flex-col gap-1"><p class="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Shared design</p><h1 class="font-display text-4xl leading-tight">${title}</h1><p class="font-body text-sm text-flv-muted">${byline}</p></header><ul class="grid gap-4 sm:grid-cols-3">${views}</ul></section></main></div>`
+  return `<div id="${STATIC_SHARE_ELEMENT_ID}" class="fixed inset-0 z-50 overflow-auto bg-flv-paper text-flv-ink"><main class="relative min-h-dvh bg-flv-paper text-flv-ink"><section class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16"><header class="flex flex-col gap-1"><p class="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Shared design</p><h1 class="font-display text-4xl leading-tight [overflow-wrap:anywhere]">${title}</h1><p class="font-body text-sm text-flv-muted">${byline}</p></header><ul class="grid gap-4 sm:grid-cols-3">${views}</ul></section></main></div>`
 }
 
 /**

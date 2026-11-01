@@ -788,7 +788,14 @@ async function handleProfile({
   userId: string
 }) {
   if (request.method === 'GET') {
-    const { data } = await asUser.from('profiles').select('display_name').maybeSingle()
+    const { data, error } = await asUser.from('profiles').select('display_name').maybeSingle()
+
+    // A failed read must not look like "no public name" (#150).
+    if (error) {
+      console.error('flp profile read failed', { code: error.code, message: error.message })
+      return internalError()
+    }
+
     const profile: ProfileResponse = { displayName: (data?.display_name as string | null) ?? null }
     return json({ status: 200, body: profile })
   }
