@@ -91,6 +91,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
       <WebglGuard>
         <Canvas
           shadows
+          frameloop="demand"
           camera={{
             position: [...STUDIO_CAMERA.position],
             fov: STUDIO_CAMERA.fov,

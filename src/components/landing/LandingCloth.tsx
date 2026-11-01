@@ -38,6 +38,7 @@ export function LandingCloth({
     <div className="relative h-full min-h-80 w-full overflow-hidden bg-flv-ink">
       <Canvas
         shadows
+        frameloop="demand"
         camera={{
           position: [...STUDIO_CAMERA.position],
           fov: STUDIO_CAMERA.fov,
