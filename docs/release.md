@@ -56,5 +56,5 @@ Run it on the exact commit to be tagged, in the main checkout.
 ## Rollback
 
 - **Code:** redeploy the previous tag (Vercel → Deployments → promote), or `git revert` the offending merge and cut a new candidate.
-- **Database:** forward fixes only; restore from backup if a migration damaged data (`docs/deploy.md`, Q09 #194).
+- **Database:** forward fixes only; restore from backup if a migration damaged data (`docs/backup-restore.md`, Q09 #194).
 - **Local demo:** check out the previous tag, `pnpm install --frozen-lockfile`, `pnpm build && pnpm preview`, then `node scripts/demo-reset.mjs`.

@@ -111,7 +111,7 @@ The suite creates `e2e-*@example.test` accounts and deletes them afterwards with
 ## 6. Rollback
 
 - **App:** in Vercel → Deployments, promote the previous deployment. Nothing else depends on the deployment version.
-- **Database:** migrations only add things. To undo one, write a new forward migration; don't edit an applied file. Before any risky migration, take a backup (Dashboard → Database → Backups, or `supabase db dump --linked -f backup.sql`). Restore-from-backup is drilled under Q09 #194.
+- **Database:** migrations only add things. To undo one, write a new forward migration; don't edit an applied file. Before any risky migration, take a backup (Dashboard → Database → Backups, or `supabase db dump --linked -f backup.sql`). Database plus storage backup and the restore check are in [backup-restore.md](backup-restore.md) (Q09 #194).
 - **Leaked secret:** rotate the secret key in Supabase (Settings → API), update `SUPABASE_SECRET_KEY` in Vercel, and redeploy. The publishable key is public by design.
 
 ## 7. Operations
