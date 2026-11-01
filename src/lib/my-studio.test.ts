@@ -42,6 +42,7 @@ describe('new cloud design content', () => {
     expect(initialStudioDocument({ handoff: null })).toEqual({
       document: createEmptyCanonicalDocument(),
       notes: [],
+      pendingAssets: [],
       fromLanding: false,
     })
   })

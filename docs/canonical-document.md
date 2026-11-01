@@ -106,6 +106,14 @@ Placement (`x`, `y`, `scale`, `rotation`) copies across unchanged, so `panelPoin
 
 A test checks that a legacy design imported and then projected puts every supported layer and stroke back at the same atlas position.
 
+### Text faces and glyph coverage (#155)
+
+Text uses the two bundled faces: `display` is Cormorant Garamond 600 and `sans` is Outfit 400.
+- **Coverage:** `src/lib/glyph-coverage.gen.ts` lists the code points each face can draw. It is generated from the fontsource files by `node scripts/glyph-coverage.mjs`, which reads each `@font-face` file's cmap and keeps the part inside that face's `unicode-range`. A unit test fails if the table no longer matches the installed fonts. Display covers Latin, Latin Extended, Cyrillic and Vietnamese. Sans covers Latin and Latin Extended.
+- **Refusal:** a command that sets a word's text or face to characters the face can't draw is refused through the same `limitNotice` path as the length limit (#243). The message names the characters, which are compared composed (NFC) and per grapheme. It suggests the other face when that face can draw the whole word, for example: "The sans face can't draw “Ж”. Remove it or switch to Display." Copying such a word is refused too.
+- **Loading:** an imported, recovered or restored document that already holds such a word opens normally, with a notice that says which panel the word is on. The word can still be moved, recoloured, fixed or deleted.
+- **Font loading:** canvas text never waits for a web font, so `src/lib/text-faces.ts` loads each word's face (and the subset its characters need). Until the face loads, the 2D panel draws the word in a fallback face and the 3D view leaves it out. When each load finishes, both redraw. A face that fails, or takes longer than 3 seconds, falls back for good, so a word is never left blank.
+
 ### The editor store on v2 (E01 #152, part 2)
 
 **The tee's source of truth** is the canonical stack in `src/lib/editor-canonical.ts`.
