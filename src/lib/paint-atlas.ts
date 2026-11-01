@@ -7,6 +7,7 @@ import {
   DEFAULT_PANEL_UV,
   panelPointToUv,
 } from './panel-uv'
+import { textCanvasFont, textFaceState } from './text-faces'
 
 export const ATLAS_SIZE = 512
 
@@ -478,12 +479,21 @@ function drawArtLayer({
   })
 }
 
+/**
+ * What a word whose face is still loading draws: the fallback face (the 2D
+ * panel, so the word shows at once) or nothing yet (the 3D view, which
+ * fills in when the face arrives). See text-faces.ts.
+ */
+export type PendingText = 'fallback' | 'skip'
+
 function drawTextMark({
   buffer,
   layer,
+  pendingText,
 }: {
   buffer: AtlasBuffer
   layer: Extract<DesignLayer, { kind: 'text' }>
+  pendingText: PendingText
 }) {
   if (!layer.content.trim()) {
     return
@@ -502,14 +512,17 @@ function drawTextMark({
     const context = canvas.getContext('2d')
 
     if (context) {
+      const shown = layer.content.slice(0, 32)
+      const state = textFaceState({ face: layer.face, text: shown })
+
+      if (state === 'loading' && pendingText === 'skip') {
+        return
+      }
+
       const px = origin.u * buffer.width
       const py = (1 - origin.v) * buffer.height
       const fontSize = Math.max(14, layer.scale * buffer.width)
-      const face =
-        layer.face === 'sans'
-          ? 'Outfit, "Avenir Next", sans-serif'
-          : '"Cormorant Garamond", Palatino, serif'
-      context.font = `600 ${fontSize}px ${face}`
+      context.font = textCanvasFont({ face: layer.face, size: fontSize, state })
       context.fillStyle = layer.color
       context.globalAlpha = Math.min(1, Math.max(0, layer.opacity ?? 1))
       context.textAlign = 'center'
@@ -517,7 +530,7 @@ function drawTextMark({
       context.save()
       context.translate(px, py)
       context.rotate(layer.rotation)
-      context.fillText(layer.content.slice(0, 32), 0, 0)
+      context.fillText(shown, 0, 0)
       context.restore()
       const pixels = context.getImageData(0, 0, buffer.width, buffer.height)
       blitBuffer({
@@ -822,12 +835,14 @@ export function rasterizeLayers({
   width = ATLAS_SIZE,
   height = ATLAS_SIZE,
   images,
+  pendingText = 'fallback',
 }: {
   document: DesignDocument
   extraStroke?: Stroke | null
   width?: number
   height?: number
   images?: Record<string, AtlasBuffer>
+  pendingText?: PendingText
 }): AtlasBuffer {
   const buffer = createAtlasBuffer({ width, height })
   // Tee panels are separate print regions; concept garments keep v1 drawing.
@@ -873,7 +888,7 @@ export function rasterizeLayers({
     }
 
     if (layer.kind === 'text') {
-      drawTextMark({ buffer: target(layer), layer })
+      drawTextMark({ buffer: target(layer), layer, pendingText })
     }
 
     if (layer.kind === 'graphic') {

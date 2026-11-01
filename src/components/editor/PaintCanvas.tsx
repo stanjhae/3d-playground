@@ -26,6 +26,7 @@ import {
 } from '../../lib/layer-hit'
 import { paintSurfacePanels } from '../../lib/paint-layout'
 import { rasterizeLayers } from '../../lib/paint-atlas'
+import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { cn } from '../../lib/cn'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
@@ -635,6 +636,8 @@ export function PaintCanvas({
   const typeDraft = useEditorStore((state) => state.typeDraft)
   const setPaintPanel = useEditorStore((state) => state.setPaintPanel)
   const layerImages = useLayerImages({ document: documentState })
+  // Words draw in a fallback until their face loads, then redraw (#155).
+  const textFaces = useTextFacesVersion()
   const [draftWord, setDraftWord] = useState('')
   const [editingWord, setEditingWord] = useState(false)
   const lgUp = useLgUp()
@@ -681,7 +684,7 @@ export function PaintCanvas({
     )
     scratch.getContext('2d')?.putImageData(image, 0, 0)
     return scratch
-  }, [activeStroke, layerImages, liveDocument])
+  }, [activeStroke, layerImages, liveDocument, textFaces])
 
   useEffect(() => {
     if (!selected || selected.kind !== 'text') {
