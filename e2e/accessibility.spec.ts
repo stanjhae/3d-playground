@@ -62,3 +62,38 @@ test('sign-in, My Studio, studio, shared page and privacy have no serious violat
   await expectAccessible({ page: anonymous, name: 'shared design' })
   await visitor.close()
 })
+
+test('long names and messages never push the page sideways (#163)', async ({ page }) => {
+  test.setTimeout(180_000)
+  const email = newEmail({ label: 'overflow' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+
+  // The longest title the API accepts, with no spaces to wrap on.
+  const longTitle = 'W'.repeat(80)
+  const title = page.getByRole('textbox', { name: 'Design name' })
+  await title.fill(longTitle)
+  await title.press('Enter')
+
+  const overflow = () =>
+    page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport)
+    expect(await overflow(), `editor @${viewport.width}`).toBeLessThanOrEqual(0)
+  }
+
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/studio')
+  await expect(page.getByRole('listitem').filter({ hasText: longTitle })).toBeVisible()
+
+  // The longest public name, also with nothing to wrap on.
+  await page.getByRole('textbox', { name: /Public name/ }).fill('N'.repeat(40))
+
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport)
+    expect(await overflow(), `studio @${viewport.width}`).toBeLessThanOrEqual(0)
+  }
+})
