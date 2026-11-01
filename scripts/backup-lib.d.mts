@@ -4,7 +4,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const MANIFEST_FORMAT: string
 export const RESTORE_DATABASE: string
-export const PUBLIC_RENDER_KINDS: string[]
 
 export function sha256Hex(bytes: string | Uint8Array): string
 export function canonicalContentHash(content: unknown): string

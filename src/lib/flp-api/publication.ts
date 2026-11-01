@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
+import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
   type ApiError,
   type PublicationResponse,
@@ -24,24 +25,8 @@ import {
  *   (#183), so no copy outlives the publication.
  */
 
-/**
- * Every view a new publication uploads, in capture order. The sleeves are
- * named like the render panels: `view_left` is seen from −x, so it shows
- * the wearer's right sleeve (#179).
- */
-export const PUBLIC_RENDER_KINDS = [
-  'view_front',
-  'view_three_quarter',
-  'view_back',
-  'view_left',
-  'view_right',
-] as const
-
-/**
- * The views every live publication has. Versions published before the
- * sleeve views (#179) have only these, and stay public.
- */
-export const BASE_PUBLIC_RENDER_KINDS = ['view_front', 'view_three_quarter', 'view_back'] as const
+// The view lists live in render-kinds.mjs, shared with the backup scripts.
+export { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS }
 
 export type PublicRenderKind = (typeof PUBLIC_RENDER_KINDS)[number]
 export type BasePublicRenderKind = (typeof BASE_PUBLIC_RENDER_KINDS)[number]

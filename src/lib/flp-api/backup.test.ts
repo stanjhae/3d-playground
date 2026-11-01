@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'vitest'
 
-import { PUBLIC_RENDER_KINDS as BACKUP_RENDER_KINDS, canonicalContentHash } from '../../../scripts/backup-lib.mjs'
+import { canonicalContentHash } from '../../../scripts/backup-lib.mjs'
 import { hashCanonicalDocument } from '../canonical-hash'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import type { CanonicalDocument } from '../canonical-document'
-import { PUBLIC_RENDER_KINDS } from './publication'
 
 // The restore check re-hashes stored content in plain Node (Q09 #194); it
 // must agree with the app's hash, or every restored version would fail.
@@ -20,9 +19,5 @@ describe('backup-lib content hash', () => {
     const document = odd as unknown as CanonicalDocument
 
     expect(canonicalContentHash(reordered)).toBe(await hashCanonicalDocument({ document }))
-  })
-
-  test('checks the same public render kinds as the app', () => {
-    expect(BACKUP_RENDER_KINDS).toEqual([...PUBLIC_RENDER_KINDS])
   })
 })

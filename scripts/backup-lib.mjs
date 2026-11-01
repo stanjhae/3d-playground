@@ -5,6 +5,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
+import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
+
 /**
  * Backup and restore rehearsal for the local Supabase stack (Q09 #194).
  * Shared by `backup.mjs`, `restore-check.mjs` and the integration test.
@@ -16,7 +18,6 @@ import path from 'node:path'
 
 export const MANIFEST_FORMAT = 'flp-backup/1'
 export const RESTORE_DATABASE = 'flp_restore'
-export const PUBLIC_RENDER_KINDS = ['view_front', 'view_three_quarter', 'view_back']
 
 const DB_USER = process.env.FLP_DB_USER ?? 'supabase_admin'
 const CONCURRENCY = 8
@@ -487,7 +488,9 @@ export async function runRestoreCheck({ admin, container, backupDir, upload = tr
         else if (!usedAssets.has(row.id)) warnings.push(`unused upload ${row.id}: bytes missing or different`)
       }
 
-      // (b) Published renders, byte for byte.
+      // (b) Published renders, byte for byte. The base views are required;
+      // sleeve views are checked where the version has them, since
+      // versions published before #179 stay public without them.
       const publications = await jsonRows({
         ...db,
         sql: `select row_to_json(t) from (
@@ -503,7 +506,7 @@ export async function runRestoreCheck({ admin, container, backupDir, upload = tr
           const render = publication.renders[kind]
           const ids = { designId: publication.design_id, slug: publication.slug }
           if (render?.status !== 'ready') {
-            issue('b', `published render ${kind} missing`, ids)
+            if (BASE_PUBLIC_RENDER_KINDS.includes(kind)) issue('b', `published render ${kind} missing`, ids)
             continue
           }
           const bytes = stored.get(`design-assets/${render.path}`)

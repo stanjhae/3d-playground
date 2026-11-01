@@ -54,7 +54,7 @@ Restores beside the live data and never writes to it:
 
 - **Counts.** Every table in the manifest has the same number of rows after the restore: accounts, designs, versions, publications, render rows, uploads and storage objects.
 - **(a) Source content.** Every design's head version exists. For every version, the content hash is recomputed from the stored JSON (the same normalization as `src/lib/canonical-hash.ts`; a unit test keeps them equal) and `content_bytes` is re-measured. Every uploaded image a version uses is a `ready` row whose restored bytes match `assets.sha256`.
-- **(b) Published renders.** For every `published` publication, each public view (`view_front`, `view_three_quarter`, `view_back`) has a `ready` render row, and its restored bytes hash to `render_artifacts.sha256`.
+- **(b) Published renders.** For every `published` publication, the three base views (`view_front`, `view_three_quarter`, `view_back`) have `ready` render rows, and so do the sleeve views (`view_left`, `view_right`) where the version has them. Versions published before #179 stay public without sleeves. Every ready view's restored bytes must hash to `render_artifacts.sha256`. The lists come from `src/lib/flp-api/render-kinds.mjs`, which the API uses too.
 - **(c) Publication state.** Every publication has the slug, status and version it had at backup time; revoked ones point at no version, and tombstones of deleted designs stay revoked.
 - **(d) Deleted designs.** The restored design ids are exactly the backed-up ones. A design that was not in the backup is reported as having reappeared.
 
@@ -68,7 +68,7 @@ Apple Silicon laptop, Docker Desktop, local storage API. Times are from the scri
 | --- | --- | --- | --- | --- | --- | --- |
 | Local data as found: 3 designs, 7 versions, 4 objects (0.02 MB), 0.37 MB dump | 0.19 s | 0.32 s | 0.07 s | 0.36 s | **0.86 s** | 1.06 s |
 | Scaled fixture: 30 accounts, 145 designs, 808 versions, 31 published and 10 revoked publications, 123 render rows, 193 objects (73.8 MB), 0.47 MB dump | 1.00 s (dump 0.19, storage 0.81) | 0.38 s | 1.71 s | 0.28 s | **2.44 s** | 2.66 s |
-| Integration round trip (1 published with an upload, 1 revoked, 1 deleted, plus a tampered rerun) | | | | | | 4.4 s for the suite |
+| Integration round trip (1 published with an upload, 1 published with only the three base views, 1 revoked, 1 deleted, plus a tampered rerun) | | | | | | 4.4 s for the suite |
 
 All checks passed on both datasets. The scaled fixture was seeded through the real API handler (uploads, saves, renders, publish, revoke, delete), and the accounts were deleted afterwards.
 

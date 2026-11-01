@@ -17,13 +17,14 @@ import {
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import { TINY_JPEG, rgbaPng } from '../image-fixtures'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
-import { PUBLIC_RENDER_KINDS } from './publication'
+import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './publication'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
 
 /**
  * Backup → restore round trip (Q09 #194) against local Supabase: one
- * published design with a private upload, one revoked, one deleted before
- * the backup. Other suites may write while this runs, so assertions are
+ * published design with a private upload, one published before the sleeve
+ * views (#179) with only the three base views, one revoked, and one deleted
+ * before the backup. Other suites may write while this runs, so assertions are
  * scoped to the fixture. Run with `pnpm test:integration`.
  */
 
@@ -51,7 +52,16 @@ describe.skipIf(!env)('backup and restore against local Supabase', () => {
   let backupDir: string
   let manifest: BackupManifest
   let result: RestoreResult
-  const fixture = { published: '', revoked: '', deleted: '', publishedSlug: '', revokedSlug: '', assetId: '' }
+  const fixture = {
+    published: '',
+    legacy: '',
+    revoked: '',
+    deleted: '',
+    publishedSlug: '',
+    legacySlug: '',
+    revokedSlug: '',
+    assetId: '',
+  }
 
   async function api({ path, method = 'GET', body }: { path: string; method?: 'GET' | 'POST' | 'DELETE'; body?: unknown }) {
     const response = await handleFlpRequest({
@@ -87,8 +97,8 @@ describe.skipIf(!env)('backup and restore against local Supabase', () => {
   const fixtureIssues = (issues: RestoreIssue[]) =>
     issues.filter(
       (found) =>
-        [fixture.published, fixture.revoked, fixture.deleted].includes(found.designId ?? '') ||
-        [fixture.publishedSlug, fixture.revokedSlug].includes(found.slug ?? ''),
+        [fixture.published, fixture.legacy, fixture.revoked, fixture.deleted].includes(found.designId ?? '') ||
+        [fixture.publishedSlug, fixture.legacySlug, fixture.revokedSlug].includes(found.slug ?? ''),
     )
 
   beforeAll(async () => {
@@ -111,6 +121,13 @@ describe.skipIf(!env)('backup and restore against local Supabase', () => {
 
     fixture.published = await createDesign({ title: 'Backed-up tee', assetId: fixture.assetId })
     fixture.publishedSlug = await publish({ designId: fixture.published })
+
+    // Published before the sleeve views existed: only the base views.
+    fixture.legacy = await createDesign({ title: 'Three-view tee', assetId: 'asset_lib_cross-simple' })
+    fixture.legacySlug = await publish({ designId: fixture.legacy })
+    const sleeves = PUBLIC_RENDER_KINDS.filter((kind) => !(BASE_PUBLIC_RENDER_KINDS as readonly string[]).includes(kind))
+    const dropped = await admin.from('render_artifacts').delete().eq('design_id', fixture.legacy).in('kind', sleeves)
+    expect(dropped.error).toBeNull()
 
     fixture.revoked = await createDesign({ title: 'Revoked tee', assetId: 'asset_lib_cross-simple' })
     fixture.revokedSlug = await publish({ designId: fixture.revoked })
@@ -150,6 +167,10 @@ describe.skipIf(!env)('backup and restore against local Supabase', () => {
     expect(
       result.verified.renders.filter((render) => render.slug === fixture.publishedSlug).map((render) => render.kind).sort(),
     ).toEqual([...PUBLIC_RENDER_KINDS].sort())
+    expect(result.restored.publications.get(fixture.legacySlug)).toMatchObject({ status: 'published', seq: 1 })
+    expect(
+      result.verified.renders.filter((render) => render.slug === fixture.legacySlug).map((render) => render.kind).sort(),
+    ).toEqual([...BASE_PUBLIC_RENDER_KINDS].sort())
     expect(result.restoreBucket).toMatch(/^flp-restore-/)
     expect(result.phases.map((phase) => phase.name)).toEqual([
       'backup integrity',
