@@ -21,7 +21,7 @@ import type {
   VersionPage,
   VersionResponse,
 } from './contract.ts'
-import type { OwnerPublication, PublicDesign, PublicRenderKind } from './publication.ts'
+import type { OwnerPublication, PublicRenderKind } from './publication.ts'
 
 /**
  * Browser calls to `/api/flp/*` (S03 #172). Each call carries the current
@@ -309,23 +309,7 @@ export function unpublishDesign({ designId, fetchImpl }: { designId: string; fet
   return call<null>({ path: `designs/${designId}/publication`, method: 'DELETE', fetchImpl })
 }
 
-/** Anonymous read of a published design (P04 #182); no session needed. */
-export async function getPublicDesign({
-  slug,
-  fetchImpl = fetch,
-}: {
-  slug: string
-  fetchImpl?: typeof fetch
-}): Promise<{ ok: true; data: PublicDesign } | { ok: false; code: 'not_found' | 'network' }> {
-  try {
-    const response = await fetchImpl(`/api/flp/public/${encodeURIComponent(slug)}`)
-    return response.ok
-      ? { ok: true, data: (await response.json()) as PublicDesign }
-      : { ok: false, code: 'not_found' }
-  } catch {
-    return { ok: false, code: 'network' }
-  }
-}
+export { getPublicDesign } from './public-read.ts'
 
 /** One newest-first page of a design's history (S07 #176). */
 export function listDesignVersions({

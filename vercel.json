@@ -49,13 +49,6 @@
     },
     {
       "source": "/s/:slug",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(?i).*(Twitterbot|facebookexternalhit|Slackbot|WhatsApp|Telegram|LinkedInBot|Discordbot|Applebot|Googlebot|bingbot|preview|bot|crawl).*"
-        }
-      ],
       "destination": "/api/og-share?slug=:slug"
     },
     {

@@ -447,11 +447,16 @@ export async function readPublicDesign({
     return respond({ status: 404, body: { error: { code: 'not_found', message: 'This design is not available' } } })
   }
 
+  return respond({ status: 200, body: publicDesignPayload({ published }) })
+}
+
+/** The only fields a public reader ever gets (P04 #182). */
+export function publicDesignPayload({ published }: { published: PublishedDesign }): PublicDesign {
   const renders = Object.fromEntries(
     PUBLIC_RENDER_KINDS.map((kind) => [kind, publicImagePath({ slug: published.slug, kind, seq: published.seq })]),
   ) as Record<PublicRenderKind, string>
 
-  const body: PublicDesign = {
+  return {
     slug: published.slug,
     title: published.title,
     displayName: published.displayName,
@@ -459,8 +464,6 @@ export async function readPublicDesign({
     publishedAt: published.publishedAt,
     renders,
   }
-
-  return respond({ status: 200, body })
 }
 
 /**
