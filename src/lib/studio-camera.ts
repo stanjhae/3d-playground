@@ -18,12 +18,28 @@ export const CAMERA_PRESET_POSITIONS = {
   front: [0, 1.48, 4.1] as const,
   threeQuarter: STUDIO_CAMERA.position,
   back: [0.15, 1.48, -4.05] as const,
-  // Side-on sleeve views, named like the render panels: `left` sits at −x
-  // and so shows the wearer's right sleeve; `right` the wearer's left.
-  left: [-4.1, 1.48, 0] as const,
-  right: [4.1, 1.48, 0] as const,
+  // Sleeve views, named like the render panels: `left` frames the sleeve
+  // at −x, the wearer's right; `right` the wearer's left. The sleeves
+  // stand out nearly level and each sleeve panel's centre faces backwards,
+  // so a side-on seat sees only the cuff end-on (#179). These sit behind
+  // and outside the sleeve, a little above it, aimed at the sleeve.
+  left: [-0.85, 1.44, -1.07] as const,
+  right: [0.85, 1.44, -1.07] as const,
   orbit: STUDIO_CAMERA.position,
 } as const
+
+export type CameraPresetName = keyof typeof CAMERA_PRESET_POSITIONS
+
+/** Where each sleeve view looks: between the flat and worn sleeve centres. */
+const SLEEVE_TARGETS: Partial<Record<CameraPresetName, readonly [number, number, number]>> = {
+  left: [-0.26, 1.12, -0.02],
+  right: [0.26, 1.12, -0.02],
+}
+
+/** What a preset looks at: the garment's centre, or one sleeve for the sleeve views. */
+export function presetTarget({ preset }: { preset: CameraPresetName }) {
+  return SLEEVE_TARGETS[preset] ?? STUDIO_CAMERA.target
+}
 
 /** Published stills: opaque JPEG, 4:5, centre-cropped from the canvas. */
 export const STILL_FRAME = {

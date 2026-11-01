@@ -137,6 +137,7 @@ MEASURE=1 E2E_BASE_URL=http://localhost:5399 pnpm exec playwright test measure
 | First public image, Fast 3G, 1366×768 | 4.1 s → **2.13 s** | ≤ 3 s | **Met** |
 | First public image with five views (#179), Fast 3G, 390×844 | **2.14 s** | ≤ 3 s | **Met** (1 Nov) |
 | First public image with five views (#179), Fast 3G, 1366×768 | **2.13 s** | ≤ 3 s | **Met** (1 Nov) |
+| ↳ after the sleeve views were re-aimed at their sleeves, 390×844 / 1366×768 | **2.15 s** / **2.12 s** | ≤ 3 s | **Met** (1 Nov) |
 
 Re-measured 1 November 2026 after the sleeve views (#179), same setup (production build, `pnpm preview`, local Supabase, Apple M3); save acknowledgement in that run was p50 59 ms, p95 73 ms. Adding two views didn't move the first image: the front is still the only preload, and the sleeve images are `loading="lazy"` below the main three, so they don't compete with it on a slow link. The run also checks that the page and the pre-rendered overlay (JavaScript off) have no sideways scroll at 390 and 1366 px.
 
