@@ -11,9 +11,9 @@ import { toRenderDocument } from './render-projection'
  * E05 #159: erasing on one paint layer touches only that layer. The
  * stored document of every sibling layer and every other panel stays
  * byte-identical, and so do the atlas pixels outside the eraser's path.
- * Under the path, an opaque layer's eraser clears what lies beneath it
- * and a translucent layer's clears only its own strokes (#158,
- * docs/canonical-document.md).
+ * Under the path, an eraser clears only its own layer's strokes, whatever
+ * the layer's opacity: paint, words and the base pattern beneath stay
+ * (#158, docs/canonical-document.md).
  */
 
 const SIZE = 256
@@ -73,6 +73,7 @@ function atlas({ value }: { value: CanonicalDocument }) {
 }
 
 const json = (value: unknown) => JSON.stringify(value)
+const samePixels = (a: Uint8ClampedArray, b: Uint8ClampedArray) => a.length === b.length && a.every((value, index) => value === b[index])
 
 describe('erasing on one paint layer (#159)', () => {
   test('sibling layers and other panels stay byte-identical in the stored document', () => {
@@ -128,13 +129,58 @@ describe('erasing on one paint layer (#159)', () => {
 
       // Under the eraser, B's own stroke is gone either way.
       expect(atlasPixelAtPanel({ buffer: after, panel: 'front', x: 0.5, y: 0.3 }).a).toBe(0)
-      // A's stroke beneath: cleared by an opaque layer's eraser, kept under a translucent one.
-      const a = atlasPixelAtPanel({ buffer: after, panel: 'front', x: 0.5, y: 0.5 })
-      expect(a.a > 0).toBe(opacityB < 1)
+      // A's stroke beneath is kept, under an opaque layer's eraser too.
+      expect(atlasPixelAtPanel({ buffer: after, panel: 'front', x: 0.5, y: 0.5 })).toEqual(
+        atlasPixelAtPanel({ buffer: before, panel: 'front', x: 0.5, y: 0.5 }),
+      )
       // A's stroke away from the eraser is exactly as it was.
       expect(atlasPixelAtPanel({ buffer: after, panel: 'front', x: 0.25, y: 0.5 })).toEqual(
         atlasPixelAtPanel({ buffer: before, panel: 'front', x: 0.25, y: 0.5 }),
       )
     })
   }
+
+  test('an eraser with none of its own ink beneath changes no pixel: paint, words and pattern stay', () => {
+    const value = document()
+    value.base = { kind: 'check', colors: ['#f4ead4', '#2b3a67'], period: 0.08 }
+    const [a, b, words] = value.panels.front.layers
+    // Words between A and B, and B's only stroke well left of the eraser.
+    value.panels.front.layers = [a!, words!, { ...b!, strokes: [{ ...brush({ id: 'b-1', y: 0.3 }), points: [0.1, 0.3, 0.2, 0.3] }] } as typeof b & object]
+
+    const before = atlas({ value })
+    const after = atlas({ value: erase({ before: value }) })
+
+    expect(samePixels(after.pixels, before.pixels)).toBe(true)
+  })
+
+  test('a live eraser previews exactly what it commits', () => {
+    const before = document()
+    const committed = toRenderDocument({ document: erase({ before }) }).document
+    const paintB = committed.layers.find((layer) => layer.id === 'paint-b')
+    const live = paintB?.kind === 'paint' ? paintB.strokes.at(-1) : undefined
+
+    expect(live?.tool).toBe('eraser')
+
+    const preview = rasterizeLayers({
+      document: toRenderDocument({ document: before }).document,
+      extraStroke: live,
+      extraStrokeLayerId: 'paint-b',
+      width: SIZE,
+      height: SIZE,
+    })
+
+    expect(samePixels(preview.pixels, atlas({ value: erase({ before }) }).pixels)).toBe(true)
+  })
+
+  test('a live eraser that starts a new layer erases nothing', () => {
+    const before = document()
+    const committed = toRenderDocument({ document: erase({ before }) }).document
+    const paintB = committed.layers.find((layer) => layer.id === 'paint-b')
+    const live = paintB?.kind === 'paint' ? paintB.strokes.at(-1) : undefined
+    const base = toRenderDocument({ document: before }).document
+
+    const preview = rasterizeLayers({ document: base, extraStroke: live, extraStrokeLayerId: 'paint-new', width: SIZE, height: SIZE })
+
+    expect(samePixels(preview.pixels, atlas({ value: before }).pixels)).toBe(true)
+  })
 })

@@ -21,7 +21,7 @@ import {
   validateCanonicalDocument,
 } from './canonical-document.ts'
 import type { DesignCommand, LayerPatch } from './design-commands.ts'
-import type { DesignDocument } from './design-document.ts'
+import type { DesignDocument, Stroke } from './design-document.ts'
 import { glyphMessage } from './glyph-coverage.ts'
 import {
   type ImportNote,
@@ -515,6 +515,15 @@ export function runTranslated({
   return step.changed
     ? { ...step, engine: { ...step.engine, assetSources: translated.assetSources } }
     : step
+}
+
+/**
+ * The paint layer `addStroke` would put this stroke in, so a live eraser
+ * can preview inside that layer only (#159). The id may be a new layer's.
+ */
+export function strokeLayerId({ engine, stroke }: { engine: TeeEngine; stroke: Stroke }) {
+  const translated = translateCommand({ engine, command: { type: 'addStroke', stroke } })
+  return translated?.command.type === 'addStroke' ? translated.command.layerId : null
 }
 
 export function undoTee({ engine }: { engine: TeeEngine }): TeeEngine {

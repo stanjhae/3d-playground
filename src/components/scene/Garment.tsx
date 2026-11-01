@@ -29,7 +29,7 @@ import {
 } from '../../lib/design-document'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
-import { useEditorStore } from '../../lib/editor-store'
+import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { garmentSrc } from '../../lib/garment-parts'
 import { applyLayerEdit } from '../../lib/layer-hit'
 import { useLayerImages } from '../../lib/layer-images'
@@ -373,6 +373,7 @@ function SeatedForm({
         edit: picking ? activeLayerEdit : null,
       }),
       extraStroke: picking ? activeStroke : null,
+      extraStrokeLayerId: picking ? liveStrokeLayerId({ stroke: activeStroke }) : undefined,
       images: layerImages,
       // Words wait for their face here; the 2D panel shows them meanwhile.
       pendingText: 'skip',

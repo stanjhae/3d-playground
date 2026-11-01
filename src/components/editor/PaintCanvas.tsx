@@ -10,7 +10,7 @@ import {
 import { documentHasInk } from '../../lib/design-document'
 import { trackAssumption } from '../../lib/assumption-events'
 import type { PanelId } from '../../lib/design-document'
-import { useEditorStore } from '../../lib/editor-store'
+import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { useLayerImages } from '../../lib/layer-images'
@@ -671,6 +671,7 @@ export function PaintCanvas({
     const buffer = rasterizeLayers({
       document: liveDocument,
       extraStroke: activeStroke,
+      extraStrokeLayerId: liveStrokeLayerId({ stroke: activeStroke }),
       width: 512,
       height: 512,
       images: layerImages,
