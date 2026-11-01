@@ -22,6 +22,7 @@ import {
 } from './canonical-document.ts'
 import type { DesignCommand, LayerPatch } from './design-commands.ts'
 import type { DesignDocument } from './design-document.ts'
+import { glyphMessage } from './glyph-coverage.ts'
 import {
   type ImportNote,
   convertLegacyDesign,
@@ -106,6 +107,7 @@ export function loadTeeEngine({
       ),
     },
     notes: [...converted.warnings, ...converted.unsupported],
+    limitNotice: documentNotice({ document: converted.document }) ?? undefined,
   }
 }
 
@@ -481,6 +483,12 @@ export function runTeeCommand({
     return { engine, changed: false, refusal: limitMessage({ counter: refused, refused: true }) }
   }
 
+  const undrawable = glyphRefusal({ document, command })
+
+  if (undrawable) {
+    return { engine, changed: false, refusal: undrawable }
+  }
+
   const result = applyCanonicalCommand({ stack: engine.stack, command })
 
   if (!result.ok) {
@@ -641,6 +649,80 @@ export function limitOverages({ document }: { document: CanonicalDocument }) {
 export function overLimitNotice({ document }: { document: CanonicalDocument }) {
   const first = limitOverages({ document })[0]
   return first ? limitMessage({ counter: first }) : null
+}
+
+/**
+ * Why `command` would put a word in a face that can't draw it (#155), or
+ * null. Only commands that set a word's text or face are checked, so a
+ * recovered word with such characters can still be moved, recoloured,
+ * fixed or deleted.
+ */
+export function glyphRefusal({
+  document,
+  command,
+}: {
+  document: CanonicalDocument
+  command: CanonicalCommand
+}): string | null {
+  if (command.type === 'batch') {
+    for (const inner of command.commands) {
+      const refused = glyphRefusal({ document, command: inner })
+
+      if (refused) {
+        return refused
+      }
+    }
+
+    return null
+  }
+
+  if (command.type === 'addLayer') {
+    return command.layer.kind === 'text'
+      ? glyphMessage({ text: command.layer.content, face: command.layer.face })
+      : null
+  }
+
+  if (command.type === 'copyLayer' || command.type === 'updateLayer') {
+    const found = findLayer({ document, layerId: command.layerId })
+
+    if (found?.layer.kind !== 'text') {
+      return null
+    }
+
+    if (command.type === 'copyLayer') {
+      return glyphMessage({ text: found.layer.content, face: found.layer.face })
+    }
+
+    const { content, face } = command.patch
+
+    if (content === undefined && face === undefined) {
+      return null
+    }
+
+    return glyphMessage({ text: content ?? found.layer.content, face: face ?? found.layer.face })
+  }
+
+  return null
+}
+
+/** The first word a face can't draw, said where it is, or null. */
+export function glyphNotice({ document }: { document: CanonicalDocument }) {
+  for (const panel of CANONICAL_PANEL_IDS) {
+    for (const layer of document.panels[panel].layers) {
+      const message = layer.kind === 'text' ? glyphMessage({ text: layer.content, face: layer.face }) : null
+
+      if (message) {
+        return `A word on the ${PANEL_NAMES[panel]} has characters its face can't draw. ${message}`
+      }
+    }
+  }
+
+  return null
+}
+
+/** What a loaded (imported, recovered, restored) document says on open. */
+export function documentNotice({ document }: { document: CanonicalDocument }) {
+  return overLimitNotice({ document }) ?? glyphNotice({ document })
 }
 
 function limitExcess({ document }: { document: CanonicalDocument }) {
