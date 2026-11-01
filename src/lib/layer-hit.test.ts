@@ -10,6 +10,7 @@ import {
   layerHandleLocal,
   layerVoice,
   placedType,
+  wordEditorWidth,
   wordEditShouldCommit,
 } from './layer-hit'
 
@@ -192,5 +193,14 @@ describe('layer hit', () => {
     expect(layerBox({ layer: image })).toEqual({ width: 0.4, height: 0.2 })
     expect(layerBox({ layer: { ...image, aspect: 0.5 } })).toEqual({ width: 0.2, height: 0.4 })
     expect(layerBox({ layer: { ...image, aspect: undefined } })).toEqual({ width: 0.4, height: 0.4 })
+  })
+})
+
+describe('wordEditorWidth', () => {
+  test('fits the word being edited, within the panel', () => {
+    // A short word in large type: its frame is narrow, the box still fits it.
+    expect(wordEditorWidth({ frameShare: 0.1, length: 4 })).toBe('min(100%, max(18%, calc(5ch + 1.5rem)))')
+    expect(wordEditorWidth({ frameShare: 0.5, length: 12 })).toBe('min(100%, max(50%, calc(13ch + 1.5rem)))')
+    expect(wordEditorWidth({ frameShare: 0, length: 0 })).toBe('min(100%, max(18%, calc(4ch + 1.5rem)))')
   })
 })
