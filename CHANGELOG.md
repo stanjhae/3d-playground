@@ -1,6 +1,22 @@
 # Changelog
 
-## 0.9.0-rc.1: alpha release candidate (pending tag)
+## Unreleased: 0.9.0-rc.2
+
+Demo polish before the 12 Nov freeze (`docs/decisions.md`, 1 Nov).
+
+### Added
+- **Sleeve views on the public page:** publishing captures five views (front, three-quarter, back, wearer's right and left sleeves). Designs published with three views stay public with those three (#179, #263).
+- **Numeric transforms:** X, Y, size and turn fields in the Tech inspector. Typing, Enter or arrow keys (Shift for steps of 10) make one undo step each, and invalid values are refused with a message (#156, #262).
+- **Import preview:** a design brought from the landing page shows before and after, with what changed, and is created only when you choose. Its images are uploaded to your account. A failed upload stops before anything is saved and offers to try again or create the design without that image (#141, #261).
+- **Glyph validation** for the bundled text faces, plus restore fixtures for both template versions (#155, #165, #260).
+
+### Changed
+- **On-demand 3D rendering:** an idle studio draws nothing, so it uses far less CPU and battery. Two open tabs no longer slow each other down (#264).
+
+### Fixed
+- Landing designs' images could never upload, because the security policy blocks `fetch` on data URLs; they're now decoded directly (#261).
+
+## 0.9.0-rc.1: alpha release candidate (1 Nov 2026)
 
 The first release candidate of the FLP PRD v1.1 alpha: an owned, signed-in T-shirt studio with cloud saving, history, and revocable public sharing. Everything below is verified against local Supabase and in CI. The hosted environment and the hosted checks are still to come (#186, checklist on that issue). Scope decisions and deferrals are in `docs/decisions.md`.
 

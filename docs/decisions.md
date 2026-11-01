@@ -2,6 +2,20 @@
 
 Decisions that change scope or behaviour for the 17 November alpha, with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 1 Nov 2026: demo polish pulled forward before the freeze
+
+**Decided by:** owner ("demo polish" for the time left before 12 Nov).
+
+Three items deferred on 31 Oct were delivered for the alpha instead, each through its own PR and the rc.2 combine check:
+
+- **#179 sleeve views:** publishing captures five views, and three-view publications stay public (#263).
+- **#156 numeric transforms:** X, Y, size and turn fields with drag/number/keyboard parity (#262).
+- **#141 legacy import:** a before/after preview, plus uploads of the landing design's images (#261).
+
+The 3D views also render on demand (`frameloop="demand"`, #264). An idle studio draws nothing. This removed the two-tab CI flake and shortens the e2e suite.
+
+**Still deferred:** #164 (the revision-tagged atlas rewrite) and the template/compiler revision on renders (part of #179).
+
 ## 31 Oct 2026: defer three large renderer and editor items past the freeze
 
 **Decided by:** owner, when planning the pre-freeze wave.
@@ -11,7 +25,7 @@ Decisions that change scope or behaviour for the 17 November alpha, with the rea
 | --- | --- | --- | --- |
 | #164 R01 | Revision-tagged deterministic atlas composition | A rewrite of the render pipeline. The current v1 projection (`render-projection.ts`) is covered by parity tests and the e2e journey, and replacing it this close to the freeze risks the primary journey. | The projection stays. Known parity gaps are fixed one at a time (#158 opacity, #161 stripe period, #165 collar). |
 | #179 P01 (part) | Template/compiler revision on renders | A render pipeline change (see #164). | Sleeve views shipped on 1 Nov: publishing captures five views (front, three-quarter, back, wearer's right, wearer's left). Versions published with three views stay public. The public page says it's a creator-supplied preview. |
-| #156 E05 (part) | Numeric transform inputs (x, y, scale, rotation) | A new editing surface plus parity tests. Keyboard nudges (#248) cover the accessibility need. | Drag handles plus arrow-key nudges (Shift for larger steps), each one undo step. |
+| #156 E05 (part) | Numeric transform inputs (x, y, scale, rotation) | A new editing surface plus parity tests. | Delivered on 1 Nov instead (#262); see above. |
 
 ## 31 Oct 2026: public media are never cached
 
