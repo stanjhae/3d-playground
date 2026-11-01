@@ -1,8 +1,9 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { RequireSession } from '../components/auth/RequireSession'
 import { DesignCard } from '../components/studio/DesignCard'
+import { ImportPreview } from '../components/studio/ImportPreview'
 import { PublicName } from '../components/studio/PublicName'
 import { useSessionStore, waitForSession } from '../lib/auth/session-store'
 import { authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
@@ -13,6 +14,9 @@ import {
   listOwnedDesigns,
 } from '../lib/flp-api/client'
 import { consumeLandingHandoff, peekLandingHandoff } from '../lib/landing-handoff'
+import type { CanonicalDocument } from '../lib/canonical-document'
+import type { PendingAsset } from '../lib/legacy-import'
+import { uploadPendingAssets } from '../lib/legacy-assets'
 import { initialStudioDocument } from '../lib/studio-create'
 import { resolveTemplate } from '../lib/template-manifest'
 import { trackAssumption } from '../lib/assumption-events'
@@ -67,6 +71,17 @@ function MyStudio() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [landing] = useState(() => peekLandingHandoff())
+  // A landing design is shown before and after conversion, then created
+  // only when the person chooses (F06 #141).
+  const conversion = useMemo(() => (landing ? initialStudioDocument({ handoff: landing }) : null), [landing])
+  const [previewing, setPreviewing] = useState(false)
+  // After a failed image upload: what is uploaded so far, what is left, and
+  // the design without the failed images, if the person chooses that.
+  const [uploadState, setUploadState] = useState<{
+    partial: CanonicalDocument
+    failed: Array<PendingAsset & { reason: string }>
+    withoutFailed: CanonicalDocument
+  } | null>(null)
   // One key per create attempt, reused on retry so it never duplicates.
   const createKey = useRef<string | null>(null)
 
@@ -85,7 +100,10 @@ function MyStudio() {
     void load()
   }, [load, accountEpoch])
 
-  async function create() {
+  async function create({
+    fromLanding = false,
+    withoutFailed = false,
+  }: { fromLanding?: boolean; withoutFailed?: boolean } = {}) {
     if (!TEE.ok) {
       return
     }
@@ -94,11 +112,37 @@ function MyStudio() {
     setCreating(true)
     setCreateError(null)
 
-    const { document } = initialStudioDocument({ handoff: landing })
+    let document = fromLanding && conversion?.fromLanding ? conversion.document : initialStudioDocument({ handoff: null }).document
+
+    // Inline images from the landing design become real uploads first; the
+    // server refuses a design that points at an image it never received.
+    // A failure stops here so the person decides; a retry uploads only what
+    // failed.
+    if (fromLanding && withoutFailed && uploadState) {
+      document = uploadState.withoutFailed
+    } else if (fromLanding && conversion && conversion.pendingAssets.length > 0) {
+      const uploads = await uploadPendingAssets({
+        document: uploadState?.partial ?? document,
+        pendingAssets: uploadState?.failed ?? conversion.pendingAssets,
+      })
+
+      if (uploads.failed.length > 0) {
+        setUploadState({
+          partial: uploads.partial,
+          failed: uploads.failed,
+          withoutFailed: uploads.document,
+        })
+        setCreating(false)
+        return
+      }
+
+      document = uploads.document
+    }
+
     const result = await createOwnedDesign({
       request: {
         mutationKey: createKey.current,
-        title: landing ? 'Landing tee' : 'Untitled tee',
+        title: fromLanding ? 'Landing tee' : 'Untitled tee',
         content: document,
       },
     })
@@ -143,9 +187,9 @@ function MyStudio() {
             type="button"
             className={buttonClass}
             disabled={creating || !TEE.ok}
-            onClick={() => void create()}
+            onClick={() => (conversion?.fromLanding ? setPreviewing(true) : void create())}
           >
-            {creating ? 'Creating…' : landing ? 'Create from your landing design' : 'Create a T-shirt'}
+            {creating ? 'Creating…' : conversion?.fromLanding ? 'Create from your landing design' : 'Create a T-shirt'}
           </button>
           {TEE.ok ? (
             <p className="font-body text-xs text-flv-muted">
@@ -154,6 +198,20 @@ function MyStudio() {
           ) : null}
         </div>
       </header>
+
+      {previewing && landing && conversion?.fromLanding ? (
+        <ImportPreview
+          before={landing.document}
+          after={conversion.document}
+          notes={conversion.notes}
+          imageCount={conversion.pendingAssets.length}
+          uploadFailures={uploadState?.failed.map((each) => each.reason) ?? []}
+          busy={creating}
+          onCreate={() => void create({ fromLanding: true })}
+          onCreateWithoutFailed={() => void create({ fromLanding: true, withoutFailed: true })}
+          onStartEmpty={() => void create()}
+        />
+      ) : null}
 
       <PublicName />
 
