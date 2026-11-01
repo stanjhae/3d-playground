@@ -20,6 +20,7 @@ import {
   placedType,
 } from '../../lib/layer-hit'
 import { uvToPanelPoint } from '../../lib/panel-uv'
+import { SELECTION_COLOR, meshOutlineVisible } from '../../lib/selection-chrome'
 
 function pointerUv({
   event,
@@ -67,6 +68,7 @@ export function SelectableMesh({
       (selectedMeshName === name || name.startsWith(`${selectedMeshName}-`)),
   )
   const selectMesh = useEditorStore((state) => state.selectMesh)
+  const capturingAngles = useEditorStore((state) => state.capturingAngles)
   const [hovered, setHovered] = useState(false)
   const canPick = picking && mode === 'design'
   const canPaint = canPick && garmentCanPaint({ garmentId })
@@ -279,8 +281,8 @@ export function SelectableMesh({
         setHovered(false)
       }}
     >
-      {canPick && (isSelected || hovered) ? (
-        <Outlines color="#c4a15a" thickness={isSelected ? 0.006 : 0.003} />
+      {meshOutlineVisible({ canPick, isSelected, hovered, capturingAngles }) ? (
+        <Outlines color={SELECTION_COLOR} thickness={isSelected ? 0.006 : 0.003} />
       ) : null}
       {showCaption ? (
         <Html center distanceFactor={4} style={{ pointerEvents: 'none' }}>

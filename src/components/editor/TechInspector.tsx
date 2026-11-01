@@ -1,4 +1,11 @@
-import { useEffect, useState, type ChangeEvent, type PointerEvent } from 'react'
+import {
+  useEffect,
+  useId,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react'
 
 import { cn } from '../../lib/cn'
 import type { LayerPatch } from '../../lib/design-commands'
@@ -10,6 +17,13 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+import {
+  TRANSFORM_FIELDS,
+  formatField,
+  parseField,
+  stepField,
+  type TransformKey,
+} from '../../lib/transform-fields'
 
 type DraftPose = {
   x: number
@@ -17,6 +31,121 @@ type DraftPose = {
   scale: number
   rotation: number
   opacity: number
+}
+
+/**
+ * A typed value beside a slider (#156). Enter or leaving the box commits,
+ * arrows step (Shift for ten), Escape restores. Refused input keeps its
+ * message beside the box rather than being clamped.
+ */
+function TransformNumber({
+  fieldKey,
+  value,
+  onCommit,
+}: {
+  fieldKey: TransformKey
+  value: number
+  onCommit: ({ value }: { value: number }) => void
+}) {
+  const field = TRANSFORM_FIELDS[fieldKey]
+  const shown = formatField({ field, value })
+  const [text, setText] = useState(shown)
+  const [error, setError] = useState<string | null>(null)
+  const errorId = useId()
+
+  useEffect(() => {
+    setText(shown)
+    setError(null)
+  }, [shown])
+
+  function commitText() {
+    // Unchanged text never rewrites the value it rounds (45.37 shown 45.4).
+    if (text.trim() === shown) {
+      setText(shown)
+      setError(null)
+      return
+    }
+
+    const parsed = parseField({ field, text })
+
+    if (!parsed.ok) {
+      setError(parsed.message)
+      return
+    }
+
+    setError(null)
+    setText(formatField({ field, value: parsed.value }))
+
+    if (parsed.value !== value) {
+      onCommit({ value: parsed.value })
+    }
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      commitText()
+      return
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setText(shown)
+      setError(null)
+      return
+    }
+
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      const stepped = stepField({
+        field,
+        value,
+        direction: event.key === 'ArrowUp' ? 1 : -1,
+        large: event.shiftKey,
+      })
+
+      if (!stepped.ok) {
+        setError(stepped.message)
+        return
+      }
+
+      setError(null)
+      setText(formatField({ field, value: stepped.value }))
+      onCommit({ value: stepped.value })
+    }
+  }
+
+  return (
+    <span className="flex flex-col items-end gap-0.5">
+      <span className="flex items-center gap-1">
+        <input
+          type="text"
+          inputMode="decimal"
+          aria-label={field.label}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          value={text}
+          onChange={(event) => {
+            setText(event.target.value)
+          }}
+          onBlur={commitText}
+          onKeyDown={onKeyDown}
+          className={cn(
+            'min-h-9 w-16 border bg-white px-2 text-right font-body text-sm text-flv-ink',
+            error ? 'border-flv-accent' : 'border-flv-line',
+          )}
+        />
+        <span aria-hidden className="w-3 font-body text-xs text-flv-muted">
+          {field.unit}
+        </span>
+      </span>
+      {error ? (
+        <span id={errorId} role="alert" className="font-body text-xs text-flv-accent">
+          {error}
+        </span>
+      ) : null}
+    </span>
+  )
 }
 
 export function TechInspector() {
@@ -99,6 +228,23 @@ export function TechInspector() {
     }
   }
 
+  function numberField({ key }: { key: TransformKey }) {
+    return (
+      <TransformNumber
+        // A new mark starts clean, even at the same value.
+        key={`${selected.id}-${key}`}
+        fieldKey={key}
+        value={pose[key]}
+        onCommit={({ value }) => {
+          setDraft((current) =>
+            current ? { ...current, [key]: value } : current,
+          )
+          commitDraft({ patch: { [key]: value } })
+        }}
+      />
+    )
+  }
+
   const color =
     selected.kind === 'text' || selected.kind === 'pattern'
       ? selected.color
@@ -107,58 +253,74 @@ export function TechInspector() {
   return (
     <aside className={railFrameClass()}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.inspector}</p>
-      <label className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.position} X
         </span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          className="accent-[var(--color-flv-accent)]"
-          {...bindRange({ key: 'x' })}
-        />
-      </label>
-      <label className="flex flex-col gap-1">
+        <div className="flex items-start gap-2">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            aria-label={TRANSFORM_FIELDS.x.name}
+            className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
+            {...bindRange({ key: 'x' })}
+          />
+          {numberField({ key: 'x' })}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.position} Y
         </span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          className="accent-[var(--color-flv-accent)]"
-          {...bindRange({ key: 'y' })}
-        />
-      </label>
-      <label className="flex flex-col gap-1">
+        <div className="flex items-start gap-2">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            aria-label={TRANSFORM_FIELDS.y.name}
+            className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
+            {...bindRange({ key: 'y' })}
+          />
+          {numberField({ key: 'y' })}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.size}
         </span>
-        <input
-          type="range"
-          min={0.05}
-          max={0.8}
-          step={0.01}
-          className="accent-[var(--color-flv-accent)]"
-          {...bindRange({ key: 'scale' })}
-        />
-      </label>
-      <label className="flex flex-col gap-1">
+        <div className="flex items-start gap-2">
+          <input
+            type="range"
+            min={0.05}
+            max={0.8}
+            step={0.01}
+            aria-label={TRANSFORM_FIELDS.scale.name}
+            className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
+            {...bindRange({ key: 'scale' })}
+          />
+          {numberField({ key: 'scale' })}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.rotation}
         </span>
-        <input
-          type="range"
-          min={-Math.PI}
-          max={Math.PI}
-          step={0.01}
-          className="accent-[var(--color-flv-accent)]"
-          {...bindRange({ key: 'rotation' })}
-        />
-      </label>
+        <div className="flex items-start gap-2">
+          <input
+            type="range"
+            min={-Math.PI}
+            max={Math.PI}
+            step={0.01}
+            aria-label={TRANSFORM_FIELDS.rotation.name}
+            className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
+            {...bindRange({ key: 'rotation' })}
+          />
+          {numberField({ key: 'rotation' })}
+        </div>
+      </div>
       <label className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.opacity}

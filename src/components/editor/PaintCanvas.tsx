@@ -26,6 +26,7 @@ import {
 } from '../../lib/layer-hit'
 import { paintSurfacePanels } from '../../lib/paint-layout'
 import { rasterizeLayers } from '../../lib/paint-atlas'
+import { SELECTION_COLOR } from '../../lib/selection-chrome'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { cn } from '../../lib/cn'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
@@ -150,7 +151,7 @@ function paintPanelSurface({
     context.save()
     context.translate(frame.x, frame.y)
     context.rotate(-selected.rotation)
-    context.strokeStyle = '#c4a15a'
+    context.strokeStyle = SELECTION_COLOR
     context.lineWidth = 1.5
     context.strokeRect(
       -frame.width / 2,
@@ -158,7 +159,7 @@ function paintPanelSurface({
       frame.width,
       frame.height,
     )
-    context.fillStyle = '#c4a15a'
+    context.fillStyle = SELECTION_COLOR
     context.beginPath()
     context.arc(frame.width / 2, frame.height / 2, 5, 0, Math.PI * 2)
     context.fill()
