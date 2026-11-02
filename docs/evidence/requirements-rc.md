@@ -8,12 +8,12 @@ Every acceptance statement of PRD v1.1 R01–R11 and R13–R17, plus the limits 
 
 ## Result
 
-rc.2 does **not** meet the PRD's definition of done yet. The core journey holds: private ownership, saving, history, publishing and revocation are all well proven. The gaps are below.
+This audit was run on rc.2, and the rows have been updated for what landed since. The release still does **not** meet the PRD's definition of done, mainly because nothing has run on a deployed path. The core journey holds: private ownership, saving, history, publishing and revocation are all well proven.
 
-| Group | What's in it | Where it goes |
+| Group | What's in it | Where it went |
 | --- | --- | --- |
-| Behaviour that's wrong | Cleared public name stays on live pages; failed image doesn't block publishing; no `noindex` | Fix for rc.3 |
-| The app differs from the PRD, no recorded decision | Input limits; no left, right or reset camera control; no off-panel warning; no stale preview state; autosave pruning; takedown | Owner decision |
+| Behaviour that was wrong | Cleared public name stayed on live pages; a failed image didn't block publishing; no `noindex` | Fixed for rc.3 (#280 and the cleared-name migration) |
+| The app differs from the PRD | Input limits, cameras, off-panel warning, stale preview state, autosave pruning, takedown, and the rest of the ten | Decided by the owner on 2 Nov (`docs/decisions.md`). Left and right cameras and the History note were built |
 | Works, but thin proof | See rows marked **Gap (proof)** | Add tests where the risk justifies it |
 | Can't be checked locally | Deployed paths, real email, CDN, real budgets | #186 |
 
@@ -22,6 +22,7 @@ rc.2 does **not** meet the PRD's definition of done yet. The core journey holds:
 - **Proven:** an automated test exercises it, and its assertions were read for this audit.
 - **Checked by hand:** dated human evidence exists, but no automated test.
 - **Hosted only:** can only be verified on a deployment (#186).
+- **Decided (2 Nov):** differs from the PRD, and the owner recorded that in `docs/decisions.md`. The app doesn't do what the statement says.
 - **Owner:** needs a decision or action from the owner.
 - **Gap (proof):** the code appears to do this, but nothing proves it at the level the PRD asks for. Each requirement is accepted on both canonical data and visible behaviour, so a data-level test alone is a proof gap.
 - **Gap (behaviour):** the app doesn't do what the statement says.
@@ -80,10 +81,10 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | --- | --- | --- |
 | Exactly one T-shirt template selectable | `journey.spec` opens one; nothing asserts it's the only one | Gap (proof) |
 | Base colour updates intended meshes, keeps artwork | No tee-level test; the base command is covered, not colour on meshes | Gap (proof) |
-| Front, back, three-quarter presets | Bar exists; `capture-framing.test.ts` frames them (pixel); no click test | Gap (proof) |
-| Left and right presets | Captures use them; **no control in `CameraPresetBar.tsx`** | Gap (behaviour), Owner |
-| Orbit available | Bar offers Orbit; no behaviour test | Gap (proof) |
-| Reset available | **No reset control**; picking a preset is the nearest thing | Gap (behaviour), Owner |
+| Front, back, three-quarter presets | `requirements-proof` clicks each (UI); `capture-framing.test.ts` frames them (pixel) | Proven |
+| Left and right presets | Added to `CameraPresetBar.tsx`; `requirements-proof` clicks each (UI); `capture-framing.test.ts` frames them (pixel) | Proven |
+| Orbit available | `requirements-proof` selects Orbit (UI); dragging not tested | Gap (proof) |
+| Reset available | No separate control; picking a preset is the nearest thing (decision 2) | Decided (2 Nov) |
 | Left/right wearer-labelled in tabs and mapping | `panel-orientation.test.ts`, `capture-framing.test.ts`, public alt text in `journey.spec` | Proven |
 | Template version pinned on save | `template-manifest.test.ts`, `restore-projection.test.ts` (store) | Proven |
 | Old design opens with original mapping | `restore-projection.test.ts` (pixel) | Proven |
@@ -100,10 +101,10 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Natural aspect ratio preserved | `uploaded-images.test.ts` (store) | Gap (proof) |
 | Two bundled font faces | `glyph-coverage.test.ts`, `text-faces.test.ts` (unit) | Gap (proof) |
 | Text colour | v1 command test only | Gap (proof) |
-| Up to 32 characters | **Enforced limit is 280** | Gap (behaviour), Owner |
+| Up to 32 characters | Limit stays 280 (decision 1) | Decided (2 Nov) |
 | Unsupported glyphs flagged before save | `editor-glyphs.test.ts` (store); message not rendered in a test | Gap (proof) |
 | Failed asset gives a placeholder, object kept | `render-parity.test.ts` (pixel) | Proven |
-| Failed asset blocks publishing | **`missingAssets` has no consumer; publish only checks WebGL** | Gap (behaviour) |
+| Failed asset blocks publishing | `publish-missing-image.spec.ts` (UI), `layer-images.test.ts` (unit) | Proven |
 
 ## R05 Object manipulation and layers
 
@@ -120,7 +121,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Object belongs to exactly one panel | `canonical-document.test.ts` (unit) | Proven |
 | Switching panels preserves values | Only the active-panel state is tested | Gap (proof) |
 | Panel masks clip content | Sleeve edges (pixel); no edge test for text, images or front and back | Gap (proof) |
-| Warning for fully off-panel object | **No warning in the app** | Gap (behaviour), Owner |
+| Warning for fully off-panel object | No warning; deferred (decision 3) | Decided (2 Nov) |
 | Handles never in published output | `export-chrome.test.ts` (pixel) | Proven |
 
 ## R06 Undo and redo
@@ -140,7 +141,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Preview uses the same document as 2D | `editor-canonical.test.ts`, `render-parity.test.ts` (pixel); no 2D-to-3D comparison | Gap (proof) |
-| Reports loading or stale until the latest revision is rendered | **No revision-tied state**. `docs/decisions.md` defers #164 but doesn't waive this statement | Gap (behaviour), Owner |
+| Reports loading or stale until the latest revision is rendered | No revision-tied state; waived with #164 (decision 4) | Decided (2 Nov) |
 | Delayed older decode can't overwrite a newer preview | By reading: a superseded batch is dropped and composition uses the latest document. No test | Gap (proof) |
 | Landmark and orientation fixtures on four panels | `template-manifest.test.ts`, `panel-orientation.test.ts` | Proven |
 | Transparency and transform fixtures | Stroke and layer alpha, front and back transforms (pixel); no image alpha, no sleeve transforms | Gap (proof) |
@@ -172,18 +173,18 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | 20 designs per account, clear error | `quotas.integration` (API); UI message untested | Gap (proof) |
 | 100 named checkpoints, clear error | `flp_quotas.test.sql` (DB) only; message untested | Gap (proof) |
 | 100 recent autosaves | `flp_quotas.test.sql` (DB) | Proven |
-| Content never silently evicted | **Older autosaves are pruned with no notice.** The PRD's alternative is to keep all revisions within quota | Gap (behaviour), Owner |
+| Content never silently evicted | Older autosaves are pruned, and History says so; `requirements-proof` checks the note (UI) (decision 5) | Decided (2 Nov) |
 
 ## R10 Publish and anonymous view
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Private by default, cloud designs | `flp-api.integration` (API) | Proven |
-| Private when a legacy field is absent | Cloud column is required. The legacy look store treats missing as public (`design-visibility.test.ts`) and still serves by link | Gap (behaviour), Owner |
+| Private when a legacy field is absent | Cloud column is required. The legacy look store treats missing as public; out of scope for the owned flow (decision 6) | Decided (2 Nov) |
 | Publish uses a specific immutable version | `publication-races.integration` (API), `flp_core_schema.test.sql` (DB) | Proven |
 | Ready renders required | `publication.integration` (API) | Proven |
 | Served bytes match the recorded hash | `publication.integration` replaced view (API) | Proven |
-| Manifest matches the version's content hash and renderer and template versions | Reported as missing: hashes cover image bytes only. Deferred in `docs/decisions.md` (#179) | Gap (behaviour), Owner |
+| Manifest matches the version's content hash and renderer and template versions | Hashes cover image bytes only; stays deferred under #179 | Decided (2 Nov) |
 | Page shows title, optional name, preview images | `journey.spec` (UI), `publication.integration` (API) | Proven |
 | Derived 3D atlas | Not enabled; `view=atlas` returns 404 (API) | Proven |
 | No email, full design JSON, draft history or sign-in | `journey.spec` (UI), `publication-races.integration` (API) | Proven |
@@ -216,7 +217,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Layers in an accessible list | `requirements-proof` uses it by role (UI), `layer-list.test.ts` | Proven |
 | Numeric inputs replace dragging | `transform-fields.spec` (UI) | Proven |
 | Focus stays visible | Global `:focus-visible` rule; sign-in fields set `focus:outline-none` with a border change; no test | Gap (proof) |
-| Destructive actions name the design | Delete by hand (see R02). Unpublish has no confirmation; Restore names the version; Clear names the panel | Gap (behaviour), Owner |
+| Destructive actions name the design | Delete by hand (see R02). Restore names the version; Clear names the panel. Unpublish has no confirmation (decision 9) | Decided (2 Nov) |
 
 ## R14 Basic drawing and erasing
 
@@ -252,7 +253,7 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Readable silhouette at front, back, three-quarter | Owner review, #166 | Checked by hand |
-| Readable from the side | Accepted limit: the tee reads very thin from exactly side-on | Owner |
+| Readable from the side | Thin from exactly side-on; accepted limit (decision 10) | Decided (2 Nov) |
 | No detached pieces, holes, inverted normals | Owner review; `panel-orientation.test.ts` covers outward faces only | Checked by hand |
 | Credible proportions, fabric surface, neutral lighting | Owner review | Checked by hand |
 | Artwork legible, no stretching, mirroring, bleed | Mirroring and bleed proven (pixel); legibility by owner | Checked by hand |
@@ -265,7 +266,7 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Choose Solid, Stripes or Check | `requirements-proof` (UI, data) | Proven |
-| Select two pattern colours | **No separate control:** colours are the ground and the brush colour | Gap (behaviour), Owner |
+| Select two pattern colours | Ground plus brush colour (decision 8) | Decided (2 Nov) |
 | Deterministic fixed scale | `render-parity.test.ts` (pixel) | Proven |
 | Applied to four regions, beneath artwork | `canonical-commands.test.ts`, `editor-canonical.test.ts` | Proven |
 | Changing pattern preserves artwork | `requirements-proof` (UI, data) | Proven |
@@ -280,10 +281,10 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | --- | --- | --- |
 | Save acknowledgement p95 ≤ 2 s | `measure.spec` prints it: 192 ms locally. No threshold asserted | Hosted only |
 | First public image ≤ 3 s | `measure.spec`: 2.14 s locally on Fast 3G | Hosted only |
-| 50 layers | **40 per panel, 160 in total** | Gap (behaviour), Owner |
-| 32 characters per object | **280** | Gap (behaviour), Owner |
-| 2,000 stroke points in total | **4,096 per stroke, no total** | Gap (behaviour), Owner |
-| 512 KB canonical JSON | **2 MB**, server side only | Gap (behaviour), Owner |
+| 50 layers | Stays 40 per panel, 160 in total (decision 1) | Decided (2 Nov) |
+| 32 characters per object | Stays 280 (decision 1) | Decided (2 Nov) |
+| 2,000 stroke points in total | Stays 4,096 per stroke, no total (decision 1) | Decided (2 Nov) |
+| 512 KB canonical JSON | Stays 2 MB, server side only (decision 1) | Decided (2 Nov) |
 | 100 MB per account | `flp_quotas.test.sql` (DB); upload path untested | Gap (proof) |
 | 10 MB per upload | `image-validate.test.ts` (unit) | Gap (proof) |
 | Rejections visible; same limits on client and server | Notice state only (store); shared constants, no parity test | Gap (proof) |
@@ -292,29 +293,18 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
-| Public pages carry `noindex` | **No `noindex` or `robots.txt` anywhere** | Gap (behaviour) |
+| Public pages carry `noindex` | `og-card.test.ts` (unit) for the tag; the page and image routes send `X-Robots-Tag` | Proven |
 | Only a chosen name is shown; none invented | `publication.integration` (API), `og-card.test.ts` (unit) | Proven |
 | Name is per account, capped, clearable on the profile | `design-details.integration` (API), `flp_design_details.test.sql` (DB) | Proven |
-| Clearing the name removes it from live pages | **Publications keep their own copy; the studio says otherwise** (`PublicName.tsx`) | Gap (behaviour) |
+| Clearing the name removes it from live pages | `design-details.integration` (API), through `flp_set_display_name` | Proven |
 | Email stays private | `journey.spec` (UI) | Proven |
 | Report-contact route | `alpha-contact.test.ts` (unit); link vanishes without `VITE_FLP_CONTACT_EMAIL` (#195) | Owner |
-| Operator takedown | Manual steps in `docs/deploy.md`; an owner may be able to republish afterwards | Gap (behaviour), Owner |
+| Operator takedown | Manual steps in `docs/deploy.md`; an owner may be able to republish afterwards (decision 7) | Decided (2 Nov) |
 | Operator deletion finishes, is retryable | `delete-account.integration` (API, real script), `flp_account_deletion.test.sql` (DB) | Proven |
 | Deleted account's token and public link stop working; uploads deleted | Not tested; the fixture has no uploads | Gap (proof) |
 | Seven-day and thirty-day windows | No test; operational | Owner |
 | Plain-language privacy page | Exists; copy not asserted; contact pending (#195) | Owner |
 
-## Decisions the owner needs to make
+## Decisions the owner made
 
-Until each is decided, the row stays a gap. A decision to keep current behaviour goes in `docs/decisions.md`, because PRD section 13 asks for a recorded decision to change Must scope.
-
-1. **Input limits:** change the code to the PRD's numbers, or record the current ones. Tightening could make existing designs read as over the limit.
-2. **Left, right and reset camera controls (R03):** add them, or record the three presets plus orbit as enough.
-3. **Fully off-panel warning (R05):** add it, or defer it.
-4. **Stale and loading state (R07):** record that the #164 deferral also waives these statements, or build a small label.
-5. **Autosave pruning (R09):** keep it and say so in History, or keep everything within quota, as the PRD allows.
-6. **Legacy looks without a visibility field (R10):** confirm these are out of scope for the owned flow, or change the default.
-7. **Takedown (section 10):** accept the manual step for a controlled alpha, or block republishing after an operator takedown.
-8. **Two pattern colours (R17):** accept ground plus brush colour, or add a second picker.
-9. **Unpublish without confirmation (R13):** accept it, since it can be undone by republishing the same link, or add one that names the design.
-10. **Side view (R16):** the thin side-on view is already an accepted limit; record it against this statement.
+All ten are recorded in `docs/decisions.md` (2 Nov 2026), and the "decision N" notes above use its numbering.

@@ -43,7 +43,7 @@ Owner consistency uses composite foreign keys to `designs (id, owner_id)`, so ev
 | `flp_revoke_publication(owner, design)` | Sets `status = revoked` and clears the version pointer. |
 | `flp_delete_design(owner, design)` | Revokes, then deletes the design, its versions and artifacts. The publication tombstone remains. The API then removes the design's render files from storage. Uploaded originals are account assets and stay. |
 | `flp_update_design(owner, design, title?, description?)` | Renames (1–80 characters, trimmed) or describes (up to 500) a design. Metadata only: no version is added and the publication is unchanged. |
-| `flp_set_display_name(owner, name)` | Sets or clears (`null` or empty) the account's public name. |
+| `flp_set_display_name(owner, name)` | Sets or clears (`null` or empty) the account's public name. Clearing also takes it off the account's live publications; a new name reaches them only at the next publish. |
 
 A design that is missing and one owned by someone else raise the same `FL404`, so a response never reveals whether a design exists.
 
@@ -245,7 +245,7 @@ Migration `20261104090000_flp_quotas`. Every check runs inside the write functio
 | --- | --- | --- |
 | 20 designs per account | `flp_create_design` (per-account advisory lock) | `quota_exceeded`; delete a design to create another. A retried create with the same key still succeeds. |
 | 100 named checkpoints per design | `flp_append_version` | `quota_exceeded`. Unnamed checkpoints and autosaves are not counted. |
-| 100 most recent autosaves per design | `flp_prune_autosaves`, after each autosave | Older autosaves are deleted in the same transaction, **except** the head, a published version, a version with renders, and the source of a restore. Named checkpoints and restores are never pruned. |
+| 100 most recent autosaves per design | `flp_prune_autosaves`, after each autosave | Older autosaves are deleted in the same transaction, **except** the head, a published version, a version with renders, and the source of a restore. Named checkpoints and restores are never pruned. History tells the owner (`docs/decisions.md`, 2 Nov). |
 | 100 MB of ready uploads per account | `assets_guard_quota` trigger on finalize | `quota_exceeded`; the normalized copy is removed and the row stays `staged`. |
 
 **Rate limits** (`flp_take_token`, fixed one-minute windows per account, table `rate_limits`): `save` 120 (create, save, restore), `upload` 20, `publish` 10 (renders, publish, unpublish), `details` 30 (rename, delete, public name). Reads are not limited. A refused request returns 429 with `Retry-After`. Autosave shows "Saving paused, retrying", keeps the work locally, and retries the same revision with the same mutation key after the wait. If the limiter itself fails, the request proceeds and the failure is logged.

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.9.0-rc.3: alpha release candidate (2 Nov 2026)
+
+Fixes and decisions from the requirements audit (`docs/evidence/requirements-rc.md`, `docs/decisions.md`, 2 Nov). One new migration since rc.2.
+
+### Added
+- **Left and right cameras:** the preview's camera bar now offers wearer's right and wearer's left, alongside front, three-quarter, back and orbit (PRNUM).
+- **History says what it keeps:** the 100 latest autosaves, plus every checkpoint, restore and published version (PRNUM).
+- **Requirements audit:** every PRD acceptance statement, with what proves it (#279).
+
+### Fixed
+- **Clearing your public name now takes it off live pages.** The studio already said so, but publications kept their own copy. A new name still waits for the next publish (migration `20261106090000_flp_clear_public_name`, PRNUM).
+- **A design with an image that hasn't loaded can't be published,** because the image would go public as a placeholder (#280).
+- Public pages and images carry `noindex` (#280).
+- The "not available" page's title no longer repeats the site name (#280).
+- The pattern picker follows the design through undo, redo and reopening (#279).
+
+### Known limits for the alpha
+- Not hosted yet: staging and production need a hosted Supabase project (#186). The hosted checks are listed on that issue.
+- The audit's ten decisions keep these differences from the PRD: the input limits, no reset camera, no off-panel warning, no stale preview state, pruned autosaves, a manual takedown, two pattern colours from ground and brush, no confirmation on unpublish, and the thin side-on view (`docs/decisions.md`, 2 Nov).
+- WebKit stands in for recent Safari. Real iPhone Safari and Android aren't tested, and editing on phones isn't claimed (#191).
+- Deferred past the freeze: a revision-tagged atlas (#164).
+- Owner items: rights (#138), the contact email (#195), branch protection (#192), the operator for alerts (#193), the claims-audit questions (#199), and validation and pitch work (#196–#201).
+
 ## 0.9.0-rc.2: alpha release candidate (1 Nov 2026)
 
 Demo polish before the 12 Nov freeze (`docs/decisions.md`, 1 Nov), plus the visual matrix review and the last local P0 proofs. No new migrations since rc.1.

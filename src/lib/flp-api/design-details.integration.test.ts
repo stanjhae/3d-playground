@@ -143,6 +143,29 @@ describe.skipIf(!env)('design details against local Supabase', () => {
     expect(await publicTitle()).toBe('Renamed tee')
   })
 
+  test('clearing the public name takes it off live publications; a new name waits for the next publish', async () => {
+    const publishNamed = async ({ owner, displayName }: { owner: Account; displayName: string }) => {
+      const designId = await createDesign({ owner, title: 'Named tee' })
+      await api({ path: `designs/${designId}/renders`, method: 'POST', token: owner.token, body: { seq: 1, renders: RENDERS } })
+      const { slug } = (await (
+        await api({ path: `designs/${designId}/publication`, method: 'POST', token: owner.token, body: { seq: 1, displayName } })
+      ).json()) as { slug: string }
+      return slug
+    }
+    const publicName = async (slug: string) =>
+      ((await (await api({ path: `public/${slug}` })).json()) as { displayName: string | null }).displayName
+
+    const mine = await publishNamed({ owner: a, displayName: 'Ada' })
+    const theirs = await publishNamed({ owner: b, displayName: 'Grace' })
+
+    await api({ path: 'profile', method: 'POST', token: a.token, body: { displayName: 'Ada L' } })
+    expect(await publicName(mine)).toBe('Ada')
+
+    await api({ path: 'profile', method: 'POST', token: a.token, body: { displayName: null } })
+    expect(await publicName(mine)).toBeNull()
+    expect(await publicName(theirs)).toBe('Grace')
+  })
+
   test('the public display name is per account and can be cleared', async () => {
     expect(await (await api({ path: 'profile', token: a.token })).json()).toEqual({ displayName: null })
 
