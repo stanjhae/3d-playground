@@ -19,3 +19,6 @@ public/models/garment-house.glb
 
 # Backups (Q09 #194) hold private user data; never committed
 /backups/
+
+# Local hosted-check runs (--allow-local) aren't hosted evidence (#186)
+/docs/evidence/hosted-*-local.md

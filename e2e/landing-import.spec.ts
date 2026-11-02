@@ -7,6 +7,10 @@ import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
  * preview, and its image becomes a real upload (F06 #141).
  */
 
+// The hand-off is seeded with the app's own modules, which only the Vite
+// dev server serves; a built deployment (E2E_BASE_URL) has no /src.
+test.skip(Boolean(process.env.E2E_BASE_URL), 'seeds the landing hand-off from dev-server modules')
+
 const emails: string[] = []
 test.afterAll(async () => {
   await deleteAccounts({ emails })

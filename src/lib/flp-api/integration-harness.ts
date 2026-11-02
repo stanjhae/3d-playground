@@ -3,9 +3,12 @@ import { type SupabaseClient, createClient } from '@supabase/supabase-js'
 import type { CanonicalDocument } from '../canonical-document'
 import type { FlpServerEnv } from './server'
 
-/** Shared setup for the `*.integration.test.ts` suites (local Supabase). */
+/**
+ * Shared setup for the `*.integration.test.ts` suites (local Supabase) and
+ * `scripts/hosted-check.mjs` (a deployed environment's project).
+ */
 
-export type Account = { id: string; token: string; client: SupabaseClient }
+export type Account = { id: string; email: string; token: string; client: SupabaseClient }
 
 export async function createAccount({
   admin,
@@ -33,7 +36,7 @@ export async function createAccount({
     throw signedIn.error ?? new Error('no session')
   }
 
-  return { id: created.data.user.id, token: signedIn.data.session.access_token, client }
+  return { id: created.data.user.id, email, token: signedIn.data.session.access_token, client }
 }
 
 /** Points every image layer at `assetId`. */
