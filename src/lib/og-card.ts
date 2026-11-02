@@ -72,6 +72,8 @@ type CardInput = {
   pageUrl: string
 }
 
+const SITE_NAME = 'Fashion Leader Vote'
+
 export function lookCardHtml(card: CardInput) {
   return `<!doctype html>
 <html lang="en">
@@ -122,7 +124,7 @@ function cardHeadTags({
   safePage: string
   imageType: string
 }) {
-  return `    <title>${safeTitle} — Fashion Leader Vote</title>
+  return `    <title>${safeTitle === SITE_NAME ? SITE_NAME : `${safeTitle} — ${SITE_NAME}`}</title>
     <meta name="description" content="${safeDescription}" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${safeTitle}" />
@@ -135,6 +137,9 @@ function cardHeadTags({
     <meta name="twitter:description" content="${safeDescription}" />
     <meta name="twitter:image" content="${safeImage}" />`
 }
+
+/** Public-by-link isn't a directory: crawlers are asked not to index it (PRD section 10). */
+const NOINDEX_TAG = '    <meta name="robots" content="noindex" />'
 
 /**
  * Link-preview HTML for `/s/:slug` (#184). A published design shows its
@@ -150,12 +155,12 @@ type SharedCard = {
 } | null
 
 export function shareCardHtml({ origin, shared }: { origin: string; shared: SharedCard }) {
-  return lookCardHtml(shareCard({ origin, shared }))
+  return lookCardHtml(shareCard({ origin, shared })).replace('</head>', `${NOINDEX_TAG}\n  </head>`)
 }
 
 /** The same card as head tags only, for the app shell at `/s/:slug`. */
 export function shareCardHead({ origin, shared }: { origin: string; shared: SharedCard }) {
-  return lookCardHead(shareCard({ origin, shared }))
+  return `${lookCardHead(shareCard({ origin, shared }))}\n${NOINDEX_TAG}`
 }
 
 function shareCard({ origin, shared }: { origin: string; shared: SharedCard }): CardInput {

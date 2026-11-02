@@ -4,6 +4,7 @@ import { shareCardHead, shareCardHtml } from '../og-card.ts'
 import type { PublicDesign } from './publication.ts'
 import {
   PUBLIC_CACHE_CONTROL,
+  PUBLIC_ROBOTS,
   findPublishedDesign,
   publicDesignPayload,
   publicImagePath,
@@ -177,6 +178,7 @@ export async function handleSharePage({
       'Content-Type': 'text/html; charset=utf-8',
       // Unpublishing must take effect at once (#183).
       'Cache-Control': PUBLIC_CACHE_CONTROL,
+      'X-Robots-Tag': PUBLIC_ROBOTS,
     },
   })
 }
