@@ -34,6 +34,8 @@ export type SleeveRenderKind = Exclude<PublicRenderKind, BasePublicRenderKind>
 
 /** Public views and pages are never cached, so unpublishing is instant (#183). */
 export const PUBLIC_CACHE_CONTROL = 'no-store'
+/** Public-by-link isn't a directory (PRD section 10). */
+export const PUBLIC_ROBOTS = 'noindex'
 
 const BUCKET = 'design-assets'
 const SLUG = /^[a-f0-9]{16}$/
@@ -552,6 +554,7 @@ export async function readPublicImage({
       'Content-Type': data.type || 'image/jpeg',
       'Cache-Control': PUBLIC_CACHE_CONTROL,
       'X-Content-Type-Options': 'nosniff',
+      'X-Robots-Tag': PUBLIC_ROBOTS,
     },
   })
 }

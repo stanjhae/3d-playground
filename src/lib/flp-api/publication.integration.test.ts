@@ -156,6 +156,7 @@ describe.skipIf(!env)('publication against local Supabase', () => {
     expect(front.status).toBe(200)
     expect(front.headers.get('Content-Type')).toMatch(/^image\//)
     expect(front.headers.get('Cache-Control')).toBe('no-store')
+    expect(front.headers.get('X-Robots-Tag')).toBe('noindex')
     expect(anonymous.headers.get('Cache-Control')).toBe('no-store')
 
     // Saving after publish never moves what the public sees.

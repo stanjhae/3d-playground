@@ -58,6 +58,23 @@ export async function decodeLayerImage({
   })
 }
 
+/**
+ * How many visible images on the document would publish as a placeholder:
+ * those with no source yet, and those that can't be decoded (R04).
+ */
+export async function countUnavailableImages({
+  document,
+  decode = decodeLayerImage,
+}: {
+  document: DesignDocument
+  decode?: (input: { src: string }) => Promise<AtlasBuffer | null>
+}) {
+  const missing = document.layers.filter((layer) => layer.kind === 'graphic' && layer.visible && layer.missing).length
+  const decoded = await Promise.all(listLayerSrcs({ document }).map((src) => decode({ src })))
+
+  return missing + decoded.filter((image) => !image).length
+}
+
 export async function decodeDocumentImages({
   document,
 }: {

@@ -10,6 +10,7 @@ import {
   lookShareImage,
   ogDefaultRelativePath,
   ogStillRelativePath,
+  shareCardHead,
   shareCardHtml,
 } from './og-card'
 
@@ -222,6 +223,22 @@ describe('shareCardHtml', () => {
     expect(html).not.toContain('By ')
   })
 
+  test('a share page asks crawlers not to index it, published or not, and names the site once', () => {
+    const published = { ...shared, title: 'Tee', displayName: null }
+
+    for (const html of [
+      shareCardHtml({ origin: 'https://house.test', shared: published }),
+      shareCardHead({ origin: 'https://house.test', shared: published }),
+      shareCardHtml({ origin: 'https://house.test', shared: null }),
+      shareCardHead({ origin: 'https://house.test', shared: null }),
+    ]) {
+      expect(html).toContain('<meta name="robots" content="noindex" />')
+    }
+
+    expect(shareCardHead({ origin: 'https://house.test', shared: null })).toContain('<title>Fashion Leader Vote</title>')
+    expect(shareCardHead({ origin: 'https://house.test', shared: published })).toContain('<title>Tee — Fashion Leader Vote</title>')
+  })
+
   test('an unknown or unpublished design gets the site card only', () => {
     const html = shareCardHtml({ origin: 'https://house.test', shared: null })
 
@@ -242,6 +259,7 @@ describe('shareCardHtml', () => {
 
       expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8')
       expect(response.headers.get('Cache-Control')).toBe('no-store')
+      expect(response.headers.get('X-Robots-Tag')).toBe('noindex')
       expect(html).toContain('og:title" content="Fashion Leader Vote"')
       expect(html).not.toContain('<script')
       expect(html).not.toContain('&lt;script')

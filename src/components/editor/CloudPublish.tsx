@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
 import { useEditorStore } from '../../lib/editor-store'
+import { countUnavailableImages } from '../../lib/layer-images'
 import {
   getProfile,
   getPublication,
@@ -104,6 +105,13 @@ export function CloudPublish() {
     setBusy('publishing')
     setMessage(null)
     const editor = useEditorStore.getState()
+
+    if (await countUnavailableImages({ document: editor.document })) {
+      setBusy(null)
+      setMessage('An image on this design hasn’t loaded, so it would publish as a placeholder. Reload the page, or remove the image, and try again.')
+      return
+    }
+
     const stills = await captureAngleStills({
       canvas: getStudioCanvas(),
       setCameraPreset: editor.setCameraPreset,
