@@ -140,10 +140,13 @@ MEASURE=1 E2E_BASE_URL=http://localhost:5399 pnpm exec playwright test measure
 | ↳ after the sleeve views were re-aimed at their sleeves, 390×844 / 1366×768 | **2.15 s** / **2.12 s** | ≤ 3 s | **Met** (1 Nov) |
 | 0.9.0-rc.2 (e67e6c3), five views, 390×844 / 1366×768 | **2.15 s** / **2.13 s** | ≤ 3 s | **Met** (1 Nov) |
 | 0.9.0-rc.2 as tagged (1193fcc), five views, 390×844 / 1366×768 | **2.14 s** / **2.14 s** | ≤ 3 s | **Met** (2 Nov) |
+| 0.9.0-rc.3 as tagged (bb20395), five views, 390×844 / 1366×768 | **2.15 s** / **2.14 s** | ≤ 3 s | **Met** (2 Nov) |
 
 For 0.9.0-rc.2 (e67e6c3, 1 Nov), the same setup gave save acknowledgement p50 80 ms, p95 157 ms, max 280 ms (25 saves), and edit → "Saved to cloud" p50 2.05 s. On-demand rendering (#264) and per-layer eraser compositing (#274) didn't move any number.
 
 On the tagged commit (1193fcc, 2 Nov), the same setup gave save acknowledgement p50 101 ms, p95 192 ms, max 232 ms (25 saves), and edit → "Saved to cloud" p50 2.03 s. The tagged commit adds only the word box width (#276), docs and the hosted-readiness kit (#275), so we read the higher save p95 as run-to-run noise. It's well within the 2 s budget.
+
+On 0.9.0-rc.3 as tagged (bb20395, 2 Nov), the same setup gave save acknowledgement p50 63 ms, p95 75 ms, max 93 ms (25 saves), and edit → "Saved to cloud" p50 1.98 s. The commit doesn't change the save path, so we read the lower numbers as a quieter run.
 
 Re-measured 1 November 2026 after the sleeve views (#179), same setup (production build, `pnpm preview`, local Supabase, Apple M3); save acknowledgement in that run was p50 59 ms, p95 73 ms. Adding two views didn't move the first image: the front is still the only preload, and the sleeve images are `loading="lazy"` below the main three, so they don't compete with it on a slow link. The run also checks that the page and the pre-rendered overlay (JavaScript off) have no sideways scroll at 390 and 1366 px.
 
