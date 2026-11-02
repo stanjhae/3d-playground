@@ -10,6 +10,8 @@ const PRESETS: { id: CameraPreset; label: string }[] = [
   { id: 'front', label: HOUSE_COPY.angleFront },
   { id: 'threeQuarter', label: HOUSE_COPY.angleThreeQuarter },
   { id: 'back', label: HOUSE_COPY.angleBack },
+  { id: 'right', label: HOUSE_COPY.wearerRight },
+  { id: 'left', label: HOUSE_COPY.wearerLeft },
   { id: 'orbit', label: HOUSE_COPY.angleOrbit },
 ]
 
@@ -20,7 +22,7 @@ export function CameraPresetBar() {
   return (
     <nav
       aria-label="Camera"
-      className="flex gap-3 rounded-xl border border-flv-line bg-flv-paper/92 px-3 py-2"
+      className="flex flex-wrap justify-center gap-x-3 rounded-xl border border-flv-line bg-flv-paper/92 px-3 py-2"
       role="radiogroup"
     >
       {PRESETS.map((preset) => (

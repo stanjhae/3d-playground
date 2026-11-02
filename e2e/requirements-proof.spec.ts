@@ -213,3 +213,34 @@ test('drawing on both sleeves, erasing, and the layer list work from the editor'
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.map((layer) => layer.id).join(), { timeout: 20_000 }).not.toBe(before.join())
   await expect(panelCanvas({ page, panel: 'Front' })).toBeVisible()
 })
+
+test('the preview offers every camera side, and History says what it keeps', async ({ page }) => {
+  test.setTimeout(120_000)
+  const email = newEmail({ label: 'camera' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+
+  const history = page.getByRole('complementary', { name: 'Version history' })
+  await history.getByRole('button', { name: 'Show' }).click()
+  await expect(history.getByText(/Keeps the 100 latest autosaves/)).toBeVisible()
+
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'preview')
+  await page.goto(url.toString())
+  const camera = page.getByRole('radiogroup', { name: 'Camera' })
+
+  for (const name of ['Front', '3/4', 'Back', "Wearer's right", "Wearer's left", 'Orbit']) {
+    await camera.getByRole('radio', { name, exact: true }).click()
+    await expect(camera.getByRole('radio', { name, exact: true })).toHaveAttribute('aria-checked', 'true')
+  }
+
+  for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport)
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      `@${viewport.width}`,
+    ).toBeLessThanOrEqual(0)
+  }
+})

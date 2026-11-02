@@ -211,6 +211,9 @@ export function HistoryPanel() {
       </div>
       {open ? (
         <>
+          <p className={chromeMutedClass()}>
+            Keeps the 100 latest autosaves, plus every checkpoint, restore and published version. Older autosaves are removed.
+          </p>
           {naming === null ? (
             <button
               type="button"
