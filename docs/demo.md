@@ -36,6 +36,12 @@ runs `supabase start`. Never run `supabase stop`, `supabase db reset` or
    pnpm build && pnpm preview --port 4173
    ```
 
+   First make sure no older `pnpm preview` is still running
+   (`lsof -iTCP:4173 -sTCP:LISTEN` prints nothing). A preview started before
+   the last build keeps the old API code in memory, and publishing then
+   spins until it times out (found in the rc.2 dry run). Restart the
+   preview after every rebuild.
+
 4. **Reset the demo account** (in a second terminal, takes about 30 s):
 
    ```bash
@@ -85,7 +91,8 @@ share link.
 4. **Edit all sides (1:15–2:15).**
    - Draw a stroke across the **Front** panel; the 3D tee updates live.
    - In the right column, type a word in the **Type** box, press **Type**,
-     then click the **Back** panel to place it.
+     then click the **Back** panel to place it. A small edit box opens over
+     the word; press **Esc** or click away to close it.
    - Press **Brush** and draw a mark on **Wearer's right** (a sleeve).
    - Watch the status next to the title: "Unsaved changes" turns into
      **Saved to cloud** within a few seconds.
@@ -100,8 +107,9 @@ share link.
    *Say:* "Nothing is lost: restoring adds a version, it never deletes one."
 6. **Publish (3:15–4:00).** Scroll to the top and click step **6 Publish**.
    Press **Publish…**, check the public name "Demo Studio", press **Confirm
-   publish**. It renders front, three-quarter and back (about 10–20 s), then
-   shows "Published v… " and the link.
+   publish**. It renders the five views (front, three-quarter, back and
+   both sleeves; about 20–25 s), then shows "Published v… " and the link.
+   Keep talking through the wait.
    *Say:* "Publishing takes a picture of exactly this saved version."
 7. **Open the link (4:00–4:30).** Press **Copy link**, paste it into a
    private window. Signed out, you see the title, "By Demo Studio" and the
@@ -126,14 +134,14 @@ itself), and fall back to the video if it isn't back in about 30 seconds.
 | **"Offline — not saved"** or **"Save failed"** | Check the preview terminal is still running and `supabase status` is healthy. The edits stay on this device and save when the server is back. | "It keeps the work locally and saves when the connection is back." |
 | **No sign-in code in Mailpit** | Wait 10 s and refresh Mailpit; search `to:demo@example.test`. A new code can only be sent after 60 s (**Send a new code in …s**). Make sure you used the newest code. Codes expire after 10 minutes. | "The code usually takes a second; locally it goes to a test inbox." |
 | **Code rejected** | You pasted an older code. Request a new one after the 60 s timer, use the newest message. | — |
-| **Publish spins for over a minute** | Reload the publish step and press **Publish…** again; the slug survives a republish. Or show the Night Market link from the reset. | "Here's one I published earlier." |
+| **Publish spins for over a minute** | Reload the publish step and press **Publish…** again; the slug survives a republish. Or show the Night Market link from the reset. If it happens every time, the preview is serving an old build: restart `pnpm preview` (pre-flight step 3). | "Here's one I published earlier." |
 | **Page blank / server gone** | Restart `pnpm preview --port 4173` (no rebuild needed). | — |
 | **Anything still broken after 30 s** | Switch to `demo-fallback.webm` and narrate over it. Afterwards, rerun `node scripts/demo-reset.mjs` before the next run. | "Let me show you the recorded run while that recovers." |
 
 ## Recording the fallback
 
 `demo-fallback.webm` is a 1440×900 recording of the script above (about
-95 s), made by Playwright against the preview build. It is ignored by git:
+60 s), made by Playwright against the preview build. It is ignored by git:
 record it on the demo laptop, never commit it.
 
 ```bash

@@ -1,21 +1,38 @@
 # Changelog
 
-## Unreleased: 0.9.0-rc.2
+## 0.9.0-rc.2: alpha release candidate (1 Nov 2026)
 
-Demo polish before the 12 Nov freeze (`docs/decisions.md`, 1 Nov).
+Demo polish before the 12 Nov freeze (`docs/decisions.md`, 1 Nov), plus the visual matrix review and the last local P0 proofs. No new migrations since rc.1.
 
 ### Added
 - **Sleeve views on the public page:** publishing captures five views (front, three-quarter, back, wearer's right and left sleeves). Designs published with three views stay public with those three (#179, #263).
 - **Numeric transforms:** X, Y, size and turn fields in the Tech inspector. Typing, Enter or arrow keys (Shift for steps of 10) make one undo step each, and invalid values are refused with a message (#156, #262).
 - **Import preview:** a design brought from the landing page shows before and after, with what changed, and is created only when you choose. Its images are uploaded to your account. A failed upload stops before anything is saved and offers to try again or create the design without that image (#141, #261).
 - **Glyph validation** for the bundled text faces, plus restore fixtures for both template versions (#155, #165, #260).
+- **Timing telemetry:** sampled save-acknowledgement and edit-to-render timings go through `/api/events`, name-only, with proposed alert thresholds documented (#193, #265).
+- **Backup and restore rehearsal:** `scripts/backup.mjs` and `scripts/restore-check.mjs` dump the database and storage, restore them into a separate database and check sources, render hashes, revocations and deletions; the rollback runbook is in `docs/backup-restore.md` (#194, #266).
+- **Proof tests** for independent panels through restore and publish, Clear and erase isolation, retryable account deletion, and the guest board closed on the server (#153, #159, #151, #144, #273).
+- **Visual and browser matrix** (`VISUAL_MATRIX=1`): four tees, six camera angles and the public page at 390 px in Chromium and WebKit, reviewed and approved by the owner (#166, #191, #268).
 
 ### Changed
 - **On-demand 3D rendering:** an idle studio draws nothing, so it uses far less CPU and battery. Two open tabs no longer slow each other down (#264).
+- **Sleeve camera seats:** the wearer's left and right views look at the sleeve from behind and to the side, so the print reads (#269).
+- **Base stripes and checks** use the picked colour at full strength instead of a 55% tint. Designs imported from the prototype keep their look (#271).
+- **Landing claims:** the waitlist count, the free-access offer, "Premium finish" and "Studio-ready" are removed; fit, materials and the sample ranking are labelled as concepts. The audit is in `docs/claims-audit.md` (#199, #272).
 
 ### Fixed
 - **The eraser only erases its own layer.** On a fully opaque paint layer it used to cut through the words, graphics, base pattern and paint beneath. The live preview while dragging now matches what is committed (#159).
 - Landing designs' images could never upload, because the security policy blocks `fetch` on data URLs; they're now decoded directly (#261).
+- The in-place word editor was as narrow as the word's frame, so a short word in large type scrolled inside it (found in the rc.2 demo dry run, #276).
+- "Publish…" sometimes ignored the first click: a status line under the button disappeared as the 3D view loaded and moved the button mid-click (#270).
+
+### Known limits for the alpha
+- Not hosted yet: staging and production need a hosted Supabase project (#186). The hosted checks are listed on that issue.
+- The tee reads very thin from exactly side-on; front, back, three-quarter and sleeve views are credible (owner review, #166).
+- WebKit stands in for recent Safari. Real iPhone Safari and Android aren't tested, and editing on phones isn't claimed (#191).
+- Deferred past the freeze: a revision-tagged atlas (#164).
+- The "not available" page's title repeats the site name ("Fashion Leader Vote — Fashion Leader Vote"); cosmetic.
+- Owner items: rights (#138), the contact email (#195), branch protection (#192), the operator for alerts (#193), the claims-audit questions (#199), and validation and pitch work (#196–#201).
 
 ## 0.9.0-rc.1: alpha release candidate (1 Nov 2026)
 
