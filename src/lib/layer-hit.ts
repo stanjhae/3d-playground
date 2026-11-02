@@ -82,6 +82,15 @@ export function canvasLayerFrame({
   }
 }
 
+/**
+ * CSS width of the in-place word editor: the word's own frame, but never so
+ * narrow that the word scrolls inside it, and never wider than the panel.
+ */
+export function wordEditorWidth({ frameShare, length }: { frameShare: number; length: number }) {
+  const share = Math.max(18, frameShare * 100)
+  return `min(100%, max(${share}%, calc(${Math.max(4, length + 1)}ch + 1.5rem)))`
+}
+
 export function placeablePoseMatches({
   layer,
   edit,

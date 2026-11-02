@@ -21,6 +21,7 @@ import {
   hitPlaceableLayer,
   placedType,
   wordEditShouldCommit,
+  wordEditorWidth,
   type LayerHandle,
   type PlaceableLayer,
 } from '../../lib/layer-hit'
@@ -202,7 +203,7 @@ function WordOnCloth({
       style={{
         left: `${(frame.x / canvasWidth) * 100}%`,
         top: `${(frame.y / canvasHeight) * 100}%`,
-        width: `${Math.max(18, (frame.width / canvasWidth) * 100)}%`,
+        width: wordEditorWidth({ frameShare: frame.width / canvasWidth, length: draftWord.length }),
         transform: `translate(-50%, -50%) rotate(${-layer.rotation}rad)`,
       }}
     >
