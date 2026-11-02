@@ -6,12 +6,13 @@ import {
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { chromeTextClass } from '../../lib/studio-chrome'
 
-const PRESETS: { id: CameraPreset; label: string }[] = [
+/** Sleeve presets name the render side: `left` is the wearer's right (see `garments.ts`). */
+export const CAMERA_BAR_PRESETS: { id: CameraPreset; label: string }[] = [
   { id: 'front', label: HOUSE_COPY.angleFront },
   { id: 'threeQuarter', label: HOUSE_COPY.angleThreeQuarter },
   { id: 'back', label: HOUSE_COPY.angleBack },
-  { id: 'right', label: HOUSE_COPY.wearerRight },
-  { id: 'left', label: HOUSE_COPY.wearerLeft },
+  { id: 'left', label: HOUSE_COPY.wearerRight },
+  { id: 'right', label: HOUSE_COPY.wearerLeft },
   { id: 'orbit', label: HOUSE_COPY.angleOrbit },
 ]
 
@@ -25,7 +26,7 @@ export function CameraPresetBar() {
       className="flex flex-wrap justify-center gap-x-3 rounded-xl border border-flv-line bg-flv-paper/92 px-3 py-2"
       role="radiogroup"
     >
-      {PRESETS.map((preset) => (
+      {CAMERA_BAR_PRESETS.map((preset) => (
         <button
           key={preset.id}
           type="button"

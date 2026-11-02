@@ -20,6 +20,7 @@ Fixes and decisions from the requirements audit (`docs/evidence/requirements-rc.
 - Not hosted yet: staging and production need a hosted Supabase project (#186). The hosted checks are listed on that issue.
 - The audit's ten decisions keep these differences from the PRD: the input limits, no reset camera, no off-panel warning, no stale preview state, pruned autosaves, a manual takedown, two pattern colours from ground and brush, no confirmation on unpublish, and the thin side-on view (`docs/decisions.md`, 2 Nov).
 - WebKit stands in for recent Safari. Real iPhone Safari and Android aren't tested, and editing on phones isn't claimed (#191).
+- Found after the tag: the Preview step's two new sleeve buttons are swapped and frame the sleeve behind the page's controls. Published images aren't affected. Fixed for the next candidate.
 - A stroke can be lost if the page reloads immediately after it, with no recovery prompt. With a gap of 100 ms or more, the prompt appeared and the stroke was kept (found in the rc.3 checklist).
 - Deferred past the freeze: a revision-tagged atlas (#164).
 - Owner items: rights (#138), the contact email (#195), branch protection (#192), the operator for alerts (#193), the claims-audit questions (#199), and validation and pitch work (#196–#201).

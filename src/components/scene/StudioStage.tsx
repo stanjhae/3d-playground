@@ -22,6 +22,7 @@ import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
 import {
   CAMERA_PRESET_POSITIONS,
   captureFov,
+  liveSeat,
   presetTarget,
   STUDIO_CAMERA,
 } from '../../lib/studio-camera'
@@ -193,12 +194,10 @@ export function StudioCamera({
   // Whether the last frame asked for another one (see IDLE_FRAME_STEP).
   const moving = useRef(false)
   const freeOrbit = cameraPreset === 'orbit' && !capturingAngles
-  const presetSeat =
-    cameraPreset === 'orbit'
-      ? CAMERA_PRESET_POSITIONS.threeQuarter
-      : CAMERA_PRESET_POSITIONS[cameraPreset]
+  const seatPreset = cameraPreset === 'orbit' ? 'threeQuarter' : cameraPreset
+  const presetSeat = capturingAngles ? CAMERA_PRESET_POSITIONS[seatPreset] : liveSeat({ preset: seatPreset })
   // The sleeve views aim at their sleeve; every other preset at the garment.
-  const presetAim = presetTarget({ preset: cameraPreset === 'orbit' ? 'threeQuarter' : cameraPreset })
+  const presetAim = presetTarget({ preset: seatPreset })
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near

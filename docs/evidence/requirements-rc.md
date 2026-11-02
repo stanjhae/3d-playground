@@ -82,7 +82,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Exactly one T-shirt template selectable | `journey.spec` opens one; nothing asserts it's the only one | Gap (proof) |
 | Base colour updates intended meshes, keeps artwork | No tee-level test; the base command is covered, not colour on meshes | Gap (proof) |
 | Front, back, three-quarter presets | `requirements-proof` clicks each (UI); `capture-framing.test.ts` frames them (pixel) | Proven |
-| Left and right presets | Added to `CameraPresetBar.tsx`; `requirements-proof` clicks each (UI); `capture-framing.test.ts` frames them (pixel) | Proven |
+| Left and right presets | `requirements-proof` clicks each (UI); `CameraPresetBar.test.ts` pins each to its panel's wearer side (unit); `capture-framing.test.ts` frames them (pixel) | Proven |
 | Orbit available | `requirements-proof` selects Orbit (UI); dragging not tested | Gap (proof) |
 | Reset available | No separate control; picking a preset is the nearest thing (decision 2) | Decided (2 Nov) |
 | Left/right wearer-labelled in tabs and mapping | `panel-orientation.test.ts`, `capture-framing.test.ts`, public alt text in `journey.spec` | Proven |

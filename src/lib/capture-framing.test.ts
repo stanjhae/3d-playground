@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 
 import {
   CAMERA_PRESET_POSITIONS,
+  liveSeat,
   captureFov,
   presetTarget,
   STILL_FRAME,
@@ -219,6 +220,23 @@ describe('published still framing (#167)', () => {
     // Every other view still aims at the garment's centre.
     for (const preset of STILLS) {
       expect(presetTarget({ preset })).toEqual(STUDIO_CAMERA.target)
+    }
+  })
+
+  test('the live sleeve views back off along the still seat; stills and other views stay put', () => {
+    for (const preset of ['left', 'right'] as const) {
+      const aim = presetTarget({ preset })
+      const still = CAMERA_PRESET_POSITIONS[preset]
+      const live = liveSeat({ preset })
+      const ratios = [0, 1, 2].map((axis) => (live[axis]! - aim[axis]!) / (still[axis]! - aim[axis]!))
+
+      expect(ratios[0]).toBeGreaterThan(1)
+      expect(ratios[1]).toBeCloseTo(ratios[0]!)
+      expect(ratios[2]).toBeCloseTo(ratios[0]!)
+    }
+
+    for (const preset of STILLS) {
+      expect(liveSeat({ preset })).toEqual(CAMERA_PRESET_POSITIONS[preset])
     }
   })
 

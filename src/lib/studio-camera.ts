@@ -41,6 +41,29 @@ export function presetTarget({ preset }: { preset: CameraPresetName }) {
   return SLEEVE_TARGETS[preset] ?? STUDIO_CAMERA.target
 }
 
+/**
+ * How far the live sleeve views sit back from their sleeve, compared with the
+ * stills. A still is a tight 4:5 crop; the live canvas also has the avatar and
+ * the page's own controls over it, so up close the sleeve ends up behind them.
+ */
+const LIVE_SLEEVE_PULL_BACK = 2.4
+
+/** Where the live studio sits for a preset. Stills use `CAMERA_PRESET_POSITIONS`. */
+export function liveSeat({ preset }: { preset: CameraPresetName }): readonly [number, number, number] {
+  const seat = CAMERA_PRESET_POSITIONS[preset]
+  const aim = SLEEVE_TARGETS[preset]
+
+  if (!aim) {
+    return seat
+  }
+
+  return [
+    aim[0] + (seat[0] - aim[0]) * LIVE_SLEEVE_PULL_BACK,
+    aim[1] + (seat[1] - aim[1]) * LIVE_SLEEVE_PULL_BACK,
+    aim[2] + (seat[2] - aim[2]) * LIVE_SLEEVE_PULL_BACK,
+  ]
+}
+
 /** Published stills: opaque JPEG, 4:5, centre-cropped from the canvas. */
 export const STILL_FRAME = {
   width: 480,
