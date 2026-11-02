@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 
+import { createEmptyCanonicalDocument } from './canonical-document'
 import { createEmptyDesign } from './design-schema'
 import { liveStrokeLayerId, useEditorStore } from './editor-store'
 
@@ -244,6 +245,22 @@ describe('useEditorStore', () => {
     expect(state.cameraPreset).toBe('front')
     expect(state.capturingAngles).toBe(true)
     expect(state.avatarMeasurements.height).toBe(185)
+  })
+
+  test('the pattern picker follows the tee document through undo, redo and reopening', () => {
+    const store = () => useEditorStore.getState()
+    store().setGarmentId({ garmentId: 'tee' })
+    store().setBasePattern({ patternId: 'stripe' })
+    store().setBasePattern({ patternId: 'check' })
+    store().undoLast()
+    expect(store().basePatternId).toBe('stripe')
+    store().redoLast()
+    expect(store().basePatternId).toBe('check')
+
+    const document = createEmptyCanonicalDocument()
+    document.base = { kind: 'stripes', colors: ['#f4ead4', '#2b3a67'], period: 0.08, angle: 0 }
+    store().loadCanonical({ document, cloud: { designId: 'd1', headSeq: 1, title: 'Reopened' } })
+    expect(store().basePatternId).toBe('stripe')
   })
 
   test('setBasePattern undo restores the previous fill', () => {
