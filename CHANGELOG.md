@@ -5,12 +5,12 @@
 Fixes and decisions from the requirements audit (`docs/evidence/requirements-rc.md`, `docs/decisions.md`, 2 Nov). One new migration since rc.2.
 
 ### Added
-- **Left and right cameras:** the preview's camera bar now offers wearer's right and wearer's left, alongside front, three-quarter, back and orbit (PRNUM).
-- **History says what it keeps:** the 100 latest autosaves, plus every checkpoint, restore and published version (PRNUM).
+- **Left and right cameras:** the preview's camera bar now offers wearer's right and wearer's left, alongside front, three-quarter, back and orbit (#281).
+- **History says what it keeps:** the 100 latest autosaves, plus every checkpoint, restore and published version (#281).
 - **Requirements audit:** every PRD acceptance statement, with what proves it (#279).
 
 ### Fixed
-- **Clearing your public name now takes it off live pages.** The studio already said so, but publications kept their own copy. A new name still waits for the next publish (migration `20261106090000_flp_clear_public_name`, PRNUM).
+- **Clearing your public name now takes it off live pages.** The studio already said so, but publications kept their own copy. A new name still waits for the next publish (migration `20261106090000_flp_clear_public_name`, #281).
 - **A design with an image that hasn't loaded can't be published,** because the image would go public as a placeholder (#280).
 - Public pages and images carry `noindex` (#280).
 - The "not available" page's title no longer repeats the site name (#280).
