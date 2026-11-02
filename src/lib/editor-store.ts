@@ -422,6 +422,12 @@ function restoreShelf({ garmentId }: { garmentId: GarmentId }) {
   return commandStack
 }
 
+const TEE_BASE_PATTERN: Record<CanonicalDocument['base']['kind'], BasePatternId> = {
+  solid: 'solid',
+  stripes: 'stripe',
+  check: 'check',
+}
+
 function syncFromStack({
   extra,
 }: {
@@ -438,6 +444,8 @@ function syncFromStack({
       undoCount: tee.stack.past.length,
       redoCount: tee.stack.future.length,
       limitNotice: documentNotice({ document: tee.stack.document }),
+      // The picker follows the document, so undo and reopening keep it true.
+      basePatternId: TEE_BASE_PATTERN[tee.stack.document.base.kind],
       ...extra,
     }
   }
