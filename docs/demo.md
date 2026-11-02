@@ -108,7 +108,7 @@ share link.
 6. **Publish (3:15–4:00).** Scroll to the top and click step **6 Publish**.
    Press **Publish…**, check the public name "Demo Studio", press **Confirm
    publish**. It renders the five views (front, three-quarter, back and
-   both sleeves; about 20–25 s), then shows "Published v… " and the link.
+   both sleeves; 6 s on a quiet laptop, up to about 25 s on a busy one), then shows "Published v… " and the link.
    Keep talking through the wait.
    *Say:* "Publishing takes a picture of exactly this saved version."
 7. **Open the link (4:00–4:30).** Press **Copy link**, paste it into a
@@ -134,7 +134,7 @@ itself), and fall back to the video if it isn't back in about 30 seconds.
 | **"Offline — not saved"** or **"Save failed"** | Check the preview terminal is still running and `supabase status` is healthy. The edits stay on this device and save when the server is back. | "It keeps the work locally and saves when the connection is back." |
 | **No sign-in code in Mailpit** | Wait 10 s and refresh Mailpit; search `to:demo@example.test`. A new code can only be sent after 60 s (**Send a new code in …s**). Make sure you used the newest code. Codes expire after 10 minutes. | "The code usually takes a second; locally it goes to a test inbox." |
 | **Code rejected** | You pasted an older code. Request a new one after the 60 s timer, use the newest message. | — |
-| **Publish spins for over a minute** | Reload the publish step and press **Publish…** again; the slug survives a republish. Or show the Night Market link from the reset. If it happens every time, the preview is serving an old build: restart `pnpm preview` (pre-flight step 3). | "Here's one I published earlier." |
+| **Publish spins for over a minute** | Reload the publish step. If it now shows **Published** with the link, the publish landed. Otherwise press **Publish…** again; the slug survives a republish. Or show the Night Market link from the reset. If it happens every time, the preview is serving an old build: restart `pnpm preview` (pre-flight step 3). | "Here's one I published earlier." |
 | **Page blank / server gone** | Restart `pnpm preview --port 4173` (no rebuild needed). | — |
 | **Anything still broken after 30 s** | Switch to `demo-fallback.webm` and narrate over it. Afterwards, rerun `node scripts/demo-reset.mjs` before the next run. | "Let me show you the recorded run while that recovers." |
 
