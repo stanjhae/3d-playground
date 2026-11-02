@@ -22,7 +22,7 @@ This audit was run on rc.2, and the rows have been updated for what landed since
 - **Proven:** an automated test exercises it, and its assertions were read for this audit.
 - **Checked by hand:** dated human evidence exists, but no automated test.
 - **Hosted only:** can only be verified on a deployment (#186).
-- **Decided (2 Nov):** differs from the PRD, and the owner recorded that in `docs/decisions.md`. The app doesn't do what the statement says.
+- **Decided (2 Nov), Decided (3 Nov):** differs from the PRD, and the owner recorded that in `docs/decisions.md`. The app doesn't do what the statement says.
 - **Owner:** needs a decision or action from the owner.
 - **Gap (proof):** the code appears to do this, but nothing proves it at the level the PRD asks for. Each requirement is accepted on both canonical data and visible behaviour, so a data-level test alone is a proof gap.
 - **Gap (behaviour):** the app doesn't do what the statement says.
@@ -49,7 +49,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Keyboard works | `requirements-proof` (UI): both steps by keyboard | Proven |
 | Sign-out removes the session on this browser | `requirements-proof` (UI): `flp-auth` gone, email off screen, `/studio` redirects | Proven |
 | Sign-out revokes the session on the server | `flp-api.integration` (API, real sign-out): the refresh token is refused, the API answers the old access token with 401, and other devices stay signed in (failed when sign-out was removed) | Proven |
-| A signed-out access token stops everywhere at once | Direct Supabase REST checks only the JWT, so until it expires (at most an hour) the old token still reads its owner's rows and can't write (`flp-api.integration`). Its owner's files follow the same read policy; that part is read from the policy, not tested. The app never uses it after sign-out | Owner |
+| A signed-out access token stops everywhere at once | Direct Supabase REST checks only the JWT, so until it expires (at most an hour) the old token still reads its owner's rows and can't write (`flp-api.integration`). Its owner's files follow the same read policy; that part is read from the policy, not tested. The app never uses it after sign-out. Kept as a known limit (`docs/decisions.md`, 3 Nov) | Decided (3 Nov) |
 | Recovery data hidden from the next account | `isolation.spec` (UI) | Proven |
 | No code or token in logs | `requirements-proof` (UI): console, page errors and the address bar during sign-in (failed when the code was logged). `flp-api.integration` (API): the handler's log output on accepted, refused and invalid requests. The code never reaches our API, as the UI test's requests show. Supabase Auth's own logs aren't checked | Proven |
 | No code or token in analytics | `requirements-proof` (UI): every request during sign-in captured, including the real `signed_in` event; `events.integration.test.ts` allowlist (API) | Proven |

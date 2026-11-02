@@ -29,6 +29,7 @@ Logic is in `src/lib/auth/` (`code-flow.ts`, `return-path.ts`, `session-store.ts
 - `session-store.ts` is the single source of truth. It loads the stored session at boot and follows refresh, expiry and sign-out through `onAuthStateChange`.
 - `accountEpoch` changes on every account change. Async work captures `accountGuard()` before it starts and discards its result if the account changed meanwhile, so a response for account A never fills account B's screen. Cloud calls (S03 #172) must use it.
 - A different account signing in resets the editor. An explicit **Sign out** also resets it.
+- Sign-out ends this browser's session only; other devices stay signed in. The refresh token and the API stop accepting it at once, but direct Supabase REST can read the owner's rows with the old access token until it expires, at most an hour (`docs/decisions.md`, 3 Nov).
 - Expiry keeps the open design in memory and sends the browser to sign-in, so the same account can pick up where it left off.
 
 ## Sign-in required by default
