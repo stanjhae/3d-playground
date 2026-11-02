@@ -15,6 +15,7 @@ import {
 import { sha256Hex } from '../image-validate'
 import { assetReadUrl, uploadAsset } from './assets'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
+import { PUBLIC_RENDER_KINDS } from './publication'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
 
 /**
@@ -126,6 +127,90 @@ describe.skipIf(!env)('FLP asset uploads against local Supabase', () => {
         await admin.auth.admin.deleteUser(account.id)
       }
     }
+  })
+
+  test("B's real token can't change or delete A's rows or files directly", async () => {
+    signIn({ account: a })
+    const uploaded = await upload({ bytes: await rgbaPng({ width: 2, height: 2, alpha: 255 }), type: 'image/png' })
+
+    if (!uploaded.ok) {
+      throw new Error(`upload failed: ${uploaded.code} ${uploaded.message}`)
+    }
+
+    const created = await createDesign({ token: a.token, assetId: uploaded.data.assetId })
+    const { designId } = (await created.json()) as { designId: string }
+    const data = btoa(String.fromCharCode(...TINY_JPEG))
+    const renders = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data }))
+    expect((await api({ path: `designs/${designId}/renders`, method: 'POST', token: a.token, body: { seq: 1, renders } })).status).toBe(201)
+    expect((await api({ path: `designs/${designId}/publication`, method: 'POST', token: a.token, body: { seq: 1, displayName: 'Owner' } })).status).toBe(200)
+    expect((await api({ path: 'profile', method: 'POST', token: a.token, body: { displayName: 'Owner' } })).status).toBeLessThan(300)
+
+    const { data: assetRow } = await admin.from('assets').select('storage_path').eq('id', uploaded.data.assetId).single()
+    const { data: renderRow } = await admin.from('render_artifacts').select('storage_path').eq('design_id', designId).limit(1).single()
+    const paths = [assetRow!.storage_path as string, renderRow!.storage_path as string]
+
+    const TABLES = {
+      designs: { filter: ['id', designId], change: { title: 'Taken' } },
+      design_versions: { filter: ['design_id', designId], change: { label: 'Taken' } },
+      publications: { filter: ['design_id', designId], change: { status: 'revoked' } },
+      render_artifacts: { filter: ['design_id', designId], change: { status: 'failed' } },
+      assets: { filter: ['id', uploaded.data.assetId], change: { status: 'rejected' } },
+      profiles: { filter: ['owner_id', a.id], change: { display_name: 'Taken' } },
+    } as const
+    const rows = async () =>
+      Object.fromEntries(
+        await Promise.all(
+          Object.entries(TABLES).map(async ([table, { filter }]) => {
+            const { data: found } = await admin.from(table).select('*').eq(filter[0], filter[1])
+            return [table, found] as const
+          }),
+        ),
+      )
+    const bytes = async () =>
+      Promise.all(
+        paths.map(async (path) => {
+          const { data: file } = await admin.storage.from('design-assets').download(path)
+          return btoa(String.fromCharCode(...new Uint8Array(await file!.arrayBuffer())))
+        }),
+      )
+    const rowsBefore = await rows()
+    const bytesBefore = await bytes()
+
+    for (const [table, value] of Object.entries(rowsBefore)) {
+      expect(value, table).toHaveLength(table === 'design_versions' ? 1 : table === 'render_artifacts' ? PUBLIC_RENDER_KINDS.length : 1)
+    }
+
+    for (const [table, { filter, change }] of Object.entries(TABLES)) {
+      const updated = await b.client.from(table).update(change).eq(filter[0], filter[1]).select()
+      expect(updated.error?.code, `update ${table}`).toBe('42501')
+      const deleted = await b.client.from(table).delete().eq(filter[0], filter[1]).select()
+      expect(deleted.error?.code, `delete ${table}`).toBe('42501')
+    }
+
+    const inserted = await b.client.from('designs').insert({ owner_id: a.id, title: 'Planted' })
+    expect(inserted.error?.code).toBe('42501')
+    const revoked = await b.client.rpc('flp_revoke_publication', { p_owner_id: a.id, p_design_id: designId })
+    expect(revoked.error?.code).toBe('42501')
+
+    const bucket = b.client.storage.from('design-assets')
+    const replacement = new Blob([TINY_JPEG as Uint8Array<ArrayBuffer>], { type: 'image/jpeg' })
+
+    for (const path of paths) {
+      // Storage answers a delete it may not do with an empty list.
+      expect((await bucket.remove([path])).data ?? [], `remove ${path}`).toEqual([])
+      expect((await bucket.update(path, replacement)).error, `update ${path}`).not.toBeNull()
+      expect((await bucket.upload(path, replacement, { upsert: true })).error, `upsert ${path}`).not.toBeNull()
+      expect((await bucket.move(path, `${b.id}/taken/${crypto.randomUUID()}`)).error, `move ${path}`).not.toBeNull()
+      expect((await bucket.copy(path, `${b.id}/taken/${crypto.randomUUID()}`)).error, `copy ${path}`).not.toBeNull()
+      expect((await bucket.download(path)).error, `download ${path}`).not.toBeNull()
+      expect((await bucket.createSignedUrl(path, 60)).error, `sign ${path}`).not.toBeNull()
+    }
+
+    expect((await bucket.upload(`${a.id}/planted/${crypto.randomUUID()}`, replacement)).error).not.toBeNull()
+
+    expect(await rows()).toEqual(rowsBefore)
+    expect(await bytes()).toEqual(bytesBefore)
+    expect(await storedNames({ account: b })).toEqual([])
   })
 
   test('reserve → upload → finalize → save, with metadata stripped and only normalized bytes kept', async () => {
