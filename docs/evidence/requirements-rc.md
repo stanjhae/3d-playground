@@ -38,14 +38,14 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Valid email shows a neutral sent message | `requirements-proof` sign-in test (UI) | Proven |
 | Doesn't reveal whether the account exists | `requirements-proof` (UI): a known and an unknown email get the same status, response body and screen; `auth.test.ts` (unit). Response time isn't compared | Proven |
 | Resend countdown shows | `requirements-proof` (UI): disabled "Send a new code in Ns" | Proven |
-| Resend sends a working new code | None clicks the resend button | Gap (proof) |
+| Resend sends a working new code | `requirements-proof` expired-code test (UI): after the countdown, the button sends a new code that signs in | Proven |
 | Valid code creates a session | `helpers.ts` `signIn`, used by `journey.spec` (UI) | Proven |
 | Returns to the intended safe internal page | `failures.spec` session expiry (UI) | Proven |
 | Unsafe `returnTo` falls back | `requirements-proof` (UI): five unsafe forms land on the studio, nothing goes off-site, a safe path still works (failed when the check was removed); `auth.test.ts` (unit) | Proven |
 | Wrong code gives a clear recoverable error | `requirements-proof` (UI): message shown, then the right code works | Proven |
 | Reused code gives the same | `requirements-proof` (UI): a used code is refused, the fresh one works | Proven |
-| Expired code gives the same | `auth.test.ts` with a synthetic `otp_expired` (unit) | Gap (proof) |
-| Paste works | `requirements-proof` types a spaced code by keyboard; `auth.test.ts` normalizes; no real paste event | Gap (proof) |
+| Expired code gives the same | `requirements-proof` (UI): a real code aged past 10 minutes gets `otp_expired` and the same message (failed when the code wasn't aged). Local only: it ages the code in the database | Proven |
+| Paste works | `requirements-proof` (UI): a real paste from the clipboard, with spaces, signs in | Proven |
 | Keyboard works | `requirements-proof` (UI): both steps by keyboard | Proven |
 | Sign-out removes the session on this browser | `requirements-proof` (UI): `flp-auth` gone, email off screen, `/studio` redirects | Proven |
 | Sign-out revokes the session on the server | `flp-api.integration` (API, real sign-out): the refresh token is refused, the API answers the old access token with 401, and other devices stay signed in (failed when sign-out was removed) | Proven |
@@ -64,7 +64,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Lists and opens on a second signed-in browser | `requirements-proof` (UI): separate sign-in by code, list, open, content shown | Proven |
 | Rename accepts 1 to 80 characters | `contract.test.ts` (unit), `accessibility.spec` 80 characters (UI) | Proven |
 | Rename refuses blank and over 80 | `design-details.integration` (API), `contract.test.ts` (unit) | Proven |
-| Description accepts at most 500 | Refusal at 501 proven (`contract.test.ts`, DB); exact 500 untested; no owned-studio field found | Gap (proof) |
+| Description accepts at most 500 | `design-details.integration` (API): exactly 500 is kept and 501 refused; DB refuses 501. **The studio has no description field,** so nobody can set one in the app | Owner |
 | B can't read A's design: app, API, REST, storage | `isolation.spec` (UI), `routes.integration` (API), `flp_isolation.test.sql` (DB), `assets.integration` signed URL (API) | Proven |
 | B can't change A's design: API | `routes.integration` with state compared, `design-details.integration` (API) | Proven |
 | B can't change or delete directly (REST, storage) | `assets.integration` (API, B's real token): update and delete on all six tables, an insert, an RPC, and update, upsert, move, copy, download, sign and remove on A's upload and render, with A's rows and bytes compared (failed with a temporary grant and with temporary storage policies); `flp_isolation.test.sql` (DB) | Proven |
@@ -80,7 +80,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
-| Exactly one T-shirt template selectable | `journey.spec` opens one; nothing asserts it's the only one | Gap (proof) |
+| Exactly one T-shirt template selectable | `requirements-proof` (UI): one create button, no picker, and the design is `tee-crew-short` v2; the server refuses another template id | Proven |
 | Base colour updates intended meshes, keeps artwork | No tee-level test; the base command is covered, not colour on meshes | Gap (proof) |
 | Front, back, three-quarter presets | `requirements-proof` clicks each (UI); `capture-framing.test.ts` frames them (pixel) | Proven |
 | Left and right presets | `requirements-proof` clicks each (UI); `CameraPresetBar.test.ts` pins each to its panel's wearer side (unit); `capture-framing.test.ts` frames them (pixel) | Proven |
@@ -89,7 +89,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Left/right wearer-labelled in tabs and mapping | `panel-orientation.test.ts`, `capture-framing.test.ts`, public alt text in `journey.spec` | Proven |
 | Template version pinned on save | `template-manifest.test.ts`, `restore-projection.test.ts` (store) | Proven |
 | Old design opens with original mapping | `restore-projection.test.ts` (pixel) | Proven |
-| Or explicit unsupported-version message | Resolver tested (unit); the screen isn't | Gap (proof) |
+| Or explicit unsupported-version message | `requirements-proof` (UI): a stored design on version 999 shows the message and a way back, and drawing on the blank panels under it doesn't reach the design. The server checks the template id but not the version | Proven |
 | No implied size or fit claims | Disclaimer on the public page (`journey.spec`); `docs/claims-audit.md` by hand | Checked by hand |
 
 ## R04 Graphic and text creation
@@ -202,7 +202,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Denies crawler endpoints | `publication-races.integration` (API), `og-card.test.ts` | Proven |
 | No-store on data and media | `publication.integration` (API): payload, images and share page, live and denied, including the JSON 404 (failed when the 404 lost it); `journey.spec` | Proven |
 | No-store holds through the CDN | `hosted-check.mjs` `public-no-store` passed on staging (`hosted-2026-11-03.md`) | Proven |
-| Open pages and downloads disclosed | Copy exists; not asserted | Gap (proof) |
+| Open pages and downloads disclosed | `requirements-proof` (UI): the privacy page and publish review say so (failed with the wrong wording). The privacy page said three pictures and didn't mention open pages; both fixed | Proven |
 | Failed unpublish shows an error | `requirements-proof` (UI): with an injected 500, "Still published" and the error show, the page stays public, and a retry works (failed with the message removed) | Proven |
 | Deleted and nonpublic links give the same neutral page | `publication.integration` (API): payload, image and share page bodies compared for unpublished, deleted, private and unknown links, slug masked (failed when a known link differed); `journey.spec` compares the visible page. The share page answers 200 in all four | Proven |
 

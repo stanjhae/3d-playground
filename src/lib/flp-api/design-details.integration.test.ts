@@ -96,6 +96,17 @@ describe.skipIf(!env)('design details against local Supabase', () => {
     expect(read).toMatchObject({ title: 'After', headSeq: 1 })
   })
 
+  test('a description of exactly 500 characters is kept, and 501 is refused', async () => {
+    const designId = await createDesign({ owner: a, title: 'Described' })
+    const longest = 'x'.repeat(500)
+
+    const kept = await api({ path: `designs/${designId}`, method: 'PATCH', token: a.token, body: { description: longest } })
+    const over = await api({ path: `designs/${designId}`, method: 'PATCH', token: a.token, body: { description: `${longest}x` } })
+
+    expect([kept.status, over.status]).toEqual([200, 422])
+    expect(((await kept.json()) as { description: string }).description).toBe(longest)
+  })
+
   test('invalid details and another owner are refused', async () => {
     const designId = await createDesign({ owner: a, title: 'Mine' })
 
