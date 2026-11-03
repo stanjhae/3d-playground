@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '@playwright/test'
+import { type APIRequestContext, type Page, expect, test } from '@playwright/test'
 
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
@@ -236,6 +236,58 @@ test('a second browser signed in by code lists and opens the same design; anothe
   await otherContext.close()
 })
 
+/** Publishes the saved head through the API, with placeholder views. */
+async function publishHead({ page, request }: { page: Page; request: APIRequestContext }) {
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+  const token = await page.evaluate(() => JSON.parse(localStorage.getItem('flp-auth')!).access_token as string)
+  const headers = { Authorization: `Bearer ${token}` }
+  const { seq } = await savedHead({ page })
+  const data = Buffer.from(TINY_JPEG).toString('base64')
+  const renders = PUBLIC_RENDER_KINDS.map((kind: string) => ({ kind, data }))
+  expect((await request.post(`/api/flp/designs/${designId}/renders`, { headers, data: { seq, renders } })).status()).toBe(201)
+  const published = await request.post(`/api/flp/designs/${designId}/publication`, { headers, data: { seq } })
+  expect(published.status()).toBe(200)
+  return { seq, slug: ((await published.json()) as { slug: string }).slug }
+}
+
+test('a failed unpublish shows the error, says it is still published, and can be tried again', async ({ page, request }) => {
+  test.setTimeout(120_000)
+  const email = newEmail({ label: 'unpubfail' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const { slug } = await publishHead({ page, request })
+
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'share')
+  await page.goto(url.toString())
+  await expectSaved({ page })
+  const unpublish = page.getByRole('button', { name: 'Unpublish' })
+  await expect(unpublish).toBeVisible()
+
+  const publication = '**/api/flp/designs/*/publication'
+  await page.route(publication, (route) =>
+    route.request().method() === 'DELETE'
+      ? route.fulfill({
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: { code: 'internal', message: 'Injected failure' } }),
+        })
+      : route.continue(),
+  )
+  await unpublish.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Still published' })).toContainText('Injected failure')
+  await expect(unpublish).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Publish…' })).toHaveCount(0)
+  expect((await request.get(`/api/flp/public/${slug}`)).status()).toBe(200)
+
+  await page.unroute(publication)
+  await unpublish.click()
+  await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible()
+  expect((await request.get(`/api/flp/public/${slug}`)).status()).toBe(404)
+})
+
 test('undo and redo never change what is published', async ({ page, request }) => {
   test.setTimeout(150_000)
   const email = newEmail({ label: 'undopub' })
@@ -246,16 +298,7 @@ test('undo and redo never change what is published', async ({ page, request }) =
   await drawStroke({ page, panel: 'Front' })
   await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'front' }).length, { timeout: 20_000 }).toBe(1)
 
-  const designId = new URL(page.url()).searchParams.get('cloud')!
-  const token = await page.evaluate(() => JSON.parse(localStorage.getItem('flp-auth')!).access_token as string)
-  const headers = { Authorization: `Bearer ${token}` }
-  const { seq } = await savedHead({ page })
-  const data = Buffer.from(TINY_JPEG).toString('base64')
-  const renders = PUBLIC_RENDER_KINDS.map((kind: string) => ({ kind, data }))
-  expect((await request.post(`/api/flp/designs/${designId}/renders`, { headers, data: { seq, renders } })).status()).toBe(201)
-  const published = await request.post(`/api/flp/designs/${designId}/publication`, { headers, data: { seq } })
-  expect(published.status()).toBe(200)
-  const { slug } = (await published.json()) as { slug: string }
+  const { seq, slug } = await publishHead({ page, request })
   const publicPage = async () => (await request.get(`/api/flp/public/${slug}`)).json()
   const before = await publicPage()
   expect(before.seq).toBe(seq)

@@ -14,9 +14,11 @@ import {
 } from '../image-fixtures'
 import { sha256Hex } from '../image-validate'
 import { assetReadUrl, uploadAsset } from './assets'
+import { listFilesUnder } from './delete-account-runner.mjs'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
 import { PUBLIC_RENDER_KINDS } from './publication'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
+import { handleSharePage } from './share-page'
 
 /**
  * Upload lifecycle (S01 #170, S02 #171) against local Supabase: the browser
@@ -127,6 +129,70 @@ describe.skipIf(!env)('FLP asset uploads against local Supabase', () => {
         await admin.auth.admin.deleteUser(account.id)
       }
     }
+  })
+
+  test('a published design with a real upload exposes no source file', async () => {
+    // Uploads are rate limited per account, so this one has its own.
+    const owner = await createAccount({ admin, env: serverEnv, label: 'asset-publish' })
+    signIn({ account: owner })
+    const uploaded = await upload({ bytes: await rgbaPng({ width: 4, height: 4, alpha: 255 }), type: 'image/png' })
+
+    if (!uploaded.ok) {
+      throw new Error(`upload failed: ${uploaded.code} ${uploaded.message}`)
+    }
+
+    const { assetId } = uploaded.data
+    const { designId } = (await (await createDesign({ token: owner.token, assetId })).json()) as { designId: string }
+    const data = btoa(String.fromCharCode(...TINY_JPEG))
+    const renders = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data }))
+    expect((await api({ path: `designs/${designId}/renders`, method: 'POST', token: owner.token, body: { seq: 1, renders } })).status).toBe(201)
+    const published = await api({ path: `designs/${designId}/publication`, method: 'POST', token: owner.token, body: { seq: 1 } })
+    const { slug } = (await published.json()) as { slug: string }
+    const { data: row } = await admin.from('assets').select('storage_path, sha256').eq('id', assetId).single()
+    const signedOut = (path: string) => handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost/api/flp/${path}`) })
+
+    const payload = await (await signedOut(`public/${slug}`)).text()
+    const page = await (
+      await handleSharePage({
+        env: serverEnv,
+        request: new Request(`http://localhost/s/${slug}`),
+        loadShell: async () => '<html><head></head><body><div id="root"></div></body></html>',
+      })
+    ).text()
+
+    for (const [name, text] of [['payload', payload], ['page', page]] as const) {
+      for (const secret of [assetId, row!.storage_path as string, owner.id, designId, 'normalized', 'token=', serverEnv.url]) {
+        expect(text, `${name} has ${secret}`).not.toContain(secret)
+      }
+    }
+
+    // What's served is the published picture, never the upload.
+    for (const kind of PUBLIC_RENDER_KINDS) {
+      const served = await signedOut(`public/${slug}/image?view=${kind}`)
+      expect(served.status, kind).toBe(200)
+      const bytes = new Uint8Array(await served.arrayBuffer())
+      expect(await sha256Hex({ bytes }), kind).not.toBe(row!.sha256)
+      expect(served.headers.get('Content-Type'), kind).toBe('image/jpeg')
+    }
+
+    for (const view of ['normalized', 'original', assetId, row!.storage_path as string]) {
+      expect((await signedOut(`public/${slug}/image?view=${encodeURIComponent(view)}`)).status, view).toBe(404)
+    }
+
+    // Nor can a visitor go round the API.
+    const visitor = createClient(serverEnv.url, serverEnv.publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const bucket = visitor.storage.from('design-assets')
+    expect((await bucket.download(row!.storage_path as string)).error).not.toBeNull()
+    expect((await bucket.createSignedUrl(row!.storage_path as string, 60)).error).not.toBeNull()
+    expect((await fetch(bucket.getPublicUrl(row!.storage_path as string).data.publicUrl)).ok).toBe(false)
+    expect((await visitor.from('assets').select('id').eq('id', assetId)).data ?? []).toEqual([])
+
+    signIn({ account: a })
+    const files = await listFilesUnder({ admin, prefix: owner.id })
+    await admin.storage.from('design-assets').remove(files)
+    await admin.auth.admin.deleteUser(owner.id)
   })
 
   test('an upload only an old version references is not collected; one nothing references is', async () => {
