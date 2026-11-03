@@ -67,16 +67,16 @@
       "includeFiles": "{src/lib/**,data/designs.json}"
     },
     "api/waitlist.ts": {
-      "includeFiles": "{src/lib/**}"
+      "includeFiles": "src/lib/**"
     },
     "api/events.ts": {
-      "includeFiles": "{src/lib/**}"
+      "includeFiles": "src/lib/**"
     },
     "api/flp.ts": {
-      "includeFiles": "{src/lib/**}"
+      "includeFiles": "src/lib/**"
     },
     "api/og-share.ts": {
-      "includeFiles": "{src/lib/**}"
+      "includeFiles": "src/lib/**"
     }
   }
 }
