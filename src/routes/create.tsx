@@ -78,7 +78,6 @@ import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY, remixCaption } from '../lib/house-copy'
 import { consumeLandingHandoff } from '../lib/landing-handoff'
 import {
-  coverHeaderSpacerClass,
   emptyStepClass,
   studioPhonePublishClass,
   studioPhoneToolsClass,
@@ -521,12 +520,6 @@ function AtelierHome() {
   return (
     <section ref={sectionRef} className={studioSectionClass({ drawInFlow })}>
       <div className={studioOverlayClass({ drawInFlow })}>
-        {drawInFlow ? null : (
-          <div
-            aria-hidden
-            className={coverHeaderSpacerClass()}
-          />
-        )}
         <div ref={headerRef} className={studioHeaderClass()}>
           <ModeToggle mode={mode} />
           {mode === 'design' ? <CreateStepper /> : null}

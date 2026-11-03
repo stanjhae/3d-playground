@@ -12,7 +12,7 @@ import { layerVoice } from '../../lib/layer-hit'
 import { layerDeletedMessage } from '../../lib/layer-list'
 import { announce } from '../../lib/studio-announcer'
 import { studioKeyAction } from '../../lib/studio-keys'
-import { dualStudioGridClass } from '../../lib/studio-chrome'
+import { dualStudioGridClass, studioSceneClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
 import { PaintCanvas } from './PaintCanvas'
 
@@ -114,7 +114,7 @@ export function DualStudio({
   }, [redoLast, undoLast])
 
   if (!dual) {
-    return <div className="relative h-full min-h-80 w-full">{children}</div>
+    return <div className={studioSceneClass()}>{children}</div>
   }
 
   // Below lg the create route draws the canvas in the page flow instead.
