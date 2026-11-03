@@ -2,6 +2,12 @@
 
 Decisions that change scope or behaviour for the 17 November alpha, with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 3 Nov 2026: staging is hosted, without SMTP for now
+
+**Decided by:** owner (#186).
+
+Staging runs on the current Vercel deployment (its Production environment) with its own Supabase project, kept separate from any future production project rather than using branches. This replaces "local Supabase until a hosted project exists" for staging. The 17 Nov demo still runs locally. The guest studio is gone from that deployment. Custom SMTP is left out for now, so `email-code-config` fails and sign-in on staging, the browser suite and the real-inbox sign-in stay unproven.
+
 ## 3 Nov 2026: a signed-out access token expires rather than stopping at once
 
 **Decided by:** owner (#284).
@@ -74,7 +80,7 @@ Issues whose acceptance criteria are met on local Supabase are closed with evide
 
 ## Earlier decisions (recorded during delivery)
 
-- **Local Supabase until a hosted project exists.** Production keeps the guest studio until then (#186).
+- **Local Supabase until a hosted project exists.** Replaced for staging on 3 Nov, above (#186).
 - **Sign-in is required** for `/create` and `/studio` wherever Supabase is configured. The legacy guest board is closed on the server too (#144, #249).
 - **Non-tee concept features** (gown, slip, coat, suit, fabrics, pattern stamps, art) sit behind `VITE_FLP_CONCEPT`, off by default.
 - **Published title is pinned** to the publication. A rename shows publicly only after publishing again (#150).
