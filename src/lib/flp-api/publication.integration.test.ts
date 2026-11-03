@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import { TINY_JPEG } from '../image-fixtures'
+import { listFilesUnder } from './delete-account-runner.mjs'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './publication'
 import { handleSharePage } from './share-page'
@@ -35,6 +36,7 @@ describe.skipIf(!env)('publication against local Supabase', () => {
   let a: Account
   let b: Account
   let designId: string
+  const owners: Account[] = []
 
   function api({
     path,
@@ -86,8 +88,12 @@ describe.skipIf(!env)('publication against local Supabase', () => {
   })
 
   afterAll(async () => {
-    for (const account of [a, b]) {
-      if (account) await admin.auth.admin.deleteUser(account.id)
+    for (const account of [a, b, ...owners]) {
+      if (account) {
+        const files = await listFilesUnder({ admin, prefix: account.id })
+        if (files.length > 0) await admin.storage.from('design-assets').remove(files)
+        await admin.auth.admin.deleteUser(account.id)
+      }
     }
   })
 
@@ -312,6 +318,114 @@ describe.skipIf(!env)('publication against local Supabase', () => {
       expect(html).not.toContain('view=view_left')
       expect(html).toContain(`<link rel="preload" as="image" href="/api/flp/public/${slug}/image?seq=1"`)
     })
+  })
+
+  /** A new design, published at v1 with its five views. */
+  async function publishedDesign({ owner, title }: { owner: Account; title: string }) {
+    const created = await api({
+      path: 'designs',
+      method: 'POST',
+      token: owner.token,
+      body: { mutationKey: crypto.randomUUID(), title, content: DOCUMENT },
+    })
+    const id = ((await created.json()) as { designId: string }).designId
+    expect((await api({ path: `designs/${id}/renders`, method: 'POST', token: owner.token, body: { seq: 1, renders: RENDERS } })).status).toBe(201)
+    const published = await api({ path: `designs/${id}/publication`, method: 'POST', token: owner.token, body: { seq: 1 } })
+    expect(published.status).toBe(200)
+    return { id, slug: ((await published.json()) as { slug: string }).slug }
+  }
+
+  /** Publishing is rate limited per account, so these tests each get their own. */
+  async function freshOwner({ label }: { label: string }) {
+    const owner = await createAccount({ admin, env: serverEnv, label })
+    owners.push(owner)
+    return owner
+  }
+
+  const image = ({ slug, query = '' }: { slug: string; query?: string }) => api({ path: `public/${slug}/image${query}` })
+
+  test('earlier image URLs stop at a republish, every one stops at an unpublish, and all of it is no-store', async () => {
+    const owner = await freshOwner({ label: 'pub-versions' })
+    const { id, slug } = await publishedDesign({ owner, title: 'Versions' })
+
+    for (const kind of PUBLIC_RENDER_KINDS) {
+      expect((await image({ slug, query: `?view=${kind}&seq=1` })).status, kind).toBe(200)
+    }
+
+    const saved = await api({
+      path: `designs/${id}/versions`,
+      method: 'POST',
+      token: owner.token,
+      body: { baseSeq: 1, mutationKey: crypto.randomUUID(), kind: 'autosave', content: DOCUMENT },
+    })
+    expect(saved.status).toBe(201)
+    await api({ path: `designs/${id}/renders`, method: 'POST', token: owner.token, body: { seq: 2, renders: RENDERS } })
+    expect((await api({ path: `designs/${id}/publication`, method: 'POST', token: owner.token, body: { seq: 2 } })).status).toBe(200)
+
+    for (const kind of PUBLIC_RENDER_KINDS) {
+      const old = await image({ slug, query: `?view=${kind}&seq=1` })
+      expect(old.status, `${kind} v1`).toBe(404)
+      expect(old.headers.get('Cache-Control'), `${kind} v1`).toBe('no-store')
+      const current = await image({ slug, query: `?view=${kind}&seq=2` })
+      expect(current.status, `${kind} v2`).toBe(200)
+      expect(current.headers.get('Cache-Control'), `${kind} v2`).toBe('no-store')
+    }
+
+    const live = await handleSharePage({ env: serverEnv, request: new Request(`http://localhost/s/${slug}`), loadShell: async () => null })
+    expect(live.headers.get('Cache-Control')).toBe('no-store')
+    expect((await api({ path: `public/${slug}` })).headers.get('Cache-Control')).toBe('no-store')
+
+    expect((await api({ path: `designs/${id}/publication`, method: 'DELETE', token: owner.token })).status).toBe(204)
+
+    for (const kind of PUBLIC_RENDER_KINDS) {
+      for (const query of [`?view=${kind}`, `?view=${kind}&seq=1`, `?view=${kind}&seq=2`]) {
+        const denied = await image({ slug, query })
+        expect(denied.status, query).toBe(404)
+        expect(denied.headers.get('Cache-Control'), query).toBe('no-store')
+      }
+    }
+
+    const payload = await api({ path: `public/${slug}` })
+    expect(payload.status).toBe(404)
+    expect(payload.headers.get('Cache-Control')).toBe('no-store')
+    const page = await handleSharePage({ env: serverEnv, request: new Request(`http://localhost/s/${slug}`), loadShell: async () => null })
+    expect(page.headers.get('Cache-Control')).toBe('no-store')
+  })
+
+  test('unpublished, deleted, private and unknown links answer exactly the same', async () => {
+    const owner = await freshOwner({ label: 'pub-neutral' })
+    const unpublished = await publishedDesign({ owner, title: 'Secret unpublished title' })
+    expect((await api({ path: `designs/${unpublished.id}/publication`, method: 'DELETE', token: owner.token })).status).toBe(204)
+    const deleted = await publishedDesign({ owner, title: 'Secret deleted title' })
+    expect((await api({ path: `designs/${deleted.id}`, method: 'DELETE', token: owner.token })).status).toBe(204)
+    // A design that was never published has no slug; its id is the nearest guess.
+    const links = [unpublished.slug, deleted.slug, designId, '0123456789abcdef']
+
+    const answers = await Promise.all(
+      links.map(async (slug) => {
+        const masked = (text: string) => text.replaceAll(slug, 'SLUG')
+        const payload = await api({ path: `public/${slug}` })
+        const picture = await image({ slug })
+        const page = await handleSharePage({
+          env: serverEnv,
+          request: new Request(`http://localhost/s/${slug}`),
+          loadShell: async () => '<html><head></head><body><div id="root"></div></body></html>',
+        })
+        return {
+          payload: [payload.status, payload.headers.get('Cache-Control'), masked(await payload.text())],
+          picture: [picture.status, picture.headers.get('Cache-Control'), masked(await picture.text())],
+          page: [page.status, page.headers.get('Cache-Control'), masked(await page.text())],
+        }
+      }),
+    )
+
+    for (const answer of answers.slice(1)) {
+      expect(answer).toEqual(answers[0])
+    }
+
+    expect(answers[0]!.payload[0]).toBe(404)
+    expect(answers[0]!.picture[0]).toBe(404)
+    expect(String(answers[0]!.page[2])).not.toContain('Secret')
   })
 
   test('an unknown or malformed slug is a plain 404', async () => {

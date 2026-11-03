@@ -14,7 +14,7 @@ This audit was run on rc.2, and the rows have been updated for what landed since
 | --- | --- | --- |
 | Behaviour that was wrong | Cleared public name stayed on live pages; a failed image didn't block publishing; no `noindex` | Fixed for rc.3 (#280 and the cleared-name migration) |
 | The app differs from the PRD | Input limits, cameras, off-panel warning, stale preview state, autosave pruning, takedown, and the rest of the ten | Decided by the owner on 2 Nov (`docs/decisions.md`). Left and right cameras and the History note were built |
-| Works, but thin proof | See rows marked **Gap (proof)** | Add tests where the risk justifies it |
+| Works, but thin proof | See rows marked **Gap (proof)** | The rows where a failure would lose data, leak access or show the wrong public version were closed on 3 Nov (#284, #285, this PR). Those still marked were judged lower risk |
 | Can't be checked locally | Deployed paths, real email, CDN, real budgets | #186 |
 
 ## How to read the status
@@ -189,22 +189,22 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Page shows title, optional name, preview images | `journey.spec` (UI), `publication.integration` (API) | Proven |
 | Derived 3D atlas | Not enabled; `view=atlas` returns 404 (API) | Proven |
 | No email, full design JSON, draft history or sign-in | `journey.spec` (UI), `publication-races.integration` (API) | Proven |
-| No source uploads | Key allowlist and blocked storage (API, DB); no published fixture contains a real upload | Gap (proof) |
+| No source uploads | `assets.integration` (API, real upload published): payload and share page hold no asset id, path or owner, served images aren't the upload, other view names give 404, and a visitor can't reach the file directly. Not broken on purpose | Proven |
 | Draft edits don't change the page until republish | `publication.integration`, `design-details.integration` (API) | Proven |
-| A second browser verifies the same source version | Separate context in `journey.spec`, without comparing `seq` | Gap (proof) |
+| A second browser verifies the same source version | `journey.spec` (UI): the signed-out browser's `seq` equals the saved head and the owner's "Published v…" | Proven |
 
 ## R11 Unpublish and deletion
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Denies new HTML, API and media at once | `journey.spec` (UI), `publication.integration`, `publication-races.integration` (API) | Proven |
-| Denies old rendition IDs | `scripts/hosted-check.mjs` only, on demand | Gap (proof) |
+| Denies old rendition IDs | `publication.integration` (API): every view at v1 gives 404 after a republish, and all views at every version after unpublish (failed when the version check was removed); `hosted-check.mjs` passed on staging | Proven |
 | Denies crawler endpoints | `publication-races.integration` (API), `og-card.test.ts` | Proven |
-| No-store on data and media | `publication.integration`, `journey.spec`; published page and JSON 404 via the script only | Gap (proof) |
+| No-store on data and media | `publication.integration` (API): payload, images and share page, live and denied, including the JSON 404 (failed when the 404 lost it); `journey.spec` | Proven |
 | No-store holds through the CDN | `hosted-check.mjs` `public-no-store` passed on staging (`hosted-2026-11-03.md`) | Proven |
 | Open pages and downloads disclosed | Copy exists; not asserted | Gap (proof) |
-| Failed unpublish shows an error | Code shows "Still published"; no test | Gap (proof) |
-| Deleted and nonpublic links give the same neutral page | Same heading (UI); bodies never compared | Gap (proof) |
+| Failed unpublish shows an error | `requirements-proof` (UI): with an injected 500, "Still published" and the error show, the page stays public, and a retry works (failed with the message removed) | Proven |
+| Deleted and nonpublic links give the same neutral page | `publication.integration` (API): payload, image and share page bodies compared for unpublished, deleted, private and unknown links, slug masked (failed when a known link differed); `journey.spec` compares the visible page. The share page answers 200 in all four | Proven |
 
 ## R13 Scope honesty and accessibility
 

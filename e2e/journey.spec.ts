@@ -128,6 +128,16 @@ test('create → edit → save → publish → view signed out → unpublish →
   const image = await anonymous.request.get(payload.renders.view_front)
   expect(image.headers()['cache-control']).toBe('no-store')
   expect(Object.keys(payload).sort()).toEqual(['displayName', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
+
+  // Both browsers are on the same source version, and it's the one saved.
+  const headSeq = await page.evaluate(async (id) => {
+    const token = JSON.parse(localStorage.getItem('flp-auth')!).access_token
+    return (await (await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })).json()).headSeq as number
+  }, designId)
+  expect(payload.seq).toBe(headSeq)
+  await expect(page.getByText(`Published v${payload.seq} `)).toBeVisible()
+  const shown = await anonymous.evaluate(async (path) => (await (await fetch(path)).json()).seq as number, `/api/flp/public/${slug}`)
+  expect(shown).toBe(payload.seq)
   expect(JSON.stringify(payload)).not.toContain(designId)
   expect(JSON.stringify(payload)).not.toContain(email)
 
@@ -136,6 +146,8 @@ test('create → edit → save → publish → view signed out → unpublish →
   await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible()
   await anonymous.reload()
   await expect(anonymous.getByRole('heading', { name: 'This design is not available' })).toBeVisible()
+  const neutralPage = await anonymous.locator('main').innerText()
+  expect(neutralPage).not.toContain('E2E tee')
 
   // Delete from My Studio; the link stays gone.
   await page.goto('/studio')
@@ -145,6 +157,10 @@ test('create → edit → save → publish → view signed out → unpublish →
   await expect(page.getByText('No designs yet.')).toBeVisible()
   await anonymous.reload()
   await expect(anonymous.getByRole('heading', { name: 'This design is not available' })).toBeVisible()
+  expect(await anonymous.locator('main').innerText()).toBe(neutralPage)
+  await anonymous.goto('/s/0123456789abcdef')
+  await expect(anonymous.getByRole('heading', { name: 'This design is not available' })).toBeVisible()
+  expect(await anonymous.locator('main').innerText()).toBe(neutralPage)
   await visitor.close()
   expectNoCspViolations({ violations })
 })
