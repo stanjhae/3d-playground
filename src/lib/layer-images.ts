@@ -97,6 +97,47 @@ export async function decodeDocumentImages({
   return images
 }
 
+/**
+ * Decodes `srcs` and hands over the result, unless the returned cancel ran
+ * first, so a slow older batch can't replace a newer one.
+ */
+export function loadLayerImages({
+  srcs,
+  decode = decodeLayerImage,
+  onLoaded,
+}: {
+  srcs: string[]
+  decode?: (input: { src: string }) => Promise<AtlasBuffer | null>
+  onLoaded: (images: Record<string, AtlasBuffer>) => void
+}) {
+  let cancelled = false
+
+  void Promise.all(
+    srcs.map(async (src) => {
+      const decoded = await decode({ src })
+      return [src, decoded] as const
+    }),
+  ).then((entries) => {
+    if (cancelled) {
+      return
+    }
+
+    const next: Record<string, AtlasBuffer> = {}
+
+    for (const [src, decoded] of entries) {
+      if (decoded) {
+        next[src] = decoded
+      }
+    }
+
+    onLoaded(next)
+  })
+
+  return () => {
+    cancelled = true
+  }
+}
+
 export function useLayerImages({
   document,
 }: {
@@ -106,7 +147,6 @@ export function useLayerImages({
   const srcKey = listLayerSrcs({ document }).join('|')
 
   useEffect(() => {
-    let cancelled = false
     const srcs = srcKey ? srcKey.split('|') : []
 
     if (srcs.length === 0) {
@@ -114,30 +154,7 @@ export function useLayerImages({
       return
     }
 
-    void Promise.all(
-      srcs.map(async (src) => {
-        const decoded = await decodeLayerImage({ src })
-        return [src, decoded] as const
-      }),
-    ).then((entries) => {
-      if (cancelled) {
-        return
-      }
-
-      const next: Record<string, AtlasBuffer> = {}
-
-      for (const [src, decoded] of entries) {
-        if (decoded) {
-          next[src] = decoded
-        }
-      }
-
-      setImages(next)
-    })
-
-    return () => {
-      cancelled = true
-    }
+    return loadLayerImages({ srcs, onLoaded: setImages })
   }, [srcKey])
 
   return images

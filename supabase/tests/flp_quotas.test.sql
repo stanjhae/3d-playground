@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(16);
 
 insert into auth.users (id, email) values
   ('cccccccc-8888-4888-8888-888888888888', 'quota@example.test');
@@ -124,6 +124,37 @@ select throws_ok(
   ),
   'FL429', null,
   'the 101st named checkpoint is refused'
+);
+
+-- Enough new autosaves to prune again: named checkpoints stay, names included.
+do $$
+declare
+  d uuid := (select id from ids);
+  owner uuid := 'cccccccc-8888-4888-8888-888888888888';
+  i integer;
+begin
+  for i in 1..105 loop
+    perform public.flp_save_version(
+      owner, d, (select head_seq from public.designs where id = d), gen_random_uuid(),
+      jsonb_build_object('schemaVersion', 2, 'p', i), 'sha256:' || lpad(to_hex(2000 + i), 64, '0')
+    );
+  end loop;
+end;
+$$;
+
+select is(
+  (select count(distinct label)::integer from public.design_versions
+    where design_id = (select id from ids) and kind = 'checkpoint' and label like 'Named %'),
+  100,
+  'every named checkpoint survives pruning with its name'
+);
+
+select ok(
+  not exists (
+    select 1 from public.design_versions v
+    where v.design_id = (select id from ids) and v.kind = 'autosave' and (v.content ->> 'n')::integer = 110
+  ),
+  'the pruning really ran past the checkpoints'
 );
 
 -- Upload quota: 100 MB of ready images (ten full 10 MB uploads).

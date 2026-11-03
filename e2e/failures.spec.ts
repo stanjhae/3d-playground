@@ -196,6 +196,137 @@ test('offline mid-save keeps the work and saves it once back online', async ({ p
   expect((await cloudDesign({ page, designId })).layers).toBe(2)
 })
 
+test('an edit made offline survives a reload: the page can\'t load until reconnected, then the copy is offered and kept', async ({
+  page,
+  context,
+}) => {
+  const { designId, gate, url } = await openNewDesign({ page, label: 'offlinereload' })
+
+  // `gate` fetches saves from outside the browser, so it goes offline too.
+  gate.offline = true
+  await context.setOffline(true)
+  await drawStroke({ page, panel: 'Front' })
+  await statusShows({ page, text: 'Offline — not saved' })
+  await statusShows({ page, text: 'Kept on this device' })
+
+  await page.reload().catch(() => {})
+  gate.offline = false
+  await context.setOffline(false)
+  await page.goto(url)
+
+  expect((await cloudDesign({ page, designId })).layers).toBe(0)
+  await expect(page.getByText('This browser has changes to this design that never reached the cloud.')).toBeVisible()
+  await page.getByRole('button', { name: 'Recover unsaved changes' }).click()
+  await expectSaved({ page })
+  expect((await cloudDesign({ page, designId })).layers).toBe(1)
+})
+
+test('offline, with newer work saved elsewhere: reconnecting overwrites nothing and both versions stay reachable', async ({
+  page,
+  context,
+}) => {
+  const { designId, gate } = await openNewDesign({ page, label: 'offlinenewer' })
+  const token = await accessToken({ page })
+  const original = (await (
+    await page.request.get(`/api/flp/designs/${designId}`, { headers: { Authorization: `Bearer ${token}` } })
+  ).json()) as { headSeq: number; head: { content: { base: { color?: string } } } }
+
+  gate.offline = true
+  await context.setOffline(true)
+  await drawStroke({ page, panel: 'Front' })
+  await statusShows({ page, text: 'Offline — not saved' })
+
+  // Another device saves while this one is away (`page.request` isn't offline).
+  const elsewhere = structuredClone(original.head.content)
+  elsewhere.base.color = '#123456'
+  const saved = await page.request.post(`/api/flp/designs/${designId}/versions`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { baseSeq: original.headSeq, mutationKey: crypto.randomUUID(), kind: 'autosave', content: elsewhere },
+  })
+  expect(saved.status()).toBe(201)
+
+  gate.offline = false
+  await context.setOffline(false)
+  await statusShows({ page, text: 'Changed elsewhere' })
+  await statusShows({ page, text: 'Kept on this device' })
+
+  const headColor = async ({ id }: { id: string }) => {
+    const design = await page.request.get(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+    return ((await design.json()) as { head: { content: { base: { color?: string } } } }).head.content.base.color
+  }
+  expect(await headColor({ id: designId })).toBe('#123456')
+  expect((await cloudDesign({ page, designId })).layers).toBe(0)
+
+  // The offline work goes to a copy; the newer work stays where it was.
+  await page.getByRole('button', { name: 'Save mine as a copy' }).click()
+  await expect(page).not.toHaveURL(new RegExp(designId))
+  await expect(page).toHaveURL(/\/create\?cloud=[0-9a-f-]+/)
+  await expectSaved({ page })
+  const copyId = new URL(page.url()).searchParams.get('cloud')!
+  expect((await cloudDesign({ page, designId: copyId })).layers).toBe(1)
+  expect(await headColor({ id: designId })).toBe('#123456')
+  expect((await cloudDesign({ page, designId })).layers).toBe(0)
+})
+
+test('"Save now" saves straight away, ahead of the two-second autosave wait', async ({ page }) => {
+  const { designId, gate } = await openNewDesign({ page, label: 'savenow' })
+
+  await drawStroke({ page, panel: 'Front' })
+  const button = page.getByRole('status').getByRole('button', { name: 'Save now' })
+  const clicked = Date.now()
+  await button.click()
+  await expect.poll(() => gate.sent.length).toBe(1)
+  expect(gate.sent[0]!.at - clicked).toBeLessThan(1_500)
+  await expectSaved({ page })
+  expect((await cloudDesign({ page, designId })).layers).toBe(1)
+})
+
+test('with no WebGL at all, the missing preview is labelled and editing and saving still work', async ({ page, context }) => {
+  await context.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+      return kind.startsWith('webgl') || kind === 'experimental-webgl'
+        ? null
+        : (getContext as (...args: unknown[]) => unknown).call(this, kind, ...rest)
+    } as typeof getContext
+  })
+  const { designId, url } = await openNewDesign({ page, label: 'nowebgl' })
+
+  await expect(page.getByText('3D preview unavailable')).toBeVisible()
+  await expect(page.getByText('You can keep drawing on the panels; your design still saves.')).toBeVisible()
+  await drawStroke({ page, panel: 'Front' })
+  await expect.poll(async () => (await cloudDesign({ page, designId })).layers, { timeout: 20_000 }).toBe(1)
+  await expectSaved({ page })
+
+  await page.goto(url.replace('step=design', 'step=share'))
+  await expect(page.getByText(/Publishing needs the 3D preview/)).toBeVisible()
+})
+
+test('when the GPU drops the 3D view, it says so, editing and saving carry on, and it comes back', async ({ page }) => {
+  const { designId } = await openNewDesign({ page, label: 'lostwebgl' })
+  const loseContext = ({ restore }: { restore: boolean }) =>
+    page.evaluate((restoring) => {
+      const scene = [...document.querySelectorAll('canvas')].find((canvas) => !canvas.getAttribute('aria-label')?.startsWith('Design panel'))!
+      const gl = scene.getContext('webgl2') ?? scene.getContext('webgl')
+      const extension = (window as unknown as { __flpLose?: WEBGL_lose_context }).__flpLose ?? gl!.getExtension('WEBGL_lose_context')!
+      ;(window as unknown as { __flpLose?: WEBGL_lose_context }).__flpLose = extension
+      if (restoring) extension.restoreContext()
+      else extension.loseContext()
+    }, restore)
+
+  await expect(page.locator('canvas').first()).toBeVisible()
+  await expect(page.getByText('3D preview paused')).toHaveCount(0)
+  await loseContext({ restore: false })
+  await expect(page.getByText('3D preview paused')).toBeVisible()
+
+  await drawStroke({ page, panel: 'Front' })
+  await expect.poll(async () => (await cloudDesign({ page, designId })).layers, { timeout: 20_000 }).toBe(1)
+  await expectSaved({ page })
+
+  await loseContext({ restore: true })
+  await expect(page.getByText('3D preview paused')).toHaveCount(0)
+})
+
 test('429 pauses saving and retries the same save after Retry-After', async ({ page }) => {
   const { designId, gate } = await openNewDesign({ page, label: 'ratelimit' })
   gate.plan.push(apiError({ status: 429, code: 'rate_limited', headers: { 'Retry-After': '6' } }))

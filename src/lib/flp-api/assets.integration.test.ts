@@ -129,6 +129,59 @@ describe.skipIf(!env)('FLP asset uploads against local Supabase', () => {
     }
   })
 
+  test('an upload only an old version references is not collected; one nothing references is', async () => {
+    signIn({ account: a })
+    const stored = async () => {
+      const uploaded = await upload({ bytes: await rgbaPng({ width: 2, height: 3, alpha: 255 }), type: 'image/png' })
+
+      if (!uploaded.ok) {
+        throw new Error(`upload failed: ${uploaded.code} ${uploaded.message}`)
+      }
+
+      return uploaded.data.assetId
+    }
+    // No grace window, as if the 24 hours the cleanup script allows had passed.
+    const orphans = async ({ grace = '0 seconds' }: { grace?: string } = {}) => {
+      const { data, error } = await admin.rpc('flp_orphan_assets', { p_grace: grace })
+      expect(error).toBeNull()
+      return (data as Array<{ id: string }>).map((row) => row.id)
+    }
+
+    const inHistory = await stored()
+    const unplaced = await stored()
+    const created = await createDesign({ token: a.token, assetId: inHistory })
+    const { designId } = (await created.json()) as { designId: string }
+    const replaced = await api({
+      path: `designs/${designId}/versions`,
+      method: 'POST',
+      token: a.token,
+      body: {
+        baseSeq: 1,
+        mutationKey: crypto.randomUUID(),
+        kind: 'autosave',
+        content: withImageAsset({ document: GOLDEN_DOCUMENT, assetId: 'asset_lib_cross-simple' }),
+      },
+    })
+    expect(replaced.status).toBe(201)
+
+    const listed = await orphans()
+    expect(listed).toContain(unplaced)
+    expect(listed).not.toContain(inHistory)
+    // Within the grace window, a staged upload is left alone.
+    expect(await orphans({ grace: '24 hours' })).not.toContain(unplaced)
+
+    // Once no version refers to it, the same upload is collectable.
+    const deleted = await handleFlpRequest({
+      env: serverEnv,
+      request: new Request(`http://localhost/api/flp/designs/${designId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${a.token}` },
+      }),
+    })
+    expect(deleted.status).toBe(204)
+    expect(await orphans()).toContain(inHistory)
+  })
+
   test("B's real token can't change or delete A's rows or files directly", async () => {
     signIn({ account: a })
     const uploaded = await upload({ bytes: await rgbaPng({ width: 2, height: 2, alpha: 255 }), type: 'image/png' })

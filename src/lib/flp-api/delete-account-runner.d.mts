@@ -10,3 +10,5 @@ export function runDeleteAccount(options: {
   secretKey: string
   failAt?: 'storage-remove' | 'account-delete'
 }): Promise<{ code: number; output: string }>
+
+export function runCleanupDryRun(options: { url: string; secretKey: string }): Promise<{ code: number; output: string }>
