@@ -4,6 +4,7 @@ import type { CanonicalDocument } from '../canonical-document.ts'
 import type { ContentHash } from '../canonical-hash.ts'
 import {
   IMAGE_LIMITS,
+  IMAGE_REJECT_MESSAGES,
   type ImageMimeType,
   type ImageRejectReason,
   validateImage,
@@ -368,7 +369,7 @@ async function settledResponse({
   if (row.status === 'rejected') {
     const reason = row.rejection_reason ?? 'corrupt'
     return fromError({
-      error: apiError({ code: 'invalid', message: 'This image cannot be used', reason }),
+      error: apiError({ code: 'invalid', message: IMAGE_REJECT_MESSAGES[reason], reason }),
     })
   }
 

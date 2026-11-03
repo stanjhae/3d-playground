@@ -63,23 +63,14 @@ export async function createExistingAccount({ email }: { email: string }) {
   }
 }
 
-/**
- * Makes the code just sent to `email` older than its 10-minute expiry. Auth
- * dates a code by this column. Local stack only: it reaches the database
- * container directly.
- */
+/** Runs SQL in the local database container. Local stack only. */
+export function localSql({ sql }: { sql: string }) {
+  execFileSync('docker', ['exec', 'supabase_db_3d-playground', 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-c', sql])
+}
+
+/** Makes the code just sent to `email` older than its 10-minute expiry. */
 export function expireSentCode({ email }: { email: string }) {
-  execFileSync('docker', [
-    'exec',
-    'supabase_db_3d-playground',
-    'psql',
-    '-U',
-    'postgres',
-    '-v',
-    'ON_ERROR_STOP=1',
-    '-c',
-    `update auth.users set recovery_sent_at = now() - interval '11 minutes' where email = '${email}'`,
-  ])
+  localSql({ sql: `update auth.users set recovery_sent_at = now() - interval '11 minutes' where email = '${email}'` })
 }
 
 /** Removes the e2e accounts a run created (local or a test environment). */
