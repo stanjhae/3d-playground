@@ -97,13 +97,13 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Add graphics and text on all panels | Store tests for all; UI for text on back and front | Gap (proof) |
-| PNG and JPEG up to 10 MB and 4096×4096 accepted | Validator and small upload (API); exact limits and the file input untested | Gap (proof) |
-| Oversized, malformed, animated, unsupported rejected with reasons | `image-validate.test.ts` (unit), spoofed SVG (API); UI message untested | Gap (proof) |
-| Natural aspect ratio preserved | `uploaded-images.test.ts` (store) | Gap (proof) |
+| PNG and JPEG up to 10 MB and 4096×4096 accepted | `limits.spec` (UI): each type at exactly 10 MB and at 4096×4096, through the file input, saved in the design | Proven |
+| Oversized, malformed, animated, unsupported rejected with reasons | `limits.spec` (UI): one byte over, 4097 pixels, cut short, animated and SVG each show their own reason and add nothing. Every server rejection used to read "This image cannot be used"; fixed for this row | Proven |
+| Natural aspect ratio preserved | `limits.spec` (UI): the document keeps the ratio, and the atlas does too. **A square image measured 1.24:1 on the 2D panel and about 0.74:1 on the tee** (3 Nov, default view), because the panel and garment don't map the atlas evenly | Gap (behaviour) |
 | Two bundled font faces | `glyph-coverage.test.ts`, `text-faces.test.ts` (unit) | Gap (proof) |
 | Text colour | v1 command test only | Gap (proof) |
 | Up to 32 characters | Limit stays 280 (decision 1) | Decided (2 Nov) |
-| Unsupported glyphs flagged before save | `editor-glyphs.test.ts` (store); message not rendered in a test | Gap (proof) |
+| Unsupported glyphs flagged before save | `limits.spec` (UI): the message names the character on screen, and nothing is saved | Proven |
 | Failed asset gives a placeholder, object kept | `render-parity.test.ts` (pixel) | Proven |
 | Failed asset blocks publishing | `publish-missing-image.spec.ts` (UI), `layer-images.test.ts` (unit) | Proven |
 
@@ -171,8 +171,8 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Timestamped revisions and named checkpoints | `history.integration` (API), `journey.spec` (UI) | Proven |
 | Restore A creates C equal to A, referencing A; A and B intact | `history.integration` (API), `flp_core_schema.test.sql` (DB) | Proven |
 | Named and published revisions retained | `flp_quotas.test.sql` (DB): 100 named checkpoints keep their names through a further 105 autosaves (failed when pruning included checkpoints); published version | Proven |
-| 20 designs per account, clear error | `quotas.integration` (API); UI message untested | Gap (proof) |
-| 100 named checkpoints, clear error | `flp_quotas.test.sql` (DB) only; message untested | Gap (proof) |
+| 20 designs per account, clear error | `limits.spec` (UI): the 21st shows the message in My Studio; `quotas.integration` (API) | Proven |
+| 100 named checkpoints, clear error | `limits.spec` (UI): the 101st shows the message in History; `flp_quotas.test.sql` (DB) | Proven |
 | 100 recent autosaves | `flp_quotas.test.sql` (DB) | Proven |
 | Content never silently evicted | Older autosaves are pruned, and History says so; `requirements-proof` checks the note (UI) (decision 5) | Decided (2 Nov) |
 
@@ -286,9 +286,9 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | 32 characters per object | Stays 280 (decision 1) | Decided (2 Nov) |
 | 2,000 stroke points in total | Stays 4,096 per stroke, no total (decision 1) | Decided (2 Nov) |
 | 512 KB canonical JSON | Stays 2 MB, server side only (decision 1) | Decided (2 Nov) |
-| 100 MB per account | `flp_quotas.test.sql` (DB); upload path untested | Gap (proof) |
-| 10 MB per upload | `image-validate.test.ts` (unit) | Gap (proof) |
-| Rejections visible; same limits on client and server | Notice state only (store); shared constants, no parity test | Gap (proof) |
+| 100 MB per account | `limits.spec` (UI): a real upload past the limit shows the message and adds nothing; `flp_quotas.test.sql` (DB) | Proven |
+| 10 MB per upload | `limits.spec` (UI): exactly 10 MB accepted, one byte more refused; `assets.integration` (API): the bucket refuses it too | Proven |
+| Rejections visible; same limits on client and server | `limits.spec` (UI); `assets.integration` (API): client, signed upload and bucket share 10 MB. Pixel size is checked only on the server, and its reason is shown | Proven |
 
 ## Section 10 Sharing and privacy
 

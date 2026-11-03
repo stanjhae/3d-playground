@@ -24,6 +24,15 @@ export type ImageRejectReason =
   | 'animated'
   | 'corrupt'
 
+/** What a person is told when a stored upload was rejected for `reason`. */
+export const IMAGE_REJECT_MESSAGES: Record<ImageRejectReason, string> = {
+  unsupported_type: 'Only PNG and JPEG images are supported',
+  too_large: 'Images must be 10 MB or smaller',
+  dimensions: `Images must be at most ${IMAGE_LIMITS.maxDimension}×${IMAGE_LIMITS.maxDimension} pixels`,
+  animated: 'Animated images are not supported',
+  corrupt: 'This file is damaged or not a complete image',
+}
+
 export type ValidatedImage = {
   mimeType: ImageMimeType
   /** Display size, after any JPEG orientation is applied. */

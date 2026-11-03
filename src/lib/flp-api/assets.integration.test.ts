@@ -12,7 +12,7 @@ import {
   rgbaPng,
   withJpegSegments,
 } from '../image-fixtures'
-import { sha256Hex } from '../image-validate'
+import { IMAGE_LIMITS, IMAGE_REJECT_MESSAGES, sha256Hex } from '../image-validate'
 import { assetReadUrl, uploadAsset } from './assets'
 import { listFilesUnder } from './delete-account-runner.mjs'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
@@ -281,7 +281,8 @@ describe.skipIf(!env)('FLP asset uploads against local Supabase', () => {
         await Promise.all(
           Object.entries(TABLES).map(async ([table, { filter }]) => {
             const { data: found } = await admin.from(table).select('*').eq(filter[0], filter[1])
-            return [table, found] as const
+            // The database promises no order, so compare as a sorted set.
+            return [table, (found ?? []).map((row) => JSON.stringify(row)).sort()] as const
           }),
         ),
       )
@@ -456,11 +457,45 @@ describe.skipIf(!env)('FLP asset uploads against local Supabase', () => {
     expect((await createDesign({ token: a.token, assetId })).status).toBe(201)
   })
 
+  test('the client, the signed upload and the bucket share the 10 MB limit', async () => {
+    const { data: bucket } = await admin.storage.getBucket('design-assets')
+    expect(bucket?.file_size_limit).toBe(IMAGE_LIMITS.maxBytes)
+
+    const reserved = (await (await api({ path: 'assets', method: 'POST', token: a.token })).json()) as {
+      upload: { url: string; maxBytes: number }
+    }
+    expect(reserved.upload.maxBytes).toBe(IMAGE_LIMITS.maxBytes)
+
+    // Past the client's own check, the storage bucket refuses it too.
+    const direct = await fetch(reserved.upload.url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/png' },
+      body: new Uint8Array(IMAGE_LIMITS.maxBytes + 1),
+    })
+    expect(direct.ok).toBe(false)
+
+    const calls: unknown[] = []
+    const refused = await uploadAsset({
+      file: new Blob([new Uint8Array(IMAGE_LIMITS.maxBytes + 1)], { type: 'image/png' }),
+      fetchImpl: (...args) => {
+        calls.push(args)
+        return fetchImpl(...args)
+      },
+    })
+    expect(refused).toMatchObject({ ok: false, code: 'too_large', message: IMAGE_REJECT_MESSAGES.too_large })
+    expect(calls).toEqual([])
+  })
+
   test('a spoofed upload is rejected with a reason, its original removed, and it cannot be saved', async () => {
     const svg = ascii('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')
     const uploaded = await upload({ bytes: svg, type: 'image/png' })
 
-    expect(uploaded).toMatchObject({ ok: false, code: 'invalid', reason: 'unsupported_type' })
+    expect(uploaded).toMatchObject({
+      ok: false,
+      code: 'invalid',
+      reason: 'unsupported_type',
+      message: IMAGE_REJECT_MESSAGES.unsupported_type,
+    })
 
     const { data: rows } = await admin
       .from('assets')
