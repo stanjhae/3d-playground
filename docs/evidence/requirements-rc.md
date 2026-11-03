@@ -213,11 +213,11 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Concept, sample, ranking and media labels | `docs/claims-audit.md`; #199 questions open | Checked by hand, Owner |
 | No fit, fabric, manufacturing or traction claims | Disclaimer test (UI); absence only by hand; nothing stops a removed claim returning | Checked by hand |
 | Login by keyboard | `requirements-proof` (UI) | Proven |
-| Save, history and sharing by keyboard | Rename and numeric fields only | Gap (proof) |
-| Labelled controls | Role-name locators and axe on most screens; code step, history panel and publish step never scanned | Gap (proof) |
+| Save, history and sharing by keyboard | `accessibility.spec` (UI): by Tab and Enter alone, create, edit and autosave, name a checkpoint, restore, publish, copy the link (clipboard checked) and unpublish. **Save now** appears only after a failed save and isn't included | Proven |
+| Labelled controls | `accessibility.spec` (UI): axe finds no serious or critical issue on the code step, a refused code, history naming, refusal and restore, publish review and the published state | Proven |
 | Layers in an accessible list | `requirements-proof` uses it by role (UI), `layer-list.test.ts` | Proven |
 | Numeric inputs replace dragging | `transform-fields.spec` (UI) | Proven |
-| Focus stays visible | Global `:focus-visible` rule; sign-in fields set `focus:outline-none` with a border change; no test | Gap (proof) |
+| Focus stays visible | `accessibility.spec` (UI): Tab visits every control on sign-in, code step, My Studio, editor and publish review at 1280×800, each with an outline and not covered (failed with the outline removed). The global rule wins over the sign-in fields' `focus:outline-none` | Proven |
 | Destructive actions name the design | Delete by hand (see R02). Restore names the version; Clear names the panel. Unpublish has no confirmation (decision 9) | Decided (2 Nov) |
 
 ## R14 Basic drawing and erasing
