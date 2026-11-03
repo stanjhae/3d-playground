@@ -63,6 +63,33 @@ test('sign-in, My Studio, studio, shared page and privacy have no serious violat
   await visitor.close()
 })
 
+test('the steps over the dark scene keep their header on a solid background', async ({ page }) => {
+  test.setTimeout(180_000)
+  const email = newEmail({ label: 'dark-steps' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const designId = new URL(page.url()).searchParams.get('cloud')
+
+  for (const step of ['preview', 'share']) {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport)
+      await page.goto(`/create?cloud=${designId}&step=${step}`)
+      await expectSaved({ page })
+      // Axe can't judge text over a canvas, so check what it can't see first.
+      const header = page.getByRole('navigation', { name: 'Create steps' }).locator('..')
+      const background = await header.evaluate((element) => getComputedStyle(element).backgroundColor)
+      expect(background, `${step} @${viewport.width}`).not.toMatch(/transparent|\/ 0(\.\d+)?\)|, 0(\.\d+)?\)$/)
+      // The header would hide the garment if the scene ran behind it.
+      const headerBox = await header.boundingBox()
+      const sceneBox = await page.locator('canvas[data-engine]').boundingBox()
+      expect(sceneBox!.y, `${step} @${viewport.width}`).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1)
+      await expectAccessible({ page, name: `${step} @${viewport.width}` })
+    }
+  }
+})
+
 test('long names and messages never push the page sideways (#163)', async ({ page }) => {
   test.setTimeout(180_000)
   const email = newEmail({ label: 'overflow' })

@@ -55,19 +55,17 @@ test(`"Publish…" opens the review (${LOOPS}×)`, async ({ page }) => {
 test('"Publish…" opens the review when the 3D preview starts mid-click', async ({ page }) => {
   const designId = await createSavedDesign({ page, label: 'publish-review-late' })
 
-  // Hold back every ResizeObserver's first report, so the R3F canvas (which
-  // waits for its container's size) has not started, then let them through
-  // on the first pointerdown: the canvas becomes ready while the press is
-  // down, as it did on a busy machine.
+  // Hold back every ResizeObserver report, so the R3F canvas (which waits for
+  // its container's size) has not started, then let them through on the
+  // first pointerdown: the canvas becomes ready while the press is down, as
+  // it did on a busy machine.
   await page.addInitScript(() => {
-    const held: Array<() => void> = []
+    let held: Array<() => void> | null = []
     const Native = window.ResizeObserver
     window.ResizeObserver = class extends Native {
       constructor(callback: ResizeObserverCallback) {
-        let first = true
         super((entries, observer) => {
-          if (first) {
-            first = false
+          if (held) {
             held.push(() => callback(entries, observer))
           } else {
             callback(entries, observer)
@@ -75,7 +73,15 @@ test('"Publish…" opens the review when the 3D preview starts mid-click', async
         })
       }
     }
-    window.addEventListener('pointerdown', () => held.splice(0).forEach((run) => run()), { capture: true, once: true })
+    window.addEventListener(
+      'pointerdown',
+      () => {
+        const waiting = held ?? []
+        held = null
+        waiting.forEach((run) => run())
+      },
+      { capture: true, once: true },
+    )
   })
 
   await page.goto(`/create?cloud=${designId}&step=share`)

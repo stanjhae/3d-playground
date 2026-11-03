@@ -4,7 +4,6 @@ import {
   CLOTH_LIST_ID,
   clothListVisibilityClass,
   clothSheetHeightClass,
-  coverHeaderSpacerClass,
   lookSheetBodyClass,
   lookSheetFrameClass,
   nextClothOpen,
@@ -60,14 +59,6 @@ describe('clothSheetHeightClass', () => {
     expect(clothSheetHeightClass({ clothOpen: false })).toEqual({
       'max-h-[min(28vh,16rem)] overflow-hidden': false,
     })
-  })
-})
-
-describe('coverHeaderSpacerClass', () => {
-  test('includes the header padding when there is no notch', () => {
-    expect(coverHeaderSpacerClass()).toContain(
-      'max(0.75rem,env(safe-area-inset-top))',
-    )
   })
 })
 

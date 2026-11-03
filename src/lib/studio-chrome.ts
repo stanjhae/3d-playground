@@ -35,10 +35,6 @@ export function clothSheetHeightClass({
   }
 }
 
-export function coverHeaderSpacerClass() {
-  return 'h-[calc(3.5rem+max(0.75rem,env(safe-area-inset-top)))] shrink-0 lg:hidden'
-}
-
 export function lookSheetFrameClass() {
   return 'pointer-events-none absolute inset-x-0 bottom-0 z-20 flex max-h-[min(58vh,28rem)] flex-col bg-gradient-to-t from-flv-paper via-flv-paper/80 to-transparent px-4 pt-16 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-20 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]'
 }
@@ -70,12 +66,26 @@ export function studioSectionClass({ drawInFlow = false }: { drawInFlow?: boolea
     : 'relative h-[calc(100dvh_-_var(--studio-top,0px))] min-h-[30rem] overflow-hidden'
 }
 
+/**
+ * Solid, because the steps without a Draw pane run the dark scene behind it.
+ * The band spans the page at lg with the tool column's width as padding, so
+ * the text stays where it was and the tool panels draw over the band's end.
+ */
 export function studioHeaderClass() {
-  return 'pointer-events-auto flex shrink-0 flex-col gap-2 bg-gradient-to-b from-flv-paper/90 to-transparent px-4 pt-1 pb-3 lg:absolute lg:top-4 lg:right-[22rem] lg:left-6 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-6 lg:gap-y-2 lg:bg-none lg:px-0 lg:pt-0 lg:pb-0'
+  return 'pointer-events-auto flex shrink-0 flex-col gap-2 bg-flv-paper px-4 pt-1 pb-3 lg:absolute lg:top-0 lg:right-0 lg:left-0 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-6 lg:gap-y-2 lg:pt-4 lg:pr-[22rem] lg:pb-2 lg:pl-6'
+}
+
+/**
+ * The steps without a Draw pane start the scene below the solid header, so it
+ * never covers the garment. Any shape is safe for publishing: `captureFov`
+ * fits the capture to the canvas's aspect.
+ */
+export function studioSceneClass() {
+  return 'relative h-full min-h-80 w-full pt-[var(--studio-chrome-bottom,0px)]'
 }
 
 export function dualStudioGridClass() {
-  return 'grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(20rem,1fr)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_22rem] lg:gap-3 lg:pt-[calc(var(--studio-chrome-bottom,6rem)_+_0.75rem)] lg:pl-3'
+  return 'grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(20rem,1fr)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_22rem] lg:gap-3 lg:pt-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:pl-3'
 }
 
 /**
