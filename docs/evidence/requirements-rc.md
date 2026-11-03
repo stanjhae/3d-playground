@@ -22,7 +22,7 @@ This audit was run on rc.2, and the rows have been updated for what landed since
 - **Proven:** an automated test exercises it, and its assertions were read for this audit.
 - **Checked by hand:** dated human evidence exists, but no automated test.
 - **Hosted only:** can only be verified on a deployment (#186).
-- **Decided (2 Nov):** differs from the PRD, and the owner recorded that in `docs/decisions.md`. The app doesn't do what the statement says.
+- **Decided (2 Nov), Decided (3 Nov):** differs from the PRD, and the owner recorded that in `docs/decisions.md`. The app doesn't do what the statement says.
 - **Owner:** needs a decision or action from the owner.
 - **Gap (proof):** the code appears to do this, but nothing proves it at the level the PRD asks for. Each requirement is accepted on both canonical data and visible behaviour, so a data-level test alone is a proof gap.
 - **Gap (behaviour):** the app doesn't do what the statement says.
@@ -36,22 +36,23 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Valid email shows a neutral sent message | `requirements-proof` sign-in test (UI) | Proven |
-| Doesn't reveal whether the account exists | `auth.test.ts` maps errors neutrally (unit); no real comparison of known and unknown emails | Gap (proof) |
+| Doesn't reveal whether the account exists | `requirements-proof` (UI): a known and an unknown email get the same status, response body and screen; `auth.test.ts` (unit). Response time isn't compared | Proven |
 | Resend countdown shows | `requirements-proof` (UI): disabled "Send a new code in Ns" | Proven |
 | Resend sends a working new code | None clicks the resend button | Gap (proof) |
 | Valid code creates a session | `helpers.ts` `signIn`, used by `journey.spec` (UI) | Proven |
 | Returns to the intended safe internal page | `failures.spec` session expiry (UI) | Proven |
-| Unsafe `returnTo` falls back | `auth.test.ts` (unit) only | Gap (proof) |
+| Unsafe `returnTo` falls back | `requirements-proof` (UI): five unsafe forms land on the studio, nothing goes off-site, a safe path still works (failed when the check was removed); `auth.test.ts` (unit) | Proven |
 | Wrong code gives a clear recoverable error | `requirements-proof` (UI): message shown, then the right code works | Proven |
 | Reused code gives the same | `requirements-proof` (UI): a used code is refused, the fresh one works | Proven |
 | Expired code gives the same | `auth.test.ts` with a synthetic `otp_expired` (unit) | Gap (proof) |
 | Paste works | `requirements-proof` types a spaced code by keyboard; `auth.test.ts` normalizes; no real paste event | Gap (proof) |
 | Keyboard works | `requirements-proof` (UI): both steps by keyboard | Proven |
 | Sign-out removes the session on this browser | `requirements-proof` (UI): `flp-auth` gone, email off screen, `/studio` redirects | Proven |
-| Sign-out revokes the session on the server | Uses local scope; untested | Gap (proof) |
+| Sign-out revokes the session on the server | `flp-api.integration` (API, real sign-out): the refresh token is refused, the API answers the old access token with 401, and other devices stay signed in (failed when sign-out was removed) | Proven |
+| A signed-out access token stops everywhere at once | Direct Supabase REST checks only the JWT, so until it expires (at most an hour) the old token still reads its owner's rows and can't write (`flp-api.integration`). Its owner's files follow the same read policy; that part is read from the policy, not tested. The app never uses it after sign-out. Kept as a known limit (`docs/decisions.md`, 3 Nov) | Decided (3 Nov) |
 | Recovery data hidden from the next account | `isolation.spec` (UI) | Proven |
-| No code or token in logs | No test watches console or server output | Gap (proof) |
-| No code or token in analytics | `events.integration.test.ts` allowlist (API); no sign-in flow captured | Gap (proof) |
+| No code or token in logs | `requirements-proof` (UI): console, page errors and the address bar during sign-in (failed when the code was logged). `flp-api.integration` (API): the handler's log output on accepted, refused and invalid requests. The code never reaches our API, as the UI test's requests show. Supabase Auth's own logs aren't checked | Proven |
+| No code or token in analytics | `requirements-proof` (UI): every request during sign-in captured, including the real `signed_in` event; `events.integration.test.ts` allowlist (API) | Proven |
 
 ## R02 Design ownership and studio
 
@@ -66,7 +67,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Description accepts at most 500 | Refusal at 501 proven (`contract.test.ts`, DB); exact 500 untested; no owned-studio field found | Gap (proof) |
 | B can't read A's design: app, API, REST, storage | `isolation.spec` (UI), `routes.integration` (API), `flp_isolation.test.sql` (DB), `assets.integration` signed URL (API) | Proven |
 | B can't change A's design: API | `routes.integration` with state compared, `design-details.integration` (API) | Proven |
-| B can't change or delete directly (REST, storage) | Insert into A's storage prefix refused (DB); other direct writes are tried as A and rely on revoked grants | Gap (proof) |
+| B can't change or delete directly (REST, storage) | `assets.integration` (API, B's real token): update and delete on all six tables, an insert, an RPC, and update, upsert, move, copy, download, sign and remove on A's upload and render, with A's rows and bytes compared (failed with a temporary grant and with temporary storage policies); `flp_isolation.test.sql` (DB) | Proven |
 | B can't delete: API | `design-details.integration` (API) | Proven |
 | B can't enumerate: API, DB, studio | `flp-api.integration` (API), `flp_core_schema.test.sql` (DB), `requirements-proof` (UI) | Proven |
 | Delete asks for confirmation | `journey.spec` (UI) | Proven |
@@ -301,7 +302,7 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | Report-contact route | `alpha-contact.test.ts` (unit); link vanishes without `VITE_FLP_CONTACT_EMAIL` (#195) | Owner |
 | Operator takedown | Manual steps in `docs/deploy.md`; an owner may be able to republish afterwards (decision 7) | Decided (2 Nov) |
 | Operator deletion finishes, is retryable | `delete-account.integration` (API, real script), `flp_account_deletion.test.sql` (DB) | Proven |
-| Deleted account's token and public link stop working; uploads deleted | Not tested; the fixture has no uploads | Gap (proof) |
+| Deleted account's token and public link stop working; uploads deleted | `delete-account.integration` (API, real script, a real upload): all work before, then 401, no rows, a 404 identical to an unknown link, and the upload and render URLs fail | Proven |
 | Seven-day and thirty-day windows | No test; operational | Owner |
 | Plain-language privacy page | Exists; copy not asserted; contact pending (#195) | Owner |
 

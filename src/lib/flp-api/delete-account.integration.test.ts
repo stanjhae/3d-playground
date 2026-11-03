@@ -1,8 +1,10 @@
 import { type SupabaseClient, createClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
+import { useSessionStore } from '../auth/session-store'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
-import { TINY_JPEG } from '../image-fixtures'
+import { TINY_JPEG, rgbaPng } from '../image-fixtures'
+import { uploadAsset } from './assets'
 import { listFilesUnder, runDeleteAccount } from './delete-account-runner.mjs'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
 import { PUBLIC_RENDER_KINDS } from './publication'
@@ -36,6 +38,9 @@ describe.skipIf(!env)('retryable account deletion against local Supabase (#151)'
   let admin: SupabaseClient
   let account: Account
   let email: string
+  let slug: string
+  let uploadUrl: string
+  let renderUrl: string
 
   function api({ path, method = 'GET', body }: { path: string; method?: 'GET' | 'POST'; body?: unknown }) {
     return handleFlpRequest({
@@ -68,22 +73,45 @@ describe.skipIf(!env)('retryable account deletion against local Supabase (#151)'
     account = await createAccount({ admin, env: serverEnv, label: 'delete-retry' })
     email = (await admin.auth.admin.getUserById(account.id)).data.user!.email!
 
-    // Two published designs, each with its five stored views.
+    // A real upload, on the first of two published designs with five stored views each.
+    useSessionStore.setState({
+      status: 'signed-in',
+      account: { userId: account.id, email: null },
+      accessToken: account.token,
+      accountEpoch: useSessionStore.getState().accountEpoch + 1,
+    })
+    const uploaded = await uploadAsset({
+      file: new Blob([(await rgbaPng({ width: 2, height: 2, alpha: 255 })) as Uint8Array<ArrayBuffer>], { type: 'image/png' }),
+      fetchImpl: (input, init) => {
+        const url = String(input)
+        return url.startsWith('/api/flp/')
+          ? handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost${url}`, init) })
+          : fetch(input, init)
+      },
+    })
+
+    if (!uploaded.ok) {
+      throw new Error(`upload failed: ${uploaded.code} ${uploaded.message}`)
+    }
+
+    uploadUrl = uploaded.data.readUrl
     const renders = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data: base64({ bytes: TINY_JPEG }) }))
 
-    for (const title of ['Kept one', 'Kept two']) {
+    for (const [title, assetId] of [['Kept one', uploaded.data.assetId], ['Kept two', 'asset_lib_cross-simple']] as const) {
       const created = await api({
         path: 'designs',
         method: 'POST',
         body: {
           mutationKey: crypto.randomUUID(),
           title,
-          content: withImageAsset({ document: GOLDEN_DOCUMENT, assetId: 'asset_lib_cross-simple' }),
+          content: withImageAsset({ document: GOLDEN_DOCUMENT, assetId }),
         },
       })
       const { designId } = (await created.json()) as { designId: string }
       expect((await api({ path: `designs/${designId}/renders`, method: 'POST', body: { seq: 1, renders } })).status).toBe(201)
-      expect((await api({ path: `designs/${designId}/publication`, method: 'POST', body: { seq: 1 } })).status).toBe(200)
+      const published = await api({ path: `designs/${designId}/publication`, method: 'POST', body: { seq: 1 } })
+      expect(published.status).toBe(200)
+      slug = ((await published.json()) as { slug: string }).slug
     }
   })
 
@@ -93,7 +121,15 @@ describe.skipIf(!env)('retryable account deletion against local Supabase (#151)'
 
   test('an interrupted deletion finishes on rerun: no rows, no files, no account', async () => {
     const stored = await files()
-    expect(stored).toHaveLength(2 * PUBLIC_RENDER_KINDS.length)
+    expect(stored).toHaveLength(2 * PUBLIC_RENDER_KINDS.length + 1)
+
+    // Everything works before the deletion, so what stops below stops because of it.
+    const { data: render } = await admin.storage.from('design-assets').createSignedUrl(stored.find((file: string) => file.includes('view_front')) ?? stored[0]!, 600)
+    renderUrl = render!.signedUrl
+    expect((await api({ path: 'designs' })).status).toBe(200)
+    expect((await api({ path: `public/${slug}` })).status).toBe(200)
+    expect((await fetch(uploadUrl)).status).toBe(200)
+    expect((await fetch(renderUrl)).status).toBe(200)
 
     // An earlier attempt got as far as removing a few files.
     await admin.storage.from('design-assets').remove(stored.slice(0, 3))
@@ -128,6 +164,17 @@ describe.skipIf(!env)('retryable account deletion against local Supabase (#151)'
       expect(error, table).toBeNull()
       expect(count, table).toBe(0)
     }
+
+    // The token, the public link and the files stopped with the account.
+    expect((await api({ path: 'designs' })).status).toBe(401)
+    expect((await account.client.from('designs').select('id')).data).toEqual([])
+    const gone = await api({ path: `public/${slug}` })
+    expect(gone.status).toBe(404)
+    const unknown = await api({ path: `public/${'0'.repeat(16)}` })
+    expect(await gone.text()).toBe(await unknown.text())
+    expect((await api({ path: `public/${slug}/image` })).status).toBe(404)
+    expect((await fetch(uploadUrl)).ok).toBe(false)
+    expect((await fetch(renderUrl)).ok).toBe(false)
 
     // And a fourth run is a harmless no-op.
     const fourth = await deleteAccount()

@@ -49,6 +49,18 @@ export async function signIn({ page, email, returnTo = '/studio' }: { page: Page
   await expect(page).toHaveURL(new RegExp(`${returnTo.replace(/[/?]/g, '\\$&')}$`))
 }
 
+/** An account that exists before its first sign-in, with no code sent yet. */
+export async function createExistingAccount({ email }: { email: string }) {
+  const admin = createClient(env.SUPABASE_URL!, env.SUPABASE_SECRET_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { error } = await admin.auth.admin.createUser({ email, email_confirm: true })
+
+  if (error) {
+    throw error
+  }
+}
+
 /** Removes the e2e accounts a run created (local or a test environment). */
 export async function deleteAccounts({ emails }: { emails: string[] }) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY || emails.length === 0) {

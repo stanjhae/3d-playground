@@ -1,7 +1,8 @@
 import { type SupabaseClient, createClient } from '@supabase/supabase-js'
-import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 
 import type { CanonicalDocument } from '../canonical-document'
+import { signOut } from '../auth/session-store'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import { createSaveController } from '../save-controller'
 import { withImageAsset } from './integration-harness'
@@ -20,7 +21,7 @@ const processEnv =
 const env =
   processEnv.FLP_INTEGRATION === '1' ? flpServerEnv(processEnv) : null
 
-type Account = { id: string; token: string; client: SupabaseClient }
+type Account = { id: string; email: string; password: string; token: string; client: SupabaseClient }
 
 /** Saves may only reference library graphics or ready uploads (S01 #170). */
 const DOCUMENT = withImageAsset({ document: GOLDEN_DOCUMENT, assetId: 'asset_lib_cross-simple' })
@@ -64,7 +65,7 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
       throw signedIn.error ?? new Error('no session')
     }
 
-    const result = { id: created.data.user.id, token: signedIn.data.session.access_token, client }
+    const result = { id: created.data.user.id, email, password, token: signedIn.data.session.access_token, client }
     accounts.push(result)
     return result
   }
@@ -279,6 +280,69 @@ describe.skipIf(!env)('FLP design API against local Supabase', () => {
     expect(error?.code).toBe('23514')
     expect(await headSeq()).toBe(base)
     expect(await versionCount()).toBe(before)
+  })
+
+  test('sign-out ends this session on the server and leaves other devices signed in', async () => {
+    const here = await account({ label: 'signout' })
+    const session = (await here.client.auth.getSession()).data.session!
+    const elsewhere = createClient(serverEnv.url, serverEnv.publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const other = (await elsewhere.auth.signInWithPassword({ email: here.email, password: here.password })).data.session!
+    const restRead = ({ token }: { token: string }) =>
+      fetch(`${serverEnv.url}/rest/v1/designs?select=id`, {
+        headers: { apikey: serverEnv.publishableKey, Authorization: `Bearer ${token}` },
+      })
+    expect((await api({ path: 'designs', token: session.access_token })).status).toBe(200)
+
+    await signOut({ client: here.client })
+
+    const fresh = createClient(serverEnv.url, serverEnv.publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const refreshed = await fresh.auth.refreshSession({ refresh_token: session.refresh_token })
+    expect(refreshed.error).not.toBeNull()
+    expect(refreshed.data.session).toBeNull()
+    expect((await api({ path: 'designs', token: session.access_token })).status).toBe(401)
+
+    // Direct REST checks only the JWT, so the old access token still reads
+    // its owner's rows until it expires (at most an hour). It can't write.
+    const claims = JSON.parse(atob(session.access_token.split('.')[1]!)) as { iat: number; exp: number }
+    expect(claims.exp - claims.iat).toBeLessThanOrEqual(3600)
+    const leftover = await restRead({ token: session.access_token })
+    expect(leftover.status).toBe(200)
+    expect(await leftover.json()).toEqual([])
+    const write = await fetch(`${serverEnv.url}/rest/v1/designs?id=eq.${designId}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: serverEnv.publishableKey,
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: 'Signed out' }),
+    })
+    expect(write.status).toBe(403)
+
+    expect((await api({ path: 'designs', token: other.access_token })).status).toBe(200)
+    expect((await elsewhere.auth.refreshSession({ refresh_token: other.refresh_token })).error).toBeNull()
+  })
+
+  test('the API logs no token, whether a request succeeds, is refused or is invalid', async () => {
+    const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((level) =>
+      vi.spyOn(console, level).mockImplementation(() => undefined),
+    )
+
+    try {
+      await api({ path: 'designs', token: a.token })
+      await api({ path: `designs/${designId}`, token: b.token })
+      await api({ path: 'designs', token: `${a.token}x` })
+      await api({ path: 'designs', method: 'POST', token: a.token, body: { mutationKey: 'bad', content: {} } })
+      const logged = JSON.stringify(spies.flatMap((spy) => spy.mock.calls))
+      expect(logged).not.toContain(a.token)
+      expect(logged).not.toContain(b.token)
+    } finally {
+      spies.forEach((spy) => spy.mockRestore())
+    }
   })
 
   test('the owner cannot bypass the API through Supabase REST', async () => {

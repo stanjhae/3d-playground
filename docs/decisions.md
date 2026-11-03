@@ -2,6 +2,12 @@
 
 Decisions that change scope or behaviour for the 17 November alpha, with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 3 Nov 2026: a signed-out access token expires rather than stopping at once
+
+**Decided by:** owner (#284).
+
+Sign-out refuses the refresh token, and the API refuses the old access token straight away. Direct Supabase REST checks only the JWT, so until that token expires (at most an hour) it can still read its owner's rows, and can't write. Its owner's files follow the same read policy. This stays as a known limit for the alpha. Closing it would need a migration to check the session on every read, which isn't worth the risk this close to the freeze.
+
 ## 2 Nov 2026: the requirements audit's ten decisions
 
 **Decided by:** owner, on the rc.2 audit (`docs/evidence/requirements-rc.md`). PRD section 13 asks for a recorded decision to change Must scope; these are those records.

@@ -1,6 +1,6 @@
 import { type Page, expect, test } from '@playwright/test'
 
-import { deleteAccounts, drawStroke, expectSaved, latestCode, newEmail, panelCanvas, signIn } from './helpers'
+import { createExistingAccount, deleteAccounts, drawStroke, expectSaved, latestCode, newEmail, panelCanvas, signIn } from './helpers'
 
 /**
  * What docs/evidence/requirements-rc.md found proven only below the UI:
@@ -86,6 +86,117 @@ test('sign-in by keyboard: a wrong code is recoverable, a used one is refused, s
   await field.fill(fresh)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(/\/studio$/)
+})
+
+test('a known and an unknown email get the same answer at sign-in', async ({ browser }) => {
+  const known = newEmail({ label: 'known' })
+  const unknown = newEmail({ label: 'unknown' })
+  emails.push(known, unknown)
+  await createExistingAccount({ email: known })
+
+  const answers = []
+
+  for (const email of [known, unknown]) {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.goto('/sign-in')
+    await page.getByRole('textbox', { name: 'Email' }).fill(email)
+    const asked = page.waitForResponse((response) => response.url().includes('/auth/v1/otp'))
+    await page.getByRole('button', { name: 'Email me a code' }).click()
+    const response = await asked
+    await expect(page.getByRole('textbox', { name: '6-digit code' })).toBeVisible()
+    await expect(page.getByText(/can receive email/)).toBeVisible()
+    answers.push({
+      status: response.status(),
+      body: await response.text(),
+      screen: (await page.locator('main').innerText()).replace(email, 'EMAIL').replace(/\d+s/g, 'Ns'),
+    })
+    await context.close()
+  }
+
+  expect(answers[0]).toEqual(answers[1])
+})
+
+test('an unsafe returnTo falls back to the studio and never leaves the site', async ({ page }) => {
+  const email = newEmail({ label: 'returnto' })
+  emails.push(email)
+  const offsite: string[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).hostname.endsWith('evil.example')) {
+      offsite.push(request.url())
+    }
+  })
+
+  // Signed out, through the whole code flow.
+  await page.goto(`/sign-in?returnTo=${encodeURIComponent('https://evil.example/create')}`)
+  const requested = Date.now() - 2_000
+  await page.getByRole('textbox', { name: 'Email' }).fill(email)
+  await page.getByRole('button', { name: 'Email me a code' }).click()
+  const code = await latestCode({ email, after: requested })
+  await page.getByRole('textbox', { name: '6-digit code' }).fill(code)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  const origin = new URL(page.url()).origin
+  await expect(page).toHaveURL(`${origin}/studio`)
+
+  // Signed in, the page redirects straight away, so the other forms are quick.
+  for (const unsafe of ['//evil.example/create', '/\\evil.example', 'javascript:alert(1)', '/sign-in?returnTo=/create']) {
+    await page.goto(`/sign-in?returnTo=${encodeURIComponent(unsafe)}`)
+    await expect(page, unsafe).toHaveURL(`${origin}/studio`)
+  }
+
+  // A safe one still goes where it says, so the fallback isn't all that happens.
+  await page.goto(`/sign-in?returnTo=${encodeURIComponent('/privacy')}`)
+  await expect(page).toHaveURL(`${origin}/privacy`)
+  expect(offsite).toEqual([])
+})
+
+test('no code or token reaches the console, the address bar, analytics or other requests during sign-in', async ({ page }) => {
+  const email = newEmail({ label: 'secrets' })
+  emails.push(email)
+  const seen: string[] = []
+  const analytics: string[] = []
+  page.on('console', (message) => seen.push(`console: ${message.text()}`))
+  page.on('pageerror', (error) => seen.push(`error: ${error.message}`))
+  page.on('framenavigated', (frame) => seen.push(`url: ${frame.url()}`))
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+
+    if (url.pathname === '/api/events') {
+      analytics.push(request.postData() ?? '')
+    }
+
+    // The two sign-in calls to Supabase Auth carry the code and return the
+    // tokens by design; nothing else may.
+    if (url.pathname !== '/auth/v1/verify') {
+      seen.push(`request: ${request.url()} ${request.postData() ?? ''}`)
+    }
+  })
+
+  await page.goto(`/sign-in?returnTo=${encodeURIComponent('/studio')}`)
+  const requested = Date.now() - 2_000
+  await page.getByRole('textbox', { name: 'Email' }).fill(email)
+  await page.getByRole('button', { name: 'Email me a code' }).click()
+  const code = await latestCode({ email, after: requested })
+  await page.getByRole('textbox', { name: '6-digit code' }).fill(code)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page).toHaveURL(/\/studio$/)
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  await expect.poll(() => analytics).toContainEqual(JSON.stringify({ name: 'signed_in' }))
+
+  const auth = await page.evaluate(() => JSON.parse(localStorage.getItem('flp-auth')!))
+  const secrets = { code, access: auth.access_token as string, refresh: auth.refresh_token as string }
+  expect(secrets.access.length).toBeGreaterThan(20)
+  expect(seen.length).toBeGreaterThan(5)
+
+  for (const [name, secret] of Object.entries(secrets)) {
+    expect(seen.filter((line) => line.includes(secret)), name).toEqual([])
+  }
+
+  for (const body of analytics) {
+    expect(Object.keys(JSON.parse(body)).every((field) => ['name', 'bucket'].includes(field)), body).toBe(true)
+    expect(body).not.toContain(email)
+  }
 })
 
 test('a second browser signed in by code lists and opens the same design; another account lists nothing', async ({ page, browser }) => {
