@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.0-rc.4: alpha release candidate (3 Nov 2026)
+
+Fixes from the rc.3 demo walk and the first hosted check, plus proof for the risky gaps in the requirements audit (`docs/evidence/requirements-rc.md`). No new migrations since rc.3.
+
+### Added
+- **Staging:** the Vercel Production environment is now staging, on its own Supabase project. A first hosted check is recorded in `docs/evidence/hosted-2026-11-03.md` (#287).
+- **Proof tests** for access and accounts (#284), saving and data (#285), and the right public version (#288). The audit's Gap (proof) rows went from 65 to 42. The rest were judged lower risk and stay open.
+
+### Fixed
+- **API functions crashed on deploy** with a missing module, because their shared code wasn't included. rc.3 has this bug on Vercel; the local demo isn't affected (#286).
+- **The steps over the dark 3D scene were hard to read.** The step labels, Continue and the design title were dark text on the dark scene. The header now has a solid background and the scene starts below it. Published images are unchanged (#289).
+- **The Preview step's sleeve buttons were swapped** and framed the sleeve behind the page's controls. Published images weren't affected (#283).
+
+### Known limits for the alpha
+- Staging has no custom email (SMTP) yet, so sign-in can't work there: the Free tier refuses the code email template. The browser journey and real-inbox sign-in are unproven on staging, and the demo stays local (#186, `docs/decisions.md`, 3 Nov).
+- After sign-out, the refresh token stops working and the app's API refuses the session straight away, but a direct database read with the old access token can still work until that token expires, at most an hour (`docs/decisions.md`, 3 Nov).
+- The audit's ten decisions keep these differences from the PRD: the input limits, no reset camera, no off-panel warning, no stale preview state, pruned autosaves, a manual takedown, two pattern colours from ground and brush, no confirmation on unpublish, and the thin side-on view (`docs/decisions.md`, 2 Nov).
+- WebKit stands in for recent Safari. Real iPhone Safari and Android aren't tested, and editing on phones isn't claimed (#191).
+- A stroke can be lost if the page reloads immediately after it, with no recovery prompt. With a gap of 100 ms or more, the prompt appeared and the stroke was kept (found in the rc.3 checklist).
+- Deferred past the freeze: a revision-tagged atlas (#164).
+- Owner items: rights (#138), the contact email (#195), branch protection (#192), the operator for alerts (#193), the claims-audit questions (#199), and validation and pitch work (#196–#201).
+
 ## 0.9.0-rc.3: alpha release candidate (2 Nov 2026)
 
 Fixes and decisions from the requirements audit (`docs/evidence/requirements-rc.md`, `docs/decisions.md`, 2 Nov). One new migration since rc.2.
