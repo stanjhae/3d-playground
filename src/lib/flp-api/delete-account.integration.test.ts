@@ -1,11 +1,11 @@
 import { type SupabaseClient, createClient } from '@supabase/supabase-js'
-import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 
 import { useSessionStore } from '../auth/session-store'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import { TINY_JPEG, rgbaPng } from '../image-fixtures'
 import { uploadAsset } from './assets'
-import { listFilesUnder, runDeleteAccount } from './delete-account-runner.mjs'
+import { listFilesUnder, runCleanupDryRun, runDeleteAccount } from './delete-account-runner.mjs'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
 import { PUBLIC_RENDER_KINDS } from './publication'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
@@ -118,6 +118,64 @@ describe.skipIf(!env)('retryable account deletion against local Supabase (#151)'
   afterAll(async () => {
     if (account && (await accountExists())) await admin.auth.admin.deleteUser(account.id)
   })
+
+  test('a failed file removal when deleting a design is logged and the next cleanup finds the files', async () => {
+    const owner = await createAccount({ admin, env: serverEnv, label: 'delete-design' })
+    const call = ({ path, method = 'POST', body }: { path: string; method?: string; body?: unknown }) =>
+      handleFlpRequest({
+        env: serverEnv,
+        request: new Request(`http://localhost/api/flp/${path}`, {
+          method,
+          headers: { Authorization: `Bearer ${owner.token}`, 'Content-Type': 'application/json' },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        }),
+      })
+
+    try {
+      const created = await call({
+        path: 'designs',
+        body: {
+          mutationKey: crypto.randomUUID(),
+          title: 'Goes',
+          content: withImageAsset({ document: GOLDEN_DOCUMENT, assetId: 'asset_lib_cross-simple' }),
+        },
+      })
+      const { designId } = (await created.json()) as { designId: string }
+      const renders = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data: base64({ bytes: TINY_JPEG }) }))
+      expect((await call({ path: `designs/${designId}/renders`, body: { seq: 1, renders } })).status).toBe(201)
+
+      // Storage refuses the removal; everything else keeps working.
+      const realFetch = globalThis.fetch
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) =>
+        init?.method === 'DELETE' && String(input).includes('/storage/v1/object/design-assets')
+          ? Promise.resolve(new Response(JSON.stringify({ statusCode: '500', error: 'down', message: 'down' }), { status: 500 }))
+          : realFetch(input, init),
+      )
+
+      try {
+        expect((await call({ path: `designs/${designId}`, method: 'DELETE' })).status).toBe(204)
+        expect(logged).toHaveBeenCalledWith('flp render cleanup failed', { designId })
+      } finally {
+        vi.unstubAllGlobals()
+        logged.mockRestore()
+      }
+
+      expect((await admin.from('designs').select('id').eq('id', designId)).data).toEqual([])
+      const left = await listFilesUnder({ admin, prefix: `${owner.id}/${designId}` })
+      expect(left).toHaveLength(PUBLIC_RENDER_KINDS.length)
+
+      // A dry run only: the local store's other leftovers are kept on purpose.
+      const swept = await runCleanupDryRun({ url: serverEnv.url, secretKey: serverEnv.secretKey })
+      expect(swept.code, swept.output).toBe(0)
+      expect(swept.output).toContain(`${owner.id}/${designId}\t${left.length} file(s)`)
+      expect(await listFilesUnder({ admin, prefix: `${owner.id}/${designId}` })).toEqual(left)
+    } finally {
+      const files = await listFilesUnder({ admin, prefix: owner.id })
+      if (files.length > 0) await admin.storage.from('design-assets').remove(files)
+      await admin.auth.admin.deleteUser(owner.id)
+    }
+  }, 90_000)
 
   test('an interrupted deletion finishes on rerun: no rows, no files, no account', async () => {
     const stored = await files()

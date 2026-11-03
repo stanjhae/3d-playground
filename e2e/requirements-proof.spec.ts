@@ -1,5 +1,7 @@
 import { type Page, expect, test } from '@playwright/test'
 
+import { TINY_JPEG } from '../src/lib/image-fixtures'
+import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
 import { createExistingAccount, deleteAccounts, drawStroke, expectSaved, latestCode, newEmail, panelCanvas, signIn } from './helpers'
 
 /**
@@ -232,6 +234,46 @@ test('a second browser signed in by code lists and opens the same design; anothe
   await expect(stranger.getByText('No designs yet.')).toBeVisible()
   await expect(stranger.getByText('Two browsers')).toHaveCount(0)
   await otherContext.close()
+})
+
+test('undo and redo never change what is published', async ({ page, request }) => {
+  test.setTimeout(150_000)
+  const email = newEmail({ label: 'undopub' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  await drawStroke({ page, panel: 'Front' })
+  await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'front' }).length, { timeout: 20_000 }).toBe(1)
+
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+  const token = await page.evaluate(() => JSON.parse(localStorage.getItem('flp-auth')!).access_token as string)
+  const headers = { Authorization: `Bearer ${token}` }
+  const { seq } = await savedHead({ page })
+  const data = Buffer.from(TINY_JPEG).toString('base64')
+  const renders = PUBLIC_RENDER_KINDS.map((kind: string) => ({ kind, data }))
+  expect((await request.post(`/api/flp/designs/${designId}/renders`, { headers, data: { seq, renders } })).status()).toBe(201)
+  const published = await request.post(`/api/flp/designs/${designId}/publication`, { headers, data: { seq } })
+  expect(published.status()).toBe(200)
+  const { slug } = (await published.json()) as { slug: string }
+  const publicPage = async () => (await request.get(`/api/flp/public/${slug}`)).json()
+  const before = await publicPage()
+  expect(before.seq).toBe(seq)
+
+  // New work, undone and redone, each saved as a new head.
+  await drawStroke({ page, panel: 'Back' })
+  await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'back' }).length, { timeout: 20_000 }).toBe(1)
+  expect(await publicPage()).toEqual(before)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'back' }).length, { timeout: 20_000 }).toBe(0)
+  expect(await publicPage()).toEqual(before)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'front' }).length, { timeout: 20_000 }).toBe(0)
+  expect(await publicPage()).toEqual(before)
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'front' }).length, { timeout: 20_000 }).toBe(1)
+  expect(await publicPage()).toEqual(before)
+  expect((await savedHead({ page })).seq).toBeGreaterThan(seq)
 })
 
 test('base colour and patterns keep the artwork, and undo, redo and reload bring them back', async ({ page }) => {

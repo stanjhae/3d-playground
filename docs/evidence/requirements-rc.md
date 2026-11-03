@@ -73,8 +73,8 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Delete asks for confirmation | `journey.spec` (UI) | Proven |
 | Confirmation names the design | Heading `Delete "<title>"?` seen in the running app on 2 Nov; no test asserts it | Checked by hand |
 | Delete immediately removes sharing | `journey.spec` (UI), `design-details.integration` (API) | Proven |
-| Delete queues storage cleanup | Removed synchronously (API test); a failed removal is only logged | Gap (proof) |
-| Assets referenced by history aren't collected | No negative test; `cleanup-orphans --delete` is untested | Gap (proof) |
+| Delete queues storage cleanup | There's no queue. `delete-account.integration` (API, injected storage failure): the delete still succeeds, the failure is logged, the files stay, and a `cleanup-orphans` dry run lists them. Someone has to run the cleanup; its `--delete` isn't run by a test, to keep the local store's files | Proven |
+| Assets referenced by history aren't collected | `assets.integration` (API, real selection function): an upload only an old version uses isn't listed, an unplaced one is, and the first is listed once its design is gone (failed when references were ignored). `--delete` itself isn't run by a test | Proven |
 
 ## R03 Template and colour
 
@@ -134,7 +134,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | At least 50 commands undoable | `editor-history.test.ts` (store) | Proven |
 | Redo works, cleared by a new edit | `requirements-proof` redo button (UI), `editor-history.test.ts` (store) | Proven |
 | Colour, text, transforms, add, delete, order covered | Transforms and pattern (UI), the rest (store); layer-delete undo not found | Gap (proof) |
-| Undo never affects publication state | No test | Gap (proof) |
+| Undo never affects publication state | `requirements-proof` (UI): undo and redo reach the saved head while the public payload stays identical | Proven |
 | Reload opens the last saved revision; stack not persisted | `journey.spec` (UI), `canonical-commands.test.ts` | Proven |
 
 ## R07 Synchronized rendering
@@ -143,26 +143,26 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | --- | --- | --- |
 | Preview uses the same document as 2D | `editor-canonical.test.ts`, `render-parity.test.ts` (pixel); no 2D-to-3D comparison | Gap (proof) |
 | Reports loading or stale until the latest revision is rendered | No revision-tied state; waived with #164 (decision 4) | Decided (2 Nov) |
-| Delayed older decode can't overwrite a newer preview | By reading: a superseded batch is dropped and composition uses the latest document. No test | Gap (proof) |
+| Delayed older decode can't overwrite a newer preview | `layer-images.test.ts` (unit, `loadLayerImages`): an older decode finishing last is dropped (failed with the guard removed). That the hook cancels on change is React's effect cleanup, read rather than tested | Proven |
 | Landmark and orientation fixtures on four panels | `template-manifest.test.ts`, `panel-orientation.test.ts` | Proven |
 | Transparency and transform fixtures | Stroke and layer alpha, front and back transforms (pixel); no image alpha, no sleeve transforms | Gap (proof) |
-| WebGL failure leaves editing and 2D save available | State machine only (unit); no browser test | Gap (proof) |
-| Missing 3D preview clearly labelled | Copy constants only | Gap (proof) |
+| WebGL failure leaves editing and 2D save available | `failures.spec` (UI): with no WebGL and with a lost context, a stroke is drawn and reaches the cloud | Proven |
+| Missing 3D preview clearly labelled | `failures.spec` (UI): "3D preview unavailable" and "3D preview paused" show, the second clears on restore, and publishing says why it's blocked | Proven |
 
 ## R08 Saving and recovery
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Autosave after 2 s, coalesced | `save-controller.test.ts` (store, fake timers) | Proven |
-| Explicit Save flushes immediately | `save-controller.test.ts`; the "Save now" button is never clicked | Gap (proof) |
+| Explicit Save flushes immediately | `failures.spec` (UI): clicking "Save now" sends the save ahead of the two-second wait (failed with the flush removed); `save-controller.test.ts` | Proven |
 | "Saved to cloud" only after acknowledgement for that revision | `failures.spec` (UI), `save-controller.test.ts` | Proven |
 | Failed or paused saves never show Saved | `failures.spec` (UI) | Proven |
 | A retry creates at most one revision | `flp-api.integration` (API), `failures.spec` same key (UI) | Proven |
 | Reopening gets the latest acknowledged revision | `flp-api.integration` (API), `journey.spec` reload (UI), `requirements-proof` second browser (UI) | Proven |
 | Uploads finish before a revision commits | `assets.integration` (API), `save-controller.test.ts` (store) | Proven |
 | Offline edits labelled local | `failures.spec` (UI); server-stopped run by hand on 2 Nov | Proven |
-| Local edits recover after reload | `failures.spec` with network up; never offline edit then reload | Gap (proof) |
-| No overwrite of newer cloud work without resolution | Online two-tab conflict proven (UI, API); offline, newer cloud, reconnect never run | Gap (proof) |
+| Local edits recover after reload | `failures.spec` (UI): edit offline, reload, reconnect, the copy is offered and reaches the cloud (failed with the local copy removed). The page itself can't load while offline. An instant reload can still lose the last edit (CHANGELOG known limit) | Proven |
+| No overwrite of newer cloud work without resolution | `failures.spec` (UI): offline, a newer save elsewhere, reconnect: "Changed elsewhere", the newer work stays, and the offline work reaches a copy (failed when the server ignored the base version); online two-tab conflict (UI, API) | Proven |
 
 ## R09 Version history
 
@@ -170,7 +170,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | --- | --- | --- |
 | Timestamped revisions and named checkpoints | `history.integration` (API), `journey.spec` (UI) | Proven |
 | Restore A creates C equal to A, referencing A; A and B intact | `history.integration` (API), `flp_core_schema.test.sql` (DB) | Proven |
-| Named and published revisions retained | Published proven (DB); the checkpoint in that test is unnamed | Gap (proof) |
+| Named and published revisions retained | `flp_quotas.test.sql` (DB): 100 named checkpoints keep their names through a further 105 autosaves (failed when pruning included checkpoints); published version | Proven |
 | 20 designs per account, clear error | `quotas.integration` (API); UI message untested | Gap (proof) |
 | 100 named checkpoints, clear error | `flp_quotas.test.sql` (DB) only; message untested | Gap (proof) |
 | 100 recent autosaves | `flp_quotas.test.sql` (DB) | Proven |

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 
 import { type DesignDocument, createEmptyDocument } from './design-document'
-import { countUnavailableImages } from './layer-images'
+import { countUnavailableImages, loadLayerImages } from './layer-images'
+import type { AtlasBuffer } from './paint-atlas'
 
 function documentWith({ layers }: { layers: DesignDocument['layers'] }): DesignDocument {
   return { ...createEmptyDocument({ garmentId: 'tee' }), layers }
@@ -49,5 +50,41 @@ describe('countUnavailableImages (R04)', () => {
     const document = documentWith({ layers: [image({ id: 'ok', src: '/ok.png' })] })
 
     expect(await countUnavailableImages({ document, decode: async () => pixels })).toBe(0)
+  })
+})
+
+describe('loadLayerImages', () => {
+  test('a delayed older decode cannot overwrite a newer one', async () => {
+    const older: AtlasBuffer = { width: 1, height: 1, pixels: new Uint8ClampedArray(4) }
+    const newer: AtlasBuffer = { width: 2, height: 2, pixels: new Uint8ClampedArray(16) }
+    let finishOlder: (image: AtlasBuffer) => void = () => {}
+    const loaded: Array<Record<string, AtlasBuffer>> = []
+    const onLoaded = (images: Record<string, AtlasBuffer>) => loaded.push(images)
+
+    const cancelOlder = loadLayerImages({
+      srcs: ['/old.png'],
+      decode: () => new Promise((resolve) => (finishOlder = resolve)),
+      onLoaded,
+    })
+    // What the hook's effect does when the document moves on.
+    cancelOlder()
+    loadLayerImages({ srcs: ['/new.png'], decode: async () => newer, onLoaded })
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(loaded).toEqual([{ '/new.png': newer }])
+
+    finishOlder(older)
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(loaded).toEqual([{ '/new.png': newer }])
+  })
+
+  test('an image that fails to decode is left out of the batch', async () => {
+    const loaded = await new Promise((resolve) => {
+      loadLayerImages({
+        srcs: ['/ok.png', '/bad.png'],
+        decode: async ({ src }) => (src === '/ok.png' ? pixels : null),
+        onLoaded: resolve,
+      })
+    })
+    expect(loaded).toEqual({ '/ok.png': pixels })
   })
 })
