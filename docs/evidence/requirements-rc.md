@@ -3,12 +3,12 @@
 Every acceptance statement of PRD v1.1 R01–R11 and R13–R17, plus the limits and sharing rules in sections 9 and 10, checked against what actually proves it. R12 (AI) isn't enabled in this alpha.
 
 **Commit:** `v0.9.0-rc.2` (1193fcc), plus `e2e/requirements-proof.spec.ts` and the pattern picker fix from this PR.
-**Environment:** local Supabase and Mailpit. Nothing here has run on a deployed path, which the PRD's definition of done requires (#186).
+**Environment:** local Supabase and Mailpit. Since 3 Nov the API checks in `docs/evidence/hosted-2026-11-03.md` also pass on staging, but sign-in and the browser suite haven't run on a deployed path, which the PRD's definition of done requires (#186).
 **Audited:** 2 Nov 2026.
 
 ## Result
 
-This audit was run on rc.2, and the rows have been updated for what landed since. The release still does **not** meet the PRD's definition of done, mainly because nothing has run on a deployed path. The core journey holds: private ownership, saving, history, publishing and revocation are all well proven.
+This audit was run on rc.2, and the rows have been updated for what landed since. The release still does **not** meet the PRD's definition of done, mainly because sign-in and the browser journey haven't run on a deployed path. The core journey holds: private ownership, saving, history, publishing and revocation are all well proven.
 
 | Group | What's in it | Where it went |
 | --- | --- | --- |
@@ -201,7 +201,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Denies old rendition IDs | `scripts/hosted-check.mjs` only, on demand | Gap (proof) |
 | Denies crawler endpoints | `publication-races.integration` (API), `og-card.test.ts` | Proven |
 | No-store on data and media | `publication.integration`, `journey.spec`; published page and JSON 404 via the script only | Gap (proof) |
-| No-store holds through the CDN | `hosted-check.mjs`, no hosted run yet | Hosted only |
+| No-store holds through the CDN | `hosted-check.mjs` `public-no-store` passed on staging (`hosted-2026-11-03.md`) | Proven |
 | Open pages and downloads disclosed | Copy exists; not asserted | Gap (proof) |
 | Failed unpublish shows an error | Code shows "Still published"; no test | Gap (proof) |
 | Deleted and nonpublic links give the same neutral page | Same heading (UI); bodies never compared | Gap (proof) |
