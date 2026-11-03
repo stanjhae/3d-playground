@@ -78,7 +78,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Only the services the API and tests use: Postgres, auth, REST,
       # storage, the gateway and Mailpit.
-      - run: supabase start -x realtime,studio,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta
+      # Docker on the runner sometimes fails to bring up a container, so retry
+      # this step alone, clearing any half-started stack between tries.
+      - name: Start Supabase
+        run: |
+          for try in 1 2 3; do
+            supabase start -x realtime,studio,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta && exit 0
+            echo "::warning::supabase start failed on try $try of 3"
+            if [ "$try" -lt 3 ]; then supabase stop --no-backup || true; fi
+          done
+          exit 1
       - run: supabase test db
       - name: API integration tests
         run: |
