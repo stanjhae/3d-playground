@@ -2,7 +2,7 @@ import { type APIRequestContext, type Page, expect, test } from '@playwright/tes
 
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
-import { createExistingAccount, deleteAccounts, drawStroke, expectSaved, latestCode, newEmail, panelCanvas, signIn } from './helpers'
+import { createExistingAccount, deleteAccounts, drawStroke, expectSaved, expireSentCode, latestCode, newEmail, panelCanvas, signIn } from './helpers'
 
 /**
  * What docs/evidence/requirements-rc.md found proven only below the UI:
@@ -23,6 +23,7 @@ type Layer = { id: string; kind: string; visible: boolean; strokes?: Array<{ too
 type Head = {
   seq: number
   content: {
+    template: { id: string; version: number }
     base: { kind: string; color?: string; colors?: string[] }
     panels: Record<string, { layers: Layer[] }>
   }
@@ -35,6 +36,21 @@ async function savedHead({ page }: { page: Page }): Promise<Head> {
     const response = await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })
     return (await response.json()).head
   }, designId)
+}
+
+async function createFromHead({ page, head, template }: { page: Page; head: Head; template: Head['content']['template'] }) {
+  return page.evaluate(
+    async ({ content }) => {
+      const token = JSON.parse(localStorage.getItem('flp-auth')!).access_token
+      const response = await fetch('/api/flp/designs', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mutationKey: crypto.randomUUID(), title: 'Other template', content }),
+      })
+      return { status: response.status, designId: (await response.json()).designId as string | undefined }
+    },
+    { content: { ...head.content, template } },
+  )
 }
 
 function strokes({ head, panel }: { head: Head; panel: string }) {
@@ -117,6 +133,66 @@ test('a known and an unknown email get the same answer at sign-in', async ({ bro
   }
 
   expect(answers[0]).toEqual(answers[1])
+})
+
+test('an expired code gets the same answer, and Send a new code gives one that works', async ({ page }) => {
+  test.skip(Boolean(process.env.E2E_BASE_URL), 'ages the code in the local database')
+  test.setTimeout(150_000)
+  const email = newEmail({ label: 'expired' })
+  emails.push(email)
+
+  await page.goto('/sign-in')
+  const requested = Date.now() - 2_000
+  await page.getByRole('textbox', { name: 'Email' }).fill(email)
+  await page.getByRole('button', { name: 'Email me a code' }).click()
+  const expired = await latestCode({ email, after: requested })
+  expireSentCode({ email })
+
+  const field = page.getByRole('textbox', { name: '6-digit code' })
+  await field.fill(expired)
+  const refused = page.waitForResponse((response) => response.url().includes('/auth/v1/verify'))
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  const answer = await (await refused).json()
+  expect(answer.code ?? answer.error_code).toBe('otp_expired')
+  await expect(page.getByRole('status')).toContainText('wrong, already used or expired')
+  await expect(field).toBeEnabled()
+
+  // The countdown from the first request has to run out first.
+  const resend = page.getByRole('button', { name: 'Send a new code', exact: true })
+  await expect(resend).toBeEnabled({ timeout: RESEND_WAIT_MS })
+  const again = Date.now() - 2_000
+  await resend.click()
+  await expect(page.getByRole('button', { name: /Send a new code in \d+s/ })).toBeDisabled()
+  const fresh = await latestCode({ email, after: again })
+
+  await field.fill(fresh)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page).toHaveURL(/\/studio$/)
+})
+
+test('a sign-in code can be pasted, with the spaces an email client may add', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const email = newEmail({ label: 'paste' })
+  emails.push(email)
+
+  await page.goto('/sign-in')
+  const requested = Date.now() - 2_000
+  await page.getByRole('textbox', { name: 'Email' }).fill(email)
+  await page.getByRole('button', { name: 'Email me a code' }).click()
+  const code = await latestCode({ email, after: requested })
+
+  const field = page.getByRole('textbox', { name: '6-digit code' })
+  await field.focus()
+  await page.evaluate(async (text) => {
+    await navigator.clipboard.writeText(text)
+    document.addEventListener('paste', () => ((window as { pasted?: boolean }).pasted = true))
+  }, ` ${code.slice(0, 3)} ${code.slice(3)} `)
+  await page.keyboard.press('ControlOrMeta+V')
+  await expect(field).toHaveValue(` ${code.slice(0, 3)} ${code.slice(3)} `)
+  expect(await page.evaluate(() => (window as { pasted?: boolean }).pasted)).toBe(true)
+
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page).toHaveURL(/\/studio$/)
 })
 
 test('an unsafe returnTo falls back to the studio and never leaves the site', async ({ page }) => {
@@ -439,4 +515,76 @@ test('the preview offers every camera side, and History says what it keeps', asy
       `@${viewport.width}`,
     ).toBeLessThanOrEqual(0)
   }
+})
+
+test('the T-shirt is the only template on offer, and the server refuses any other', async ({ page }) => {
+  const email = newEmail({ label: 'template' })
+  emails.push(email)
+  await signIn({ page, email })
+
+  const main = page.getByRole('main')
+  await expect(main.getByRole('button', { name: /^Create/ })).toHaveCount(1)
+  await expect(main.getByRole('button', { name: 'Create a T-shirt' })).toBeVisible()
+  await expect(main.getByRole('combobox')).toHaveCount(0)
+  await expect(main.getByRole('radio')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const head = await savedHead({ page })
+  expect(head.content.template).toEqual({ id: 'tee-crew-short', version: 2 })
+
+  expect(await createFromHead({ page, head, template: { id: 'gown', version: 1 } })).toMatchObject({ status: 422 })
+})
+
+test('a design on a template version this app cannot open says so, offers the way back and is left alone', async ({ page }) => {
+  const email = newEmail({ label: 'version' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const head = await savedHead({ page })
+
+  // The server checks the template id, not the version, so a design from a
+  // version this app doesn't know can really be stored.
+  const created = await createFromHead({ page, head, template: { id: 'tee-crew-short', version: 999 } })
+  expect(created.status).toBe(201)
+  await page.goto(`/create?cloud=${created.designId}&step=design`)
+  await expect(page.getByRole('alert')).toContainText('This design uses a garment template this app cannot open.')
+  await expect(page.getByRole('status').filter({ hasText: 'Saved to cloud' })).toHaveCount(0)
+
+  // The blank panels stay on screen under the message; drawing there must
+  // not reach the design.
+  await drawStroke({ page, panel: 'Front' })
+  await page.waitForTimeout(4_000)
+  const stored = await savedHead({ page })
+  expect(stored.seq).toBe(1)
+  expect(stored.content.template.version).toBe(999)
+  expect(strokes({ head: stored, panel: 'front' })).toEqual([])
+
+  await page.getByRole('alert').getByRole('link', { name: 'Back to My Studio' }).click()
+  await expect(page).toHaveURL(/\/studio$/)
+})
+
+test('publishing and the privacy page say what stays out of reach after unpublishing', async ({ page }) => {
+  expect(PUBLIC_RENDER_KINDS).toHaveLength(5)
+
+  await page.goto('/privacy')
+  const privacy = page.getByRole('main')
+  await expect(privacy).toContainText('five pictures of it')
+  await expect(privacy).toContainText('its pictures copied, by anyone with its link')
+  await expect(privacy).toContainText('A page someone already has open may keep showing its pictures')
+  await expect(privacy).toContainText("pictures someone already saved can't be taken back")
+
+  const email = newEmail({ label: 'disclose' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'share')
+  await page.goto(url.toString())
+  await page.getByRole('button', { name: 'Publish…' }).click()
+  const review = page.getByRole('group', { name: 'Publish review' })
+  await expect(review).toContainText('Anyone with the link can view its five views')
+  await expect(review).toContainText('public images can be copied')
 })

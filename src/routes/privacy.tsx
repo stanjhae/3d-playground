@@ -39,7 +39,7 @@ function Privacy() {
           <li>Images you upload into a design, checked and stored privately.</li>
           <li>Unsaved changes, kept only in this browser until they reach your account.</li>
           <li>
-            If you publish a design: the version you chose, three pictures of it, its name and the public name you
+            If you publish a design: the version you chose, five pictures of it, its name and the public name you
             entered.
           </li>
         </ul>
@@ -50,7 +50,8 @@ function Privacy() {
         <p className={textClass}>
           Only you can see your designs, history and uploads. A published design can be viewed, and its pictures
           copied, by anyone with its link. Unpublishing or deleting it stops the link and its pictures working straight
-          away. Pictures someone already saved can't be taken back.
+          away. A page someone already has open may keep showing its pictures, and pictures someone already saved can't
+          be taken back.
         </p>
       </div>
 

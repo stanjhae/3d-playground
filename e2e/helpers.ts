@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process'
+
 import { type BrowserContext, type Page, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { loadEnv } from 'vite'
@@ -59,6 +61,25 @@ export async function createExistingAccount({ email }: { email: string }) {
   if (error) {
     throw error
   }
+}
+
+/**
+ * Makes the code just sent to `email` older than its 10-minute expiry. Auth
+ * dates a code by this column. Local stack only: it reaches the database
+ * container directly.
+ */
+export function expireSentCode({ email }: { email: string }) {
+  execFileSync('docker', [
+    'exec',
+    'supabase_db_3d-playground',
+    'psql',
+    '-U',
+    'postgres',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-c',
+    `update auth.users set recovery_sent_at = now() - interval '11 minutes' where email = '${email}'`,
+  ])
 }
 
 /** Removes the e2e accounts a run created (local or a test environment). */
