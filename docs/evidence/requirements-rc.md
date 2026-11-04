@@ -122,7 +122,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Object belongs to exactly one panel | `canonical-document.test.ts` (unit) | Proven |
 | Switching panels preserves values | `editor-controls` (UI): each panel's word keeps its position and colour after switching back and forth | Proven |
 | Panel masks clip content | `render-proof.test.ts` (pixel): images and words over all four corners of all four panels leave no ink outside the panel | Proven |
-| Warning for fully off-panel object | No warning; deferred (decision 3) | Decided (2 Nov) |
+| Warning for fully off-panel object | `new-features.spec` (UI), `layer-hit.test.ts` (unit): positions keep a layer's centre on its panel, so none is ever fully off; the warning shows under 30% on the panel, and goes when moved back | Proven |
 | Handles never in published output | `export-chrome.test.ts` (pixel) | Proven |
 
 ## R06 Undo and redo

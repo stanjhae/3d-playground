@@ -11,6 +11,7 @@ import { cn } from '../../lib/cn'
 import type { LayerPatch } from '../../lib/design-commands'
 import { useEditorStore } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
+import { type PlaceableLayer, layerMostlyOffPanel } from '../../lib/layer-hit'
 import { INK_COLORS } from '../../lib/paint-colors'
 import {
   chromeKickerClass,
@@ -253,6 +254,11 @@ export function TechInspector() {
   return (
     <aside className={railFrameClass()}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.inspector}</p>
+      {layerMostlyOffPanel({ layer: { ...selected, ...pose } as PlaceableLayer }) ? (
+        <p role="status" className="font-body text-xs text-flv-accent">
+          Most of this is outside its panel, so most of it won’t show. Move it towards the middle.
+        </p>
+      ) : null}
       <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.position} X

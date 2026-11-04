@@ -110,6 +110,7 @@ function historyServer({ versions }: { versions: CanonicalDocument[] }) {
       data: {
         id: 'design-history',
         title: 'History',
+        description: '',
         visibility: 'private',
         headSeq: head,
         updatedAt: '2026-11-01T00:00:00Z',

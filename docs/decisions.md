@@ -34,7 +34,7 @@ Sign-out refuses the refresh token, and the API refuses the old access token str
 | --- | --- | --- | --- |
 | 1 | Section 9, R04 | 50 layers, 32 characters, 2,000 stroke points, 512 KB JSON | **Keep the current numbers:** 40 layers per panel (160 in total), 280 characters, 4,096 points per stroke, 2 MB JSON. Tightening could make existing designs read as over the limit. |
 | 2 | R03 | Left, right and reset camera controls | **Left and right added** to the preview's camera bar. **No separate reset:** picking a preset is the nearest thing. |
-| 3 | R05 | Warning for a fully off-panel object | **Deferred** past the alpha. There's no warning, and the object stays in the layer list. |
+| 3 | R05 | Warning for a fully off-panel object | ~~Deferred.~~ **Built on 4 Nov.** A layer's centre always stays on its panel, so none is ever fully off. The warning shows when under 30% of it is on the panel, and the layer stays in the list. |
 | 4 | R07 | Reports loading or stale until the latest revision renders | ~~Waived with #164.~~ **Built on 4 Nov**, see above. |
 | 5 | R09 | Content never silently evicted | **Pruning stays, and History says so.** The 100 latest autosaves are kept, plus every checkpoint, restore and published version. |
 | 6 | R10 | Private when a legacy field is absent | **Out of scope for the owned flow.** Cloud designs always have a visibility. The legacy look store is the closed guest surface (see 1 Nov). |
