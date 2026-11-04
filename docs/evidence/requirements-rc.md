@@ -84,7 +84,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Base colour updates intended meshes, keeps artwork | No tee-level test; the base command is covered, not colour on meshes | Gap (proof) |
 | Front, back, three-quarter presets | `requirements-proof` clicks each (UI); `capture-framing.test.ts` frames them (pixel) | Proven |
 | Left and right presets | `requirements-proof` clicks each (UI); `CameraPresetBar.test.ts` pins each to its panel's wearer side (unit); `capture-framing.test.ts` frames them (pixel) | Proven |
-| Orbit available | `requirements-proof` selects Orbit (UI); dragging not tested | Gap (proof) |
+| Orbit available | `editor-controls` (UI): in Preview, dragging on the tee turns the view and leaves the saved design unchanged, and a preset takes it back. A drag used to paint on the design outside the Design step; fixed for this row (failed before the fix) | Proven |
 | Reset available | No separate control; picking a preset is the nearest thing (decision 2) | Decided (2 Nov) |
 | Left/right wearer-labelled in tabs and mapping | `panel-orientation.test.ts`, `capture-framing.test.ts`, public alt text in `journey.spec` | Proven |
 | Template version pinned on save | `template-manifest.test.ts`, `restore-projection.test.ts` (store) | Proven |
@@ -96,12 +96,12 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
-| Add graphics and text on all panels | Store tests for all; UI for text on back and front | Gap (proof) |
+| Add graphics and text on all panels | `editor-controls` (UI): a word and a graphic on each of the four panels, saved and visible on that panel | Proven |
 | PNG and JPEG up to 10 MB and 4096×4096 accepted | `limits.spec` (UI): each type at exactly 10 MB and at 4096×4096, through the file input, saved in the design | Proven |
 | Oversized, malformed, animated, unsupported rejected with reasons | `limits.spec` (UI): one byte over, 4097 pixels, cut short, animated and SVG each show their own reason and add nothing. Every server rejection used to read "This image cannot be used"; fixed for this row | Proven |
 | Natural aspect ratio preserved | `limits.spec` (UI): the document keeps the ratio, and the atlas does too. **A square image measured 1.24:1 on the 2D panel and about 0.74:1 on the tee** (3 Nov, default view), because the panel and garment don't map the atlas evenly | Gap (behaviour) |
-| Two bundled font faces | `glyph-coverage.test.ts`, `text-faces.test.ts` (unit) | Gap (proof) |
-| Text colour | v1 command test only | Gap (proof) |
+| Two bundled font faces | `editor-controls` (UI): both load from this site and draw differently; `glyph-coverage.test.ts`, `text-faces.test.ts` (unit) | Proven |
+| Text colour | `editor-controls` (UI): the chosen colour is saved and appears on the panel | Proven |
 | Up to 32 characters | Limit stays 280 (decision 1) | Decided (2 Nov) |
 | Unsupported glyphs flagged before save | `limits.spec` (UI): the message names the character on screen, and nothing is saved | Proven |
 | Failed asset gives a placeholder, object kept | `render-parity.test.ts` (pixel) | Proven |
@@ -111,16 +111,16 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
-| Move, resize, rotate handles | `layer-hit.test.ts` (unit); handles not asserted visible | Gap (proof) |
+| Move, resize, rotate handles | `editor-controls` (UI): the resize and rotate handles are drawn in the selection colour, and dragging each handle and the body changes the saved layer | Proven |
 | Numeric controls | `transform-fields.spec` (UI) | Proven |
-| Uniform resize | `transform-parity.test.ts` (pixel) | Gap (proof) |
+| Uniform resize | `editor-controls` (UI): after a resize, the image's measured shape on the panel stays within 5% and its aspect is unchanged; `transform-parity.test.ts` (pixel) | Proven |
 | Reflected in both views, survives reload | Fields follow drag (UI), atlas parity (pixel), reopen (store); 3D never inspected | Gap (proof) |
 | Duplicate creates a new ID | `requirements-proof` (UI): two ids in the saved document | Proven |
 | Delete gives matching compositing | Document only | Gap (proof) |
 | Hide and show | `requirements-proof` (UI, data), `publish-parity.test.ts` (pixel) | Proven |
 | Reorder | `requirements-proof` (UI, data); no pixel-order test | Gap (proof) |
 | Object belongs to exactly one panel | `canonical-document.test.ts` (unit) | Proven |
-| Switching panels preserves values | Only the active-panel state is tested | Gap (proof) |
+| Switching panels preserves values | `editor-controls` (UI): each panel's word keeps its position and colour after switching back and forth | Proven |
 | Panel masks clip content | Sleeve edges (pixel); no edge test for text, images or front and back | Gap (proof) |
 | Warning for fully off-panel object | No warning; deferred (decision 3) | Decided (2 Nov) |
 | Handles never in published output | `export-chrome.test.ts` (pixel) | Proven |
@@ -133,7 +133,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | A stroke is one command | `editor-history.test.ts` (store) | Proven |
 | At least 50 commands undoable | `editor-history.test.ts` (store) | Proven |
 | Redo works, cleared by a new edit | `requirements-proof` redo button (UI), `editor-history.test.ts` (store) | Proven |
-| Colour, text, transforms, add, delete, order covered | Transforms and pattern (UI), the rest (store); layer-delete undo not found | Gap (proof) |
+| Colour, text, transforms, add, delete, order covered | `editor-controls` (UI): undo and redo of add, colour, position, word edit, order and delete, each checked in the saved design; transforms and pattern in `transform-fields`, `requirements-proof` | Proven |
 | Undo never affects publication state | `requirements-proof` (UI): undo and redo reach the saved head while the public payload stays identical | Proven |
 | Reload opens the last saved revision; stack not persisted | `journey.spec` (UI), `canonical-commands.test.ts` | Proven |
 
@@ -225,7 +225,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Brush with mouse or pointer | `panel-clear.spec`, `requirements-proof` (UI) | Proven |
-| Selectable colour, width, opacity | Setters partly tested (store) | Gap (proof) |
+| Selectable colour, width, opacity | `editor-controls` (UI): each reaches the saved stroke, and the panel shows the colour, more coverage when wider and a lighter mark when fainter. Saved values are close to the control's, not exact (0.06 saved 0.064, 0.5 saved 0.502) | Proven |
 | Stroke belongs to one layer and panel | `requirements-proof` all four panels (UI) | Proven |
 | Clipped to its panel | Sleeves (pixel); front and back edges untested | Gap (proof) |
 | Updates the 3D view | Frames requested (UI), atlas tested (pixel); ink on the garment not inspected | Gap (proof) |
