@@ -163,7 +163,7 @@ On the deployed URL:
     ```
     returns `403` with `cross_origin`.
 
-Then run the automated journey against the environment. This needs a test inbox the suite can read: point `MAILPIT_URL` at a staging mail catcher, or run only the signed-out checks.
+Then run the automated journey against the environment. This needs a way to get sign-in codes: point `MAILPIT_URL` at a staging mail catcher, or set `E2E_CODE_SOURCE=admin` and `E2E_EMAIL_DOMAIN` to read them from the auth admin API, with mail going to a domain that accepts it. The second way doesn't prove delivery, so also sign in once with a real inbox. Each sign-in sends a real email, so raise "emails sent per hour" for the run and put it back afterwards.
 
 ```bash
 E2E_BASE_URL=https://staging.<domain> SUPABASE_URL=… SUPABASE_SECRET_KEY=… pnpm e2e

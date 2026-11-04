@@ -310,8 +310,12 @@ test('long names and messages never push the page sideways (#163)', async ({ pag
   // The longest title the API accepts, with no spaces to wrap on.
   const longTitle = 'W'.repeat(80)
   const title = page.getByRole('textbox', { name: 'Design name' })
+  const renamed = page.waitForResponse(
+    (response) => /\/api\/flp\/designs\/[^/]+$/.test(new URL(response.url()).pathname) && response.request().method() === 'PATCH',
+  )
   await title.fill(longTitle)
   await title.press('Enter')
+  expect((await renamed).status()).toBe(200)
 
   const overflow = () =>
     page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
