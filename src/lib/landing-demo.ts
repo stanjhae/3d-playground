@@ -1,3 +1,4 @@
+import { CONCEPT_FEATURES, showsGarmentInStudio } from './concept-flags'
 import type { AvatarMeasurements } from './avatar-geometry'
 import {
   applyCommand,
@@ -57,7 +58,9 @@ export function listGarmentsByCategory({
   category: GarmentCategoryId
 }): GarmentEntry[] {
   return listRailGarments().filter(
-    (garment) => garmentCategory({ garmentId: garment.id }) === category,
+    (garment) =>
+      garmentCategory({ garmentId: garment.id }) === category &&
+      showsGarmentInStudio({ garmentId: garment.id }),
   )
 }
 
@@ -216,12 +219,17 @@ export function videoStillForScene({
   return CANNED_STILLS[Math.max(0, index) % CANNED_STILLS.length]!
 }
 
-export const LANDING_PATTERN_OPTIONS = [
+const ALL_LANDING_PATTERNS = [
   { id: 'solid', label: 'Solid' },
   { id: 'stripe', label: 'Stripes' },
   { id: 'check', label: 'Check' },
   { id: 'gradient', label: 'Gradient' },
 ] as const
+
+/** A saved design has no gradient, so it's a concept like the other garments. */
+export const LANDING_PATTERN_OPTIONS = CONCEPT_FEATURES
+  ? ALL_LANDING_PATTERNS
+  : ALL_LANDING_PATTERNS.filter((pattern) => pattern.id !== 'gradient')
 
 export const LANDING_TEXTURE_OPTIONS = [
   { id: 'standard', label: 'Standard' },

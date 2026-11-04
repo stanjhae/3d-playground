@@ -377,7 +377,9 @@ function SelectDemo({
   return (
     <div className="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)_16rem]">
       <aside className="flv-panel flex flex-col gap-1 p-2">
-        {GARMENT_CATEGORIES.map((entry) => (
+        {GARMENT_CATEGORIES.filter(
+          (entry) => listGarmentsByCategory({ category: entry.id }).length > 0,
+        ).map((entry) => (
           <button
             key={entry.id}
             type="button"
