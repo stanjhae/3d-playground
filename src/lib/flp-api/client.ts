@@ -38,6 +38,7 @@ export type DesignSummary = {
 }
 
 export type DesignWithHead = DesignSummary & {
+  description: string
   head: {
     seq: number
     kind: VersionResponse['kind']

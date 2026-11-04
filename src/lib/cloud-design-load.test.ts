@@ -6,6 +6,7 @@ import { useEditorStore } from './editor-store'
 import type { DesignWithHead, FlpResult } from './flp-api/client'
 
 const DESIGN: DesignWithHead = {
+  description: 'A note',
   id: 'design-1',
   title: 'Tee',
   visibility: 'private',

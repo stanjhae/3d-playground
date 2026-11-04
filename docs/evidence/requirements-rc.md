@@ -64,7 +64,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Lists and opens on a second signed-in browser | `requirements-proof` (UI): separate sign-in by code, list, open, content shown | Proven |
 | Rename accepts 1 to 80 characters | `contract.test.ts` (unit), `accessibility.spec` 80 characters (UI) | Proven |
 | Rename refuses blank and over 80 | `design-details.integration` (API), `contract.test.ts` (unit) | Proven |
-| Description accepts at most 500 | `design-details.integration` (API): exactly 500 is kept and 501 refused; DB refuses 501. **The studio has no description field,** so nobody can set one in the app | Owner |
+| Description accepts at most 500 | `new-features.spec` (UI): the studio field takes 500 and stops there, and it's there after a reload; `design-details.integration` (API): exactly 500 is kept and 501 refused; DB refuses 501 | Proven |
 | B can't read A's design: app, API, REST, storage | `isolation.spec` (UI), `routes.integration` (API), `flp_isolation.test.sql` (DB), `assets.integration` signed URL (API) | Proven |
 | B can't change A's design: API | `routes.integration` with state compared, `design-details.integration` (API) | Proven |
 | B can't change or delete directly (REST, storage) | `assets.integration` (API, B's real token): update and delete on all six tables, an insert, an RPC, and update, upsert, move, copy, download, sign and remove on A's upload and render, with A's rows and bytes compared (failed with a temporary grant and with temporary storage policies); `flp_isolation.test.sql` (DB) | Proven |
