@@ -14,7 +14,7 @@ This audit was run on rc.2, and the rows have been updated for what landed since
 | --- | --- | --- |
 | Behaviour that was wrong | Cleared public name stayed on live pages; a failed image didn't block publishing; no `noindex` | Fixed for rc.3 (#280 and the cleared-name migration) |
 | The app differs from the PRD | Input limits, cameras, off-panel warning, stale preview state, autosave pruning, takedown, and the rest of the ten | Decided by the owner on 2 Nov (`docs/decisions.md`). Left and right cameras and the History note were built |
-| Works, but thin proof | See rows marked **Gap (proof)** | The rows where a failure would lose data, leak access or show the wrong public version were closed on 3 Nov (#284, #285, this PR). Those still marked were judged lower risk |
+| Works, but thin proof | Rows that were marked **Gap (proof)** | All closed by 4 Nov (#284, #285, #293 to #296, this PR). Those PRs also fixed what they found, and left one **Gap (behaviour)**: image proportions |
 | Can't be checked locally | Deployed paths, real email, CDN, real budgets | #186 |
 
 ## How to read the status
@@ -81,7 +81,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Exactly one T-shirt template selectable | `requirements-proof` (UI): one create button, no picker, and the design is `tee-crew-short` v2; the server refuses another template id | Proven |
-| Base colour updates intended meshes, keeps artwork | No tee-level test; the base command is covered, not colour on meshes | Gap (proof) |
+| Base colour updates intended meshes, keeps artwork | `render-proof.spec` (UI, 3D pixels): the cloth changes colour, the figure's skin doesn't, and the stroke is still there | Proven |
 | Front, back, three-quarter presets | `requirements-proof` clicks each (UI); `capture-framing.test.ts` frames them (pixel) | Proven |
 | Left and right presets | `requirements-proof` clicks each (UI); `CameraPresetBar.test.ts` pins each to its panel's wearer side (unit); `capture-framing.test.ts` frames them (pixel) | Proven |
 | Orbit available | `editor-controls` (UI): in Preview, dragging on the tee turns the view and leaves the saved design unchanged, and a preset takes it back. A drag used to paint on the design outside the Design step; fixed for this row (failed before the fix) | Proven |
@@ -114,14 +114,14 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Move, resize, rotate handles | `editor-controls` (UI): the resize and rotate handles are drawn in the selection colour, and dragging each handle and the body changes the saved layer | Proven |
 | Numeric controls | `transform-fields.spec` (UI) | Proven |
 | Uniform resize | `editor-controls` (UI): after a resize, the image's measured shape on the panel stays within 5% and its aspect is unchanged; `transform-parity.test.ts` (pixel) | Proven |
-| Reflected in both views, survives reload | Fields follow drag (UI), atlas parity (pixel), reopen (store); 3D never inspected | Gap (proof) |
+| Reflected in both views, survives reload | `render-proof.spec` (UI, 3D pixels): a moved layer changes the 2D panel and the 3D view, and the 3D view matches after a reload | Proven |
 | Duplicate creates a new ID | `requirements-proof` (UI): two ids in the saved document | Proven |
-| Delete gives matching compositing | Document only | Gap (proof) |
+| Delete gives matching compositing | `render-proof.test.ts` (pixel): identical atlas to never having added the layer | Proven |
 | Hide and show | `requirements-proof` (UI, data), `publish-parity.test.ts` (pixel) | Proven |
-| Reorder | `requirements-proof` (UI, data); no pixel-order test | Gap (proof) |
+| Reorder | `render-proof.test.ts` (pixel): the other layer shows on top, and undo restores the exact atlas; `requirements-proof` (UI, data) | Proven |
 | Object belongs to exactly one panel | `canonical-document.test.ts` (unit) | Proven |
 | Switching panels preserves values | `editor-controls` (UI): each panel's word keeps its position and colour after switching back and forth | Proven |
-| Panel masks clip content | Sleeve edges (pixel); no edge test for text, images or front and back | Gap (proof) |
+| Panel masks clip content | `render-proof.test.ts` (pixel): images and words over all four corners of all four panels leave no ink outside the panel | Proven |
 | Warning for fully off-panel object | No warning; deferred (decision 3) | Decided (2 Nov) |
 | Handles never in published output | `export-chrome.test.ts` (pixel) | Proven |
 
@@ -141,11 +141,11 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
-| Preview uses the same document as 2D | `editor-canonical.test.ts`, `render-parity.test.ts` (pixel); no 2D-to-3D comparison | Gap (proof) |
+| Preview uses the same document as 2D | `render-proof.spec` (UI, 3D pixels): ink drawn on the Front and Back panels appears on that side of the tee, in its colour. Shape on the tee is the open aspect-ratio gap | Proven |
 | Reports loading or stale until the latest revision is rendered | No revision-tied state; waived with #164 (decision 4) | Decided (2 Nov) |
 | Delayed older decode can't overwrite a newer preview | `layer-images.test.ts` (unit, `loadLayerImages`): an older decode finishing last is dropped (failed with the guard removed). That the hook cancels on change is React's effect cleanup, read rather than tested | Proven |
 | Landmark and orientation fixtures on four panels | `template-manifest.test.ts`, `panel-orientation.test.ts` | Proven |
-| Transparency and transform fixtures | Stroke and layer alpha, front and back transforms (pixel); no image alpha, no sleeve transforms | Gap (proof) |
+| Transparency and transform fixtures | `render-proof.test.ts` (pixel): image alpha blends and multiplies with layer opacity; move, scale and turn on all four panels | Proven |
 | WebGL failure leaves editing and 2D save available | `failures.spec` (UI): with no WebGL and with a lost context, a stroke is drawn and reaches the cloud | Proven |
 | Missing 3D preview clearly labelled | `failures.spec` (UI): "3D preview unavailable" and "3D preview paused" show, the second clears on restore, and publishing says why it's blocked | Proven |
 
@@ -227,13 +227,13 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Brush with mouse or pointer | `panel-clear.spec`, `requirements-proof` (UI) | Proven |
 | Selectable colour, width, opacity | `editor-controls` (UI): each reaches the saved stroke, and the panel shows the colour, more coverage when wider and a lighter mark when fainter. Saved values are close to the control's, not exact (0.06 saved 0.064, 0.5 saved 0.502) | Proven |
 | Stroke belongs to one layer and panel | `requirements-proof` all four panels (UI) | Proven |
-| Clipped to its panel | Sleeves (pixel); front and back edges untested | Gap (proof) |
-| Updates the 3D view | Frames requested (UI), atlas tested (pixel); ink on the garment not inspected | Gap (proof) |
+| Clipped to its panel | `render-proof.test.ts` (pixel): a wide stroke around every edge of all four panels leaves no ink outside | Proven |
+| Updates the 3D view | `render-proof.spec` (UI, 3D pixels): no ink, then ink in the chosen colour on the tee straight after drawing, with no reload | Proven |
 | Eraser affects only the selected layer, keeps text and graphics | `erase-isolation.test.ts` (pixel), `requirements-proof` (UI) | Proven |
 | Eraser can be undone | `requirements-proof` (UI) | Proven |
 | Pointer-up is one undoable stroke | `editor-history.test.ts` (store) | Proven |
 | Switching panel or tool keeps the stroke | `requirements-proof` four panels and tool switch (UI, data) | Proven |
-| Save, restore and publication keep appearance | Round trip (pixel), restore (API); real captures never pixel-checked | Gap (proof) |
+| Save, restore and publication keep appearance | `render-proof.spec` (UI, real captures): published, changed, restored and republished, the front pictures differ on under 1% of pixels | Proven |
 | Clear requires confirmation | `panel-clear.spec` (UI); per panel, not per layer | Proven |
 
 ## R15 Four-sided editing
@@ -242,7 +242,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | --- | --- | --- |
 | Distinct marks on each panel appear only on their region | `panel-isolation.integration`, `publish-parity.test.ts` (pixel, paint only); labels in the matrix, by eye | Proven |
 | Panel switching and save preserve all four | `requirements-proof` (UI, data) | Proven |
-| Transformations preserve all four | Front and back only | Gap (proof) |
+| Transformations preserve all four | `render-proof.test.ts` (pixel): a transform on any panel leaves the other three pixel-identical and survives save and reload | Proven |
 | Restoration preserves all four | `panel-isolation.integration` (API) | Proven |
 | Wearer-side mapping explicit | `panel-orientation.test.ts`, `template-manifest.test.ts` | Proven |
 | Side views imply no extra print surface | `sleeve-view-regions.test.ts` (pixel) | Proven |
@@ -258,7 +258,7 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | No detached pieces, holes, inverted normals | Owner review; `panel-orientation.test.ts` covers outward faces only | Checked by hand |
 | Credible proportions, fabric surface, neutral lighting | Owner review | Checked by hand |
 | Artwork legible, no stretching, mirroring, bleed | Mirroring and bleed proven (pixel); legibility by owner | Checked by hand |
-| Editor and published framing consistent | `capture-framing.test.ts` (pixel); material settings not compared | Gap (proof) |
+| Editor and published framing consistent | `capture-framing.test.ts` (pixel); `render-proof.spec` (UI): the cloth's median colour in the published front picture is within 24 of 255 per channel of the editor's. A colour comparison, not a direct check of material settings | Proven |
 | Acceptance set, every preset at 1366×768, public at 390 | Matrix run on 1 Nov, stills only; repeat on the final candidate | Checked by hand |
 | CTO reviews mapping; owner reviews against mockups | Owner approval recorded; no separate CTO record or mockup comparison | Owner |
 
@@ -273,8 +273,8 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | Changing pattern preserves artwork | `requirements-proof` (UI, data) | Proven |
 | Back to Solid restores the base, keeps artwork | `requirements-proof` (UI, data) | Proven |
 | Save, reload, undo, redo reproduce it | `requirements-proof` (UI, data), `render-parity.test.ts` (pixel). **Found and fixed here:** the picker showed the wrong pattern after reload or undo | Proven |
-| Version restore and publication reproduce it | Generic restore (API); check pattern in the matrix, by eye | Gap (proof) |
-| Approved presets with stable IDs | Invalid kinds rejected (unit); IDs not pinned | Gap (proof) |
+| Version restore and publication reproduce it | `render-proof.spec` (UI, real captures): a check pattern restored from History and republished matches the first publish | Proven |
+| Approved presets with stable IDs | `render-proof.test.ts` (unit): the three kinds and the ids that select them are pinned | Proven |
 
 ## Section 9 Performance and limits
 
