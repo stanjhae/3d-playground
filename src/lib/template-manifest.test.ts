@@ -1,8 +1,7 @@
-import { readFileSync } from 'node:fs'
-
 import { type BufferGeometry, Box3, Mesh, type Object3D } from 'three'
 import { describe, expect, test } from 'vitest'
 
+import demoReset from '../../scripts/demo-reset.mjs?raw'
 import { createEmptyCanonicalDocument } from './canonical-document'
 import { DEFAULT_PANEL_UV } from './panel-uv'
 import { createTeeMesh } from './tee-geometry'
@@ -289,7 +288,5 @@ describe('@3 surface proportions match the mesh', () => {
 })
 
 test('the demo seeds its designs on the current template', () => {
-  const script = readFileSync(new URL('../../scripts/demo-reset.mjs', import.meta.url), 'utf8')
-
-  expect(script).toContain(`template: { id: '${CURRENT_TEMPLATE.id}', version: ${CURRENT_TEMPLATE.version} }`)
+  expect(demoReset).toContain(`template: { id: '${CURRENT_TEMPLATE.id}', version: ${CURRENT_TEMPLATE.version} }`)
 })
