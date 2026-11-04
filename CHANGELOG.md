@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.9.0-rc.5: alpha release candidate (4 Nov 2026)
+
+The freeze candidate. Closes the requirements audit's proof gaps, runs sign-in and the browser journey on staging for the first time, and fixes what that work found.
+
+### Added
+- **Description field** on a design (#304).
+- **Off-panel note** when under 30% of a layer is on its panel. A layer's centre always stays on the panel, so none is ever fully off (#304).
+- **Tool hints and an example design,** which opens as a private copy using only paint and text (#214, #304).
+- **The 3D preview says when it isn't the whole design,** and publishing waits for it (#164, #302).
+- **`pnpm demo:preflight`** checks everything the demo needs and says what to fix (#307).
+- **Third-party notices,** linked from the privacy page (#303).
+- **Proof tests** for the audit's remaining rows (#293 to #297, #306).
+
+### Changed
+- **Images and words keep their shape** on the 2D panel and on the tee, on new template `@3`. The panels take each region's real shape. Designs on older templates keep their look (#298).
+- **One name:** Fashion Leader Vote, including the sign-in email (#303).
+- **Only what the alpha can do is shown:** Gradient, non-tee shapes, sample stills, the sample board, cm sliders and sample sizes are hidden or gone unless concepts are on (#303).
+- **Waitlist wording** offers news, with no invite or date (#303).
+- **API functions run in Dublin,** next to the database. On staging, first public image went from 3.72 s to under 1.8 s (#306).
+- **CI** splits the browser tests into two jobs, and keeps Supabase's ports free (#300, #307).
+
+### Fixed
+- **A drag on the tee outside the Design step painted on the saved design** instead of turning the view (#296).
+- **A stroke followed at once by a reload was lost.** It's now offered back (#301).
+- **A word still waiting for its font could be missing from a published picture** (#302).
+- **Every refused upload said "This image cannot be used".** Each now gives its reason (#294).
+- **A design that couldn't open still showed panels to draw on,** and those strokes went nowhere (#301).
+- **The server stored template versions no app can open** (#301).
+- **Enter in the word box did nothing** (#305).
+- **The privacy page said three pictures,** and didn't mention pages already open (#293).
+
+### Known limits for the alpha
+- **Marks near a side seam read narrower:** the torso is an oval, so shapes are true across the central half.
+- **Brush dabs and base patterns draw in atlas proportions:** on a sleeve a dab looks about 1.7:1 tall, and a check's cells aren't square.
+- **A very large design** may not fit the copy made as the page goes away, so an instant reload can still lose its last stroke.
+- **After a full page navigation straight after a rename,** My Studio can briefly show the old name.
+- **After sign-out,** a direct database read with the old access token can still work until it expires, at most an hour (`docs/decisions.md`, 3 Nov).
+- **The remaining decisions** keep these differences from the PRD: the input limits, no reset camera, pruned autosaves, a manual takedown, two pattern colours from ground and brush, no confirmation on unpublish, and the thin side-on view (`docs/decisions.md`, 2 Nov).
+- **Stored renders** don't carry a template or compiler revision, which needs a migration (part of #179).
+- **WebKit stands in for recent Safari.** Real iPhone Safari and Android aren't tested, and editing on phones isn't claimed (#191).
+- **Local draft restore** re-imports on `@1`, so it loses the true-shape drawing. Cloud designs and their recovery aren't affected.
+- **Owner items:** rights (#138), brand and product decisions (#198), the claims questions (#199), branch protection (#192), the operator for alerts (#193), and validation and pitch work (#196, #197, #200, #201).
+
 ## 0.9.0-rc.4: alpha release candidate (3 Nov 2026)
 
 Fixes from the rc.3 demo walk and the first hosted check, plus proof for the risky gaps in the requirements audit (`docs/evidence/requirements-rc.md`). No new migrations since rc.3.

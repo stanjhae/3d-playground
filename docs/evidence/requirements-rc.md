@@ -1,14 +1,14 @@
-# Requirements audit: 0.9.0-rc.2
+# Requirements audit: 0.9.0-rc.5
 
 Every acceptance statement of PRD v1.1 R01–R11 and R13–R17, plus the limits and sharing rules in sections 9 and 10, checked against what actually proves it. R12 (AI) isn't enabled in this alpha.
 
 **Commit:** audited on `v0.9.0-rc.2` (1193fcc), plus `e2e/requirements-proof.spec.ts` and the pattern picker fix from that PR. Rows are updated through `v0.9.0-rc.4` (8da86bf).
-**Environment:** local Supabase and Mailpit. Since 3 Nov the API checks in `docs/evidence/hosted-2026-11-03.md` also pass on staging, but sign-in and the browser suite haven't run on a deployed path, which the PRD's definition of done requires (#186).
+**Environment:** local Supabase and Mailpit. Since 4 Nov sign-in and the browser suite also run on staging; see the latest `docs/evidence/hosted-*.md` (#186).
 **Audited:** 2 Nov 2026.
 
 ## Result
 
-This audit was run on rc.2, and the rows have been updated for what landed since. The release still does **not** meet the PRD's definition of done, mainly because sign-in and the browser journey haven't run on a deployed path. The core journey holds: private ownership, saving, history, publishing and revocation are all well proven.
+This audit was run on rc.2, and the rows have been updated for what landed since. Sign-in and the browser journey now run on staging, and no row is a Gap. The release still can't claim the PRD's definition of done alone: the validation sessions, rights and owner reviews are outside this audit's reach. The core journey holds: private ownership, saving, history, publishing and revocation are all well proven.
 
 | Group | What's in it | Where it went |
 | --- | --- | --- |
