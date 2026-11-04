@@ -13,12 +13,67 @@ const fileEnv = loadEnv('development', process.cwd(), ['SUPABASE_', 'MAILPIT_'])
 const env = { ...fileEnv, ...process.env }
 const MAILPIT = env.MAILPIT_URL ?? 'http://127.0.0.1:54324'
 
+/**
+ * On a deployed environment with real SMTP, set `E2E_EMAIL_DOMAIN` to a domain
+ * that accepts mail, so the app's emails don't bounce, and `E2E_CODE_SOURCE=admin`
+ * to get each code from the auth admin API instead of an inbox. That proves the
+ * sign-in journey, not that the email arrived, which `docs/deploy.md` checks by hand.
+ */
+const EMAIL_DOMAIN = env.E2E_EMAIL_DOMAIN ?? 'example.test'
+
 export function newEmail({ label }: { label: string }) {
-  return `e2e-${label}-${crypto.randomUUID().slice(0, 8)}@example.test`
+  return `e2e-${label}-${crypto.randomUUID().slice(0, 8)}@${EMAIL_DOMAIN}`
+}
+
+/**
+ * A fresh code for `email`, which replaces the one its email carried. Asking
+ * too soon would trip auth's 60 s resend rule for the app's own request, so
+ * this waits until that email has gone.
+ */
+async function adminCode({ email, after }: { email: string; after: number }) {
+  const headers = {
+    apikey: env.SUPABASE_SECRET_KEY!,
+    Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+    'Content-Type': 'application/json',
+  }
+  let sent = false
+
+  for (let attempt = 0; attempt < 60 && !sent; attempt += 1) {
+    const listed = (await (await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, { headers })).json()) as {
+      users: Array<{ email?: string; recovery_sent_at?: string; confirmation_sent_at?: string }>
+    }
+    const user = listed.users.find((entry) => entry.email === email)
+    sent = [user?.recovery_sent_at, user?.confirmation_sent_at].some((at) => at && Date.parse(at) >= after)
+
+    if (!sent) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+  }
+
+  if (!sent) {
+    throw new Error(`No sign-in email was sent to ${email}`)
+  }
+
+  const response = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ type: 'magiclink', email }),
+  })
+  const body = (await response.json()) as { email_otp?: string }
+
+  if (!response.ok || !body.email_otp) {
+    throw new Error(`No sign-in code for ${email} (${response.status})`)
+  }
+
+  return body.email_otp
 }
 
 /** The newest sign-in code Mailpit caught for `email` since `after`. */
 export async function latestCode({ email, after }: { email: string; after: number }) {
+  if (env.E2E_CODE_SOURCE === 'admin') {
+    return adminCode({ email, after })
+  }
+
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const search = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}&limit=1`)
     const { messages = [] } = (await search.json()) as { messages?: Array<{ ID: string; Created: string }> }

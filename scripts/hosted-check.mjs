@@ -640,8 +640,8 @@ await check({
       skip('set SUPABASE_SECRET_KEY so the suite can remove its e2e-*@example.test accounts')
     }
 
-    if (hosted && !env.MAILPIT_URL) {
-      skip('set MAILPIT_URL to the staging mail catcher so the suite can read sign-in codes')
+    if (hosted && !env.MAILPIT_URL && env.E2E_CODE_SOURCE !== 'admin') {
+      skip('set MAILPIT_URL to the staging mail catcher, or E2E_CODE_SOURCE=admin and E2E_EMAIL_DOMAIN, so the suite can get sign-in codes')
     }
 
     const args = ['e2e', ...flags['e2e-args'].split(/\s+/).filter(Boolean)]

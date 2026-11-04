@@ -159,8 +159,9 @@ async function openNewDesign({ page, label }: { page: Page; label: string }) {
   // Leaving with unsaved work asks first; these tests leave on purpose.
   page.context().on('page', (opened) => opened.on('dialog', (dialog) => void dialog.accept()))
   page.on('dialog', (dialog) => void dialog.accept())
-  const signedInAt = Date.now()
   await signIn({ page, email })
+  // After sign-in: asking for a code on a deployed run also restarts auth's clock.
+  const signedInAt = Date.now()
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expect(page).toHaveURL(/\/create\?cloud=[0-9a-f-]+&step=design/)
   await expectSaved({ page })
