@@ -143,19 +143,28 @@ export function useLayerImages({
 }: {
   document: DesignDocument
 }) {
-  const [images, setImages] = useState<Record<string, AtlasBuffer>>({})
+  return useLayerImageLoad({ document }).images
+}
+
+/** The decoded images, and whether the batch for this document has finished. */
+export function useLayerImageLoad({
+  document,
+}: {
+  document: DesignDocument
+}) {
+  const [loaded, setLoaded] = useState<{ key: string; images: Record<string, AtlasBuffer> }>({ key: '', images: {} })
   const srcKey = listLayerSrcs({ document }).join('|')
 
   useEffect(() => {
     const srcs = srcKey ? srcKey.split('|') : []
 
     if (srcs.length === 0) {
-      setImages({})
+      setLoaded({ key: '', images: {} })
       return
     }
 
-    return loadLayerImages({ srcs, onLoaded: setImages })
+    return loadLayerImages({ srcs, onLoaded: (images) => setLoaded({ key: srcKey, images }) })
   }, [srcKey])
 
-  return images
+  return { images: loaded.images, settled: loaded.key === srcKey }
 }
