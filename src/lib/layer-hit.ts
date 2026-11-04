@@ -3,10 +3,12 @@ import type {
   DesignLayer,
   GraphicLayer,
   PanelId,
+  PanelSurface,
   PatternLayer,
   TextLayer,
 } from './design-document'
 import { imageBox } from './canonical-document'
+import { DEFAULT_PANEL_UV } from './panel-uv'
 
 export type PlaceableLayer = GraphicLayer | TextLayer | PatternLayer
 
@@ -22,7 +24,58 @@ export type LayerEdit = {
 
 export const LAYER_ROTATE_GAP = 0.04
 
+/** Width / height of the layer's panel on the cloth; 1 on older templates. */
+export function panelTrueAspect({ layer }: { layer: PlaceableLayer }) {
+  return layer.kind === 'pattern' ? 1 : (layer.surface?.panelAspect ?? 1)
+}
+
+/**
+ * The most a newly placed image of `aspect` may scale to on a panel: at the
+ * template's starting size a square would run off a sleeve, which is short.
+ */
+export function placementScale({
+  panel,
+  scale,
+  aspect,
+  surface,
+}: {
+  panel: PanelId
+  scale: number
+  aspect: number
+  surface?: PanelSurface
+}) {
+  if (!surface) {
+    return scale
+  }
+
+  const rect = DEFAULT_PANEL_UV[panel]
+  const box = imageBox({ scale, aspect })
+  const fills = Math.max(box.width / (rect.u1 - rect.u0), (box.height * surface.stretchY) / (rect.v1 - rect.v0))
+  return fills > 0.9 ? scale * (0.9 / fills) : scale
+}
+
 export function layerBox({
+  layer,
+}: {
+  layer: PlaceableLayer
+}) {
+  const atlas = atlasBox({ layer })
+  const surface = layer.kind === 'pattern' ? undefined : layer.surface
+
+  if (!surface) {
+    return atlas
+  }
+
+  // The panel draws its atlas rectangle at the cloth's shape, so the frame
+  // follows what is drawn, in that panel's own units.
+  const rect = DEFAULT_PANEL_UV[layer.panel]
+  return {
+    width: atlas.width / (rect.u1 - rect.u0),
+    height: (atlas.height * surface.stretchY) / (rect.v1 - rect.v0),
+  }
+}
+
+function atlasBox({
   layer,
 }: {
   layer: PlaceableLayer
@@ -180,13 +233,15 @@ function toLocal({
   x: number
   y: number
 }) {
-  const dx = x - layer.x
+  // A turn is a turn on the cloth, so measure it in the panel's true shape.
+  const aspect = panelTrueAspect({ layer })
+  const dx = (x - layer.x) * aspect
   const dy = y - layer.y
   const cos = Math.cos(-layer.rotation)
   const sin = Math.sin(-layer.rotation)
 
   return {
-    x: dx * cos - dy * sin,
+    x: (dx * cos - dy * sin) / aspect,
     y: dx * sin + dy * cos,
   }
 }

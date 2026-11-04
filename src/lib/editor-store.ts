@@ -36,7 +36,9 @@ import {
 import {
   placeablePoseMatches,
   type LayerEdit,
+  placementScale,
 } from './layer-hit'
+import { panelSurface } from './template-manifest'
 import type {
   Design,
   DesignMethod,
@@ -1333,7 +1335,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             src,
             x: 0.5,
             y: 0.48,
-            scale: 0.28,
+            scale: placementScale({
+              panel: panel ?? state.paintPanel,
+              scale: 0.28,
+              aspect: 1,
+              surface: panelSurface({ template: tee.stack.document.template, panel: panel ?? state.paintPanel }),
+            }),
             rotation: 0,
             opacity: 1,
             visible: true,
@@ -1649,7 +1656,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
           opacity: 1,
           x: 0.5,
           y: 0.48,
-          scale: 0.28,
+          scale: placementScale({
+            panel: panel ?? get().paintPanel,
+            scale: 0.28,
+            aspect,
+            surface: panelSurface({ template: tee.stack.document.template, panel: panel ?? get().paintPanel }),
+          }),
           rotation: 0,
           assetId,
           aspect: Math.min(

@@ -1,4 +1,5 @@
 import type { CanonicalPanelId, TemplateId } from './canonical-document.ts'
+import type { PanelId, PanelSurface } from './design-document.ts'
 
 /**
  * Pinned garment templates (FLP F07 #142). A canonical document names
@@ -44,6 +45,8 @@ export type TemplateRegion = {
   axes: { x: string; y: string }
   landmarks: Record<string, PanelPoint>
   notes: readonly string[]
+  /** From `@3`: how this region lies on the cloth, measured from the mesh. */
+  surface?: PanelSurface
 }
 
 export type TemplateManifest = {
@@ -201,12 +204,49 @@ export const TEE_CREW_SHORT_V2: TemplateManifest = Object.freeze({
   },
 }) as TemplateManifest
 
+/**
+ * `@3` (image proportions): same geometry and mapping, but images and words
+ * are drawn true to the cloth instead of to the atlas, whose rectangles don't
+ * match the garment (a square measured 0.71:1 on the front, 1.70:1 on a
+ * sleeve), and the 2D panels take each region's real shape. Designs pinned to
+ * an older version keep the look they were made with.
+ * The torso is an oval, so the cloth runs wider at its middle than its sides;
+ * these numbers hold across the central half, where a print sits, and a mark
+ * out towards a side seam reads narrower. `template-manifest.test.ts` checks
+ * them against the mesh.
+ */
+export const TEE_CREW_SHORT_V3: TemplateManifest = Object.freeze({
+  ...TEE_CREW_SHORT_V2,
+  version: 3,
+  regions: {
+    front: { ...TEE_CREW_SHORT_V2.regions.front, surface: { stretchY: 0.879, panelAspect: 0.611 } },
+    back: { ...TEE_CREW_SHORT_V2.regions.back, surface: { stretchY: 0.871, panelAspect: 0.605 } },
+    left: { ...TEE_CREW_SHORT_V2.regions.left, surface: { stretchY: 1.701, panelAspect: 3.037 } },
+    right: { ...TEE_CREW_SHORT_V2.regions.right, surface: { stretchY: 1.701, panelAspect: 3.037 } },
+  },
+}) as TemplateManifest
+
 /** The template new designs pin. */
-export const CURRENT_TEMPLATE = TEE_CREW_SHORT_V2
+export const CURRENT_TEMPLATE = TEE_CREW_SHORT_V3
 
 /** Every version that saved designs may reference. Never remove entries. */
 const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
-  'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2 },
+  'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3 },
+}
+
+/** How a render panel lies on the cloth for a design's pinned template. */
+export function panelSurface({
+  template,
+  panel,
+}: {
+  template: { id: string; version: number }
+  panel: PanelId
+}) {
+  const resolved = resolveTemplate(template)
+
+  return resolved.ok
+    ? Object.values(resolved.manifest.regions).find((region) => region.renderPanel === panel)?.surface
+    : undefined
 }
 
 export type TemplateResolution =

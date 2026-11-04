@@ -17,6 +17,7 @@ import { useLayerImages } from '../../lib/layer-images'
 import {
   applyLayerEdit,
   canvasLayerFrame,
+  panelTrueAspect,
   hitLayerHandle,
   hitPlaceableLayer,
   placedType,
@@ -35,8 +36,18 @@ import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
 import { CANONICAL_LIMITS } from '../../lib/canonical-document'
 
-const PANEL_CANVAS_WIDTH = 360
-const PANEL_CANVAS_HEIGHT = 420
+/** Older templates draw every panel at 6:7; `@3` at each region's own shape. */
+const DEFAULT_PANEL_ASPECT = 6 / 7
+
+function panelCanvasSize({ aspect }: { aspect: number }) {
+  if (aspect === DEFAULT_PANEL_ASPECT) {
+    return { width: 360, height: 420 }
+  }
+
+  return aspect < 1
+    ? { width: Math.round(560 * aspect), height: 560 }
+    : { width: 560, height: Math.round(560 / aspect) }
+}
 /** Centres each panel at the canvas's 6:7 aspect, however its cell is shaped. */
 const PANEL_FRAME_CLASS = 'grid min-h-0 flex-1 place-items-center [container-type:size]'
 
@@ -295,6 +306,8 @@ function PaintSurface({
   const moveLayerEdit = useEditorStore((state) => state.moveLayerEdit)
   const endLayerEdit = useEditorStore((state) => state.endLayerEdit)
   const updateLayer = useEditorStore((state) => state.updateLayer)
+  const panelAspect = documentState.panelAspects?.[panel] ?? DEFAULT_PANEL_ASPECT
+  const canvasSize = panelCanvasSize({ aspect: panelAspect })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -309,7 +322,7 @@ function PaintSurface({
       panel,
       selected,
     })
-  }, [atlas, canvasRef, panel, selected])
+  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, panel, selected])
 
   function handlePointerDown({
     event,
@@ -494,6 +507,7 @@ function PaintSurface({
         return
       }
 
+      const trueAspect = panelTrueAspect({ layer: selected })
       moveLayerEdit({
         edit: {
           layerId: selected.id,
@@ -502,8 +516,8 @@ function PaintSurface({
           scale: drag.startScale,
           rotation:
             drag.startRotation +
-            Math.atan2(point.y - drag.startY, point.x - drag.startX) -
-            Math.atan2(drag.originY - drag.startY, drag.originX - drag.startX),
+            Math.atan2(point.y - drag.startY, (point.x - drag.startX) * trueAspect) -
+            Math.atan2(drag.originY - drag.startY, (drag.originX - drag.startX) * trueAspect),
         },
       })
       return
@@ -553,15 +567,16 @@ function PaintSurface({
 
   return (
     <div
-      className={cn('relative aspect-[6/7] w-[min(100cqw,calc(100cqh*6/7))] border bg-flv-soft', {
+      className={cn('relative border bg-flv-soft', {
         'border-flv-accent': active,
         'border-flv-line': !active,
       })}
+      style={{ aspectRatio: panelAspect, width: `min(100cqw, calc(100cqh * ${panelAspect}))` }}
     >
       <canvas
         ref={canvasRef}
-        width={PANEL_CANVAS_WIDTH}
-        height={PANEL_CANVAS_HEIGHT}
+        width={canvasSize.width}
+        height={canvasSize.height}
         role="img"
         aria-label={`${HOUSE_COPY.designPanel} ${label}${active ? ', active' : ''}`}
         // A tab stop per panel (#163): focusing one makes it the panel a
@@ -593,8 +608,8 @@ function PaintSurface({
       {editingWord && selected?.kind === 'text' && selected.panel === panel ? (
         <WordOnCloth
           layer={selected}
-          canvasWidth={PANEL_CANVAS_WIDTH}
-          canvasHeight={PANEL_CANVAS_HEIGHT}
+          canvasWidth={canvasSize.width}
+          canvasHeight={canvasSize.height}
           draftWord={draftWord}
           setDraftWord={setDraftWord}
           editStartContent={editStartContentRef.current}

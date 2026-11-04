@@ -79,6 +79,13 @@ export type PaintLayer = {
   opacity?: number
 }
 
+/**
+ * How a panel's atlas rectangle lies on the garment (template @3 and later).
+ * `stretchY` is the atlas height that looks as long on the cloth as one unit
+ * of atlas width; `panelAspect` is the panel's true width / height.
+ */
+export type PanelSurface = { stretchY: number; panelAspect: number }
+
 export type GraphicLayer = {
   id: string
   kind: 'graphic'
@@ -94,6 +101,8 @@ export type GraphicLayer = {
   label?: string
   /** Natural width / height of an uploaded image; absent means square. */
   aspect?: number
+  /** Absent on older templates, which draw in atlas proportions. */
+  surface?: PanelSurface
   /**
    * The asset has no bytes to draw (`src` is empty): the atlas draws a
    * hatched placeholder at the layer's box instead (#154).
@@ -115,6 +124,8 @@ export type TextLayer = {
   opacity: number
   visible: boolean
   label?: string
+  /** Absent on older templates, which draw in atlas proportions. */
+  surface?: PanelSurface
 }
 
 export type ArtLayer = {
@@ -166,6 +177,8 @@ export type DesignDocument = {
   structural: StructuralParams
   overrides: MaterialOverride[]
   layers: DesignLayer[]
+  /** True width / height of each panel; absent on older templates (6:7). */
+  panelAspects?: Partial<Record<PanelId, number>>
 }
 
 const PANEL_ID_SET = new Set<string>(PANEL_IDS)

@@ -808,7 +808,7 @@ export function createEmptyCanonicalDocument(): CanonicalDocument {
   return {
     schemaVersion: CANONICAL_SCHEMA_VERSION,
     // CURRENT_TEMPLATE in template-manifest.ts (kept literal to avoid a cycle).
-    template: { id: 'tee-crew-short', version: 2 },
+    template: { id: 'tee-crew-short', version: 3 },
     // The template's own material colour, so an untouched tee renders as before.
     base: { kind: 'solid', color: '#f3efe6' },
     panels: {

@@ -3,6 +3,7 @@ import { type Page, expect, test } from '@playwright/test'
 import { type PlaceableLayer, canvasLayerFrame } from '../src/lib/layer-hit'
 import { INK_COLORS } from '../src/lib/paint-colors'
 import { SELECTION_COLOR } from '../src/lib/selection-chrome'
+import { CURRENT_TEMPLATE } from '../src/lib/template-manifest'
 import { deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
 
 /**
@@ -107,7 +108,8 @@ async function handles({ page, layer, panel = 'Front' }: { page: Page; layer: La
   const size = await locator.evaluate((node) => ({ width: (node as HTMLCanvasElement).width, height: (node as HTMLCanvasElement).height }))
   // The panel draws an uploaded image as the editor's own "graphic" kind.
   const kind = layer.kind === 'image' ? 'graphic' : layer.kind
-  const frame = canvasLayerFrame({ layer: { ...layer, kind, panel: PANEL_KEY[panel] } as unknown as PlaceableLayer, ...size })
+  const surface = Object.values(CURRENT_TEMPLATE.regions).find((region) => region.renderPanel === PANEL_KEY[panel])!.surface
+  const frame = canvasLayerFrame({ layer: { ...layer, kind, surface, panel: PANEL_KEY[panel] } as unknown as PlaceableLayer, ...size })
   const pixels = {
     body: { x: frame.x, y: frame.y },
     scale: { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 },

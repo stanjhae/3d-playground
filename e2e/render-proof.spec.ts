@@ -260,3 +260,125 @@ test('a checked design keeps its look through save, restore and publishing, and 
   const second = await publishedFront({ page, slug })
   expect(await difference({ page, one: first.picture, two: second.picture, type: first.type })).toBeLessThan(0.01)
 })
+
+/** A real square PNG of one bright colour, from the browser. */
+async function squarePng({ page }: { page: Page }) {
+  const base64 = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 200
+    canvas.height = 200
+    const context = canvas.getContext('2d')!
+    context.fillStyle = '#ff00ff'
+    context.fillRect(0, 0, 200, 200)
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob((made) => resolve(made!), 'image/png'))
+    return btoa(Array.from(new Uint8Array(await blob.arrayBuffer()), (byte) => String.fromCharCode(byte)).join(''))
+  })
+  return Buffer.from(base64, 'base64')
+}
+
+/** Width / height of the magenta area in a picture; the cloth's shading dims it. */
+function magentaShape({ page, picture }: { page: Page; picture: string }) {
+  return page.evaluate(async (data) => {
+    const image = new Image()
+    image.src = `data:image/png;base64,${data}`
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+    let [left, right, top, bottom] = [canvas.width, -1, canvas.height, -1]
+
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        const at = (y * canvas.width + x) * 4
+
+        if (pixels[at]! > pixels[at + 1]! + 70 && pixels[at + 2]! > pixels[at + 1]! + 70) {
+          left = Math.min(left, x)
+          right = Math.max(right, x)
+          top = Math.min(top, y)
+          bottom = Math.max(bottom, y)
+        }
+      }
+    }
+
+    return { width: right - left + 1, height: bottom - top + 1 }
+  }, picture)
+}
+
+test('a square image looks square on the 2D panel and on the tee, and each panel has its real shape', async ({ page }) => {
+  test.setTimeout(180_000)
+  await openDesign({ page, label: 'square' })
+
+  const shape = async (panel: 'Front' | 'Back' | "Wearer's right" | "Wearer's left") =>
+    (await panelCanvas({ page, panel }).boundingBox())!
+  const front = await shape('Front')
+  const sleeve = await shape("Wearer's right")
+  expect(front.width / front.height).toBeCloseTo(0.611, 1)
+  expect(sleeve.width / sleeve.height).toBeCloseTo(3.037, 0)
+
+  await page.getByRole('radio', { name: 'Tech' }).click()
+  await page.locator('input[type="file"]').setInputFiles({ name: 'square.png', mimeType: 'image/png', buffer: await squarePng({ page }) })
+  await expect.poll(async () => ((await savedHead({ page })).content.panels.front!.layers.filter((layer) => layer.kind === 'image')).length, { timeout: 30_000 }).toBe(1)
+  await expectSaved({ page })
+
+  const onPanel = await panelCanvas({ page, panel: 'Front' }).evaluate((node) => {
+    const canvas = node as HTMLCanvasElement
+    const { data, width, height } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+    let [left, right, top, bottom] = [width, -1, height, -1]
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const at = (y * width + x) * 4
+
+        if (data[at]! > 240 && data[at + 1]! < 15 && data[at + 2]! > 240) {
+          left = Math.min(left, x)
+          right = Math.max(right, x)
+          top = Math.min(top, y)
+          bottom = Math.max(bottom, y)
+        }
+      }
+    }
+
+    return { width: right - left + 1, height: bottom - top + 1 }
+  })
+  expect(onPanel.width / onPanel.height).toBeGreaterThan(0.93)
+  expect(onPanel.width / onPanel.height).toBeLessThan(1.07)
+
+  await goToStep({ page, step: 'preview' })
+  const onTee = await magentaShape({ page, picture: await viewFrom({ page, side: 'Front' }) })
+  console.log(`[square] panel ${onPanel.width}x${onPanel.height}, tee ${onTee.width}x${onTee.height}`)
+  // Measured from the front camera, with the cloth curving away at the sides.
+  expect(onTee.width / onTee.height).toBeGreaterThan(0.85)
+  expect(onTee.width / onTee.height).toBeLessThan(1.15)
+})
+
+test('a design saved on the older template keeps its look and its 6:7 panels', async ({ page }) => {
+  test.setTimeout(120_000)
+  await openDesign({ page, label: 'oldtemplate' })
+  const head = await savedHead({ page })
+  const created = await page.evaluate(async (content) => {
+    const token = JSON.parse(localStorage.getItem('flp-auth')!).access_token
+    const response = await fetch('/api/flp/designs', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mutationKey: crypto.randomUUID(),
+        title: 'Old template',
+        content: { ...content, template: { id: 'tee-crew-short', version: 2 } },
+      }),
+    })
+    return (await response.json()).designId as string
+  }, head.content)
+
+  await page.goto(`/create?cloud=${created}&step=design`)
+  await expectSaved({ page })
+  const box = (await panelCanvas({ page, panel: "Wearer's right" }).boundingBox())!
+  expect(box.width / box.height).toBeCloseTo(6 / 7, 1)
+
+  await drawStroke({ page, panel: 'Front' })
+  await expectSaved({ page })
+  const saved = await savedHead({ page })
+  expect((saved.content as unknown as { template: { version: number } }).template.version).toBe(2)
+})
