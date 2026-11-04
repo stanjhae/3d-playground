@@ -13,6 +13,7 @@ import {
   startClothPaint,
 } from '../../lib/cloth-pointer'
 import { useEditorStore } from '../../lib/editor-store'
+import { showsPaintPane } from '../../lib/create-steps'
 import { garmentCanPaint, partLabel } from '../../lib/garment-parts'
 import {
   applyLayerEdit,
@@ -48,6 +49,7 @@ export function SelectableMesh({
   const mode = useEditorStore((state) => state.mode)
   const selectedMeshName = useEditorStore((state) => state.selectedMeshName)
   const garmentId = useEditorStore((state) => state.garmentId)
+  const createStep = useEditorStore((state) => state.createStep)
   const documentState = useEditorStore((state) => state.document)
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
   const paintTool = useEditorStore((state) => state.paintTool)
@@ -70,8 +72,11 @@ export function SelectableMesh({
   const selectMesh = useEditorStore((state) => state.selectMesh)
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
   const [hovered, setHovered] = useState(false)
-  const canPick = picking && mode === 'design'
-  const canPaint = canPick && garmentCanPaint({ garmentId })
+  const paintable = garmentCanPaint({ garmentId })
+  // A paintable garment is edited only on the Design step; on the others a
+  // drag on it turns the view instead of adding ink.
+  const canPick = picking && mode === 'design' && (!paintable || showsPaintPane({ step: createStep }))
+  const canPaint = canPick && paintable
   const showCaption = canPick && hovered && !name.includes('-') && !canPaint
   const liveDocument = applyLayerEdit({
     document: documentState,
