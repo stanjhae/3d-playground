@@ -62,32 +62,10 @@ jobs:
   database:
     name: Database and API integration
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 12.15.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: pnpm install --frozen-lockfile
-      # Only the services the API and tests use: Postgres, auth, REST,
-      # storage, the gateway and Mailpit.
-      # Docker on the runner sometimes fails to bring up a container, so retry
-      # this step alone, clearing any half-started stack between tries.
-      - name: Start Supabase
-        run: |
-          for try in 1 2 3; do
-            supabase start -x realtime,studio,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta && exit 0
-            echo "::warning::supabase start failed on try $try of 3"
-            if [ "$try" -lt 3 ]; then supabase stop --no-backup || true; fi
-          done
-          exit 1
+      - uses: ./.github/actions/start-supabase
       - run: supabase test db
       - name: API integration tests
         run: |
@@ -96,18 +74,31 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" \
           SUPABASE_SECRET_KEY="$SECRET_KEY" \
           pnpm test:integration
-      # Browser journey against the same stack (Q04 #189).
+
+  # Browser journey (Q04 #189), split in two so it stays well inside the
+  # limit as tests are added. Each part has its own Supabase stack.
+  browser:
+    name: Browser journey tests (${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/start-supabase
       - run: pnpm exec playwright install --with-deps chromium
       - name: Browser journey tests
         run: |
           eval "$(supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY|SECRET_KEY|MAILPIT_URL)=')"
           export SUPABASE_URL="$API_URL" SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" SUPABASE_SECRET_KEY="$SECRET_KEY"
           export VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" MAILPIT_URL="$MAILPIT_URL"
-          pnpm e2e
+          pnpm e2e --shard=${{ matrix.shard }}/2
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
