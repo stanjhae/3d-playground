@@ -27,7 +27,7 @@ Run it on the exact commit to be tagged, in the main checkout.
 - [ ] `supabase test db`: **Result: PASS**
 - [ ] `pnpm test:integration`
 - [ ] `E2E_PORT=5299 pnpm e2e`: everything passes (keep the machine otherwise idle; a load above about 30 makes browser runs meaningless)
-- [ ] CI is green on the commit (both jobs)
+- [ ] CI is green on the commit (all jobs)
 
 **Data and migrations**
 - [ ] `supabase migration list --local` matches `supabase/migrations/`, and the list is recorded in the release notes
