@@ -3,9 +3,9 @@ import { expect, test } from '@playwright/test'
 import { deleteAccounts, drawStroke, expectSaved, newEmail, signIn } from './helpers'
 
 /**
- * Release-gate measurements (S04 #173, P04 #182). Not part of the pass/fail
+ * Release-gate measurements (S04 #173, P04 #182). Not part of the everyday
  * suite: run with `MEASURE=1 pnpm e2e measure`, then record the printed
- * numbers in docs/baseline.md.
+ * numbers in docs/baseline.md. It fails above the PRD's targets.
  */
 
 test.skip(!process.env.MEASURE, 'measurement run only (MEASURE=1)')
@@ -119,4 +119,11 @@ test('save acknowledgement and public first image', async ({ page, browser }) =>
     firstPublicImageFast3gMs: firstImage,
   }
   console.log('MEASURE', JSON.stringify(result))
+
+  // The PRD's targets (section 9).
+  expect(result.saveAckMs.p95, 'save acknowledgement p95').toBeLessThanOrEqual(2_000)
+
+  for (const [name, ms] of Object.entries(firstImage)) {
+    expect(ms, `first public image @${name}`).toBeLessThanOrEqual(3_000)
+  }
 })

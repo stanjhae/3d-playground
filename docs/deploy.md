@@ -102,6 +102,8 @@ Check it by signing in once on the deployed site with a real inbox. The email mu
 
 ## 3. Vercel environment variables
 
+The functions run in `dub1` (`vercel.json`), next to the Supabase project in `eu-west-1`. A project in another region should change this: every API call makes several database calls, so a long way between them adds up (found on 4 Nov, when they ran in `iad1`).
+
 Set these per environment (Preview = staging, Production = production). **Never prefix a secret with `VITE_`**: every `VITE_` value ships to the browser.
 
 | Variable | Exposure | Value |
