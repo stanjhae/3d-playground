@@ -93,4 +93,4 @@ The atlas's rectangles don't match the garment. A square in the atlas measured 0
 
 **Existing documents.** A design pinned to `@1` or `@2` has no `surface`, so it draws exactly as before, with 6:7 panels. Only new designs pin `@3`. Published pictures are stored images and don't change.
 
-**Limits.** The torso is an oval, so the cloth runs wider at its middle than its sides. The front and back numbers hold across the central half, where a print sits, and a mark towards a side seam reads narrower. Brush dots and base patterns still draw in atlas proportions: a dab is slightly oval on the cloth, and a check's cells aren't square.
+**Limits.** The torso is an oval, so the cloth runs wider at its middle than its sides. The front and back numbers hold across the central half, where a print sits, and a mark towards a side seam reads narrower. Brush dots and base patterns still draw in atlas proportions: a dab is slightly oval on the cloth, and a check's cells aren't square. Making them true to the cloth changes what a local draft restore draws, because a draft re-imports on `@1`, so that stays a limit for the alpha.
