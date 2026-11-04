@@ -287,10 +287,12 @@ test('switching panels keeps each layer, its values and the chosen tool settings
   const rail = page.getByRole('complementary', { name: 'On the cloth' })
   await rail.getByRole('button', { name: /FRONT/ }).first().click()
   await expect(x).toHaveValue('70')
+  await expect(panelCanvas({ page, panel: 'Front' })).toHaveAttribute('aria-label', /, active$/)
   await expect(page.getByRole('button', { name: 'Oxblood' }).last()).toHaveAttribute('aria-pressed', 'true')
 
   await rail.getByRole('button', { name: /BACK/ }).first().click()
   await expect(x).toHaveValue('30')
+  await expect(panelCanvas({ page, panel: 'Back' })).toHaveAttribute('aria-label', /, active$/)
 
   const head = await savedHead({ page })
   expect(head.content.panels.front!.layers.find((layer) => layer.kind === 'text')).toMatchObject({ content: 'FRONT', color: color('Oxblood') })
@@ -343,7 +345,7 @@ test('undo and redo cover add, colour, word, position, order and delete', async 
   const editor = page.locator('input:focus')
   await expect(editor).toHaveValue('ONE')
   await editor.fill('EDITED')
-  await editor.blur()
+  await editor.press('Enter')
   await saved({ read: order }).toBe('EDITED')
   await undo.click()
   await saved({ read: order }).toBe('ONE')

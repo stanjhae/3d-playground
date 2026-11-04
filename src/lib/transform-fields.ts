@@ -57,7 +57,7 @@ export const TRANSFORM_FIELDS: Record<TransformKey, TransformField> = {
   scale: {
     key: 'scale',
     name: HOUSE_COPY.size,
-    label: `${HOUSE_COPY.size}, percent of panel width`,
+    label: `${HOUSE_COPY.size}, percent`,
     unit: '%',
     min: 5,
     max: 80,

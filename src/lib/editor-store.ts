@@ -1385,7 +1385,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     })
   },
   selectLayer: ({ selectedLayerId }) => {
-    set({ selectedLayerId, activeLayerEdit: null })
+    set((state) => {
+      // The panel follows its layer, so a typed word lands beside it.
+      const layer = state.document.layers.find((entry) => entry.id === selectedLayerId)
+      const panel = layer && 'panel' in layer ? layer.panel : state.paintPanel
+      return { selectedLayerId, activeLayerEdit: null, paintPanel: panel }
+    })
   },
   startLayerEdit: ({ edit }) => {
     set({ selectedLayerId: edit.layerId, activeLayerEdit: edit })

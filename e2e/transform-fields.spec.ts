@@ -30,7 +30,7 @@ test('typed, stepped and dragged placement are one undo step each', async ({ pag
   const y = page.getByRole('textbox', { name: 'Place Y, percent of panel' })
   const xSlider = page.getByRole('slider', { name: 'Place X', exact: true })
   await expect(x).toHaveValue('50')
-  await expect(page.getByRole('textbox', { name: 'Size, percent of panel width' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Size, percent' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Turn, degrees' })).toHaveValue('0')
 
   // Enter commits, and the slider follows.
