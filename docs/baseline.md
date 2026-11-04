@@ -137,6 +137,9 @@ MEASURE=1 E2E_BASE_URL=http://localhost:5399 pnpm exec playwright test measure
 | First public image, Fast 3G, 1366×768 | 4.1 s → **2.13 s** | ≤ 3 s | **Met** |
 | First public image with five views (#179), Fast 3G, 390×844 | **2.14 s** | ≤ 3 s | **Met** (1 Nov) |
 | First public image with five views (#179), Fast 3G, 1366×768 | **2.13 s** | ≤ 3 s | **Met** (1 Nov) |
+| On staging, functions in Virginia: save p95, first image at 390×844 and 1366×768 | 1.67 s, **3.09 s, 3.72 s** | ≤ 2 s, ≤ 3 s | **First image missed** (4 Nov) |
+| On staging, functions in Dublin, two runs: save p95 | **0.88 s, 0.58 s** | ≤ 2 s | **Met** (4 Nov) |
+| On staging, functions in Dublin, two runs: first image, 390×844 and 1366×768 | **1.70 to 1.78 s** | ≤ 3 s | **Met** (4 Nov) |
 | ↳ after the sleeve views were re-aimed at their sleeves, 390×844 / 1366×768 | **2.15 s** / **2.12 s** | ≤ 3 s | **Met** (1 Nov) |
 | 0.9.0-rc.2 (e67e6c3), five views, 390×844 / 1366×768 | **2.15 s** / **2.13 s** | ≤ 3 s | **Met** (1 Nov) |
 | 0.9.0-rc.2 as tagged (1193fcc), five views, 390×844 / 1366×768 | **2.14 s** / **2.14 s** | ≤ 3 s | **Met** (2 Nov) |

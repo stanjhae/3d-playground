@@ -3,6 +3,12 @@ description: Installs dependencies and starts only the Supabase services the API
 runs:
   using: composite
   steps:
+    # Supabase's ports (54321 and up) sit in Linux's range for outgoing
+    # connections, so any process could already hold one, and retrying on the
+    # same machine doesn't help. Move that range clear before anything runs.
+    - name: Keep Supabase's ports free
+      shell: bash
+      run: sudo sysctl -w net.ipv4.ip_local_port_range="60000 65000"
     - uses: pnpm/action-setup@v4
       with:
         version: 12.15.0

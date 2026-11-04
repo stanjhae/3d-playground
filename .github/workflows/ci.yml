@@ -80,7 +80,8 @@ jobs:
   browser:
     name: Browser journey tests (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Setup alone can take 7 minutes when the runner's packages are slow.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
