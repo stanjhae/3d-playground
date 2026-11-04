@@ -11,6 +11,7 @@ import { LandingSoon } from '../components/landing/LandingSoon'
 import { LandingStageHost } from '../components/landing/LandingStageHost'
 import { LandingStageRail } from '../components/landing/LandingStageRail'
 import { LandingWaitlist } from '../components/landing/LandingWaitlist'
+import { CONCEPT_FEATURES } from '../lib/concept-flags'
 import { trackAssumption } from '../lib/assumption-events'
 import type { AvatarMeasurements } from '../lib/avatar-geometry'
 import { DEFAULT_AVATAR_MEASUREMENTS } from '../lib/avatars'
@@ -83,7 +84,7 @@ function LandingPage() {
         return
       }
 
-      if (hash === '#community') {
+      if (hash === '#community' && CONCEPT_FEATURES) {
         setActiveStage('vote')
         return
       }
@@ -218,7 +219,7 @@ function LandingPage() {
           setCameraView(next)
         }}
       />
-      <LandingSoon />
+      {CONCEPT_FEATURES ? <LandingSoon /> : null}
       <LandingWaitlist />
     </div>
   )

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import type { AvatarMeasurements } from '../../lib/avatar-geometry'
-import { isCanonicalGarment } from '../../lib/concept-flags'
+import { CONCEPT_FEATURES, isCanonicalGarment } from '../../lib/concept-flags'
 import type { DesignDocument, HemId, NeckId, SleeveId } from '../../lib/design-document'
 import { listDesigns } from '../../lib/designs-api'
 import type { GarmentId, Design } from '../../lib/design-schema'
@@ -35,7 +35,7 @@ import {
 import { writeLandingHandoff } from '../../lib/landing-handoff'
 import {
   isCreateLandingStage,
-  LANDING_STAGE_IDS,
+  VISIBLE_LANDING_STAGE_IDS,
   landingStageChip,
   landingStageLead,
   landingStageTitle,
@@ -164,7 +164,7 @@ export function LandingStageHost({
       className="flex flex-col gap-5 border-b border-flv-line px-6 py-10 sm:px-10"
     >
       <div className="flex flex-wrap gap-2">
-        {LANDING_STAGE_IDS.map((stage) => (
+        {VISIBLE_LANDING_STAGE_IDS.map((stage) => (
           <button
             key={stage}
             type="button"
@@ -332,7 +332,7 @@ export function LandingStageHost({
             }}
           />
         ) : null}
-        {activeStage === 'vote' ? <CommunityDemo looks={boardLooks} /> : null}
+        {activeStage === 'vote' && CONCEPT_FEATURES ? <CommunityDemo looks={boardLooks} /> : null}
       </div>
       {isCreateLandingStage(activeStage) ? (
         <Link
@@ -1210,6 +1210,7 @@ function ShareDemo({
 
   return (
     <div className="flv-panel grid gap-4 p-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      {CONCEPT_FEATURES ? (
       <div className="flex flex-col gap-3">
         <div className="overflow-hidden rounded-xl border border-flv-line">
           <img
@@ -1245,6 +1246,7 @@ function ShareDemo({
           ))}
         </div>
       </div>
+      ) : null}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <ConceptPreviewBadge className="w-fit" />
