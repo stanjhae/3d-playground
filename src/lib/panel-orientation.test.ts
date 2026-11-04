@@ -273,9 +273,9 @@ describe('back panel projection by template version', () => {
 })
 
 describe('editor input on the mirrored back', () => {
-  test('render-space input round-trips through canonical (@2)', () => {
+  test('render-space input round-trips through canonical (@2 and later)', () => {
     let engine = createTeeEngine()
-    expect(engine.stack.document.template.version).toBe(2)
+    expect(engine.stack.document.template.version).toBeGreaterThanOrEqual(2)
 
     const run = (command: Parameters<typeof translateCommand>[0]['command']) => {
       const translated = translateCommand({ engine, command })

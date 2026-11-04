@@ -4,7 +4,7 @@ import {
   CANONICAL_PANEL_IDS,
 } from './canonical-document.ts'
 import type { DesignDocument, DesignLayer, PanelId } from './design-document.ts'
-import { CURRENT_TEMPLATE, resolveTemplate } from './template-manifest.ts'
+import { CURRENT_TEMPLATE, type TemplateManifest, resolveTemplate } from './template-manifest.ts'
 
 /**
  * The single interim conversion (FLP E01 #152): canonical v2 → the v1
@@ -102,6 +102,13 @@ function strokeColor({ color, opacity }: { color: string; opacity: number }) {
   return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`
 }
 
+function panelAspects({ manifest }: { manifest: TemplateManifest }) {
+  const regions = Object.values(manifest.regions)
+  return regions.every((region) => region.surface)
+    ? { panelAspects: Object.fromEntries(regions.map((region) => [region.renderPanel, region.surface!.panelAspect])) }
+    : {}
+}
+
 export function toRenderDocument({
   document,
   assetSources = {},
@@ -143,6 +150,8 @@ export function toRenderDocument({
   for (const panel of CANONICAL_PANEL_IDS) {
     const render = RENDER_BY_CANONICAL[panel]
     const mirrored = manifest.regions[panel].renderMirrorX
+    const regionSurface = manifest.regions[panel].surface
+    const surface = regionSurface ? { surface: regionSurface } : {}
     const place = ({ x, rotation }: { x: number; rotation: number }) =>
       mirrorToRender({ mirrored, value: { x, rotation } })
 
@@ -196,6 +205,7 @@ export function toRenderDocument({
           opacity: layer.opacity,
           visible: layer.visible,
           ...(layer.aspect !== 1 ? { aspect: layer.aspect } : {}),
+          ...surface,
           ...label,
         })
         continue
@@ -213,6 +223,7 @@ export function toRenderDocument({
         scale: layer.scale,
         opacity: layer.opacity,
         visible: layer.visible,
+        ...surface,
         ...label,
       })
     }
@@ -227,6 +238,7 @@ export function toRenderDocument({
         base.kind === 'solid' && baseColor === manifest.material.color
           ? []
           : [{ meshName: 'body', color: baseColor, roughness: 0.86, metalness: 0 }],
+      ...panelAspects({ manifest }),
       layers: layers.length > 0 ? layers : [{ id: 'paint-empty', kind: 'paint', visible: true, strokes: [] }],
     },
     missingAssets,

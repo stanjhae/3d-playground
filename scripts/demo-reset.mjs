@@ -141,7 +141,7 @@ function apiClient({ token }) {
 function document({ base, front = [], back = [], left = [], right = [] }) {
   return {
     schemaVersion: 2,
-    template: { id: 'tee-crew-short', version: 2 },
+    template: { id: 'tee-crew-short', version: 3 },
     base,
     panels: { front: { layers: front }, back: { layers: back }, left: { layers: left }, right: { layers: right } },
   }

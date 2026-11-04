@@ -107,8 +107,10 @@ function runBoth({ extraV1, extraTee }: { extraV1?: (doc: DesignDocument) => Des
 
   const v1 = extraV1 ? extraV1(legacy.document) : legacy.document
   const tee = extraTee ? extraTee(engine) : engine
+  // v1 drew in atlas proportions, as a design pinned to @2 still does.
+  const pinned = { ...tee, stack: { ...tee.stack, document: { ...tee.stack.document, template: { id: 'tee-crew-short' as const, version: 2 } } } }
 
-  return { before: render({ document: v1 }), after: render({ document: teeRenderDocument({ engine: tee }) }) }
+  return { before: render({ document: v1 }), after: render({ document: teeRenderDocument({ engine: pinned }) }) }
 }
 
 describe('v1 → v2 store switch keeps the atlas pixel-identical', () => {

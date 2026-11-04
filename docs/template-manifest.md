@@ -74,3 +74,23 @@ Studio views and published stills share one camera setup, `src/lib/studio-camera
 - Any change to geometry, UVs or structure means **a new version**, plus a new archive entry. The GLB hash test fails until the version is bumped.
 - Old versions stay in `TEMPLATE_ARCHIVE` for good, so saved designs keep opening. The scene builds only the newest geometry, and each archived version says how its panels project onto that geometry (`renderMirrorX`), so a design's stored content is never rewritten.
 - A design pinned to a missing version shows the `unsupported-version` message; it is never silently opened on newer geometry.
+
+### Image proportions: `@2` → `@3`
+
+The atlas's rectangles don't match the garment. A square in the atlas measured 0.71:1 across the whole front and 1.70:1 on a sleeve, and every 2D panel was a further 6:7. So an uploaded square came out about 1.24:1 on the panel and 0.74:1 on the tee.
+
+`@3` keeps the geometry, UVs and canonical coordinates, and adds a `surface` to each region, measured from the mesh:
+
+| Region | `stretchY` | True panel shape (width / height) |
+| --- | --- | --- |
+| Front | 0.879 | 0.611 |
+| Back | 0.871 | 0.605 |
+| Sleeves | 1.701 | 3.037 |
+
+- **Images and words** are drawn with `stretchY` applied after their turn, so they keep their shape at any angle. `scale` still means the same width in atlas units.
+- **The 2D panels** take the true shape, so what you see while editing matches the cloth. The selection frame and hit areas follow what's drawn.
+- **A new image** starts small enough to fit, because a sleeve is short.
+
+**Existing documents.** A design pinned to `@1` or `@2` has no `surface`, so it draws exactly as before, with 6:7 panels. Only new designs pin `@3`. Published pictures are stored images and don't change.
+
+**Limits.** The torso is an oval, so the cloth runs wider at its middle than its sides. The front and back numbers hold across the central half, where a print sits, and a mark towards a side seam reads narrower. Brush dots and base patterns still draw in atlas proportions: a dab is slightly oval on the cloth, and a check's cells aren't square.

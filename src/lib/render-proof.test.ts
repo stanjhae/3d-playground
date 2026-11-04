@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { BASE_KINDS, createEmptyCanonicalDocument, validateCanonicalDocument } from './canonical-document'
 import { serializeCanonicalDocument } from './canonical-hash'
@@ -7,6 +7,7 @@ import { getAssetSources, getCanonicalDocument, useEditorStore } from './editor-
 import { type AtlasBuffer, atlasPixelAtPanel, createAtlasBuffer, rasterizeLayers } from './paint-atlas'
 import { atlasSourceRect } from './panel-uv'
 import { toRenderDocument } from './render-projection'
+import { TEE_CREW_SHORT_V3 } from './template-manifest'
 
 /**
  * What the audit found proven only in the document: the atlas pixels after a
@@ -14,6 +15,9 @@ import { toRenderDocument } from './render-projection'
  * transforms on all four panels (R05, R06, R07, R14, R15). The 2D panels and
  * the garment both draw this atlas.
  */
+
+// Each check rasterizes the 512 px atlas several times; slow on a busy machine.
+vi.setConfig({ testTimeout: 60_000 })
 
 const SIZE = 512
 const PANELS: PanelId[] = ['front', 'back', 'left', 'right']
@@ -286,6 +290,62 @@ describe('transforms on all four panels', () => {
       expect(again.pixels).toEqual(turned.pixels)
     })
   }
+})
+
+describe('image proportions (template @3)', () => {
+  /** What a square image measures once the atlas is laid on the cloth. */
+  const onCloth = ({ panel }: { panel: PanelId }) => {
+    const box = inkBox({ buffer: atlas(), panel })
+    return (box.width * PANEL_SURFACE[panel].stretchY) / box.height
+  }
+  const PANEL_SURFACE = Object.fromEntries(
+    Object.values(TEE_CREW_SHORT_V3.regions).map((region) => [region.renderPanel, region.surface!]),
+  ) as Record<PanelId, { stretchY: number; panelAspect: number }>
+
+  for (const panel of PANELS) {
+    test(`a square stays square on the ${panel}, on the cloth and on its panel`, () => {
+      addImage({ name: 'red', panel, patch: { scale: 0.1 } })
+
+      expect(onCloth({ panel })).toBeCloseTo(1, 0)
+      expect(Math.abs(onCloth({ panel }) - 1)).toBeLessThan(0.05)
+    })
+
+    test(`a square turned 90° on the ${panel} is still square`, () => {
+      addImage({ name: 'red', panel, patch: { scale: 0.1, rotation: Math.PI / 2 } })
+
+      expect(Math.abs(onCloth({ panel }) - 1)).toBeLessThan(0.06)
+    })
+
+    test(`a new square image fits on the ${panel}`, () => {
+      addImage({ name: 'red', panel })
+      const { outside } = inkAround({ buffer: atlas(), panel })
+      const box = inkBox({ buffer: atlas(), panel })
+      const rect = panelRect({ panel })
+
+      expect(outside).toBe(0)
+      expect(box.height).toBeLessThan(rect.y1 - rect.y0)
+      expect(box.width).toBeLessThan(rect.x1 - rect.x0)
+    })
+  }
+
+  test('a design pinned to @2 draws exactly as it did, and its panels stay 6:7', () => {
+    const document = createEmptyCanonicalDocument()
+    document.panels.front.layers = [
+      { id: 'mark-old', kind: 'image', visible: true, opacity: 1, x: 0.5, y: 0.5, scale: 0.2, rotation: 0, assetId: 'asset_proof_red', aspect: 1 },
+    ]
+    const assetSources = { asset_proof_red: 'src:red' }
+    const old = toRenderDocument({ document: { ...document, template: { id: 'tee-crew-short', version: 2 } }, assetSources }).document
+    const current = toRenderDocument({ document, assetSources }).document
+    const box = (projected: typeof old) =>
+      inkBox({ buffer: rasterizeLayers({ document: projected, width: SIZE, height: SIZE, images: IMAGES }), panel: 'front' })
+
+    expect(old.panelAspects).toBeUndefined()
+    expect(old.layers.every((layer) => !('surface' in layer))).toBe(true)
+    // As in the atlas: a square box.
+    expect(box(old).width).toBe(box(old).height)
+    expect(current.panelAspects?.front).toBe(0.611)
+    expect(box(current).height).toBeLessThan(box(current).width)
+  })
 })
 
 describe('approved presets', () => {

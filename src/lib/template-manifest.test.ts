@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { type BufferGeometry, Box3, Mesh, type Object3D } from 'three'
 import { describe, expect, test } from 'vitest'
 
@@ -8,6 +10,7 @@ import {
   CURRENT_TEMPLATE,
   TEE_CREW_SHORT_V1,
   TEE_CREW_SHORT_V2,
+  TEE_CREW_SHORT_V3,
   resolveTemplate,
 } from './template-manifest'
 
@@ -98,7 +101,7 @@ describe('tee-crew-short manifest (current geometry)', () => {
   })
 
   test('the scene builds the newest UV layout; only the back changed in @2', () => {
-    expect(CURRENT_TEMPLATE).toBe(TEE_CREW_SHORT_V2)
+    expect(CURRENT_TEMPLATE).toBe(TEE_CREW_SHORT_V3)
     expect(TEE_CREW_SHORT_V1.geometry.uvLayout).toBe(1)
     expect(TEE_CREW_SHORT_V2.geometry.uvLayout).toBe(2)
 
@@ -201,7 +204,7 @@ describe('resolveTemplate', () => {
   test('resolves the template new documents pin', () => {
     const { template } = createEmptyCanonicalDocument()
 
-    expect(resolveTemplate(template)).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V2 })
+    expect(resolveTemplate(template)).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V3 })
   })
 
   test('keeps @1 so documents saved before #165 still open', () => {
@@ -216,9 +219,77 @@ describe('resolveTemplate', () => {
       ok: false,
       reason: 'unknown-template',
     })
-    expect(resolveTemplate({ id: 'tee-crew-short', version: 3 })).toMatchObject({
+    expect(resolveTemplate({ id: 'tee-crew-short', version: 999 })).toMatchObject({
       ok: false,
       reason: 'unsupported-version',
     })
   })
+})
+
+describe('@3 surface proportions match the mesh', () => {
+  /** Average length on the cloth of one unit of u and of v, over the panel's middle. */
+  function measure({ meshName, panel }: { meshName: string; panel: keyof typeof DEFAULT_PANEL_UV }) {
+    let mesh: Mesh | undefined
+    tee.traverse((node) => {
+      if (node instanceof Mesh && node.name === meshName) {
+        mesh = node
+      }
+    })
+    const geometry = mesh!.geometry as BufferGeometry
+    const position = geometry.getAttribute('position')
+    const uv = geometry.getAttribute('uv')
+    const rect = DEFAULT_PANEL_UV[panel]
+    const index = geometry.getIndex()!
+    let [perU, perV, total] = [0, 0, 0]
+
+    for (let at = 0; at < index.count; at += 3) {
+      const [a, b, c] = [index.getX(at), index.getX(at + 1), index.getX(at + 2)]
+      const point = (i: number) => [position.getX(i), position.getY(i), position.getZ(i)]
+      const [pa, pb, pc] = [point(a), point(b), point(c)]
+      const [du1, dv1] = [uv.getX(b) - uv.getX(a), uv.getY(b) - uv.getY(a)]
+      const [du2, dv2] = [uv.getX(c) - uv.getX(a), uv.getY(c) - uv.getY(a)]
+      const det = du1 * dv2 - du2 * dv1
+      const u = (uv.getX(a) + uv.getX(b) + uv.getX(c)) / 3
+      const v = (uv.getY(a) + uv.getY(b) + uv.getY(c)) / 3
+
+      // The central half across the panel, where a print sits.
+      const across = (u - rect.u0) / (rect.u1 - rect.u0)
+
+      if (Math.abs(det) < 1e-9 || across < 0.25 || across > 0.75 || v < rect.v0 || v > rect.v1) {
+        continue
+      }
+
+      const edge1 = pb.map((value, k) => value - pa[k]!)
+      const edge2 = pc.map((value, k) => value - pa[k]!)
+      const area = Math.abs(det) / 2
+      perU += Math.hypot(...edge1.map((value, k) => (value * dv2 - edge2[k]! * dv1) / det)) * area
+      perV += Math.hypot(...edge1.map((value, k) => (-value * du2 + edge2[k]! * du1) / det)) * area
+      total += area
+    }
+
+    const [lengthU, lengthV] = [perU / total, perV / total]
+    return {
+      stretchY: lengthU / lengthV,
+      panelAspect: (lengthU * (rect.u1 - rect.u0)) / (lengthV * (rect.v1 - rect.v0)),
+    }
+  }
+
+  test.each(Object.entries(TEE_CREW_SHORT_V3.regions))('%s', (_, region) => {
+    const measured = measure({ meshName: region.mesh, panel: region.renderPanel })
+
+    expect(region.surface!.stretchY).toBeCloseTo(measured.stretchY, 2)
+    expect(region.surface!.panelAspect).toBeCloseTo(measured.panelAspect, 2)
+  })
+
+  test('older versions stay without one, so their designs keep their look', () => {
+    for (const manifest of [TEE_CREW_SHORT_V1, TEE_CREW_SHORT_V2]) {
+      expect(Object.values(manifest.regions).every((region) => region.surface === undefined)).toBe(true)
+    }
+  })
+})
+
+test('the demo seeds its designs on the current template', () => {
+  const script = readFileSync(new URL('../../scripts/demo-reset.mjs', import.meta.url), 'utf8')
+
+  expect(script).toContain(`template: { id: '${CURRENT_TEMPLATE.id}', version: ${CURRENT_TEMPLATE.version} }`)
 })

@@ -386,23 +386,27 @@ function blitBuffer({
   rotation = 0,
   opacity = 1,
   tint,
+  stretchY = 1,
 }: {
   dest: AtlasBuffer
   source: AtlasBuffer
   destX: number
   destY: number
   destWidth: number
+  /** Before `stretchY`, which applies after the turn, as on the cloth. */
   destHeight: number
   rotation?: number
   opacity?: number
   tint?: { r: number; g: number; b: number }
+  stretchY?: number
 }) {
   const width = Math.max(1, Math.round(destWidth))
   const height = Math.max(1, Math.round(destHeight))
+  const shownHeight = Math.max(1, Math.round(destHeight * stretchY))
   const clampedOpacity = Math.min(1, Math.max(0, opacity))
 
   if (rotation === 0) {
-    for (let y = 0; y < height; y += 1) {
+    for (let y = 0; y < shownHeight; y += 1) {
       for (let x = 0; x < width; x += 1) {
         sampleSource({
           dest,
@@ -415,7 +419,7 @@ function blitBuffer({
           ),
           srcY: Math.min(
             source.height - 1,
-            Math.floor((y / height) * source.height),
+            Math.floor((y / shownHeight) * source.height),
           ),
           opacity: clampedOpacity,
           tint,
@@ -426,15 +430,15 @@ function blitBuffer({
   }
 
   const centerX = destX + width / 2
-  const centerY = destY + height / 2
-  const pad = Math.ceil(Math.hypot(width, height) / 2)
+  const centerY = destY + shownHeight / 2
+  const pad = Math.ceil((Math.hypot(width, height) / 2) * Math.max(1, stretchY))
   const cos = Math.cos(-rotation)
   const sin = Math.sin(-rotation)
 
   for (let row = Math.floor(centerY - pad); row <= Math.ceil(centerY + pad); row += 1) {
     for (let column = Math.floor(centerX - pad); column <= Math.ceil(centerX + pad); column += 1) {
       const localX = column - centerX
-      const localY = row - centerY
+      const localY = (row - centerY) / stretchY
       const sourceX = localX * cos - localY * sin + width / 2
       const sourceY = localX * sin + localY * cos + height / 2
 
@@ -529,6 +533,11 @@ function drawTextMark({
       context.textBaseline = 'middle'
       context.save()
       context.translate(px, py)
+
+      if (layer.surface) {
+        context.scale(1, layer.surface.stretchY)
+      }
+
       context.rotate(layer.rotation)
       context.fillText(shown, 0, 0)
       context.restore()
@@ -551,7 +560,7 @@ function drawTextMark({
   }
 
   const width = Math.max(0.04, layer.scale * 1.8)
-  const height = Math.max(0.02, layer.scale * 0.45)
+  const height = Math.max(0.02, layer.scale * 0.45) * (layer.surface?.stretchY ?? 1)
   const markOpacity = Math.min(1, Math.max(0, layer.opacity ?? 1))
 
   for (let x = 0; x < 12; x += 1) {
@@ -763,6 +772,7 @@ function drawGraphicMark({
   const box = imageBox({ scale: layer.scale, aspect: layer.aspect ?? 1 })
   const width = Math.max(12, Math.round(box.width * buffer.width))
   const height = Math.max(12, Math.round(box.height * buffer.width))
+  const stretchY = layer.surface?.stretchY ?? 1
   const tint = layer.color ? hexToRgb({ color: layer.color }) : undefined
 
   if (!image) {
@@ -770,10 +780,11 @@ function drawGraphicMark({
       dest: buffer,
       source: placeholderBuffer({ width, height }),
       destX: pixel.column - width / 2,
-      destY: pixel.row - height / 2,
+      destY: pixel.row - (height * stretchY) / 2,
       destWidth: width,
       destHeight: height,
       rotation: layer.rotation,
+      stretchY,
     })
     return
   }
@@ -782,10 +793,11 @@ function drawGraphicMark({
     dest: buffer,
     source: image,
     destX: pixel.column - width / 2,
-    destY: pixel.row - height / 2,
+    destY: pixel.row - (height * stretchY) / 2,
     destWidth: width,
     destHeight: height,
     rotation: layer.rotation,
+    stretchY,
     opacity: layer.opacity ?? 1,
     ...(tint ? { tint: { r: tint.r, g: tint.g, b: tint.b } } : {}),
   })

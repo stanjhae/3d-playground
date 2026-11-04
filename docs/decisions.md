@@ -2,6 +2,12 @@
 
 Decisions that change scope or behaviour for the 17 November alpha, with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 4 Nov 2026: images keep their shape, on a new template version
+
+**Decided by:** owner, on the requirements audit.
+
+A placed image now keeps its shape on the 2D panel and on the tee, in both places. The panels changed shape to match the cloth: front and back about 3:5, sleeves about 3:1. This ships as template `@3`, so existing designs keep the look and panels they were made with (`docs/template-manifest.md`). Brush dots and base patterns stay in atlas proportions.
+
 ## 3 Nov 2026: staging is hosted, without SMTP for now
 
 **Decided by:** owner (#186).

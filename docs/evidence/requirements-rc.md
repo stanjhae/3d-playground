@@ -14,7 +14,7 @@ This audit was run on rc.2, and the rows have been updated for what landed since
 | --- | --- | --- |
 | Behaviour that was wrong | Cleared public name stayed on live pages; a failed image didn't block publishing; no `noindex` | Fixed for rc.3 (#280 and the cleared-name migration) |
 | The app differs from the PRD | Input limits, cameras, off-panel warning, stale preview state, autosave pruning, takedown, and the rest of the ten | Decided by the owner on 2 Nov (`docs/decisions.md`). Left and right cameras and the History note were built |
-| Works, but thin proof | Rows that were marked **Gap (proof)** | All closed by 4 Nov (#284, #285, #293 to #296, this PR). Those PRs also fixed what they found, and left one **Gap (behaviour)**: image proportions |
+| Works, but thin proof | Rows that were marked **Gap (proof)** | All closed by 4 Nov (#284, #285, #293 to #296, this PR). Those PRs also fixed what they found, including image proportions (template `@3`) |
 | Can't be checked locally | Deployed paths, real email, CDN, real budgets | #186 |
 
 ## How to read the status
@@ -80,7 +80,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
-| Exactly one T-shirt template selectable | `requirements-proof` (UI): one create button, no picker, and the design is `tee-crew-short` v2; the server refuses another template id | Proven |
+| Exactly one T-shirt template selectable | `requirements-proof` (UI): one create button, no picker, and the design is on the current `tee-crew-short`; the server refuses another template id | Proven |
 | Base colour updates intended meshes, keeps artwork | `render-proof.spec` (UI, 3D pixels): the cloth changes colour, the figure's skin doesn't, and the stroke is still there | Proven |
 | Front, back, three-quarter presets | `requirements-proof` clicks each (UI); `capture-framing.test.ts` frames them (pixel) | Proven |
 | Left and right presets | `requirements-proof` clicks each (UI); `CameraPresetBar.test.ts` pins each to its panel's wearer side (unit); `capture-framing.test.ts` frames them (pixel) | Proven |
@@ -99,7 +99,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Add graphics and text on all panels | `editor-controls` (UI): a word and a graphic on each of the four panels, saved and visible on that panel | Proven |
 | PNG and JPEG up to 10 MB and 4096×4096 accepted | `limits.spec` (UI): each type at exactly 10 MB and at 4096×4096, through the file input, saved in the design | Proven |
 | Oversized, malformed, animated, unsupported rejected with reasons | `limits.spec` (UI): one byte over, 4097 pixels, cut short, animated and SVG each show their own reason and add nothing. Every server rejection used to read "This image cannot be used"; fixed for this row | Proven |
-| Natural aspect ratio preserved | `limits.spec` (UI): the document keeps the ratio, and the atlas does too. **A square image measured 1.24:1 on the 2D panel and about 0.74:1 on the tee** (3 Nov, default view), because the panel and garment don't map the atlas evenly | Gap (behaviour) |
+| Natural aspect ratio preserved | `render-proof.spec` (UI): on template `@3` a square image measures 189×188 on the 2D panel and 65×64 on the tee, from the front camera; `render-proof.test.ts` (pixel): at any angle on all four panels; `limits.spec` (UI): the document keeps the ratio. It was 1.24:1 and about 0.74:1 until fixed on 4 Nov. Designs on older templates keep their look. Towards a side seam a mark reads narrower | Proven |
 | Two bundled font faces | `editor-controls` (UI): both load from this site and draw differently; `glyph-coverage.test.ts`, `text-faces.test.ts` (unit) | Proven |
 | Text colour | `editor-controls` (UI): the chosen colour is saved and appears on the panel | Proven |
 | Up to 32 characters | Limit stays 280 (decision 1) | Decided (2 Nov) |
