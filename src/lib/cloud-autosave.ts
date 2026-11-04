@@ -5,6 +5,7 @@ import {
   type RecoveryWriteResult,
   type StorageFailure,
   clearRecovery,
+  writePendingRecovery,
   writeRecovery,
 } from './cloud-recovery.ts'
 import { getCanonicalDocument, useEditorStore } from './editor-store.ts'
@@ -187,6 +188,27 @@ export function startCloudRecovery({
     }
   })
 
+  // A write already under way may not finish if the page is going away.
+  const keepAsPageGoes = () => {
+    const editor = useEditorStore.getState()
+
+    if (live() && editor.revision > controller.getState().savedRevision) {
+      writePendingRecovery({
+        store: window.localStorage,
+        ownerId,
+        designId,
+        writerId,
+        baseSeq: controller.getState().headSeq,
+        revision: editor.revision,
+        document: getCanonicalDocument(),
+      })
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', keepAsPageGoes)
+  }
+
   // Work made before this started (a recovered copy) is kept at once.
   if (useEditorStore.getState().revision > acknowledged) {
     void keep()
@@ -199,6 +221,10 @@ export function startCloudRecovery({
       stopped = true
       stopEditor()
       stopController()
+
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('pagehide', keepAsPageGoes)
+      }
     },
   }
 }

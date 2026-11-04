@@ -84,6 +84,8 @@ type CallOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   body?: unknown
   fetchImpl?: typeof fetch
+  /** The request finishes even if the page goes away straight after. */
+  keepalive?: boolean
 }
 
 /** Waits before re-reading after a passing server or network failure. */
@@ -121,6 +123,7 @@ async function callOnce<T>({
   method = 'GET',
   body,
   fetchImpl = fetch,
+  keepalive,
 }: CallOptions): Promise<FlpResult<T>> {
   // A call made while the stored session is still loading (e.g. on a page
   // that renders before its route guard) waits for it instead of failing.
@@ -138,6 +141,7 @@ async function callOnce<T>({
   const send = (bearer: string) =>
     fetchImpl(`/api/flp/${path}`, {
       method,
+      ...(keepalive ? { keepalive } : {}),
       headers: {
         Authorization: `Bearer ${bearer}`,
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
@@ -270,7 +274,7 @@ export function updateDesign({
   request: UpdateDesignRequest
   fetchImpl?: typeof fetch
 }) {
-  return call<DesignDetails>({ path: `designs/${designId}`, method: 'PATCH', body: request, fetchImpl })
+  return call<DesignDetails>({ path: `designs/${designId}`, method: 'PATCH', keepalive: true, body: request, fetchImpl })
 }
 
 /** Delete a design, its history and any publication (A07 #151). */

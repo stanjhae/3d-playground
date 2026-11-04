@@ -393,6 +393,22 @@ test('a reload during a slow save offers the local copy instead of losing it', a
   expect((await cloudDesign({ page, designId })).layers).toBe(1)
 })
 
+test('a reload straight after a stroke offers it back, with no wait at all', async ({ page }) => {
+  const { designId, gate, url } = await openNewDesign({ page, label: 'instantreload' })
+
+  // The save never gets through, so only the local copy can bring it back.
+  gate.plan.push(async (route) => {
+    await route.abort('aborted').catch(() => {})
+  })
+  await drawStroke({ page, panel: 'Front' })
+  await page.goto(url)
+
+  await expect(page.getByText('This browser has changes to this design that never reached the cloud.')).toBeVisible()
+  await page.getByRole('button', { name: 'Recover unsaved changes' }).click()
+  await expectSaved({ page })
+  expect((await cloudDesign({ page, designId })).layers).toBe(1)
+})
+
 test('a reload after the server took a slow save shows it saved, with no stale prompt', async ({ page }) => {
   const { designId, gate, url } = await openNewDesign({ page, label: 'reloadack' })
 

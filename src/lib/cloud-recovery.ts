@@ -219,6 +219,104 @@ export async function writeRecovery({
   }
 }
 
+/** What a page going away can still write to at once. */
+export type PendingStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'>
+
+function pendingPrefix({ ownerId, designId }: { ownerId: string; designId: string }) {
+  return `flp-recovery-pending/${encodeURIComponent(ownerId)}/${encodeURIComponent(designId)}/`
+}
+
+/**
+ * The newest copy, written straight away as the page goes away. IndexedDB
+ * can't finish a write once a reload has started, so without this a stroke
+ * followed at once by a reload is lost. Best effort: a design too big for this
+ * store falls back on what IndexedDB already has.
+ */
+export function writePendingRecovery({
+  store,
+  ownerId,
+  designId,
+  writerId,
+  baseSeq,
+  revision,
+  document,
+  now = Date.now(),
+}: {
+  store: PendingStore
+  ownerId: string
+  designId: string
+  writerId: string
+  baseSeq: number
+  revision: number
+  document: CanonicalDocument
+  now?: number
+}) {
+  const record: RecoveryRecord = {
+    ownerId,
+    designId,
+    writerId,
+    schemaVersion: document.schemaVersion,
+    baseSeq,
+    revision,
+    savedAt: now,
+    document,
+  }
+
+  try {
+    store.setItem(`${pendingPrefix({ ownerId, designId })}${encodeURIComponent(writerId)}`, JSON.stringify(record))
+  } catch {
+    // Full or unavailable.
+  }
+}
+
+/** Moves copies left by a page that went away into normal recovery. */
+export async function adoptPendingRecovery({
+  store,
+  storage,
+  ownerId,
+  designId,
+}: {
+  store: PendingStore
+  storage: RecoveryStorage
+  ownerId: string
+  designId: string
+}) {
+  const prefix = pendingPrefix({ ownerId, designId })
+  const keys = Array.from({ length: store.length }, (_, index) => store.key(index)).filter(
+    (key): key is string => key?.startsWith(prefix) ?? false,
+  )
+
+  for (const pendingKey of keys) {
+    const raw = store.getItem(pendingKey)
+
+    try {
+      const record = JSON.parse(raw ?? '') as RecoveryRecord
+      const adopted =
+        record.ownerId === ownerId && record.designId === designId && typeof record.writerId === 'string'
+
+      if (adopted) {
+        await storage.put(
+          recoveryKey({
+            ownerId,
+            designId,
+            writerId: record.writerId!,
+            schemaVersion: record.schemaVersion,
+            baseSeq: record.baseSeq,
+          }),
+          raw!,
+        )
+      }
+    } catch (error) {
+      // Storage failed, so keep it for the next open. A bad record goes.
+      if (!(error instanceof SyntaxError)) {
+        continue
+      }
+    }
+
+    store.removeItem(pendingKey)
+  }
+}
+
 /**
  * Clear one writer's records for a design (its work was acknowledged), or
  * every record for the design when no writer is given (the design is gone).

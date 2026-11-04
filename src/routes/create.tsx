@@ -41,6 +41,7 @@ import {
   type RecoveryRead,
   deleteRecovery,
   RECOVERY_READ_TIMEOUT_MS,
+  adoptPendingRecovery,
   readRecovery,
   withRecoveryTimeout,
   recoveryOffer,
@@ -183,7 +184,9 @@ function AtelierHome() {
     // RECOVERY_READ_TIMEOUT_MS the cloud version opens, and the local read
     // is applied whenever it answers, so a real copy is still offered.
     const fullRead: Promise<RecoveryRead> = ownerId
-      ? readRecovery({ storage, ownerId, designId: cloudId })
+      ? adoptPendingRecovery({ store: window.localStorage, storage, ownerId, designId: cloudId })
+          .catch(() => {})
+          .then(() => readRecovery({ storage, ownerId, designId: cloudId }))
       : Promise.resolve({ status: 'none' })
 
     const applyRead = (read: RecoveryRead) => {
@@ -517,12 +520,15 @@ function AtelierHome() {
     }
   }, [])
 
+  // Nothing to edit: drawing here would reach no design and be lost.
+  const cloudFailed = cloudStatus === 'missing' || cloudStatus === 'error' || cloudStatus === 'unsupported'
+
   return (
     <section ref={sectionRef} className={studioSectionClass({ drawInFlow })}>
       <div className={studioOverlayClass({ drawInFlow })}>
         <div ref={headerRef} className={studioHeaderClass()}>
           <ModeToggle mode={mode} />
-          {mode === 'design' ? <CreateStepper /> : null}
+          {mode === 'design' && !cloudFailed ? <CreateStepper /> : null}
           {mode === 'design' && showsSilhouetteRail({ step: createStep }) ? (
             <SilhouetteSwitch />
           ) : null}
@@ -548,9 +554,7 @@ function AtelierHome() {
           {cloudStatus === 'loading' ? (
             <p className="font-body text-sm text-flv-muted">Opening your design…</p>
           ) : null}
-          {cloudStatus === 'missing' ||
-          cloudStatus === 'error' ||
-          cloudStatus === 'unsupported' ? (
+          {cloudFailed ? (
             <p role="alert" className="font-body text-sm text-flv-accent">
               {cloudStatus === 'missing'
                 ? 'This design is not available.'
@@ -583,14 +587,14 @@ function AtelierHome() {
             </p>
           ) : null}
         </div>
-        {drawInFlow ? (
+        {drawInFlow && !cloudFailed ? (
           <div className={studioPhoneDrawClass()}>
             <PaintCanvas layout="quad" />
           </div>
         ) : (
           <div className="min-h-0 flex-1 lg:hidden" />
         )}
-        {mode === 'design' ? (
+        {mode === 'design' && !cloudFailed ? (
           <>
             <div className={studioPhoneToolsClass({ drawInFlow })}>
               {showsColorRail({ step: createStep }) ? (
@@ -685,11 +689,13 @@ function AtelierHome() {
         stepper → tools → panels → preview (#163); the overlay is z-20, so
         it still draws on top.
       */}
-      <DualStudio>
-        <AtelierScene>
-          <PublishThumbnailSync />
-        </AtelierScene>
-      </DualStudio>
+      {cloudFailed ? null : (
+        <DualStudio>
+          <AtelierScene>
+            <PublishThumbnailSync />
+          </AtelierScene>
+        </DualStudio>
+      )}
       <StudioAnnouncer />
     </section>
   )
