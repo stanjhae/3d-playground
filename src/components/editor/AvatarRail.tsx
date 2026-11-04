@@ -91,13 +91,9 @@ export function visibleAvatarsForFilter({
 export function AvatarRail() {
   const avatarId = useEditorStore((state) => state.avatarId)
   const createStep = useEditorStore((state) => state.createStep)
-  const avatarMeasurements = useEditorStore((state) => state.avatarMeasurements)
   const setAvatarId = useEditorStore((state) => state.setAvatarId)
   const setAvatarMeasurements = useEditorStore(
     (state) => state.setAvatarMeasurements,
-  )
-  const resetAvatarMeasurements = useEditorStore(
-    (state) => state.resetAvatarMeasurements,
   )
   const [filter, setFilter] = useState<AvatarFilter | 'all'>('all')
   const studioEnv = useEditorStore((state) => state.studioEnv)
@@ -192,7 +188,6 @@ export function AvatarRail() {
               <AvatarSilhouette avatar={avatar} />
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className={chromeTextClass()}>{avatar.label}</span>
-                <span className={chromeMutedClass()}>{avatar.heightCm} cm</span>
               </span>
             </button>
           )
@@ -232,93 +227,6 @@ export function AvatarRail() {
           ))}
         </div>
       </div>
-      <p className={chromeKickerClass()}>{HOUSE_COPY.measurements}</p>
-      <MeasurementSlider
-        label={HOUSE_COPY.height}
-        value={avatarMeasurements.height}
-        unit="cm"
-        min={150}
-        max={200}
-        onChange={({ value }) => {
-          setAvatarMeasurements({
-            measurements: { height: value },
-          })
-        }}
-      />
-      <MeasurementSlider
-        label={HOUSE_COPY.chest}
-        value={avatarMeasurements.chest}
-        unit="cm"
-        min={80}
-        max={120}
-        onChange={({ value }) => {
-          setAvatarMeasurements({
-            measurements: { chest: value },
-          })
-        }}
-      />
-      <MeasurementSlider
-        label={HOUSE_COPY.waist}
-        value={avatarMeasurements.waist}
-        unit="cm"
-        min={60}
-        max={110}
-        onChange={({ value }) => {
-          setAvatarMeasurements({
-            measurements: { waist: value },
-          })
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          resetAvatarMeasurements()
-        }}
-        className={cn(
-          'min-h-11 border border-flv-line px-3 text-flv-muted hover:text-flv-accent',
-          chromeTextClass(),
-        )}
-      >
-        {HOUSE_COPY.resetAvatar}
-      </button>
     </aside>
-  )
-}
-
-function MeasurementSlider({
-  label,
-  value,
-  unit,
-  min,
-  max,
-  onChange,
-}: {
-  label: string
-  value: number
-  unit: string
-  min: number
-  max: number
-  onChange: ({ value }: { value: number }) => void
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="flex items-center justify-between">
-        <span className={cn('text-flv-muted', chromeTextClass())}>{label}</span>
-        <span className="font-body text-xs text-flv-accent">
-          {value} {unit}
-        </span>
-      </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={1}
-        value={value}
-        onChange={(event) => {
-          onChange({ value: Number(event.target.value) })
-        }}
-        className="accent-[var(--color-flv-accent)]"
-      />
-    </label>
   )
 }

@@ -60,7 +60,6 @@ export function LandingStageHost({
   hem,
   sleeve,
   document: designDocument,
-  measurements,
   envMode,
   onStageChange,
   onGarmentChange,
@@ -82,7 +81,6 @@ export function LandingStageHost({
   hem: HemId
   sleeve: SleeveId
   document: DesignDocument
-  measurements: AvatarMeasurements
   envMode: StudioEnvMode
   onStageChange: ({ stage }: { stage: LandingStageId }) => void
   onGarmentChange: ({ garmentId }: { garmentId: GarmentId }) => void
@@ -306,7 +304,6 @@ export function LandingStageHost({
           <PreviewDemo
             avatars={avatars}
             avatarId={selectedAvatar?.id ?? ''}
-            measurements={measurements}
             envMode={envMode}
             onAvatarChange={({ avatarId: next }) => {
               setAvatarId(next)
@@ -321,7 +318,6 @@ export function LandingStageHost({
                 })
               }
             }}
-            onMeasurementsChange={onMeasurementsChange}
             onEnvModeChange={onEnvModeChange}
           />
         ) : null}
@@ -1006,29 +1002,18 @@ function DesignDemo({
 function PreviewDemo({
   avatars,
   avatarId,
-  measurements,
   envMode,
   onAvatarChange,
-  onMeasurementsChange,
   onEnvModeChange,
 }: {
   avatars: ReturnType<typeof listAvatars>
   avatarId: string
-  measurements: AvatarMeasurements
   envMode: StudioEnvMode
   onAvatarChange: ({ avatarId }: { avatarId: string }) => void
-  onMeasurementsChange: ({
-    measurements,
-  }: {
-    measurements: AvatarMeasurements
-  }) => void
   onEnvModeChange: ({ envMode }: { envMode: StudioEnvMode }) => void
 }) {
-  const selected =
-    avatars.find((avatar) => avatar.id === avatarId) ?? avatars[0]
-
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+    <div className="grid gap-4">
       <div className="flv-panel flex flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
@@ -1037,7 +1022,7 @@ function PreviewDemo({
           <ConceptPreviewBadge />
         </div>
         <p className="font-body text-xs text-flv-muted">
-          Avatar and measurements update the hero 3D stage above.{' '}
+          The avatar updates the hero 3D stage above.{' '}
           {FLV_COPY.visualFitNote}
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1062,9 +1047,6 @@ function PreviewDemo({
               ) : null}
               <span className="font-body text-xs text-flv-ink uppercase">
                 {avatar.label}
-              </span>
-              <span className="font-body text-xs text-flv-muted">
-                {avatar.heightCm} cm
               </span>
             </button>
           ))}
@@ -1092,102 +1074,7 @@ function PreviewDemo({
           ))}
         </div>
       </div>
-      <aside className="flv-panel flex flex-col gap-3 p-4">
-        <MeasurementSlider
-          label="Height"
-          value={measurements.height}
-          unit="cm"
-          min={150}
-          max={200}
-          onChange={({ value }) => {
-            onMeasurementsChange({
-              measurements: { ...measurements, height: value },
-            })
-          }}
-        />
-        <MeasurementSlider
-          label="Chest"
-          value={measurements.chest}
-          unit="cm"
-          min={80}
-          max={120}
-          onChange={({ value }) => {
-            onMeasurementsChange({
-              measurements: { ...measurements, chest: value },
-            })
-          }}
-        />
-        <MeasurementSlider
-          label="Waist"
-          value={measurements.waist}
-          unit="cm"
-          min={60}
-          max={110}
-          onChange={({ value }) => {
-            onMeasurementsChange({
-              measurements: { ...measurements, waist: value },
-            })
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            if (!selected) {
-              return
-            }
-
-            onMeasurementsChange({
-              measurements: {
-                height: selected.heightCm,
-                chest: selected.chestCm,
-                waist: selected.waistCm,
-              },
-            })
-          }}
-          className="min-h-10 rounded-full border border-flv-line px-3 font-body text-xs text-flv-muted uppercase hover:border-flv-accent hover:text-flv-accent"
-        >
-          Reset measurements
-        </button>
-      </aside>
     </div>
-  )
-}
-
-function MeasurementSlider({
-  label,
-  value,
-  unit,
-  min,
-  max,
-  onChange,
-}: {
-  label: string
-  value: number
-  unit: string
-  min: number
-  max: number
-  onChange: ({ value }: { value: number }) => void
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="flex justify-between font-body text-xs text-flv-muted">
-        <span>{label}</span>
-        <span className="text-flv-accent">
-          {value} {unit}
-        </span>
-      </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={1}
-        value={value}
-        onChange={(event) => {
-          onChange({ value: Number(event.target.value) })
-        }}
-        className="accent-[var(--color-flv-accent)]"
-      />
-    </label>
   )
 }
 

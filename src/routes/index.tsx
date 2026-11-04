@@ -183,7 +183,6 @@ function LandingPage() {
         hem={hem}
         sleeve={sleeve}
         document={designDocument}
-        measurements={measurements}
         envMode={envMode}
         onStageChange={({ stage }) => {
           setActiveStage(stage)
