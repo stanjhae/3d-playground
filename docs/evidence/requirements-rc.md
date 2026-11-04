@@ -71,7 +71,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | B can't delete: API | `design-details.integration` (API) | Proven |
 | B can't enumerate: API, DB, studio | `flp-api.integration` (API), `flp_core_schema.test.sql` (DB), `requirements-proof` (UI) | Proven |
 | Delete asks for confirmation | `journey.spec` (UI) | Proven |
-| Confirmation names the design | Heading `Delete "<title>"?` seen in the running app on 2 Nov; no test asserts it | Checked by hand |
+| Confirmation names the design | `claims.spec` (UI): the dialog is titled with the design's name, backing out keeps it, and confirming removes it | Proven |
 | Delete immediately removes sharing | `journey.spec` (UI), `design-details.integration` (API) | Proven |
 | Delete queues storage cleanup | There's no queue. `delete-account.integration` (API, injected storage failure): the delete still succeeds, the failure is logged, the files stay, and a `cleanup-orphans` dry run lists them. Someone has to run the cleanup; its `--delete` isn't run by a test, to keep the local store's files | Proven |
 | Assets referenced by history aren't collected | `assets.integration` (API, real selection function): an upload only an old version uses isn't listed, an unplaced one is, and the first is listed once its design is gone (failed when references were ignored). `--delete` itself isn't run by a test | Proven |
@@ -90,7 +90,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Template version pinned on save | `template-manifest.test.ts`, `restore-projection.test.ts` (store) | Proven |
 | Old design opens with original mapping | `restore-projection.test.ts` (pixel) | Proven |
 | Or explicit unsupported-version message | `requirements-proof` (UI): a design from a newer version shows the message and a way back, with no panels to draw on; the server refuses to store a version it doesn't know | Proven |
-| No implied size or fit claims | Disclaimer on the public page (`journey.spec`); `docs/claims-audit.md` by hand | Checked by hand |
+| No implied size or fit claims | `claims.spec` (UI): no cm or garment size on the landing, its stages or any studio step; the disclaimer on the public page. The cm sliders were removed on 4 Nov | Proven |
 
 ## R04 Graphic and text creation
 
@@ -210,8 +210,8 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
-| Concept, sample, ranking and media labels | `docs/claims-audit.md`; #199 questions open | Checked by hand, Owner |
-| No fit, fabric, manufacturing or traction claims | Disclaimer test (UI); absence only by hand; nothing stops a removed claim returning | Checked by hand |
+| Concept, sample, ranking and media labels | `claims.spec` (UI): no sample creators or uncleared stills, no ranking stage, and concepts carry their label. Q2 in `docs/claims-audit.md` and #199's acceptance stay with the owner | Proven, Owner |
+| No fit, fabric, manufacturing or traction claims | `claims.spec` (UI): the wording is scanned on every public page and studio step, and it failed when a removed claim came back. A word list can't judge meaning, so `docs/claims-audit.md` still matters | Proven |
 | Login by keyboard | `requirements-proof` (UI) | Proven |
 | Save, history and sharing by keyboard | `accessibility.spec` (UI): by Tab and Enter alone, create, edit and autosave, name a checkpoint, restore, publish, copy the link (clipboard checked) and unpublish. **Save now** appears only after a failed save and isn't included | Proven |
 | Labelled controls | `accessibility.spec` (UI): axe finds no serious or critical issue on the code step, a refused code, history naming, refusal and restore, publish review and the published state | Proven |
@@ -255,7 +255,7 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | --- | --- | --- |
 | Readable silhouette at front, back, three-quarter | Owner review, #166 | Checked by hand |
 | Readable from the side | Thin from exactly side-on; accepted limit (decision 10) | Decided (2 Nov) |
-| No detached pieces, holes, inverted normals | Owner review; `panel-orientation.test.ts` covers outward faces only | Checked by hand |
+| No detached pieces, holes, inverted normals | `tee-mesh-integrity.test.ts` (unit): every piece is one sound mesh, open only at its counted openings, with no flipped or broken faces, and the sleeves and collar touch the body; `panel-orientation.test.ts` | Proven |
 | Credible proportions, fabric surface, neutral lighting | Owner review | Checked by hand |
 | Artwork legible, no stretching, mirroring, bleed | Mirroring and bleed proven (pixel); legibility by owner | Checked by hand |
 | Editor and published framing consistent | `capture-framing.test.ts` (pixel); `render-proof.spec` (UI): the cloth's median colour in the published front picture is within 24 of 255 per channel of the editor's. A colour comparison, not a direct check of material settings | Proven |
@@ -299,12 +299,12 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | Name is per account, capped, clearable on the profile | `design-details.integration` (API), `flp_design_details.test.sql` (DB) | Proven |
 | Clearing the name removes it from live pages | `design-details.integration` (API), through `flp_set_display_name` | Proven |
 | Email stays private | `journey.spec` (UI) | Proven |
-| Report-contact route | `alpha-contact.test.ts` (unit); link vanishes without `VITE_FLP_CONTACT_EMAIL` (#195) | Owner |
+| Report-contact route | `claims.spec` (UI): the shared page's link is a mailto with the design's slug; `alpha-contact.test.ts` (unit); the address is live on staging (4 Nov) | Proven |
 | Operator takedown | Manual steps in `docs/deploy.md`; an owner may be able to republish afterwards (decision 7) | Decided (2 Nov) |
 | Operator deletion finishes, is retryable | `delete-account.integration` (API, real script), `flp_account_deletion.test.sql` (DB) | Proven |
 | Deleted account's token and public link stop working; uploads deleted | `delete-account.integration` (API, real script, a real upload): all work before, then 401, no rows, a 404 identical to an unknown link, and the upload and render URLs fail | Proven |
 | Seven-day and thirty-day windows | No test; operational | Owner |
-| Plain-language privacy page | Exists; copy not asserted; contact pending (#195) | Owner |
+| Plain-language privacy page | `claims.spec` (UI): each section's key statements and a working contact link; `requirements-proof` for disclosure. Whether the wording is plain enough stays a reader's call | Proven |
 
 ## Decisions the owner made
 

@@ -31,7 +31,7 @@ export default defineConfig({
     : {
         command: `pnpm dev --port ${PORT} --strictPort`,
         url: baseURL,
-        env: { VITE_FLP_REQUIRE_AUTH: 'true' },
+        env: { VITE_FLP_REQUIRE_AUTH: 'true', VITE_FLP_CONTACT_EMAIL: 'alpha@example.test' },
         reuseExistingServer: false,
         timeout: 120_000,
       },

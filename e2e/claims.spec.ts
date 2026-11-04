@@ -1,0 +1,143 @@
+import { type Page, expect, test } from '@playwright/test'
+
+import { TINY_JPEG } from '../src/lib/image-fixtures'
+import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
+import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
+
+/**
+ * What the public pages and the studio say, read as a visitor reads them
+ * (R13, R14, section 10). Keeps removed claims from coming back: fit and size,
+ * fabric, manufacturing, invented traction, sample people and uncleared stills.
+ */
+
+const emails: string[] = []
+
+test.afterAll(async () => {
+  await deleteAccounts({ emails })
+})
+
+const FORBIDDEN: Array<[string, RegExp]> = [
+  ['a measurement in cm', /\b\d+\s?cm\b/i],
+  ['a garment size', /\b(XS|XL|size chart|true to size|fits like)\b/],
+  ['a fabric weight', /\b\d+\s?(gsm|oz)\b/i],
+  ['production readiness', /\b(production[- ]ready|tech pack|ready to manufacture)\b/i],
+  ['traction', /\b\d[\d,.]*\+?\s?(k\s)?(users|designers|creators|members|votes|designs created)\b/i],
+  ['an early access promise', /\b(get early access|\d+ months? free|free access)\b/i],
+  ['the old name', /Fashion Leaderboard/],
+  ['a sample creator', /Elise Moreau|Camille Wren|Hiro Tanaka|Noor Rahman|Jules Adler|Marta Klein|Iman Farouk|Ada Voss|Jules Hart/],
+]
+
+async function expectNoClaims({ page, name }: { page: Page; name: string }) {
+  const text = await page.locator('body').innerText()
+
+  for (const [what, pattern] of FORBIDDEN) {
+    expect(text.match(pattern)?.[0] ?? null, `${what} on ${name}`).toBeNull()
+  }
+
+  const stills = await page.locator('img[src*="/stills/"]').count()
+  expect(stills, `uncleared stills on ${name}`).toBe(0)
+}
+
+test('the landing and all its stages make no claim the alpha cannot back, and label its concepts', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('#product-stages')).toBeVisible()
+  await expectNoClaims({ page, name: 'landing' })
+  await expect(page.getByText('Concept preview').first()).toBeVisible()
+
+  const stages = page.locator('#product-stages > div').first().getByRole('button')
+  expect(await stages.allTextContents()).not.toContain('Vote')
+
+  for (let stage = 0; stage < (await stages.count()); stage += 1) {
+    await stages.nth(stage).click()
+    await expectNoClaims({ page, name: `landing stage ${await stages.nth(stage).innerText()}` })
+  }
+
+  await page.goto('/sign-in')
+  await expectNoClaims({ page, name: 'sign-in' })
+})
+
+test('the studio, shared page and privacy page make no such claim, and the page can be reported', async ({ page, browser, request }) => {
+  test.setTimeout(150_000)
+  const email = newEmail({ label: 'claims' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+
+  for (const step of ['select', 'fit', 'color', 'design', 'preview', 'share']) {
+    await page.goto(`/create?cloud=${designId}&step=${step}`)
+    await expectSaved({ page })
+    await expectNoClaims({ page, name: `studio ${step}` })
+  }
+
+  // Publish directly: what's checked here is what the page says.
+  const { token, seq } = await page.evaluate(async (id) => {
+    const accessToken = JSON.parse(localStorage.getItem('flp-auth')!).access_token as string
+    const response = await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    return { token: accessToken, seq: (await response.json()).headSeq as number }
+  }, designId)
+  const headers = { Authorization: `Bearer ${token}` }
+  const data = Buffer.from(TINY_JPEG).toString('base64')
+  const renders = PUBLIC_RENDER_KINDS.map((kind: string) => ({ kind, data }))
+  expect((await request.post(`/api/flp/designs/${designId}/renders`, { headers, data: { seq, renders } })).status()).toBeLessThan(300)
+  const published = await request.post(`/api/flp/designs/${designId}/publication`, { headers, data: { seq } })
+  const { slug } = (await published.json()) as { slug: string }
+
+  const visitor = await (await browser.newContext()).newPage()
+  await visitor.goto(`/s/${slug}`)
+  await expect(visitor.getByText('Creator-supplied preview, not a certified fit or manufacturing render.')).toBeVisible()
+  await expectNoClaims({ page: visitor, name: 'shared page' })
+  const report = visitor.getByRole('link', { name: 'Report this design' })
+  await expect(report).toHaveAttribute('href', new RegExp(`^mailto:[^?]+@[^?]+\\?.*${slug}`))
+  await visitor.context().close()
+
+  await page.goto('/privacy')
+  await expectNoClaims({ page, name: 'privacy' })
+  const privacy = page.getByRole('main')
+
+  for (const line of [
+    'What is stored',
+    'Your email address, to send sign-in codes. There are no passwords.',
+    'Who can see it',
+    'Only you can see your designs, history and uploads.',
+    'The counts carry no email, account, design or device identifiers and no design content.',
+    'Removing your data',
+    'Reporting a design',
+  ]) {
+    await expect(privacy).toContainText(line)
+  }
+
+  await expect(privacy.getByRole('link', { name: /@/ }).first()).toHaveAttribute('href', /^mailto:/)
+  const notices = await request.get('/third-party-notices.txt')
+  expect(notices.status()).toBe(200)
+  expect(await notices.text()).toContain('SIL Open Font License')
+})
+
+test('deleting a design names it, can be backed out of, and then removes it', async ({ page }) => {
+  const email = newEmail({ label: 'deletename' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const renamed = page.waitForResponse((response) => response.request().method() === 'PATCH')
+  await page.getByRole('textbox', { name: 'Design name' }).fill('Keep or not')
+  await page.getByRole('textbox', { name: 'Design name' }).press('Enter')
+  await renamed
+  await page.goto('/studio')
+
+  const card = page.getByRole('listitem').filter({ hasText: 'Keep or not' })
+  await card.getByRole('button', { name: 'Delete' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Delete “Keep or not”?' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Keep it' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(card).toBeVisible()
+
+  await card.getByRole('button', { name: 'Delete' }).click()
+  await dialog.getByRole('button', { name: 'Delete design' }).click()
+  await expect(card).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Create a T-shirt' })).toBeVisible()
+  await expect(page.getByRole('listitem').filter({ hasText: 'Keep or not' })).toHaveCount(0)
+})
