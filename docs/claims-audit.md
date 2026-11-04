@@ -126,6 +126,20 @@ These older founder-QA trackers predate the PRD v1.1 baseline. They are linked f
 
 Each asks for an honest Pass or Fail from the founder on the live URL. This document provides neither.
 
+## Applied on 4 Nov 2026 (safe defaults, owner to accept)
+
+With `VITE_FLP_CONCEPT` off, as it is everywhere the alpha runs:
+
+- **Q1 Brand:** Fashion Leader Vote everywhere, by owner decision. A test keeps the old name out.
+- **Q3:** the studio panel is called Graphics.
+- **Q4, Q5:** Gradient, non-tee shapes and sample sizes are hidden.
+- **Q6:** the nav link says Waitlist.
+- **Q7:** the waitlist says it offers news, with no invite or date.
+- **Q8:** sample stills, the sample board and its creators are hidden. They still depend on #138 for any other use.
+- **Fit:** the cm sliders are gone from the studio and the landing.
+
+Each is its own commit, so one can be reverted alone. **Q2 stays open.**
+
 ## Open questions for the owner
 
 1. **Brand.** The landing says "FLV / Fashion Leader Vote", and #125 uses "Fashion Leaderboard (FLP)". Which public name goes on the pitch build? (#198)

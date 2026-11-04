@@ -1,6 +1,7 @@
 import type { CreateStepId } from './create-steps'
 import { FLV_COPY } from './flv-copy'
 
+import { CONCEPT_FEATURES } from './concept-flags'
 export type LandingStageId = CreateStepId | 'vote'
 
 export const LANDING_STAGE_IDS: readonly LandingStageId[] = [
@@ -12,6 +13,11 @@ export const LANDING_STAGE_IDS: readonly LandingStageId[] = [
   'share',
   'vote',
 ] as const
+
+/** The board shows sample looks and creators, so it's a concept (#199, #138). */
+export const VISIBLE_LANDING_STAGE_IDS = CONCEPT_FEATURES
+  ? LANDING_STAGE_IDS
+  : LANDING_STAGE_IDS.filter((stage) => stage !== 'vote')
 
 export const LANDING_RAIL: readonly {
   id: LandingStageId

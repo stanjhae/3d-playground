@@ -79,6 +79,17 @@ function Privacy() {
           the rules is unpublished.
         </p>
       </div>
+
+      <div className={sectionClass}>
+        <h2 className={headingClass}>Credits</h2>
+        <p className={textClass}>
+          This site uses open-source fonts and software. See the{' '}
+          <a className="underline" href="/third-party-notices.txt">
+            third-party notices
+          </a>
+          .
+        </p>
+      </div>
     </section>
   )
 }

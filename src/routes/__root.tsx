@@ -8,6 +8,7 @@ import {
 import { useEffect, useState } from 'react'
 
 import { AccountControl } from '../components/auth/AccountControl'
+import { CONCEPT_FEATURES } from '../lib/concept-flags'
 import { onAccountChange, startSession } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
@@ -43,7 +44,7 @@ onAccountChange((next) => {
 const MARKETING_LINKS = [
   { href: '#product', label: FLV_COPY.navProduct },
   { href: '#flow', label: FLV_COPY.navHowItWorks },
-  { href: '#community', label: FLV_COPY.navCommunity },
+  ...(CONCEPT_FEATURES ? [{ href: '#community', label: FLV_COPY.navCommunity }] : []),
   { href: '#waitlist', label: FLV_COPY.navAbout },
 ] as const
 

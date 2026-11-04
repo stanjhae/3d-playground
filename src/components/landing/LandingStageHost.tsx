@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import type { AvatarMeasurements } from '../../lib/avatar-geometry'
-import { isCanonicalGarment } from '../../lib/concept-flags'
+import { CONCEPT_FEATURES, isCanonicalGarment } from '../../lib/concept-flags'
 import type { DesignDocument, HemId, NeckId, SleeveId } from '../../lib/design-document'
 import { listDesigns } from '../../lib/designs-api'
 import type { GarmentId, Design } from '../../lib/design-schema'
@@ -35,7 +35,7 @@ import {
 import { writeLandingHandoff } from '../../lib/landing-handoff'
 import {
   isCreateLandingStage,
-  LANDING_STAGE_IDS,
+  VISIBLE_LANDING_STAGE_IDS,
   landingStageChip,
   landingStageLead,
   landingStageTitle,
@@ -60,7 +60,6 @@ export function LandingStageHost({
   hem,
   sleeve,
   document: designDocument,
-  measurements,
   envMode,
   onStageChange,
   onGarmentChange,
@@ -82,7 +81,6 @@ export function LandingStageHost({
   hem: HemId
   sleeve: SleeveId
   document: DesignDocument
-  measurements: AvatarMeasurements
   envMode: StudioEnvMode
   onStageChange: ({ stage }: { stage: LandingStageId }) => void
   onGarmentChange: ({ garmentId }: { garmentId: GarmentId }) => void
@@ -164,7 +162,7 @@ export function LandingStageHost({
       className="flex flex-col gap-5 border-b border-flv-line px-6 py-10 sm:px-10"
     >
       <div className="flex flex-wrap gap-2">
-        {LANDING_STAGE_IDS.map((stage) => (
+        {VISIBLE_LANDING_STAGE_IDS.map((stage) => (
           <button
             key={stage}
             type="button"
@@ -306,7 +304,6 @@ export function LandingStageHost({
           <PreviewDemo
             avatars={avatars}
             avatarId={selectedAvatar?.id ?? ''}
-            measurements={measurements}
             envMode={envMode}
             onAvatarChange={({ avatarId: next }) => {
               setAvatarId(next)
@@ -321,7 +318,6 @@ export function LandingStageHost({
                 })
               }
             }}
-            onMeasurementsChange={onMeasurementsChange}
             onEnvModeChange={onEnvModeChange}
           />
         ) : null}
@@ -332,7 +328,7 @@ export function LandingStageHost({
             }}
           />
         ) : null}
-        {activeStage === 'vote' ? <CommunityDemo looks={boardLooks} /> : null}
+        {activeStage === 'vote' && CONCEPT_FEATURES ? <CommunityDemo looks={boardLooks} /> : null}
       </div>
       {isCreateLandingStage(activeStage) ? (
         <Link
@@ -377,7 +373,9 @@ function SelectDemo({
   return (
     <div className="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)_16rem]">
       <aside className="flv-panel flex flex-col gap-1 p-2">
-        {GARMENT_CATEGORIES.map((entry) => (
+        {GARMENT_CATEGORIES.filter(
+          (entry) => listGarmentsByCategory({ category: entry.id }).length > 0,
+        ).map((entry) => (
           <button
             key={entry.id}
             type="button"
@@ -1004,29 +1002,18 @@ function DesignDemo({
 function PreviewDemo({
   avatars,
   avatarId,
-  measurements,
   envMode,
   onAvatarChange,
-  onMeasurementsChange,
   onEnvModeChange,
 }: {
   avatars: ReturnType<typeof listAvatars>
   avatarId: string
-  measurements: AvatarMeasurements
   envMode: StudioEnvMode
   onAvatarChange: ({ avatarId }: { avatarId: string }) => void
-  onMeasurementsChange: ({
-    measurements,
-  }: {
-    measurements: AvatarMeasurements
-  }) => void
   onEnvModeChange: ({ envMode }: { envMode: StudioEnvMode }) => void
 }) {
-  const selected =
-    avatars.find((avatar) => avatar.id === avatarId) ?? avatars[0]
-
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+    <div className="grid gap-4">
       <div className="flv-panel flex flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-body text-xs tracking-[0.14em] text-flv-accent uppercase">
@@ -1035,7 +1022,7 @@ function PreviewDemo({
           <ConceptPreviewBadge />
         </div>
         <p className="font-body text-xs text-flv-muted">
-          Avatar and measurements update the hero 3D stage above.{' '}
+          The avatar updates the hero 3D stage above.{' '}
           {FLV_COPY.visualFitNote}
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1060,9 +1047,6 @@ function PreviewDemo({
               ) : null}
               <span className="font-body text-xs text-flv-ink uppercase">
                 {avatar.label}
-              </span>
-              <span className="font-body text-xs text-flv-muted">
-                {avatar.heightCm} cm
               </span>
             </button>
           ))}
@@ -1090,102 +1074,7 @@ function PreviewDemo({
           ))}
         </div>
       </div>
-      <aside className="flv-panel flex flex-col gap-3 p-4">
-        <MeasurementSlider
-          label="Height"
-          value={measurements.height}
-          unit="cm"
-          min={150}
-          max={200}
-          onChange={({ value }) => {
-            onMeasurementsChange({
-              measurements: { ...measurements, height: value },
-            })
-          }}
-        />
-        <MeasurementSlider
-          label="Chest"
-          value={measurements.chest}
-          unit="cm"
-          min={80}
-          max={120}
-          onChange={({ value }) => {
-            onMeasurementsChange({
-              measurements: { ...measurements, chest: value },
-            })
-          }}
-        />
-        <MeasurementSlider
-          label="Waist"
-          value={measurements.waist}
-          unit="cm"
-          min={60}
-          max={110}
-          onChange={({ value }) => {
-            onMeasurementsChange({
-              measurements: { ...measurements, waist: value },
-            })
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            if (!selected) {
-              return
-            }
-
-            onMeasurementsChange({
-              measurements: {
-                height: selected.heightCm,
-                chest: selected.chestCm,
-                waist: selected.waistCm,
-              },
-            })
-          }}
-          className="min-h-10 rounded-full border border-flv-line px-3 font-body text-xs text-flv-muted uppercase hover:border-flv-accent hover:text-flv-accent"
-        >
-          Reset measurements
-        </button>
-      </aside>
     </div>
-  )
-}
-
-function MeasurementSlider({
-  label,
-  value,
-  unit,
-  min,
-  max,
-  onChange,
-}: {
-  label: string
-  value: number
-  unit: string
-  min: number
-  max: number
-  onChange: ({ value }: { value: number }) => void
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="flex justify-between font-body text-xs text-flv-muted">
-        <span>{label}</span>
-        <span className="text-flv-accent">
-          {value} {unit}
-        </span>
-      </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={1}
-        value={value}
-        onChange={(event) => {
-          onChange({ value: Number(event.target.value) })
-        }}
-        className="accent-[var(--color-flv-accent)]"
-      />
-    </label>
   )
 }
 
@@ -1208,6 +1097,7 @@ function ShareDemo({
 
   return (
     <div className="flv-panel grid gap-4 p-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      {CONCEPT_FEATURES ? (
       <div className="flex flex-col gap-3">
         <div className="overflow-hidden rounded-xl border border-flv-line">
           <img
@@ -1243,6 +1133,7 @@ function ShareDemo({
           ))}
         </div>
       </div>
+      ) : null}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <ConceptPreviewBadge className="w-fit" />

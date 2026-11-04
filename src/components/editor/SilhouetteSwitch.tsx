@@ -6,7 +6,7 @@ import type { GarmentId } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
-import { showsGarmentInStudio } from '../../lib/concept-flags'
+import { CONCEPT_FEATURES, showsGarmentInStudio } from '../../lib/concept-flags'
 import { garmentCanPaint, garmentCredit } from '../../lib/garments'
 import {
   GARMENT_CATEGORIES,
@@ -226,6 +226,7 @@ export function SilhouetteSwitch({
               ))}
             </div>
           </div>
+          {CONCEPT_FEATURES ? (
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <p className={chromeTextClass()}>{FLV_COPY.selectSampleSize}</p>
@@ -259,6 +260,7 @@ export function SilhouetteSwitch({
               ))}
             </div>
           </div>
+          ) : null}
           <button
             type="button"
             onClick={() => {
