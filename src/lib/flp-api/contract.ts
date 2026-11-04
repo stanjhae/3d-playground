@@ -11,6 +11,7 @@ import {
 } from '../canonical-hash.ts'
 import type { ImageMimeType, ImageRejectReason } from '../image-validate.ts'
 import { isLibraryAssetId } from '../library-assets.ts'
+import { resolveTemplate } from '../template-manifest.ts'
 
 /**
  * FLP design API contract (F08 #143): request shapes, server-side content
@@ -272,6 +273,20 @@ export async function prepareContent({
         code: 'invalid',
         message: 'Design content is invalid',
         issues: result.issues,
+      }),
+    }
+  }
+
+  const template = resolveTemplate(result.document.template)
+
+  // A design no version of the app can open must not be stored as if it could.
+  if (!template.ok) {
+    return {
+      ok: false,
+      error: apiError({
+        code: 'invalid',
+        message: 'Design content is invalid',
+        issues: [{ path: '$.template', message: template.message }],
       }),
     }
   }

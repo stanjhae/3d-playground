@@ -89,7 +89,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Left/right wearer-labelled in tabs and mapping | `panel-orientation.test.ts`, `capture-framing.test.ts`, public alt text in `journey.spec` | Proven |
 | Template version pinned on save | `template-manifest.test.ts`, `restore-projection.test.ts` (store) | Proven |
 | Old design opens with original mapping | `restore-projection.test.ts` (pixel) | Proven |
-| Or explicit unsupported-version message | `requirements-proof` (UI): a stored design on version 999 shows the message and a way back, and drawing on the blank panels under it doesn't reach the design. The server checks the template id but not the version | Proven |
+| Or explicit unsupported-version message | `requirements-proof` (UI): a design from a newer version shows the message and a way back, with no panels to draw on; the server refuses to store a version it doesn't know | Proven |
 | No implied size or fit claims | Disclaimer on the public page (`journey.spec`); `docs/claims-audit.md` by hand | Checked by hand |
 
 ## R04 Graphic and text creation
@@ -161,7 +161,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Reopening gets the latest acknowledged revision | `flp-api.integration` (API), `journey.spec` reload (UI), `requirements-proof` second browser (UI) | Proven |
 | Uploads finish before a revision commits | `assets.integration` (API), `save-controller.test.ts` (store) | Proven |
 | Offline edits labelled local | `failures.spec` (UI); server-stopped run by hand on 2 Nov | Proven |
-| Local edits recover after reload | `failures.spec` (UI): edit offline, reload, reconnect, the copy is offered and reaches the cloud (failed with the local copy removed). The page itself can't load while offline. An instant reload can still lose the last edit (CHANGELOG known limit) | Proven |
+| Local edits recover after reload | `failures.spec` (UI): edit offline, reload, reconnect, the copy is offered and reaches the cloud (failed with the local copy removed). The page itself can't load while offline. An instant reload can still lose the last edit (CHANGELOG known limit); a reload with no gap after a stroke is offered back too (failed without the copy written as the page goes away) | Proven |
 | No overwrite of newer cloud work without resolution | `failures.spec` (UI): offline, a newer save elsewhere, reconnect: "Changed elsewhere", the newer work stays, and the offline work reaches a copy (failed when the server ignored the base version); online two-tab conflict (UI, API) | Proven |
 
 ## R09 Version history

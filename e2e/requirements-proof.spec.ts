@@ -536,7 +536,7 @@ test('the T-shirt is the only template on offer, and the server refuses any othe
   expect(await createFromHead({ page, head, template: { id: 'gown', version: 1 } })).toMatchObject({ status: 422 })
 })
 
-test('a design on a template version this app cannot open says so, offers the way back and is left alone', async ({ page }) => {
+test('a design on a template version this app cannot open says so, offers nothing to edit, and offers the way back', async ({ page }) => {
   const email = newEmail({ label: 'version' })
   emails.push(email)
   await signIn({ page, email })
@@ -544,25 +544,44 @@ test('a design on a template version this app cannot open says so, offers the wa
   await expectSaved({ page })
   const head = await savedHead({ page })
 
-  // The server checks the template id, not the version, so a design from a
-  // version this app doesn't know can really be stored.
-  const created = await createFromHead({ page, head, template: { id: 'tee-crew-short', version: 999 } })
-  expect(created.status).toBe(201)
-  await page.goto(`/create?cloud=${created.designId}&step=design`)
+  // The server refuses to store such a design, so this stands in for one
+  // saved by a newer version of the app.
+  expect(await createFromHead({ page, head, template: { id: 'tee-crew-short', version: 999 } })).toMatchObject({ status: 422 })
+  await page.route('**/api/flp/designs/*', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue()
+      return
+    }
+
+    const response = await route.fetch()
+    const body = await response.json()
+    body.head.content.template.version = 999
+    await route.fulfill({ response, json: body })
+  })
+  await page.reload()
+
   await expect(page.getByRole('alert')).toContainText('This design uses a garment template this app cannot open.')
   await expect(page.getByRole('status').filter({ hasText: 'Saved to cloud' })).toHaveCount(0)
-
-  // The blank panels stay on screen under the message; drawing there must
-  // not reach the design.
-  await drawStroke({ page, panel: 'Front' })
-  await page.waitForTimeout(4_000)
-  const stored = await savedHead({ page })
-  expect(stored.seq).toBe(1)
-  expect(stored.content.template.version).toBe(999)
-  expect(strokes({ head: stored, panel: 'front' })).toEqual([])
+  await expect(page.locator('canvas')).toHaveCount(0)
+  await expect(page.getByPlaceholder('Type')).toHaveCount(0)
 
   await page.getByRole('alert').getByRole('link', { name: 'Back to My Studio' }).click()
   await expect(page).toHaveURL(/\/studio$/)
+})
+
+test('a rename survives leaving the page straight after', async ({ page }) => {
+  const email = newEmail({ label: 'renameleave' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+
+  const title = page.getByRole('textbox', { name: 'Design name' })
+  await title.fill('Renamed then left')
+  await title.press('Enter')
+  await page.goto('/studio')
+
+  await expect(page.getByRole('listitem').filter({ hasText: 'Renamed then left' })).toBeVisible()
 })
 
 test('publishing and the privacy page say what stays out of reach after unpublishing', async ({ page }) => {

@@ -7,7 +7,10 @@ import {
   type RecoveryStorage,
   clearRecovery,
   deleteRecovery,
+  type PendingStore,
+  adoptPendingRecovery,
   memoryRecoveryStorage,
+  writePendingRecovery,
   readRecovery,
   recoveryKey,
   recoveryOffer,
@@ -425,5 +428,80 @@ describe('withRecoveryTimeout (#190)', () => {
     })
 
     expect(await result).toEqual({ status: 'none' })
+  })
+})
+
+describe('a copy written as the page goes away', () => {
+  function memoryPending(): PendingStore & { items: Map<string, string> } {
+    const items = new Map<string, string>()
+    return {
+      items,
+      get length() {
+        return items.size
+      },
+      key: (index) => [...items.keys()][index] ?? null,
+      getItem: (key) => items.get(key) ?? null,
+      setItem: (key, value) => void items.set(key, value),
+      removeItem: (key) => void items.delete(key),
+    } as PendingStore & { items: Map<string, string> }
+  }
+  const write = ({ store, ownerId = 'owner-a', designId = 'design-a' }: { store: PendingStore; ownerId?: string; designId?: string }) =>
+    writePendingRecovery({
+      store,
+      ownerId,
+      designId,
+      writerId: 'tab-1',
+      baseSeq: 4,
+      revision: 9,
+      document: createEmptyCanonicalDocument(),
+      now: 1000,
+    })
+
+  test('is offered as normal recovery on the next open, and only once moved is it removed', async () => {
+    const store = memoryPending()
+    const storage = memoryRecoveryStorage()
+    write({ store })
+
+    await adoptPendingRecovery({ store, storage, ownerId: 'owner-a', designId: 'design-a' })
+
+    const read = await readRecovery({ storage, ownerId: 'owner-a', designId: 'design-a' })
+    expect(read).toMatchObject({ status: 'found', record: { baseSeq: 4, revision: 9, writerId: 'tab-1' } })
+    expect(store.items.size).toBe(0)
+  })
+
+  test('stays out of another account and another design', async () => {
+    const store = memoryPending()
+    const storage = memoryRecoveryStorage()
+    write({ store })
+
+    await adoptPendingRecovery({ store, storage, ownerId: 'owner-b', designId: 'design-a' })
+    await adoptPendingRecovery({ store, storage, ownerId: 'owner-a', designId: 'design-b' })
+
+    expect(await readRecovery({ storage, ownerId: 'owner-b', designId: 'design-a' })).toEqual({ status: 'none' })
+    expect(await readRecovery({ storage, ownerId: 'owner-a', designId: 'design-b' })).toEqual({ status: 'none' })
+    expect(store.items.size).toBe(1)
+  })
+
+  test('is kept for the next open if storage fails, and dropped if damaged', async () => {
+    const store = memoryPending()
+    write({ store })
+    const failing = { ...memoryRecoveryStorage(), put: () => Promise.reject(new Error('down')) }
+
+    await adoptPendingRecovery({ store, storage: failing, ownerId: 'owner-a', designId: 'design-a' })
+    expect(store.items.size).toBe(1)
+
+    const [key] = [...store.items.keys()]
+    store.items.set(key!, 'not json')
+    await adoptPendingRecovery({ store, storage: memoryRecoveryStorage(), ownerId: 'owner-a', designId: 'design-a' })
+    expect(store.items.size).toBe(0)
+  })
+
+  test('a store that is full changes nothing', () => {
+    const store = memoryPending()
+    store.setItem = () => {
+      throw new Error('quota')
+    }
+
+    expect(() => write({ store })).not.toThrow()
   })
 })
