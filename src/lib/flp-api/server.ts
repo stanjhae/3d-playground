@@ -1058,7 +1058,7 @@ export async function handleFlpRequest({
   if (request.method === 'GET' && designId && !action) {
     const { data: design, error: designError } = await asUser
       .from('designs')
-      .select('id, title, visibility, head_seq, updated_at')
+      .select('id, title, description, visibility, head_seq, updated_at')
       .eq('id', designId)
       .maybeSingle()
 
@@ -1090,6 +1090,7 @@ export async function handleFlpRequest({
       body: {
         id: design.id,
         title: design.title,
+        description: design.description,
         visibility: design.visibility,
         headSeq: design.head_seq,
         updatedAt: design.updated_at,

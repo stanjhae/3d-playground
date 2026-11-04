@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { createEmptyDocument, createObjectId } from './design-document'
+import { type GraphicLayer, createEmptyDocument, createObjectId } from './design-document'
 import {
   applyLayerEdit,
   canvasLayerFrame,
@@ -8,6 +8,8 @@ import {
   hitPlaceableLayer,
   layerBox,
   layerHandleLocal,
+  layerMostlyOffPanel,
+  layerShareOnPanel,
   layerVoice,
   placedType,
   wordEditorWidth,
@@ -202,5 +204,40 @@ describe('wordEditorWidth', () => {
     expect(wordEditorWidth({ frameShare: 0.1, length: 4 })).toBe('min(100%, max(18%, calc(5ch + 1.5rem)))')
     expect(wordEditorWidth({ frameShare: 0.5, length: 12 })).toBe('min(100%, max(50%, calc(13ch + 1.5rem)))')
     expect(wordEditorWidth({ frameShare: 0, length: 0 })).toBe('min(100%, max(18%, calc(4ch + 1.5rem)))')
+  })
+})
+
+describe('how much of a layer is on its panel', () => {
+  const graphic = (extra: Partial<GraphicLayer> = {}): GraphicLayer => ({
+    id: 'g',
+    kind: 'graphic',
+    panel: 'front',
+    src: 'x',
+    x: 0.5,
+    y: 0.5,
+    scale: 0.2,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    surface: { stretchY: 0.879, panelAspect: 0.611 },
+    ...extra,
+  })
+
+  test('all of it in the middle, and about a quarter in a corner', () => {
+    expect(layerShareOnPanel({ layer: graphic() })).toBe(1)
+    expect(layerShareOnPanel({ layer: graphic({ x: 0, y: 0 }) })).toBeCloseTo(0.25, 1)
+    expect(layerShareOnPanel({ layer: graphic({ x: 0.5, y: 0 }) })).toBeCloseTo(0.5, 1)
+  })
+
+  test('warns in a corner, not at an edge or in the middle', () => {
+    expect(layerMostlyOffPanel({ layer: graphic({ x: 0, y: 1 }) })).toBe(true)
+    expect(layerMostlyOffPanel({ layer: graphic({ x: 0, y: 0.5 }) })).toBe(false)
+    expect(layerMostlyOffPanel({ layer: graphic() })).toBe(false)
+  })
+
+  test('a turn counts on the cloth, so a layer turned in a corner is still counted', () => {
+    const turned = layerShareOnPanel({ layer: graphic({ x: 0, y: 0, rotation: Math.PI / 4 }) })
+    expect(turned).toBeGreaterThan(0.15)
+    expect(turned).toBeLessThan(0.35)
   })
 })

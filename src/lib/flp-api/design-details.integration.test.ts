@@ -105,6 +105,10 @@ describe.skipIf(!env)('design details against local Supabase', () => {
 
     expect([kept.status, over.status]).toEqual([200, 422])
     expect(((await kept.json()) as { description: string }).description).toBe(longest)
+
+    // It comes back when the design opens.
+    const opened = (await (await api({ path: `designs/${designId}`, token: a.token })).json()) as { description: string }
+    expect(opened.description).toBe(longest)
   })
 
   test('invalid details and another owner are refused', async () => {

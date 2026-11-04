@@ -115,6 +115,39 @@ export function layerHandleLocal({
   }
 }
 
+/** Below this share showing, most of a layer is outside its panel. */
+const MOSTLY_OFF_PANEL_SHARE = 0.3
+
+/**
+ * How much of a layer's box falls on its panel, from 0 to 1. A layer's centre
+ * always stays on the panel, so none is ever wholly off; a corner can still
+ * leave most of it unseen.
+ */
+export function layerShareOnPanel({ layer }: { layer: PlaceableLayer }) {
+  const box = layerBox({ layer })
+  const aspect = panelTrueAspect({ layer })
+  const cos = Math.cos(layer.rotation)
+  const sin = Math.sin(layer.rotation)
+  const samples = 21
+  let inside = 0
+
+  for (let row = 0; row < samples; row += 1) {
+    for (let column = 0; column < samples; column += 1) {
+      const localX = ((column + 0.5) / samples - 0.5) * box.width * aspect
+      const localY = ((row + 0.5) / samples - 0.5) * box.height
+      const x = layer.x + (localX * cos - localY * sin) / aspect
+      const y = layer.y + localX * sin + localY * cos
+      inside += x >= 0 && x <= 1 && y >= 0 && y <= 1 ? 1 : 0
+    }
+  }
+
+  return inside / (samples * samples)
+}
+
+export function layerMostlyOffPanel({ layer }: { layer: PlaceableLayer }) {
+  return layerShareOnPanel({ layer }) < MOSTLY_OFF_PANEL_SHARE
+}
+
 export function canvasLayerFrame({
   layer,
   width,

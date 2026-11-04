@@ -64,6 +64,7 @@ runs `supabase start`. Never run `supabase stop`, `supabase db reset` or
    - open the printed share link: "Night Market", five views, "By Demo Studio";
    - open <http://127.0.0.1:54324> (Mailpit) in a tab and leave it open;
    - open <http://localhost:4173/> and check the landing shows the 3D tee.
+   - in the studio, press **Hide all hints** if a hint shows, so none appears mid-demo.
 6. **Fallback video ready.** `demo-fallback.webm` in the repo root opens and
    plays (see [Recording the fallback](#recording-the-fallback)). Have it open
    in a player, paused at the start, in another window.
