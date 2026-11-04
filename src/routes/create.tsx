@@ -8,6 +8,7 @@ import { CreateStepper } from '../components/editor/CreateStepper'
 import { DesignModeToggle } from '../components/editor/DesignModeToggle'
 import { DualStudio } from '../components/editor/DualStudio'
 import { PaintCanvas } from '../components/editor/PaintCanvas'
+import { StudioHint } from '../components/editor/StudioHint'
 import { GraphicLibrary } from '../components/editor/GraphicLibrary'
 import { KeyboardHelp } from '../components/editor/KeyboardHelp'
 import { LayerRail } from '../components/editor/LayerRail'
@@ -597,6 +598,7 @@ function AtelierHome() {
         {mode === 'design' && !cloudFailed ? (
           <>
             <div className={studioPhoneToolsClass({ drawInFlow })}>
+              {cloudStatus === 'loaded' ? <StudioHint /> : null}
               {showsColorRail({ step: createStep }) ? (
                 <ColorPatternPanel />
               ) : null}
