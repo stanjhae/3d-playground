@@ -108,7 +108,7 @@ export const FLV_COPY = {
   designEmptyTitle: 'Print studio',
   designEmptyLead:
     'Four-sided draw and tech tools are available on the tee. Switch to Tee to design.',
-  suggestionsTitle: 'Suggestions',
+  suggestionsTitle: 'Graphics',
   graphicsTitle: 'Graphics',
   suggestionsApply: 'Apply to design',
   fillTool: 'Fill',
