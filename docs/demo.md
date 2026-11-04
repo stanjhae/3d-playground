@@ -1,6 +1,6 @@
 # Demo runbook — 17 Nov (#201)
 
-The hosted Supabase project isn't ready, so the demo runs on one laptop:
+The demo runs on one laptop:
 local Supabase, the production build served by `pnpm preview`, and
 Mailpit for the sign-in code. A recorded fallback covers the case where
 something breaks and stays broken.
@@ -10,11 +10,13 @@ password; you sign in with a code from Mailpit.
 
 ## Pre-flight (do this 30 minutes before)
 
+**Start with `pnpm demo:preflight`.** It reads only, checks everything below, and says exactly what to do about anything wrong. Run it again after each fix, until it says it's ready.
+
 Run everything from the repo root of the **main checkout**, the one that
 runs `supabase start`. Never run `supabase stop`, `supabase db reset` or
 `supabase reset` on demo day: they wipe the local database.
 
-1. **Docker is running.** `docker info` prints server details, not an error.
+1. **Docker is running.** `docker info` prints server details, not an error. After a laptop restart, Docker Desktop may ask for your Mac password, possibly behind other windows.
 2. **Supabase is up.**
 
    ```bash
@@ -26,6 +28,8 @@ runs `supabase start`. Never run `supabase stop`, `supabase db reset` or
    ```bash
    supabase start
    ```
+
+   If Docker was reset, this downloads its images again and **needs a network connection**, and the database is empty, so run `demo-reset` afterwards. It happened on 4 Nov, so do a full dry run the day before.
 
    `.env.local` must have `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`,
    `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` from
@@ -71,6 +75,8 @@ runs `supabase start`. Never run `supabase stop`, `supabase db reset` or
 7. Laptop: power plugged in, notifications off, browser zoom 100%, window at
    least 1440×900 so the editor's right column fits without scrolling.
    Close other tabs that use WebGL.
+
+8. **Backup.** Keep a copy of `demo-fallback.webm` somewhere off this laptop, such as a phone or USB drive. If this laptop fails, it's the only thing left to show. Copy it again whenever it's re-recorded.
 
 ## The 5-minute script
 
