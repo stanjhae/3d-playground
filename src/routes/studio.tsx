@@ -18,6 +18,7 @@ import type { CanonicalDocument } from '../lib/canonical-document'
 import type { PendingAsset } from '../lib/legacy-import'
 import { uploadPendingAssets } from '../lib/legacy-assets'
 import { initialStudioDocument } from '../lib/studio-create'
+import { EXAMPLE_DESIGN_TITLE, createExampleDocument } from '../lib/example-design'
 import { resolveTemplate } from '../lib/template-manifest'
 import { trackAssumption } from '../lib/assumption-events'
 
@@ -172,6 +173,27 @@ function MyStudio() {
     void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
   }
 
+  /** A private copy of the example, the person's own to change. */
+  async function openExample() {
+    setCreating(true)
+    setCreateError(null)
+    const result = await createOwnedDesign({
+      request: {
+        mutationKey: crypto.randomUUID(),
+        title: EXAMPLE_DESIGN_TITLE,
+        content: createExampleDocument(),
+      },
+    })
+    setCreating(false)
+
+    if (result.ok) {
+      void trackAssumption({ name: 'design_created' })
+      void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
+    } else if (result.code !== 'account-changed') {
+      setCreateError(result.code === 'quota_exceeded' ? result.message : `The example could not open (${result.message}). Try again.`)
+    }
+  }
+
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-16">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -190,6 +212,14 @@ function MyStudio() {
             onClick={() => (conversion?.fromLanding ? setPreviewing(true) : void create())}
           >
             {creating ? 'Creating…' : conversion?.fromLanding ? 'Create from your landing design' : 'Create a T-shirt'}
+          </button>
+          <button
+            type="button"
+            className="min-h-9 font-body text-xs text-flv-muted underline underline-offset-2 hover:text-flv-accent disabled:opacity-50"
+            disabled={creating || !TEE.ok}
+            onClick={() => void openExample()}
+          >
+            Start from an example
           </button>
           {TEE.ok ? (
             <p className="font-body text-xs text-flv-muted">
