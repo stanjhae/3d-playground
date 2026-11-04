@@ -142,7 +142,7 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Statement | Evidence | Status |
 | --- | --- | --- |
 | Preview uses the same document as 2D | `render-proof.spec` (UI, 3D pixels): ink drawn on the Front and Back panels appears on that side of the tee, in its colour. Shape on the tee is the open aspect-ratio gap | Proven |
-| Reports loading or stale until the latest revision is rendered | No revision-tied state; waived with #164 (decision 4) | Decided (2 Nov) |
+| Reports loading or stale until the latest revision is rendered | `atlas-status.spec` (UI): a delayed image shows the note until it arrives, a failed one says so, and publishing waits; `atlas-status.test.ts` (unit): each state, and a build for an older revision never counts as current | Proven |
 | Delayed older decode can't overwrite a newer preview | `layer-images.test.ts` (unit, `loadLayerImages`): an older decode finishing last is dropped (failed with the guard removed). That the hook cancels on change is React's effect cleanup, read rather than tested | Proven |
 | Landmark and orientation fixtures on four panels | `template-manifest.test.ts`, `panel-orientation.test.ts` | Proven |
 | Transparency and transform fixtures | `render-proof.test.ts` (pixel): image alpha blends and multiplies with layer opacity; move, scale and turn on all four panels | Proven |

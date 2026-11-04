@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { waitForCurrentAtlas } from '../../lib/atlas-status'
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
 import { useEditorStore } from '../../lib/editor-store'
 import { countUnavailableImages } from '../../lib/layer-images'
@@ -109,6 +110,25 @@ export function CloudPublish() {
     if (await countUnavailableImages({ document: editor.document })) {
       setBusy(null)
       setMessage('An image on this design hasn’t loaded, so it would publish as a placeholder. Reload the page, or remove the image, and try again.')
+      return
+    }
+
+    // Never photograph a garment still missing a word or image (R01 #164).
+    const atlas = await waitForCurrentAtlas({
+      current: () => {
+        const { document, revision } = useEditorStore.getState()
+        return { document, revision }
+      },
+    })
+
+    // A word in a stand-in font still publishes, as the preview shows it.
+    if (atlas === 'loading' || atlas === 'error') {
+      setBusy(null)
+      setMessage(
+        atlas === 'loading'
+          ? 'Artwork on this design is still loading. Wait a moment, then publish again.'
+          : 'Some artwork on this design could not load, so it wouldn’t publish correctly. Reload the page, then publish again.',
+      )
       return
     }
 

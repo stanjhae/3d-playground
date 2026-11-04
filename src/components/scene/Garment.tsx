@@ -1,6 +1,6 @@
 import { useGLTF, useTexture } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useContext, useLayoutEffect, useMemo, useRef } from 'react'
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   CanvasTexture,
   Color,
@@ -29,10 +29,11 @@ import {
 } from '../../lib/design-document'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
-import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
+import { getCanonicalDocument, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { garmentSrc } from '../../lib/garment-parts'
 import { applyLayerEdit } from '../../lib/layer-hit'
-import { useLayerImages } from '../../lib/layer-images'
+import { useLayerImageLoad } from '../../lib/layer-images'
+import { ATLAS_COMPILER_VERSION, artworkState, useAtlasBuild } from '../../lib/atlas-status'
 import { rasterizeLayers } from '../../lib/paint-atlas'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { createClothingMesh } from '../../lib/tee-geometry'
@@ -316,7 +317,7 @@ function SeatedForm({
   // On-demand rendering: each change below asks for a frame.
   const invalidate = useThree((state) => state.invalidate)
   const atlasRef = useRef<CanvasTexture | null>(null)
-  const layerImages = useLayerImages({ document: inkDocument })
+  const { images: layerImages, settled: imagesSettled } = useLayerImageLoad({ document: inkDocument })
   const textFaces = useTextFacesVersion()
 
   const { tree, meshes, baseMaterials } = useMemo(() => {
@@ -400,7 +401,25 @@ function SeatedForm({
       inkMap: hasInk ? texture : null,
     })
     invalidate()
-  }, [activeLayerEdit, activeStroke, inkDocument, invalidate, layerImages, meshes, picking, textFaces])
+
+    // Only the studio's own document has a revision to be current for.
+    const editor = useEditorStore.getState()
+
+    if (inkDocument === editor.document) {
+      useAtlasBuild.setState({
+        build: {
+          document: inkDocument,
+          revision: editor.revision,
+          templateVersion: getCanonicalDocument().template.version,
+          compilerVersion: ATLAS_COMPILER_VERSION,
+          state: artworkState({ document: inkDocument, images: layerImages, imagesSettled }),
+        },
+      })
+    }
+  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, meshes, picking, textFaces])
+
+  // Nothing is on screen to be current once this form goes.
+  useEffect(() => () => useAtlasBuild.setState({ build: null }), [])
 
   useFrame((_, delta) => {
     if (!picking || lerpClock.current >= 1) {

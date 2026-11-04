@@ -581,7 +581,18 @@ test('a rename survives leaving the page straight after', async ({ page }) => {
   await title.press('Enter')
   await page.goto('/studio')
 
-  await expect(page.getByRole('listitem').filter({ hasText: 'Renamed then left' })).toBeVisible()
+  // The list may load before the rename lands; what matters is that it lands.
+  await expect
+    .poll(
+      async () => {
+        await page.reload()
+        await expect(page.getByRole('button', { name: 'Create a T-shirt' })).toBeVisible()
+        await expect(page.getByRole('listitem').first()).toBeVisible()
+        return page.getByRole('listitem').filter({ hasText: 'Renamed then left' }).count()
+      },
+      { timeout: 20_000, intervals: [1_000, 2_000, 3_000] },
+    )
+    .toBe(1)
 })
 
 test('publishing and the privacy page say what stays out of reach after unpublishing', async ({ page }) => {

@@ -2,6 +2,12 @@
 
 Decisions that change scope or behaviour for the 17 November alpha, with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 4 Nov 2026: the preview says when it isn't the whole design (#164)
+
+**Decided by:** owner, reversing the 31 Oct deferral of #164 and decision 4 of 2 Nov.
+
+The preview now shows when artwork is loading or couldn't load, and publishing waits for it. An image that can't load blocks publishing; a font that misses its load shows a note, and the word publishes in a stand-in, as it did before. This is a targeted change, not the pipeline rewrite that was deferred: atlas builds were already synchronous and pure. The template and compiler revision on stored renders (the #179 part) stays deferred, because it needs a migration.
+
 ## 4 Nov 2026: images keep their shape, on a new template version
 
 **Decided by:** owner, on the requirements audit.
@@ -29,7 +35,7 @@ Sign-out refuses the refresh token, and the API refuses the old access token str
 | 1 | Section 9, R04 | 50 layers, 32 characters, 2,000 stroke points, 512 KB JSON | **Keep the current numbers:** 40 layers per panel (160 in total), 280 characters, 4,096 points per stroke, 2 MB JSON. Tightening could make existing designs read as over the limit. |
 | 2 | R03 | Left, right and reset camera controls | **Left and right added** to the preview's camera bar. **No separate reset:** picking a preset is the nearest thing. |
 | 3 | R05 | Warning for a fully off-panel object | **Deferred** past the alpha. There's no warning, and the object stays in the layer list. |
-| 4 | R07 | Reports loading or stale until the latest revision renders | **Waived with #164.** The deferral of the revision-tagged atlas on 31 Oct covers these statements too. |
+| 4 | R07 | Reports loading or stale until the latest revision renders | ~~Waived with #164.~~ **Built on 4 Nov**, see above. |
 | 5 | R09 | Content never silently evicted | **Pruning stays, and History says so.** The 100 latest autosaves are kept, plus every checkpoint, restore and published version. |
 | 6 | R10 | Private when a legacy field is absent | **Out of scope for the owned flow.** Cloud designs always have a visibility. The legacy look store is the closed guest surface (see 1 Nov). |
 | 7 | Section 10 | Operator takedown | **The manual step is accepted** for a controlled alpha (`docs/deploy.md`). An owner may be able to republish afterwards. |
