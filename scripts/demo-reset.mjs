@@ -256,7 +256,7 @@ async function seedHistory({ api }) {
   // v1 create, v2 autosave, v3 checkpoint "First pass", v4 autosave (an
   // edit to undo), v5 restore of v3.
   const design = await createDesign({ api, title: 'Studio draft', content: withStrokes(1) })
-  const backText = [text({ id: 'text-back', content: 'DRAFT', color: '#1a1c22', y: 0.4, scale: 0.14 })]
+  const backText = [text({ id: 'text-back', content: 'DRAFT', color: '#1a1c22', y: 0.4, scale: 0.08 })]
   await save({ api, design, content: withStrokes(2) })
   await save({ api, design, content: withStrokes(2, backText), kind: 'checkpoint', label: 'First pass' })
   const checkpoint = design.seq

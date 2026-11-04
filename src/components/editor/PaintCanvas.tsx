@@ -241,6 +241,13 @@ function WordOnCloth({
           onClose()
         }}
         onKeyDown={(event) => {
+          // Leaving the box commits the word.
+          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+            event.preventDefault()
+            event.currentTarget.blur()
+            return
+          }
+
           if (event.key !== 'Escape') {
             return
           }

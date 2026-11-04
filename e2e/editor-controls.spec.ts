@@ -287,10 +287,12 @@ test('switching panels keeps each layer, its values and the chosen tool settings
   const rail = page.getByRole('complementary', { name: 'On the cloth' })
   await rail.getByRole('button', { name: /FRONT/ }).first().click()
   await expect(x).toHaveValue('70')
+  await expect(panelCanvas({ page, panel: 'Front' })).toHaveAttribute('aria-label', /, active$/)
   await expect(page.getByRole('button', { name: 'Oxblood' }).last()).toHaveAttribute('aria-pressed', 'true')
 
   await rail.getByRole('button', { name: /BACK/ }).first().click()
   await expect(x).toHaveValue('30')
+  await expect(panelCanvas({ page, panel: 'Back' })).toHaveAttribute('aria-label', /, active$/)
 
   const head = await savedHead({ page })
   expect(head.content.panels.front!.layers.find((layer) => layer.kind === 'text')).toMatchObject({ content: 'FRONT', color: color('Oxblood') })
@@ -343,7 +345,7 @@ test('undo and redo cover add, colour, word, position, order and delete', async 
   const editor = page.locator('input:focus')
   await expect(editor).toHaveValue('ONE')
   await editor.fill('EDITED')
-  await editor.blur()
+  await editor.press('Enter')
   await saved({ read: order }).toBe('EDITED')
   await undo.click()
   await saved({ read: order }).toBe('ONE')
@@ -500,4 +502,36 @@ test('on the Preview step a drag turns the tee and adds no ink, and a preset tak
 
   await camera.getByRole('radio', { name: 'Front', exact: true }).click()
   expect(await difference(front, await settled())).toBeLessThan(0.005)
+})
+
+test('at phone width each panel keeps its shape and fits, and a sleeve can be drawn on', async ({ page }) => {
+  test.setTimeout(120_000)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openDesign({ page, label: 'phone', tech: false })
+  await page.getByText('Draw', { exact: true }).first().click()
+
+  const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  const front = panelCanvas({ page, panel: 'Front' })
+  await expect(front).toBeVisible()
+  const frontBox = (await front.boundingBox())!
+  expect(frontBox.width / frontBox.height).toBeCloseTo(0.611, 1)
+  expect(frontBox.x + frontBox.width).toBeLessThanOrEqual(390)
+  expect(await overflow()).toBeLessThanOrEqual(0)
+
+  await page.getByRole('navigation', { name: 'Draw' }).getByRole('button', { name: "Wearer's right" }).click()
+  const sleeve = panelCanvas({ page, panel: "Wearer's right" })
+  await expect(sleeve).toBeVisible()
+  const sleeveBox = (await sleeve.boundingBox())!
+  expect(sleeveBox.width / sleeveBox.height).toBeCloseTo(3.037, 0)
+  expect(sleeveBox.x + sleeveBox.width).toBeLessThanOrEqual(390)
+  expect(await overflow()).toBeLessThanOrEqual(0)
+
+  await sleeve.scrollIntoViewIfNeeded()
+  const inView = (await sleeve.boundingBox())!
+  await drag({
+    page,
+    from: { x: inView.x + inView.width * 0.3, y: inView.y + inView.height * 0.5 },
+    to: { x: inView.x + inView.width * 0.7, y: inView.y + inView.height * 0.5 },
+  })
+  await saved({ read: async () => (await layers({ page, panel: "Wearer's right", kind: 'paint' })).length }).toBe(1)
 })
