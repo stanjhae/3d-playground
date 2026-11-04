@@ -280,8 +280,8 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 
 | Statement | Evidence | Status |
 | --- | --- | --- |
-| Save acknowledgement p95 ≤ 2 s | `measure.spec` prints it: 192 ms locally. No threshold asserted | Hosted only |
-| First public image ≤ 3 s | `measure.spec`: 2.14 s locally on Fast 3G | Hosted only |
+| Save acknowledgement p95 ≤ 2 s | `measure.spec` on staging, 4 Nov, two runs: 0.88 s and 0.58 s (`docs/baseline.md`). It now fails above the target. Measured from one laptop, not a set of real users | Proven |
+| First public image ≤ 3 s | `measure.spec` on staging, Fast 3G, 4 Nov, two runs: 1.70 to 1.78 s at both sizes (`docs/baseline.md`). It missed at 3.09 and 3.72 s until the functions moved next to the database | Proven |
 | 50 layers | Stays 40 per panel, 160 in total (decision 1) | Decided (2 Nov) |
 | 32 characters per object | Stays 280 (decision 1) | Decided (2 Nov) |
 | 2,000 stroke points in total | Stays 4,096 per stroke, no total (decision 1) | Decided (2 Nov) |
