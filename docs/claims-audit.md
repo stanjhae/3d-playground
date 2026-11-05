@@ -140,6 +140,10 @@ With `VITE_FLP_CONCEPT` off, as it is everywhere the alpha runs:
 
 Each is its own commit, so one can be reverted alone. **Q2 stays open.**
 
+## UI overhaul (6 Nov 2026)
+
+The studio and landing were restyled closer to the mockups (UI plan, Phases 0 to 5). No new claims were added. The Garment step no longer calls the tee "oversized" or "drop-shouldered", which its current shape is not. Stats and offers seen in the mockups ("10K+ designers", "6 months free", AI features, live rankings) stay out. Try-on stays labelled as a concept, and published pictures never show the figure.
+
 ## Open questions for the owner
 
 1. **Brand.** The landing says "FLV / Fashion Leader Vote", and #125 uses "Fashion Leaderboard (FLP)". Which public name goes on the pitch build? (#198)
