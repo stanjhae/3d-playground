@@ -17,6 +17,7 @@ import { StudioAnnouncer } from '../components/editor/StudioAnnouncer'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
 import { StepActions } from '../components/editor/StepActions'
+import { StepIntro } from '../components/editor/StepIntro'
 import { StudioViewToggle } from '../components/editor/StudioViewToggle'
 import { TechInspector } from '../components/editor/TechInspector'
 import { VersionRail } from '../components/editor/VersionRail'
@@ -605,6 +606,7 @@ function AtelierHome() {
         {mode === 'design' && !cloudFailed ? (
           <div className={studioToolColumnClass({ side: showsDesignRails({ step: createStep }) ? 'left' : 'right' })}>
             <div className={studioPhoneToolsClass({ drawInFlow })}>
+              <StepIntro />
               {cloudStatus === 'loaded' ? <StudioHint /> : null}
               {showsSilhouetteRail({ step: createStep }) ? (
                 <SilhouetteSwitch />

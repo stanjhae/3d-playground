@@ -1,0 +1,34 @@
+import { useEditorStore } from '../../lib/editor-store'
+import type { CreateStepId } from '../../lib/create-steps'
+
+/** What this step is for, in a line, as the mockups open each screen. */
+const INTROS: Record<CreateStepId, { title: string; lead: string }> = {
+  select: {
+    title: 'Choose your garment',
+    lead: 'Start from the tee. Its front, back and both sleeves are yours to design.',
+  },
+  color: {
+    title: 'Make it yours',
+    lead: 'Pick a base colour and pattern. This step is optional, and you can change it anytime.',
+  },
+  design: {
+    title: 'Design every side',
+    lead: 'Draw, add words and graphics. Every change shows on the tee straight away.',
+  },
+  share: {
+    title: 'Preview and publish',
+    lead: 'Turn the tee to check every side. Publishing shares one saved version by link.',
+  },
+}
+
+export function StepIntro() {
+  const step = useEditorStore((state) => state.createStep)
+  const intro = INTROS[step]
+
+  return (
+    <header className="flex flex-col gap-1 px-1 pt-1 pb-1">
+      <h1 className="font-display text-2xl leading-none uppercase">{intro.title}</h1>
+      <p className="font-body text-sm text-flv-muted">{intro.lead}</p>
+    </header>
+  )
+}

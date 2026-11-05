@@ -755,7 +755,7 @@ export function PaintCanvas({
   return (
     <aside className="flv-panel flex h-full min-h-80 flex-col gap-3 p-3">
       <div className="flex items-center justify-between gap-3">
-        <p className={chromeKickerClass()}>{HOUSE_COPY.draw}</p>
+        <p className={chromeKickerClass()}>Four sides</p>
         <nav
           aria-label={HOUSE_COPY.draw}
           className={cn('flex flex-wrap justify-end gap-x-3', {
