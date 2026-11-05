@@ -12,6 +12,7 @@
 - **The studio's "Design / The house" switch** shows only in guest builds.
 - **Guided by default, with a Pro tools switch.** Guided opens a new design on Garment, keeps one way to set the brush (Fine, Line, Bold), lets you drag, size and rotate a piece, and shows one hint at a time. Pro opens on Design and adds brush size, opacity and hardness, numeric position, mirroring to the other side, layer rename and duplicate, named checkpoints, Save this look and keyboard help, and turns the hints off. The switch is remembered on the device and never changes the design.
 - **A tool rail replaces Draw / Tech:** Draw, Text, Graphics and Upload, each with its own panel. Selected item and Layers stay below.
+- **Pencil and palm:** once a pen has drawn on a panel, a resting hand no longer draws there. Pen pressure already reached both the panels and the tee.
 - **Plain words:** Right sleeve and Left sleeve (named as worn), Selected item, Position, Rotate, Mirror to other side, Upload image, Layers, Serif, Medium and Large, Your text and Tap to place.
 
 ### Added

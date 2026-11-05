@@ -11,6 +11,7 @@ import { documentHasInk } from '../../lib/design-document'
 import { trackAssumption } from '../../lib/assumption-events'
 import type { PanelId } from '../../lib/design-document'
 import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
+import { acceptsPointer } from '../../lib/palm-rejection'
 import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { useLayerImages } from '../../lib/layer-images'
@@ -338,7 +339,7 @@ function PaintSurface({
   }) {
     const node = canvasRef.current
 
-    if (!node) {
+    if (!node || !acceptsPointer({ pointerType: event.pointerType })) {
       return
     }
 
@@ -458,7 +459,8 @@ function PaintSurface({
     const node = canvasRef.current
     const drag = dragRef.current
 
-    if (!node) {
+    // A resting palm moving while the pen draws must not add to the stroke.
+    if (!node || !acceptsPointer({ pointerType: event.pointerType })) {
       return
     }
 
