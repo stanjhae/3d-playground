@@ -2,7 +2,15 @@
 
 ## Unreleased
 
+### Changed
+- **New look, first step:** heavy sans headlines, a brighter red-to-orange brand on near-white, sentence-case controls and a new site header. Words on a garment keep their fonts.
+- **Login on the landing goes to sign-in.** It used to jump to the waitlist.
+
+### Added
+- **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
+
 ### Fixed
+- **A page behind sign-in stayed blank when the sign-in service couldn't be reached.** It now says it's opening, then goes to sign-in after 6 seconds. A session that arrives later still applies.
 - **A sign-in email that failed to send told people to check their connection.** It now says the code couldn't be sent, and an outage of the sign-in service no longer blames the connection either (#145).
 - **The email limit for the hour said to wait a minute.** The message now says to try again in an hour if it keeps appearing (#145).
 

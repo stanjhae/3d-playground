@@ -110,13 +110,39 @@ export function startSession({ client }: { client: SupabaseClient | null }) {
   return started
 }
 
-/** Resolves once the initial session is known (for route guards). */
+/**
+ * How long a route guard waits for the session. An expired session has to
+ * refresh over the network, and with the sign-in service unreachable that
+ * retries for a long time behind a blank page.
+ */
+export const SESSION_WAIT_MS = 6_000
+
+/**
+ * Resolves once the initial session is known (for route guards), or as
+ * unavailable after `timeoutMs`. A session that arrives later still applies.
+ */
 export async function waitForSession({
   client,
+  timeoutMs = SESSION_WAIT_MS,
 }: {
   client: SupabaseClient | null
+  timeoutMs?: number
 }) {
-  await startSession({ client })
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  await Promise.race([
+    startSession({ client }),
+    new Promise<void>((resolve) => {
+      timer = setTimeout(() => {
+        if (useSessionStore.getState().status === 'loading') {
+          markAuthUnavailable()
+        }
+
+        resolve()
+      }, timeoutMs)
+    }),
+  ])
+  clearTimeout(timer)
   return useSessionStore.getState()
 }
 

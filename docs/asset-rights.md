@@ -47,6 +47,8 @@ Credits currently appear in the studio silhouette switch (`SilhouetteSwitch.tsx`
 | `draco/draco_decoder.js`, `draco_decoder.wasm`, `draco_wasm_wrapper.js` | Google Draco, Apache-2.0, shipped with three.js | Byte-identical to `node_modules/three/examples/jsm/libs/draco/gltf/` | **Cleared.** Apache-2.0 needs the license notice kept with redistributed copies. Add a `public/draco/LICENSE` or a third-party notices file (follow-up). |
 | `@fontsource/cormorant-garamond` | SIL OFL 1.1, © 2015 The Cormorant Project Authors | Package `license` field and `LICENSE` | **Cleared.** Web embedding is allowed; keep the OFL notice in third-party notices. |
 | `@fontsource/outfit` | SIL OFL 1.1, © 2021 The Outfit Project Authors | Same as above | **Cleared**, same as above |
+| `@fontsource/inter-tight` | SIL OFL 1.1, © 2022 The Inter Tight Project Authors | Same as above | **Cleared**, same as above. UI headlines only; not a garment font. |
+| `lucide-react` | ISC, Lucide Contributors | Package `license` field | **Cleared.** Notice kept in third-party notices. |
 
 ## Seed looks (`data/designs.json`)
 

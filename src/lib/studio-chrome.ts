@@ -120,15 +120,15 @@ export function railFrameClass() {
 }
 
 export function chromeKickerClass() {
-  return 'font-body text-xs tracking-[0.18em] text-flv-accent uppercase'
+  return 'font-body text-xs font-medium tracking-[0.08em] text-flv-accent uppercase'
 }
 
 export function chromeTextClass() {
-  return 'font-body text-xs tracking-[0.08em] text-flv-ink uppercase'
+  return 'font-body text-sm font-medium text-flv-ink'
 }
 
 export function chromeMutedClass() {
-  return 'font-body text-xs tracking-[0.06em] text-flv-muted'
+  return 'font-body text-xs text-flv-muted'
 }
 
 export function emptyStepClass() {

@@ -8,6 +8,14 @@ Fonts, used under the SIL Open Font License, Version 1.1:
   Outfit
   Copyright 2021 The Outfit Project Authors (https://github.com/Outfitio/Outfit-Fonts)
 
+  Inter Tight
+  Copyright 2022 The Inter Tight Project Authors (https://github.com/googlefonts/inter-tight)
+
+Lucide icons, used under the ISC License:
+  Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT).
+  All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+  https://lucide.dev/license
+
 Draco 3D decoder, used under the Apache License, Version 2.0:
   Copyright The Draco Authors (https://github.com/google/draco)
   https://www.apache.org/licenses/LICENSE-2.0
