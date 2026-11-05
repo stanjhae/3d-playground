@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { buttonClass } from '../ui/Button'
 import { waitForCurrentAtlas } from '../../lib/atlas-status'
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
+import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
 import { countUnavailableImages } from '../../lib/layer-images'
 import {
@@ -268,7 +269,15 @@ export function CloudPublish() {
         so a line below them coming or going (the 3D preview starting, Saved
         to cloud) moved the button out from under a click in progress.
       */}
-      <p role="status" aria-live="polite" className="min-h-5 font-body text-xs text-flv-accent">
+      <p
+        role="status"
+        aria-live="polite"
+        className={cn('min-h-5 font-body text-xs', {
+          // The preview starting is a normal wait, not a problem.
+          'text-flv-muted': saved && !message && webglStatus === 'checking',
+          'text-flv-accent': !saved || Boolean(message) || webglStatus !== 'checking',
+        })}
+      >
         {!saved
           ? 'Publishing is available once the design shows Saved to cloud.'
           : (message ?? renderBlocked)}

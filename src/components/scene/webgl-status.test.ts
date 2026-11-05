@@ -42,9 +42,17 @@ describe('publishBlockedReason', () => {
   it('allows publishing only while the canvas is ready', () => {
     expect(publishBlockedReason({ status: 'ready' })).toBeNull()
 
-    for (const status of ['checking', 'lost'] as const) {
-      expect(publishBlockedReason({ status })).toBe(WEBGL_COPY.publishBlocked)
+    for (const status of ['checking', 'lost', 'unsupported'] as const) {
+      expect(publishBlockedReason({ status })).not.toBeNull()
     }
+  })
+
+  it('says a normal start is a wait, not that the preview went away', () => {
+    expect(publishBlockedReason({ status: 'checking' })).toBe(WEBGL_COPY.publishStarting)
+  })
+
+  it('says a lost preview will come back', () => {
+    expect(publishBlockedReason({ status: 'lost' })).toBe(WEBGL_COPY.publishBlocked)
   })
 
   it('tells a browser without WebGL to publish from elsewhere', () => {
