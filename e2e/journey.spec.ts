@@ -1,15 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import {
-  deleteAccounts,
-  drawStroke,
-  expectNoCspViolations,
-  expectSaved,
-  newEmail,
-  panelCanvas,
-  signIn,
-  watchCsp,
-} from './helpers'
+import { chooseTool, deleteAccounts, drawStroke, expectNoCspViolations, expectSaved, newEmail, panelCanvas, signIn, watchCsp } from './helpers'
 
 /**
  * The alpha journey end to end (Q04 #189): sign in, create, edit, save,
@@ -41,8 +32,9 @@ test('create → edit → save → publish → view signed out → unpublish →
 
   // Draw on the front, type on the back.
   await drawStroke({ page, panel: 'Front' })
-  await page.getByPlaceholder('Type').fill('E2E')
-  await page.getByRole('button', { name: 'Type', exact: true }).click()
+  await chooseTool({ page, tool: 'Text' })
+  await page.getByPlaceholder('Your text').fill('E2E')
+  await page.getByRole('button', { name: 'Tap to place', exact: true }).click()
   const back = await panelCanvas({ page, panel: 'Back' }).boundingBox()
   await page.mouse.click(back!.x + back!.width / 2, back!.y + back!.height / 3)
   await expectSaved({ page })

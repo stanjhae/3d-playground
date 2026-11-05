@@ -95,7 +95,29 @@ export async function latestCode({ email, after }: { email: string; after: numbe
 }
 
 /** Signs in with an email code; new accounts are created on first sign-in. */
-export async function signIn({ page, email, returnTo = '/studio' }: { page: Page; email: string; returnTo?: string }) {
+/**
+ * Pro tools start on for the suite (playwright.config.ts). `pro: false` starts
+ * this tab in Guided once; a later switch to Pro then survives reloads.
+ */
+export async function signIn({
+  page,
+  email,
+  returnTo = '/studio',
+  pro = true,
+}: {
+  page: Page
+  email: string
+  returnTo?: string
+  pro?: boolean
+}) {
+  if (!pro) {
+    await page.addInitScript(() => {
+      if (!window.sessionStorage.getItem('flp-guided-seeded')) {
+        window.sessionStorage.setItem('flp-guided-seeded', '1')
+        window.localStorage.setItem('flp-pro-tools', 'off')
+      }
+    })
+  }
   await page.goto(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`)
   const requested = Date.now() - 2_000
   await page.getByRole('textbox', { name: 'Email' }).fill(email)
@@ -104,6 +126,11 @@ export async function signIn({ page, email, returnTo = '/studio' }: { page: Page
   await page.getByRole('textbox', { name: '6-digit code' }).fill(code)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(new RegExp(`${returnTo.replace(/[/?]/g, '\\$&')}$`))
+}
+
+/** Picks a Design step tool from the rail. Picking the current one changes nothing. */
+export async function chooseTool({ page, tool }: { page: Page; tool: 'Draw' | 'Text' | 'Graphics' | 'Upload' }) {
+  await page.getByRole('radiogroup', { name: 'Tools' }).getByRole('radio', { name: tool, exact: true }).click()
 }
 
 /** An account that exists before its first sign-in, with no code sent yet. */
@@ -148,7 +175,7 @@ export async function deleteAccounts({ emails }: { emails: string[] }) {
   }
 }
 
-export function panelCanvas({ page, panel }: { page: Page; panel: 'Front' | 'Back' | "Wearer's right" | "Wearer's left" }) {
+export function panelCanvas({ page, panel }: { page: Page; panel: 'Front' | 'Back' | 'Right sleeve' | 'Left sleeve' }) {
   // The selected panel's name ends in ", active" (#248), so match the start.
   return page.locator(`canvas[aria-label^="Design panel ${panel}"]`)
 }
@@ -159,7 +186,7 @@ export async function drawStroke({
   panel,
 }: {
   page: Page
-  panel: 'Front' | 'Back' | "Wearer's right" | "Wearer's left"
+  panel: 'Front' | 'Back' | 'Right sleeve' | 'Left sleeve'
 }) {
   const box = await panelCanvas({ page, panel }).boundingBox()
 

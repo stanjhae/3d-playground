@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
-import { deleteAccounts, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
+import { deleteAccounts, expectSaved, newEmail, panelCanvas, signIn, chooseTool } from './helpers'
 
 /**
  * Numeric transform fields in the Tech inspector (#156): typing commits on
@@ -22,16 +22,16 @@ test('typed, stepped and dragged placement are one undo step each', async ({ pag
 
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
-  await page.getByRole('radio', { name: 'Tech' }).click()
-  await page.getByPlaceholder('Type').fill('NUM')
-  await page.getByPlaceholder('Type').press('Enter')
+  await chooseTool({ page, tool: 'Text' })
+  await page.getByPlaceholder('Your text').fill('NUM')
+  await page.getByPlaceholder('Your text').press('Enter')
 
-  const x = page.getByRole('textbox', { name: 'Place X, percent of panel' })
-  const y = page.getByRole('textbox', { name: 'Place Y, percent of panel' })
-  const xSlider = page.getByRole('slider', { name: 'Place X', exact: true })
+  const x = page.getByRole('textbox', { name: 'Position X, percent of panel' })
+  const y = page.getByRole('textbox', { name: 'Position Y, percent of panel' })
+  const xSlider = page.getByRole('slider', { name: 'Position X', exact: true })
   await expect(x).toHaveValue('50')
   await expect(page.getByRole('textbox', { name: 'Size, percent' })).toBeVisible()
-  await expect(page.getByRole('textbox', { name: 'Turn, degrees' })).toHaveValue('0')
+  await expect(page.getByRole('textbox', { name: 'Rotate, degrees' })).toHaveValue('0')
 
   // Enter commits, and the slider follows.
   await x.fill('70')
@@ -61,7 +61,7 @@ test('typed, stepped and dragged placement are one undo step each', async ({ pag
 
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .include('aside:has(input[aria-label="Place X, percent of panel"])')
+    .include('aside:has(input[aria-label="Position X, percent of panel"])')
     .analyze()
   expect(
     results.violations

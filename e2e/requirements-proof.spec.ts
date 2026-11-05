@@ -2,7 +2,7 @@ import { type APIRequestContext, type Page, expect, test } from '@playwright/tes
 
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
-import { createExistingAccount, deleteAccounts, drawStroke, expectSaved, expireSentCode, latestCode, newEmail, panelCanvas, signIn } from './helpers'
+import { chooseTool, createExistingAccount, deleteAccounts, drawStroke, expectSaved, expireSentCode, latestCode, newEmail, panelCanvas, signIn } from './helpers'
 
 /**
  * What docs/evidence/requirements-rc.md found proven only below the UI:
@@ -286,8 +286,9 @@ test('a second browser signed in by code lists and opens the same design; anothe
   await signIn({ page, email })
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
-  await page.getByPlaceholder('Type').fill('TWICE')
-  await page.getByPlaceholder('Type').press('Enter')
+  await chooseTool({ page, tool: 'Text' })
+  await page.getByPlaceholder('Your text').fill('TWICE')
+  await page.getByPlaceholder('Your text').press('Enter')
   const title = page.getByRole('textbox', { name: 'Design name' })
   await title.fill('Two browsers')
   await title.press('Enter')
@@ -439,8 +440,8 @@ test('drawing on both sleeves, erasing, and the layer list work from the editor'
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
 
-  await drawStroke({ page, panel: "Wearer's right" })
-  await drawStroke({ page, panel: "Wearer's left" })
+  await drawStroke({ page, panel: 'Right sleeve' })
+  await drawStroke({ page, panel: 'Left sleeve' })
   await drawStroke({ page, panel: 'Back' })
   await drawStroke({ page, panel: 'Front' })
   await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'front' }).length, { timeout: 20_000 }).toBe(1)
@@ -451,6 +452,7 @@ test('drawing on both sleeves, erasing, and the layer list work from the editor'
   }
 
   // The eraser lands on the panel's paint layer and leaves the others alone.
+  await chooseTool({ page, tool: 'Draw' })
   await page.getByRole('button', { name: 'Erase', exact: true }).click()
   await drawStroke({ page, panel: 'Front' })
   await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'front' }).map((stroke) => stroke.tool), { timeout: 20_000 }).toEqual(['brush', 'eraser'])
@@ -464,11 +466,13 @@ test('drawing on both sleeves, erasing, and the layer list work from the editor'
   await expect.poll(async () => strokes({ head: await savedHead({ page }), panel: 'front' }).length, { timeout: 20_000 }).toBe(1)
 
   // Hide, show, duplicate and reorder from the accessible layer list.
+  await chooseTool({ page, tool: 'Draw' })
   await page.getByRole('button', { name: 'Brush', exact: true }).click()
-  await page.getByPlaceholder('Type').fill('ONE')
-  await page.getByPlaceholder('Type').press('Enter')
+  await chooseTool({ page, tool: 'Text' })
+  await page.getByPlaceholder('Your text').fill('ONE')
+  await page.getByPlaceholder('Your text').press('Enter')
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.some((layer) => layer.kind === 'text'), { timeout: 20_000 }).toBe(true)
-  const rail = page.getByRole('complementary', { name: 'On the cloth' })
+  const rail = page.getByRole('complementary', { name: 'Layers' })
   const word = rail.getByRole('button', { name: /^Hide .*ONE/ })
   await word.click()
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.find((layer) => layer.kind === 'text')?.visible, { timeout: 20_000 }).toBe(false)
@@ -503,7 +507,7 @@ test('the preview offers every camera side, and History says what it keeps', asy
   await page.goto(url.toString())
   const camera = page.getByRole('radiogroup', { name: 'Camera' })
 
-  for (const name of ['Front', '3/4', 'Back', "Wearer's right", "Wearer's left", 'Orbit']) {
+  for (const name of ['Front', '3/4', 'Back', 'Right sleeve', 'Left sleeve', 'Orbit']) {
     await camera.getByRole('radio', { name, exact: true }).click()
     await expect(camera.getByRole('radio', { name, exact: true })).toHaveAttribute('aria-checked', 'true')
   }
@@ -563,7 +567,7 @@ test('a design on a template version this app cannot open says so, offers nothin
   await expect(page.getByRole('alert')).toContainText('This design uses a garment template this app cannot open.')
   await expect(page.getByRole('status').filter({ hasText: 'Saved to cloud' })).toHaveCount(0)
   await expect(page.locator('canvas')).toHaveCount(0)
-  await expect(page.getByPlaceholder('Type')).toHaveCount(0)
+  await expect(page.getByPlaceholder('Your text')).toHaveCount(0)
 
   await page.getByRole('alert').getByRole('link', { name: 'Back to My Studio' }).click()
   await expect(page).toHaveURL(/\/studio$/)

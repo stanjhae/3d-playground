@@ -10,6 +10,7 @@ import {
 import { cn } from '../../lib/cn'
 import type { LayerPatch } from '../../lib/design-commands'
 import { useEditorStore } from '../../lib/editor-store'
+import { useStudioMode } from '../../lib/studio-mode'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { type PlaceableLayer, layerMostlyOffPanel } from '../../lib/layer-hit'
 import { INK_COLORS } from '../../lib/paint-colors'
@@ -158,6 +159,7 @@ export function TechInspector() {
   )
   const layer = layers.find((entry) => entry.id === selectedLayerId)
   const [draft, setDraft] = useState<DraftPose | null>(null)
+  const pro = useStudioMode((state) => state.pro)
 
   useEffect(() => {
     if (
@@ -259,6 +261,8 @@ export function TechInspector() {
           Most of this is outside its panel, so most of it won’t show. Move it towards the middle.
         </p>
       ) : null}
+      {pro ? (
+        <>
       <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.position} X
@@ -293,6 +297,8 @@ export function TechInspector() {
           {numberField({ key: 'y' })}
         </div>
       </div>
+        </>
+      ) : null}
       <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.size}
@@ -307,7 +313,7 @@ export function TechInspector() {
             className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
             {...bindRange({ key: 'scale' })}
           />
-          {numberField({ key: 'scale' })}
+          {pro ? numberField({ key: 'scale' }) : null}
         </div>
       </div>
       <div className="flex flex-col gap-1">
@@ -324,22 +330,24 @@ export function TechInspector() {
             className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
             {...bindRange({ key: 'rotation' })}
           />
-          {numberField({ key: 'rotation' })}
+          {pro ? numberField({ key: 'rotation' }) : null}
         </div>
       </div>
-      <label className="flex flex-col gap-1">
-        <span className={cn('text-flv-muted', chromeTextClass())}>
-          {HOUSE_COPY.opacity}
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          className="accent-[var(--color-flv-accent)]"
-          {...bindRange({ key: 'opacity' })}
-        />
-      </label>
+      {pro ? (
+        <label className="flex flex-col gap-1">
+          <span className={cn('text-flv-muted', chromeTextClass())}>
+            {HOUSE_COPY.opacity}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            className="accent-[var(--color-flv-accent)]"
+            {...bindRange({ key: 'opacity' })}
+          />
+        </label>
+      ) : null}
       <div className="flex flex-col gap-2">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.baseColor}
@@ -363,6 +371,7 @@ export function TechInspector() {
           ))}
         </div>
       </div>
+      {pro ? (
       <button
         type="button"
         onClick={() => {
@@ -375,6 +384,7 @@ export function TechInspector() {
       >
         {HOUSE_COPY.copyOpposite}
       </button>
+      ) : null}
     </aside>
   )
 }

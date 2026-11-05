@@ -1,6 +1,6 @@
 import { type Page, expect, test } from '@playwright/test'
 
-import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
 
 /** The description field, off-panel warning, tool hints and example design. */
 
@@ -10,10 +10,10 @@ test.afterAll(async () => {
   await deleteAccounts({ emails })
 })
 
-async function openDesign({ page, label }: { page: Page; label: string }) {
+async function openDesign({ page, label, pro = true }: { page: Page; label: string; pro?: boolean }) {
   const email = newEmail({ label })
   emails.push(email)
-  await signIn({ page, email })
+  await signIn({ page, email, pro })
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
 }
@@ -37,19 +37,19 @@ test('the description takes up to 500 characters, says how many, and is there af
 
 test('a layer mostly off its panel gets a note, which goes when it moves back', async ({ page }) => {
   await openDesign({ page, label: 'offpanel' })
-  await page.getByRole('radio', { name: 'Tech' }).click()
+  await chooseTool({ page, tool: 'Graphics' })
   await page.getByRole('button', { name: 'Simple Cross' }).click()
   const note = page.getByText('Most of this is outside its panel')
   await expect(note).toHaveCount(0)
 
-  const x = page.getByRole('textbox', { name: 'Place X, percent of panel' })
-  const y = page.getByRole('textbox', { name: 'Place Y, percent of panel' })
+  const x = page.getByRole('textbox', { name: 'Position X, percent of panel' })
+  const y = page.getByRole('textbox', { name: 'Position Y, percent of panel' })
   await x.fill('0')
   await x.press('Enter')
   await y.fill('0')
   await y.press('Enter')
   await expect(note).toBeVisible()
-  await expect(page.getByRole('complementary', { name: 'On the cloth' }).getByRole('button', { name: /Simple Cross|Mark|Graphic/ }).first()).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Layers' }).getByRole('button', { name: /Simple Cross|Mark|Graphic/ }).first()).toBeVisible()
 
   await x.fill('50')
   await x.press('Enter')
@@ -60,7 +60,10 @@ test('a layer mostly off its panel gets a note, which goes when it moves back', 
 
 test('hints come one at a time, stay out of the way, and stay dismissed', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
-  await openDesign({ page, label: 'hints' })
+  // Hints are for Guided: Pro turns them off.
+  await openDesign({ page, label: 'hints', pro: false })
+  await page.getByRole('button', { name: 'Use this garment' }).click()
+  await page.getByRole('button', { name: 'Continue' }).click()
   const hint = page.getByRole('complementary', { name: 'Hint' })
   await expect(hint).toContainText('Pick a side')
 
@@ -117,8 +120,9 @@ test('the example opens as a private copy, and changing one copy leaves another 
   const before = await details(first)
   expect(before).toMatchObject({ title: 'Example design', visibility: 'private' })
 
-  await page.getByPlaceholder('Type').fill('MINE')
-  await page.getByPlaceholder('Type').press('Enter')
+  await chooseTool({ page, tool: 'Text' })
+  await page.getByPlaceholder('Your text').fill('MINE')
+  await page.getByPlaceholder('Your text').press('Enter')
   await expect.poll(async () => (await details(second)).headSeq, { timeout: 20_000 }).toBeGreaterThan(1)
   expect((await details(first)).head.content).toEqual(before.head.content)
 })

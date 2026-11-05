@@ -26,6 +26,7 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+import { useStudioMode } from '../../lib/studio-mode'
 import { useCloudSaveStore } from './CloudSave'
 
 const action =
@@ -37,6 +38,7 @@ const action =
  * and restore as a new version. Hidden outside `/create?cloud=`.
  */
 export function HistoryPanel() {
+  const pro = useStudioMode((state) => state.pro)
   const cloud = useEditorStore((state) => state.cloud)
   const controller = useCloudSaveStore((store) => store.controller)
   const saveStatus = useCloudSaveStore((store) => store.state?.status ?? null)
@@ -214,7 +216,7 @@ export function HistoryPanel() {
           <p className={chromeMutedClass()}>
             Keeps the 100 latest autosaves, plus every checkpoint, restore and published version. Older autosaves are removed.
           </p>
-          {naming === null ? (
+          {!pro ? null : naming === null ? (
             <button
               type="button"
               disabled={busy || saveStatus === 'conflict'}

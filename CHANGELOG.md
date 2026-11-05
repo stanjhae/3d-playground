@@ -10,6 +10,9 @@
 - **Tools sit left of the panels on Design and right of the garment on every other step,** in one column that scrolls on its own, so nothing is cut off at laptop height. The camera views float over the bottom of the stage.
 - **Try-on is opt-in.** Choosing a figure on Preview & Publish puts the tee on it, and choosing it again takes it off. Publishing takes the figure off first, so published pictures always show the tee alone. On phones the try-on panel is hidden to keep publishing on screen.
 - **The studio's "Design / The house" switch** shows only in guest builds.
+- **Guided by default, with a Pro tools switch.** Guided opens a new design on Garment, keeps one way to set the brush (Fine, Line, Bold), lets you drag, size and rotate a piece, and shows one hint at a time. Pro opens on Design and adds brush size, opacity and hardness, numeric position, mirroring to the other side, layer rename and duplicate, named checkpoints, Save this look and keyboard help, and turns the hints off. The switch is remembered on the device and never changes the design.
+- **A tool rail replaces Draw / Tech:** Draw, Text, Graphics and Upload, each with its own panel. Selected item and Layers stay below.
+- **Plain words:** Right sleeve and Left sleeve (named as worn), Selected item, Position, Rotate, Mirror to other side, Upload image, Layers, Serif, Medium and Large, Your text and Tap to place.
 
 ### Added
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.

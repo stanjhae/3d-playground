@@ -2,7 +2,7 @@ import { type Page, expect, test } from '@playwright/test'
 
 import { IMAGE_LIMITS } from '../src/lib/image-validate'
 import { TINY_JPEG, ascii, concatBytes, pngChunk, rgbaPng } from '../src/lib/image-fixtures'
-import { deleteAccounts, expectSaved, localSql, newEmail, signIn } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, localSql, newEmail, signIn } from './helpers'
 
 /**
  * Upload and account limits as a person meets them: through the real file
@@ -28,7 +28,7 @@ async function openNewDesign({ page, label }: { page: Page; label: string }) {
   await signIn({ page, email })
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
-  await page.getByRole('radio', { name: 'Tech' }).click()
+  await chooseTool({ page, tool: 'Graphics' })
   return { email, designId: new URL(page.url()).searchParams.get('cloud')! }
 }
 
@@ -44,6 +44,7 @@ async function savedHead({ page }: { page: Page }): Promise<Head> {
 const frontLayers = (head: Head, kind: string) => head.content.panels.front!.layers.filter((layer) => layer.kind === kind)
 
 async function chooseFile({ page, name, mimeType, bytes }: { page: Page; name: string; mimeType: string; bytes: Uint8Array }) {
+  await chooseTool({ page, tool: 'Upload' })
   await page.locator('input[type="file"]').setInputFiles({ name, mimeType, buffer: Buffer.from(bytes) })
 }
 
@@ -165,7 +166,8 @@ test('an uploaded image is saved with its natural width and height ratio', async
 
 test('a word its face cannot draw is flagged on screen and never saved', async ({ page }) => {
   await openNewDesign({ page, label: 'glyphs' })
-  const type = page.getByPlaceholder('Type')
+  await chooseTool({ page, tool: 'Text' })
+  const type = page.getByPlaceholder('Your text')
   await type.fill('日本')
   await type.press('Enter')
 

@@ -4,7 +4,7 @@ import { type PlaceableLayer, canvasLayerFrame } from '../src/lib/layer-hit'
 import { INK_COLORS } from '../src/lib/paint-colors'
 import { SELECTION_COLOR } from '../src/lib/selection-chrome'
 import { CURRENT_TEMPLATE } from '../src/lib/template-manifest'
-import { deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
+import { deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn, chooseTool } from './helpers'
 
 /**
  * What the editor's controls do on screen, not only in the saved document
@@ -17,7 +17,7 @@ test.afterAll(async () => {
   await deleteAccounts({ emails })
 })
 
-type Panel = 'Front' | 'Back' | "Wearer's right" | "Wearer's left"
+type Panel = 'Front' | 'Back' | 'Right sleeve' | 'Left sleeve'
 type Stroke = { color: string; width: number; opacity: number }
 type Layer = {
   id: string
@@ -34,7 +34,7 @@ type Layer = {
 }
 type Head = { seq: number; content: { panels: Record<string, { layers: Layer[] }> } }
 
-const PANEL_KEY: Record<Panel, string> = { Front: 'front', Back: 'back', "Wearer's right": 'right', "Wearer's left": 'left' }
+const PANEL_KEY: Record<Panel, string> = { Front: 'front', Back: 'back', 'Right sleeve': 'right', 'Left sleeve': 'left' }
 const PANELS = Object.keys(PANEL_KEY) as Panel[]
 const color = (name: string) => INK_COLORS.find((ink) => ink.name === name)!.value
 
@@ -46,7 +46,7 @@ async function openDesign({ page, label, tech = true }: { page: Page; label: str
   await expectSaved({ page })
 
   if (tech) {
-    await page.getByRole('radio', { name: 'Tech' }).click()
+    await chooseTool({ page, tool: 'Graphics' })
   }
 }
 
@@ -76,7 +76,8 @@ async function activate({ page, panel }: { page: Page; panel: Panel }) {
 }
 
 async function addWord({ page, word }: { page: Page; word: string }) {
-  const type = page.getByPlaceholder('Type')
+  await chooseTool({ page, tool: 'Text' })
+  const type = page.getByPlaceholder('Your text')
   await type.fill(word)
   await type.press('Enter')
 }
@@ -144,6 +145,7 @@ test('graphics and words can be added on all four panels, and each panel shows t
     await activate({ page, panel })
     const before = await panelPixels({ page, panel })
     await addWord({ page, word: 'ALL' })
+    await chooseTool({ page, tool: 'Graphics' })
     await page.getByRole('button', { name: 'Simple Cross' }).click()
     await expect.poll(async () => (await panelPixels({ page, panel })).picture, panel).not.toBe(before.picture)
     await saved({
@@ -190,6 +192,7 @@ test('a word takes the chosen colour, in the design and on the panel', async ({ 
 test('the move, resize and rotate handles show on the selected layer and do their job', async ({ page }) => {
   test.setTimeout(150_000)
   await openDesign({ page, label: 'handles' })
+  await chooseTool({ page, tool: 'Graphics' })
   await page.getByRole('button', { name: 'Simple Cross' }).click()
   await saved({ read: async () => (await layers({ page, kind: 'image' })).length }).toBe(1)
   const start = (await layers({ page, kind: 'image' }))[0]!
@@ -228,6 +231,7 @@ test('resizing an image scales both sides together', async ({ page }) => {
     const blob = await new Promise<Blob>((resolve) => canvas.toBlob((made) => resolve(made!), 'image/png'))
     return btoa(Array.from(new Uint8Array(await blob.arrayBuffer()), (byte) => String.fromCharCode(byte)).join(''))
   })
+  await chooseTool({ page, tool: 'Upload' })
   await page.locator('input[type="file"]').setInputFiles({ name: 'wide.png', mimeType: 'image/png', buffer: Buffer.from(base64, 'base64') })
   await saved({ read: async () => (await layers({ page, kind: 'image' })).length, timeout: 30_000 }).toBe(1)
 
@@ -270,7 +274,7 @@ test('resizing an image scales both sides together', async ({ page }) => {
 test('switching panels keeps each layer, its values and the chosen tool settings', async ({ page }) => {
   test.setTimeout(150_000)
   await openDesign({ page, label: 'switching' })
-  const x = page.getByRole('textbox', { name: 'Place X, percent of panel' })
+  const x = page.getByRole('textbox', { name: 'Position X, percent of panel' })
 
   await addWord({ page, word: 'FRONT' })
   await x.fill('70')
@@ -285,7 +289,7 @@ test('switching panels keeps each layer, its values and the chosen tool settings
   // The back panel's document is mirrored against what the panel shows.
   await saved({ read: async () => (await layers({ page, panel: 'Back', kind: 'text' }))[0]?.x }).toBeCloseTo(0.7)
 
-  const rail = page.getByRole('complementary', { name: 'On the cloth' })
+  const rail = page.getByRole('complementary', { name: 'Layers' })
   await rail.getByRole('button', { name: /FRONT/ }).first().click()
   await expect(x).toHaveValue('70')
   await expect(panelCanvas({ page, panel: 'Front' })).toHaveAttribute('aria-label', /, active$/)
@@ -330,7 +334,7 @@ test('undo and redo cover add, colour, word, position, order and delete', async 
   await saved({ read: async () => (await word('ONE'))?.color }).toBe(color('Oxblood'))
 
   // Position.
-  const x = page.getByRole('textbox', { name: 'Place X, percent of panel' })
+  const x = page.getByRole('textbox', { name: 'Position X, percent of panel' })
   const xBefore = (await word('ONE'))!.x
   await x.fill('75')
   await x.press('Enter')
@@ -356,7 +360,7 @@ test('undo and redo cover add, colour, word, position, order and delete', async 
   // Order.
   await addWord({ page, word: 'TWO' })
   await saved({ read: order }).toBe('EDITED,TWO')
-  const rail = page.getByRole('complementary', { name: 'On the cloth' })
+  const rail = page.getByRole('complementary', { name: 'Layers' })
   await rail.getByRole('button', { name: /^Move .*TWO.* down/ }).click()
   await saved({ read: order }).toBe('TWO,EDITED')
   await undo.click()
@@ -386,9 +390,11 @@ test('brush colour, size and opacity reach the stroke and show on the panel', as
       to: { x: box.x + box.width * 0.7, y: box.y + box.height * 0.5 },
     })
   }
+  await chooseTool({ page, tool: 'Draw' })
   const size = page.getByRole('slider', { name: 'Size' })
   const opacity = page.getByRole('slider', { name: 'Opacity' })
 
+  await chooseTool({ page, tool: 'Draw' })
   await page.getByRole('button', { name: 'Oxblood' }).first().click()
   await size.fill('0.06')
   await draw('Front')
@@ -402,20 +408,21 @@ test('brush colour, size and opacity reach the stroke and show on the panel', as
 
   await size.fill('0.06')
   await opacity.fill('0.5')
-  await draw("Wearer's right")
-  await saved({ read: stroke("Wearer's right") }).toMatchObject({ color: color('Oxblood') })
-  expect((await stroke("Wearer's right")())!.opacity).toBeCloseTo(0.5, 1)
+  await draw('Right sleeve')
+  await saved({ read: stroke('Right sleeve') }).toMatchObject({ color: color('Oxblood') })
+  expect((await stroke('Right sleeve')())!.opacity).toBeCloseTo(0.5, 1)
 
   await opacity.fill('1')
+  await chooseTool({ page, tool: 'Draw' })
   await page.getByRole('button', { name: 'Meadow' }).first().click()
   await size.fill('0.06')
-  await draw("Wearer's left")
-  await saved({ read: stroke("Wearer's left") }).toMatchObject({ color: color('Meadow') })
+  await draw('Left sleeve')
+  await saved({ read: stroke('Left sleeve') }).toMatchObject({ color: color('Meadow') })
 
   const wide = await panelPixels({ page, panel: 'Front', match: color('Oxblood') })
   const thin = await panelPixels({ page, panel: 'Back', match: color('Oxblood') })
-  const faint = await panelPixels({ page, panel: "Wearer's right", match: color('Oxblood') })
-  const green = await panelPixels({ page, panel: "Wearer's left", match: color('Meadow') })
+  const faint = await panelPixels({ page, panel: 'Right sleeve', match: color('Oxblood') })
+  const green = await panelPixels({ page, panel: 'Left sleeve', match: color('Meadow') })
 
   expect(wide.matching).toBeGreaterThan(thin.matching * 2)
   expect(thin.matching).toBeGreaterThan(0)
@@ -428,7 +435,9 @@ test('on the Preview step a drag turns the tee and adds no ink, and a preset tak
   test.setTimeout(120_000)
   await openDesign({ page, label: 'orbit', tech: false })
   // Ink on the front, so a turn shows even on the plain tee.
+  await chooseTool({ page, tool: 'Draw' })
   await page.getByRole('button', { name: 'Oxblood' }).first().click()
+  await chooseTool({ page, tool: 'Draw' })
   await page.getByRole('slider', { name: 'Size' }).fill('0.06')
   await drawStroke({ page, panel: 'Front' })
   await saved({ read: async () => (await layers({ page, kind: 'paint' })).flatMap((layer) => layer.strokes ?? []).length }).toBe(1)
@@ -519,8 +528,8 @@ test('at phone width each panel keeps its shape and fits, and a sleeve can be dr
   expect(frontBox.x + frontBox.width).toBeLessThanOrEqual(390)
   expect(await overflow()).toBeLessThanOrEqual(0)
 
-  await page.getByRole('navigation', { name: 'Draw' }).getByRole('button', { name: "Wearer's right" }).click()
-  const sleeve = panelCanvas({ page, panel: "Wearer's right" })
+  await page.getByRole('navigation', { name: 'Draw' }).getByRole('button', { name: 'Right sleeve' }).click()
+  const sleeve = panelCanvas({ page, panel: 'Right sleeve' })
   await expect(sleeve).toBeVisible()
   const sleeveBox = (await sleeve.boundingBox())!
   expect(sleeveBox.width / sleeveBox.height).toBeCloseTo(3.037, 0)
@@ -534,5 +543,5 @@ test('at phone width each panel keeps its shape and fits, and a sleeve can be dr
     from: { x: inView.x + inView.width * 0.3, y: inView.y + inView.height * 0.5 },
     to: { x: inView.x + inView.width * 0.7, y: inView.y + inView.height * 0.5 },
   })
-  await saved({ read: async () => (await layers({ page, panel: "Wearer's right", kind: 'paint' })).length }).toBe(1)
+  await saved({ read: async () => (await layers({ page, panel: 'Right sleeve', kind: 'paint' })).length }).toBe(1)
 })

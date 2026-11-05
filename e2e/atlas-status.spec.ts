@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
+import { deleteAccounts, expectSaved, newEmail, signIn, chooseTool } from './helpers'
 
 /**
  * The 3D preview says when it isn't the whole design, and publishing doesn't
@@ -22,7 +22,7 @@ async function designWithGraphic({ page, label }: { page: import('@playwright/te
   await signIn({ page, email })
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
-  await page.getByRole('radio', { name: 'Tech' }).click()
+  await chooseTool({ page, tool: 'Graphics' })
   await page.getByRole('button', { name: 'Simple Cross' }).click()
   await expectSaved({ page })
   return new URL(page.url())

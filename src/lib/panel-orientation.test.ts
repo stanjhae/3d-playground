@@ -393,7 +393,8 @@ describe('sleeves are independent and named by wearer side (E02 #153)', () => {
       meshNamed({ name: region.mesh }).boundingBox!.getCenter(sleeve)
 
       // +x is the wearer's left (the front faces +z).
-      expect(labels[region.renderPanel]).toBe(sleeve.x > 0 ? "Wearer's left" : "Wearer's right")
+      // Labels name the side as worn: "Right sleeve" is on the wearer's right.
+      expect(labels[region.renderPanel]).toBe(sleeve.x > 0 ? 'Left sleeve' : 'Right sleeve')
     }
   })
 })

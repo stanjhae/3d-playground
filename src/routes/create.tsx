@@ -5,7 +5,8 @@ import { AvatarRail } from '../components/editor/AvatarRail'
 import { CameraPresetBar } from '../components/editor/CameraPresetBar'
 import { ColorPatternPanel } from '../components/editor/ColorPatternPanel'
 import { CreateStepper } from '../components/editor/CreateStepper'
-import { DesignModeToggle } from '../components/editor/DesignModeToggle'
+import { DesignToolRail } from '../components/editor/DesignToolRail'
+import { ProToolsSwitch } from '../components/editor/ProToolsSwitch'
 import { DualStudio } from '../components/editor/DualStudio'
 import { PaintCanvas } from '../components/editor/PaintCanvas'
 import { StudioHint } from '../components/editor/StudioHint'
@@ -88,6 +89,7 @@ import {
   studioPhoneToolsClass,
 } from '../lib/studio-chrome'
 import { trackAssumptionOnce } from '../lib/assumption-events'
+import { useStudioMode } from '../lib/studio-mode'
 
 export const Route = createFileRoute('/create')({
   validateSearch: (
@@ -139,7 +141,8 @@ function AtelierHome() {
   const mode = useEditorStore((state) => state.mode)
   const garmentId = useEditorStore((state) => state.garmentId)
   const createStep = useEditorStore((state) => state.createStep)
-  const designEditMode = useEditorStore((state) => state.designEditMode)
+  const designTool = useStudioMode((state) => state.designTool)
+  const pro = useStudioMode((state) => state.pro)
   const setCreateStep = useEditorStore((state) => state.setCreateStep)
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
   const applyBaseColor = useEditorStore((state) => state.applyBaseColor)
@@ -540,6 +543,7 @@ function AtelierHome() {
             ) : null}
             {cloudStatus === 'loaded' ? <CloudTitle /> : null}
             {cloudStatus === 'loaded' ? <CloudSaveStatus /> : null}
+            {mode === 'design' ? <ProToolsSwitch /> : null}
             {cloudStatus === 'loading' ? (
               <p className="font-body text-sm text-flv-muted">Opening your design…</p>
             ) : null}
@@ -614,18 +618,16 @@ function AtelierHome() {
               ) : null}
               {showsDesignRails({ step: createStep }) && canPaint ? (
                 <>
-                  <DesignModeToggle />
-                  <PaintToolbar
-                    tools={
-                      designEditMode === 'tech' ? 'placeables' : 'all'
-                    }
-                  />
-                  {designEditMode === 'tech' ? <GraphicLibrary /> : null}
+                  <DesignToolRail />
+                  {designTool === 'draw' ? <PaintToolbar tools="ink" /> : null}
+                  {designTool === 'text' ? <PaintToolbar tools="text" /> : null}
+                  {designTool === 'upload' ? <PaintToolbar tools="upload" /> : null}
+                  {designTool === 'graphics' ? <GraphicLibrary /> : null}
+                  {designTool === 'draw' ? null : <TechInspector />}
                   <LayerRail />
-                  <KeyboardHelp />
-                  {designEditMode === 'tech' ? <TechInspector /> : null}
-                  <VersionRail />
                   <HistoryPanel />
+                  {pro ? <KeyboardHelp /> : null}
+                  {pro ? <VersionRail /> : null}
                 </>
               ) : null}
               {showsDesignRails({ step: createStep }) && !canPaint ? (

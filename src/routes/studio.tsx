@@ -1,3 +1,4 @@
+import { firstCreateStep, useStudioMode } from '../lib/studio-mode'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -170,7 +171,9 @@ function MyStudio() {
       consumeLandingHandoff()
     }
 
-    void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
+    // A design brought from the landing already has its garment and colour.
+    const step = landing ? 'design' : firstCreateStep({ pro: useStudioMode.getState().pro })
+    void navigate({ to: '/create', search: { cloud: result.data.designId, step } })
   }
 
   /** A private copy of the example, the person's own to change. */

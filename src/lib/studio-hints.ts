@@ -6,7 +6,7 @@ export const STUDIO_HINTS = [
     id: 'panels',
     steps: ['design'],
     title: 'Pick a side',
-    text: 'Press a panel to work on it. Sleeves are named from the wearer’s side.',
+    text: 'Press a panel to work on it. Sleeves are named as worn: the right sleeve is on the wearer’s right.',
   },
   {
     id: 'drawing',
@@ -17,8 +17,8 @@ export const STUDIO_HINTS = [
   {
     id: 'precise',
     steps: ['design'],
-    title: 'Place exactly',
-    text: 'Choose Tech for words and graphics: drag the handles, or type a position, size and turn.',
+    title: 'Add words and graphics',
+    text: 'Choose Text, Graphics or Upload. Drag a piece to move it, and use its handles to size and rotate it.',
   },
   {
     id: 'saving',

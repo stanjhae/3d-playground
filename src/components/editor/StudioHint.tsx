@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { useEditorStore } from '../../lib/editor-store'
+import { useStudioMode } from '../../lib/studio-mode'
 import { allHintsHidden, nextHint, readDismissedHints, writeDismissedHints } from '../../lib/studio-hints'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
 import { cn } from '../../lib/cn'
@@ -17,9 +18,10 @@ function hintStorage() {
 export function StudioHint() {
   const step = useEditorStore((state) => state.createStep)
   const [dismissed, setDismissed] = useState(() => readDismissedHints({ storage: hintStorage() }))
+  const pro = useStudioMode((state) => state.pro)
   const hint = nextHint({ step, dismissed })
 
-  if (!hint) {
+  if (!hint || pro) {
     return null
   }
 
