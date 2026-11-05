@@ -1,6 +1,6 @@
 /**
  * Palm rejection for pen drawing (UI plan, Phase 3, iPad). Once a pen has
- * touched a panel, a finger or resting palm no longer draws there: on a
+ * drawn, on a panel or on the tee, a finger or resting palm no longer draws: on a
  * tablet the hand holding the pencil lands on the screen too. A page that
  * has never seen a pen keeps finger drawing.
  */

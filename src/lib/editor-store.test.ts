@@ -223,7 +223,7 @@ describe('useEditorStore', () => {
 
   test('create step and avatar fields use named setters', () => {
     useEditorStore.getState().setCreateStep({ createStep: 'share' })
-    useEditorStore.getState().setDesignEditMode({ designEditMode: 'tech' })
+    useEditorStore.getState().setDesignTool({ designTool: 'text' })
     useEditorStore.getState().setPublishTags({ tags: ['night'] })
     useEditorStore.getState().setPublishMethod({ method: 'combined' })
     useEditorStore.getState().setChallengeId({ challengeId: 'tee-night' })
@@ -237,7 +237,7 @@ describe('useEditorStore', () => {
     const state = useEditorStore.getState()
     expect(state.createStep).toBe('share')
     expect(state.studioView).toBe('cloth')
-    expect(state.designEditMode).toBe('tech')
+    expect(state.designTool).toBe('text')
     expect(state.publishTags).toEqual(['night'])
     expect(state.publishMethod).toBe('combined')
     expect(state.challengeId).toBe('tee-night')

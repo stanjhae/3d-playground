@@ -13,6 +13,7 @@ import {
   startClothPaint,
 } from '../../lib/cloth-pointer'
 import { useEditorStore } from '../../lib/editor-store'
+import { acceptsPointer } from '../../lib/palm-rejection'
 import { showsPaintPane } from '../../lib/create-steps'
 import { garmentCanPaint, partLabel } from '../../lib/garment-parts'
 import {
@@ -122,7 +123,8 @@ export function SelectableMesh({
         selectMesh({ selectedMeshName: name.split('-')[0] ?? name })
       }}
       onPointerDown={(event: ThreeEvent<PointerEvent>) => {
-        if (!canPaint) {
+        // A resting palm never paints the cloth once a pen has drawn.
+        if (!canPaint || !acceptsPointer({ pointerType: event.nativeEvent.pointerType })) {
           return
         }
 
@@ -203,7 +205,7 @@ export function SelectableMesh({
         })
       }}
       onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-        if (!canPaint) {
+        if (!canPaint || !acceptsPointer({ pointerType: event.nativeEvent.pointerType })) {
           return
         }
 

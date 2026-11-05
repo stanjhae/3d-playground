@@ -31,7 +31,12 @@ export function parseCreateStep({
     return undefined
   }
 
-  return MERGED_CREATE_STEPS[value] ?? CREATE_STEP_IDS.find((step) => step === value)
+  // Own keys only: `?step=constructor` must not find Object.prototype.
+  if (Object.hasOwn(MERGED_CREATE_STEPS, value)) {
+    return MERGED_CREATE_STEPS[value]
+  }
+
+  return CREATE_STEP_IDS.find((step) => step === value)
 }
 
 function parseGarment({

@@ -14,6 +14,8 @@ describe('create-search', () => {
     // Old links to merged steps still open.
     expect(parseCreateStep({ value: 'preview' })).toBe('share')
     expect(parseCreateStep({ value: 'fit' })).toBe('select')
+    expect(parseCreateStep({ value: 'constructor' })).toBeUndefined()
+    expect(parseCreateStep({ value: 'toString' })).toBeUndefined()
     expect(parseCreateStep({ value: 'nope' })).toBeUndefined()
     expect(parseCreateStep({ value: 3 })).toBeUndefined()
   })

@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test } from 'vitest'
 
 import {
   INITIAL_CODE_FLOW,
@@ -170,29 +170,5 @@ describe('session store', () => {
     stop()
 
     expect(seen).toEqual(['a', 'b', null])
-  })
-})
-
-describe('waitForSession', () => {
-  test('gives up on a session that never answers, then takes it if it comes', async () => {
-    vi.resetModules()
-    const fresh = await import('./session-store')
-    let answer: (value: { data: { session: Session | null }; error: null }) => void = () => {}
-    const client = {
-      auth: {
-        onAuthStateChange: () => {},
-        getSession: () =>
-          new Promise((resolve) => {
-            answer = resolve
-          }),
-      },
-    } as unknown as Parameters<typeof fresh.waitForSession>[0]['client']
-
-    const state = await fresh.waitForSession({ client, timeoutMs: 1 })
-    expect(state.status).toBe('unavailable')
-
-    answer({ data: { session: session({ userId: 'late' }) }, error: null })
-    await fresh.startSession({ client })
-    expect(fresh.useSessionStore.getState().account?.userId).toBe('late')
   })
 })

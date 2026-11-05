@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { useEditorStore } from './editor-store'
-import { PRO_TOOLS_KEY, firstCreateStep, readProTools, useStudioMode, writeProTools } from './studio-mode'
+import { PRO_TOOLS_KEY, firstCreateStep, readProTools, writeProTools } from './studio-mode'
 
 function memory() {
   const values = new Map<string, string>()
@@ -40,12 +40,13 @@ describe('studio mode', () => {
     expect(firstCreateStep({ pro: true })).toBe('design')
   })
 
-  test('a tool sets the view it needs and leaves the design alone', () => {
-    const before = useEditorStore.getState().revision
-    useStudioMode.getState().setDesignTool({ designTool: 'graphics' })
-    expect(useEditorStore.getState().designEditMode).toBe('tech')
-    useStudioMode.getState().setDesignTool({ designTool: 'draw' })
-    expect(useEditorStore.getState().designEditMode).toBe('draw')
-    expect(useEditorStore.getState().revision).toBe(before)
+  test('a tool changes only the panel shown, and a reset puts Draw back', () => {
+    const before = useEditorStore.getState()
+    useEditorStore.getState().setDesignTool({ designTool: 'text' })
+    expect(useEditorStore.getState().designTool).toBe('text')
+    expect(useEditorStore.getState().studioView).toBe(before.studioView)
+    expect(useEditorStore.getState().revision).toBe(before.revision)
+    useEditorStore.getState().reset()
+    expect(useEditorStore.getState().designTool).toBe('draw')
   })
 })

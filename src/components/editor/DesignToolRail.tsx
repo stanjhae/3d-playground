@@ -1,7 +1,7 @@
 import { ImageUp, Pencil, Shapes, Type, type LucideIcon } from 'lucide-react'
 
 import { cn } from '../../lib/cn'
-import { type DesignTool, useStudioMode } from '../../lib/studio-mode'
+import { type DesignTool, useEditorStore } from '../../lib/editor-store'
 
 const TOOLS: ReadonlyArray<{ id: DesignTool; label: string; icon: LucideIcon }> = [
   { id: 'draw', label: 'Draw', icon: Pencil },
@@ -12,8 +12,8 @@ const TOOLS: ReadonlyArray<{ id: DesignTool; label: string; icon: LucideIcon }> 
 
 /** One tool at a time, each with its own panel below. */
 export function DesignToolRail() {
-  const designTool = useStudioMode((state) => state.designTool)
-  const setDesignTool = useStudioMode((state) => state.setDesignTool)
+  const designTool = useEditorStore((state) => state.designTool)
+  const setDesignTool = useEditorStore((state) => state.setDesignTool)
 
   return (
     <div role="radiogroup" aria-label="Tools" className="flv-panel grid grid-cols-4 gap-1 p-1.5">

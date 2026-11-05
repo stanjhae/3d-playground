@@ -53,10 +53,10 @@ describe('editor store on canonical v2 (E01 #152)', () => {
     const revision = store().revision
 
     store().setPaintTool({ paintTool: 'eraser' })
-    store().setDesignEditMode({ designEditMode: 'tech' })
+    store().setDesignTool({ designTool: 'graphics' })
     store().setStudioView({ studioView: 'draw' })
     store().setPaintTool({ paintTool: 'brush' })
-    store().setDesignEditMode({ designEditMode: 'draw' })
+    store().setDesignTool({ designTool: 'draw' })
 
     expect(contentIds()).toEqual(before)
     expect(store().revision).toBe(revision)

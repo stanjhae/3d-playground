@@ -84,7 +84,10 @@ export type CloudContext = {
 export type StudioView = 'draw' | 'cloth'
 export type EditorPaintTool = StrokeTool | 'type'
 export type CreateStep = CreateStepId
-export type DesignEditMode = 'draw' | 'tech'
+/** The Design step's tools. Each shows its own panel; none changes the design. */
+export const DESIGN_TOOLS = ['draw', 'text', 'graphics', 'upload'] as const
+
+export type DesignTool = (typeof DESIGN_TOOLS)[number]
 export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'left' | 'right' | 'orbit'
 export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
 export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
@@ -144,7 +147,7 @@ type EditorState = {
   undoCount: number
   redoCount: number
   createStep: CreateStep
-  designEditMode: DesignEditMode
+  designTool: DesignTool
   publishTags: string[]
   publishMethod: DesignMethod | null
   challengeId: string | null
@@ -185,11 +188,7 @@ type EditorState = {
   setPaintHardness: ({ paintHardness }: { paintHardness: number }) => void
   setStudioView: ({ studioView }: { studioView: StudioView }) => void
   setCreateStep: ({ createStep }: { createStep: CreateStep }) => void
-  setDesignEditMode: ({
-    designEditMode,
-  }: {
-    designEditMode: DesignEditMode
-  }) => void
+  setDesignTool: ({ designTool }: { designTool: DesignTool }) => void
   setPublishTags: ({ tags }: { tags: string[] }) => void
   setPublishMethod: ({
     method,
@@ -585,7 +584,7 @@ const INITIAL_EDITOR_STATE = {
   undoCount: 0,
   redoCount: 0,
   createStep: 'select' as CreateStep,
-  designEditMode: 'draw' as DesignEditMode,
+  designTool: 'draw' as DesignTool,
   publishTags: [] as string[],
   publishMethod: null as DesignMethod | null,
   challengeId: null as string | null,
@@ -914,11 +913,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       }
     })
   },
-  setDesignEditMode: ({ designEditMode }) => {
-    set({
-      designEditMode,
-      ...(designEditMode === 'tech' ? { studioView: 'cloth' as const } : {}),
-    })
+  setDesignTool: ({ designTool }) => {
+    // Only which panel shows: on a phone the panels stay where words are placed.
+    set({ designTool })
   },
   setPublishTags: ({ tags }) => {
     set({

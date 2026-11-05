@@ -108,89 +108,100 @@ export function CloudPublish() {
     const editor = useEditorStore.getState()
 
     // Published views show the tee alone, never the try-on mannequin. This
-    // comes first so the wait for the atlas below covers the tee remounting.
-    if (editor.avatarId) {
+    // comes first so the wait for the atlas below covers the tee remounting;
+    // a publish that stops short puts the figure back.
+    const triedOn = editor.avatarId
+    let published = false
+
+    if (triedOn) {
       editor.setAvatarId({ avatarId: null })
     }
 
-    if (await countUnavailableImages({ document: editor.document })) {
+    try {
+      if (await countUnavailableImages({ document: editor.document })) {
+        setBusy(null)
+        setMessage('An image on this design hasn’t loaded, so it would publish as a placeholder. Reload the page, or remove the image, and try again.')
+        return
+      }
+
+      // Never photograph a garment still missing a word or image (R01 #164).
+      const atlas = await waitForCurrentAtlas({
+        current: () => {
+          const { document, revision } = useEditorStore.getState()
+          return { document, revision }
+        },
+      })
+
+      // A word in a stand-in font still publishes, as the preview shows it.
+      if (atlas === 'loading' || atlas === 'error') {
+        setBusy(null)
+        setMessage(
+          atlas === 'loading'
+            ? 'Artwork on this design is still loading. Wait a moment, then publish again.'
+            : 'Some artwork on this design could not load, so it wouldn’t publish correctly. Reload the page, then publish again.',
+        )
+        return
+      }
+
+      const stills = await captureAngleStills({
+        canvas: getStudioCanvas(),
+        setCameraPreset: editor.setCameraPreset,
+        setCapturingAngles: editor.setCapturingAngles,
+        restorePreset: editor.cameraPreset,
+        presets: PUBLISHED_STILL_PRESETS,
+      })
+
+      if (stills.length !== KIND_BY_ANGLE.length) {
+        setBusy(null)
+        setMessage('The garment views could not be captured. Open the 3D view and try again.')
+        return
+      }
+
+      // The views must belong to the version being published.
+      if (useEditorStore.getState().cloud?.headSeq !== headSeq) {
+        setBusy(null)
+        setMessage('The design changed while publishing. Wait for Saved to cloud, then try again.')
+        return
+      }
+
+      const uploaded = await uploadRenders({
+        designId,
+        seq: headSeq,
+        renders: stills.map((still, index) => ({
+          kind: KIND_BY_ANGLE[index]!,
+          data: still.slice(still.indexOf(',') + 1),
+        })),
+      })
+
+      if (!uploaded.ok) {
+        setBusy(null)
+        setMessage(`The views could not be saved (${uploaded.message}).`)
+        return
+      }
+
+      const result = await publishDesign({
+        designId,
+        seq: headSeq,
+        ...(displayName.trim() ? { displayName: displayName.trim() } : {}),
+      })
+
       setBusy(null)
-      setMessage('An image on this design hasn’t loaded, so it would publish as a placeholder. Reload the page, or remove the image, and try again.')
-      return
+
+      if (!result.ok) {
+        void trackAssumption({ name: 'publish_failed' })
+        setMessage(`Not published (${result.message}).`)
+        return
+      }
+
+      published = true
+      void trackAssumption({ name: 'publish_succeeded' })
+      setReviewing(false)
+      await refresh()
+    } finally {
+      if (triedOn && !published) {
+        useEditorStore.getState().setAvatarId({ avatarId: triedOn })
+      }
     }
-
-    // Never photograph a garment still missing a word or image (R01 #164).
-    const atlas = await waitForCurrentAtlas({
-      current: () => {
-        const { document, revision } = useEditorStore.getState()
-        return { document, revision }
-      },
-    })
-
-    // A word in a stand-in font still publishes, as the preview shows it.
-    if (atlas === 'loading' || atlas === 'error') {
-      setBusy(null)
-      setMessage(
-        atlas === 'loading'
-          ? 'Artwork on this design is still loading. Wait a moment, then publish again.'
-          : 'Some artwork on this design could not load, so it wouldn’t publish correctly. Reload the page, then publish again.',
-      )
-      return
-    }
-
-    const stills = await captureAngleStills({
-      canvas: getStudioCanvas(),
-      setCameraPreset: editor.setCameraPreset,
-      setCapturingAngles: editor.setCapturingAngles,
-      restorePreset: editor.cameraPreset,
-      presets: PUBLISHED_STILL_PRESETS,
-    })
-
-    if (stills.length !== KIND_BY_ANGLE.length) {
-      setBusy(null)
-      setMessage('The garment views could not be captured. Open the 3D view and try again.')
-      return
-    }
-
-    // The views must belong to the version being published.
-    if (useEditorStore.getState().cloud?.headSeq !== headSeq) {
-      setBusy(null)
-      setMessage('The design changed while publishing. Wait for Saved to cloud, then try again.')
-      return
-    }
-
-    const uploaded = await uploadRenders({
-      designId,
-      seq: headSeq,
-      renders: stills.map((still, index) => ({
-        kind: KIND_BY_ANGLE[index]!,
-        data: still.slice(still.indexOf(',') + 1),
-      })),
-    })
-
-    if (!uploaded.ok) {
-      setBusy(null)
-      setMessage(`The views could not be saved (${uploaded.message}).`)
-      return
-    }
-
-    const result = await publishDesign({
-      designId,
-      seq: headSeq,
-      ...(displayName.trim() ? { displayName: displayName.trim() } : {}),
-    })
-
-    setBusy(null)
-
-    if (!result.ok) {
-      void trackAssumption({ name: 'publish_failed' })
-      setMessage(`Not published (${result.message}).`)
-      return
-    }
-
-    void trackAssumption({ name: 'publish_succeeded' })
-    setReviewing(false)
-    await refresh()
   }
 
   async function unpublish() {

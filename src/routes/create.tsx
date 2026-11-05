@@ -142,7 +142,7 @@ function AtelierHome() {
   const mode = useEditorStore((state) => state.mode)
   const garmentId = useEditorStore((state) => state.garmentId)
   const createStep = useEditorStore((state) => state.createStep)
-  const designTool = useStudioMode((state) => state.designTool)
+  const designTool = useEditorStore((state) => state.designTool)
   const pro = useStudioMode((state) => state.pro)
   const setCreateStep = useEditorStore((state) => state.setCreateStep)
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
@@ -502,6 +502,16 @@ function AtelierHome() {
       cancelled = true
     }
   }, [remixId])
+
+  // Try-on's rail only shows at lg. Smaller (a phone, an iPad turned to
+  // portrait) goes back to the tee alone rather than a figure with no way off.
+  const avatarId = useEditorStore((state) => state.avatarId)
+
+  useEffect(() => {
+    if (!lgUp && avatarId) {
+      useEditorStore.getState().setAvatarId({ avatarId: null })
+    }
+  }, [avatarId, lgUp])
 
   // The lg studio grid starts below the header, however it wraps (#163).
   useLayoutEffect(() => {
