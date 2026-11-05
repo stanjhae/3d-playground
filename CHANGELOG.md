@@ -12,6 +12,8 @@
 - **The studio's "Design / The house" switch** shows only in guest builds.
 - **Guided by default, with a Pro tools switch.** Guided opens a new design on Garment, keeps one way to set the brush (Fine, Line, Bold), lets you drag, size and rotate a piece, and shows one hint at a time. Pro opens on Design and adds brush size, opacity and hardness, numeric position, mirroring to the other side, layer rename and duplicate, named checkpoints, Save this look and keyboard help, and turns the hints off. The switch is remembered on the device and never changes the design.
 - **A tool rail replaces Draw / Tech:** Draw, Text, Graphics and Upload, each with its own panel. Selected item and Layers stay below.
+- **Landing hero laid out as the mockup:** a three-line uppercase headline beside the live Draw, 3D and Graphics cards, one concept label for the cards, and a value strip with icons. Section headings are uppercase and the stage chips sentence case.
+- **Every brand button** across the landing, My Studio, sign-in, the look page and the studio is sentence case and centred.
 - **Each step says what it's for** in a heading and one line, as the mockups open each screen.
 - **Garment step tells the truth:** a crew-neck, short-sleeve tee with four print areas, with named colours instead of hex codes. The tee is no longer called oversized or drop-shouldered, which its shape isn't.
 - **Color & Pattern:** named colour swatches, the chosen colour shown by name and value, and pattern tiles that show their pattern.

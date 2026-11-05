@@ -32,7 +32,7 @@ export function StructureRail() {
               createStep: nextCreateStep({ step: createStep }),
             })
           }}
-          className="flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-xs tracking-[0.12em] uppercase"
+          className="flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-sm font-medium"
         >
           {HOUSE_COPY.skip} →
         </button>

@@ -18,7 +18,7 @@ export function LandingWaitlist() {
         <p className="font-body text-xs tracking-[0.22em] text-flv-accent uppercase">
           👑 {FLV_COPY.waitlistTitle}
         </p>
-        <h2 className="font-display text-3xl text-flv-ink sm:text-4xl">
+        <h2 className="font-display text-3xl text-flv-ink sm:text-4xl uppercase">
           {FLV_COPY.waitlistOffer}
         </h2>
         <p className="font-body text-sm text-flv-muted">{FLV_COPY.waitlistLead}</p>
@@ -62,7 +62,7 @@ export function LandingWaitlist() {
         <button
           type="submit"
           disabled={status === 'joining'}
-          className="flv-cta min-h-12 px-4 font-body text-xs tracking-[0.08em] uppercase disabled:opacity-50"
+          className="flv-cta inline-flex items-center justify-center gap-2 min-h-12 px-4 font-body text-sm font-medium disabled:opacity-50"
         >
           {status === 'joining'
             ? HOUSE_COPY.joining

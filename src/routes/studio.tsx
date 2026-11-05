@@ -42,7 +42,7 @@ export const Route = createFileRoute('/studio')({
 const TEE = resolveTemplate(createEmptyCanonicalDocument().template)
 
 const buttonClass =
-  'flv-cta inline-flex min-h-11 items-center justify-center px-5 font-body text-xs tracking-[0.1em] uppercase disabled:opacity-50'
+  'flv-cta inline-flex min-h-11 items-center justify-center px-5 font-body text-sm font-medium disabled:opacity-50'
 
 function GuardedStudio() {
   if (!authConfigured()) {

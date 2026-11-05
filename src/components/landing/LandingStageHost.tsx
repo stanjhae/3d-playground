@@ -186,7 +186,7 @@ export function LandingStageHost({
         ))}
       </div>
       <div className="flex flex-col gap-2">
-        <h2 className="font-display text-3xl text-flv-ink">{title}</h2>
+        <h2 className="font-display text-3xl text-flv-ink uppercase">{title}</h2>
         <p className="max-w-2xl font-body text-sm text-flv-muted">{lead}</p>
         <p className="font-body text-xs text-flv-muted">
           Live 3D updates in the hero stage above.
@@ -345,7 +345,7 @@ export function LandingStageHost({
           onClick={() => {
             persistHandoff()
           }}
-          className="flv-cta inline-flex min-h-12 w-fit items-center px-6 font-body text-xs tracking-[0.12em] uppercase"
+          className="flv-cta inline-flex min-h-12 w-fit items-center px-6 font-body text-sm font-medium"
         >
           {FLV_COPY.openInStudio} →
         </Link>
@@ -437,7 +437,7 @@ function SelectDemo({
           </p>
           {isCanonicalGarment({ garmentId }) ? null : <ConceptPreviewBadge />}
         </div>
-        <h3 className="font-display text-xl text-flv-ink">{garmentLabel}</h3>
+        <h3 className="font-display text-xl text-flv-ink uppercase">{garmentLabel}</h3>
         <p className="font-body text-sm text-flv-muted">
           {garmentCredit ?? 'House silhouette with realistic 3D model.'}
         </p>
@@ -629,7 +629,7 @@ function ColorDemo({
           </p>
           <ConceptPreviewBadge />
         </div>
-        <h3 className="font-display text-lg text-flv-ink">{fabricName}</h3>
+        <h3 className="font-display text-lg text-flv-ink uppercase">{fabricName}</h3>
         <p className="font-body text-xs text-flv-muted">
           {patternId} · {textureId} · {finishId}
         </p>
@@ -731,7 +731,7 @@ function DesignDemo({
     <div className="relative grid gap-4 lg:grid-cols-3">
       <article className="flv-panel flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg text-flv-ink">
+          <h3 className="font-display text-lg text-flv-ink uppercase">
             {FLV_COPY.designLayerDraw}
           </h3>
           <span className="flv-live-badge">{FLV_COPY.designLive}</span>
@@ -872,7 +872,7 @@ function DesignDemo({
         </p>
       </article>
       <article className="flv-panel flex flex-col gap-3 p-4">
-        <h3 className="font-display text-lg text-flv-ink">
+        <h3 className="font-display text-lg text-flv-ink uppercase">
           {FLV_COPY.designLayerTech}
         </h3>
         <div className="grid grid-cols-3 gap-2">
@@ -961,7 +961,7 @@ function DesignDemo({
       </article>
       <article className="flv-panel flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-display text-lg text-flv-ink">
+          <h3 className="font-display text-lg text-flv-ink uppercase">
             {FLV_COPY.designLayerPreview}
           </h3>
           <span className="flv-live-badge">⚡ {FLV_COPY.designLive}</span>
@@ -1218,7 +1218,7 @@ function ShareDemo({
           onClick={() => {
             onBeforeStudioNavigate?.()
           }}
-          className="flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-xs tracking-[0.1em] uppercase"
+          className="flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-sm font-medium"
         >
           {FLV_COPY.sharePublish} →
         </Link>
@@ -1240,7 +1240,7 @@ function CommunityDemo({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-display text-2xl text-flv-ink">
+            <h3 className="font-display text-2xl text-flv-ink uppercase">
               {FLV_COPY.voteTitle}
             </h3>
             <ConceptPreviewBadge />
@@ -1253,7 +1253,7 @@ function CommunityDemo({
         <Link
           to="/vote"
           search={{}}
-          className="flv-cta inline-flex min-h-11 items-center px-4 font-body text-xs tracking-[0.1em] uppercase"
+          className="flv-cta inline-flex min-h-11 items-center px-4 font-body text-sm font-medium"
         >
           {FLV_COPY.seeBoard} →
         </Link>

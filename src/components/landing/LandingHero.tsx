@@ -1,6 +1,8 @@
+import { ArrowRight, Box, Layers, Lock } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 
+import { buttonClass } from '../ui/Button'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import type { DesignDocument } from '../../lib/design-document'
@@ -133,21 +135,15 @@ export function LandingHero({
       id="product"
       className="relative flex min-h-[min(100dvh,64rem)] flex-col gap-8 px-4 pt-28 pb-10 sm:px-8 lg:px-10 lg:pt-32"
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex max-w-xl flex-col gap-4">
-          <div className="flex items-end gap-3">
-            <p className="font-display text-5xl leading-none tracking-tight text-flv-accent sm:text-6xl">
-              {FLV_COPY.brandMark}
-            </p>
-            <p className="pb-1 font-body text-[0.65rem] leading-tight tracking-[0.18em] text-flv-ink uppercase">
-              Fashion
-              <br />
-              Leader Vote
-            </p>
-          </div>
-          <h1 className="font-display text-4xl leading-tight text-flv-ink sm:text-5xl lg:text-6xl">
-            {FLV_COPY.heroHeadline}{' '}
-            <span className="flv-text-gradient">{FLV_COPY.heroHeadlineAccent}</span>
+      <div className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)] lg:items-center">
+        <div className="flex flex-col gap-5">
+          <h1 className="font-display text-5xl leading-[0.95] text-flv-ink uppercase sm:text-6xl lg:text-[2.9rem]">
+            {FLV_COPY.heroHeadline.split('. ').map((line) => (
+              <span key={line} className="block">
+                {line.endsWith('.') ? line : `${line}.`}
+              </span>
+            ))}
+            <span className="flv-text-gradient block">{FLV_COPY.heroHeadlineAccent}</span>
           </h1>
           <p className="font-body text-base text-flv-muted sm:text-lg">
             Draw freely, refine digitally and see every change instantly on a
@@ -167,24 +163,18 @@ export function LandingHero({
               onClick={() => {
                 persistHandoff()
               }}
-              className="flv-cta inline-flex min-h-12 items-center px-6 font-body text-xs tracking-[0.12em] uppercase"
+              className={cn(buttonClass(), 'min-h-12 px-6')}
             >
-              {FLV_COPY.openStudio} →
+              {FLV_COPY.openStudio}
+              <ArrowRight aria-hidden className="size-4" />
             </Link>
-            <a
-              href="#waitlist"
-              className="inline-flex min-h-12 items-center rounded-full border border-flv-ink px-6 font-body text-xs tracking-[0.12em] text-flv-ink uppercase hover:border-flv-accent hover:text-flv-accent"
-            >
+            <a href="#waitlist" className={cn(buttonClass({ variant: 'secondary' }), 'min-h-12 px-6')}>
               {FLV_COPY.joinWaitlist}
             </a>
           </div>
         </div>
-        <div className="hidden shrink-0 flex-col gap-2 lg:flex">
-          <ConceptPreviewBadge />
-        </div>
-      </div>
 
-      <div className="relative mx-auto grid w-full max-w-6xl gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,0.9fr)]">
+      <div className="relative grid w-full gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,0.9fr)]">
         <aside className="flv-panel order-2 flex flex-col gap-3 p-4 lg:order-1">
           <div className="flex items-center justify-between gap-2">
             <p className="font-body text-xs tracking-[0.16em] text-flv-accent uppercase">
@@ -358,7 +348,7 @@ export function LandingHero({
                   }),
               })
             }}
-            className="flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-[0.65rem] tracking-[0.1em] uppercase"
+            className="flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-sm font-medium"
           >
             {FLV_COPY.suggestionsApply}
           </button>
@@ -392,26 +382,21 @@ export function LandingHero({
         </aside>
       </div>
 
-      <div className="mx-auto grid w-full max-w-6xl gap-4 border-t border-flv-line pt-6 md:grid-cols-3">
+      </div>
+
+      <div className="mx-auto grid w-full max-w-6xl gap-6 border-t border-flv-line pt-8 md:grid-cols-3">
         {[
-          {
-            title: '01 Three Creative Workflows',
-            lead: 'Draw / Graphics / 3D Preview',
-          },
-          {
-            title: '02 Four-Sided Design',
-            lead: 'Front / Back / Left / Right',
-          },
-          {
-            title: '03 Save and Share',
-            lead: 'Private by default. Share a saved version by link.',
-          },
+          { number: '01', icon: Layers, title: 'Three ways to create', lead: 'Draw, add graphics and words, see it in 3D' },
+          { number: '02', icon: Box, title: 'Four-sided design', lead: 'Front, back and both sleeves' },
+          { number: '03', icon: Lock, title: 'Save and share', lead: 'Private by default. Share a saved version by link.' },
         ].map((item) => (
-          <div key={item.title} className="flex flex-col gap-1">
-            <p className="font-body text-xs tracking-[0.12em] text-flv-ink uppercase">
-              {item.title}
-            </p>
-            <p className="font-body text-sm text-flv-muted">{item.lead}</p>
+          <div key={item.title} className="flex items-start gap-4">
+            <item.icon aria-hidden className="mt-1 size-8 shrink-0 stroke-[1.25] text-flv-ink" />
+            <div className="flex flex-col gap-0.5">
+              <p className="font-body text-xs font-medium text-flv-accent">{item.number}</p>
+              <p className="font-body text-base font-medium text-flv-ink">{item.title}</p>
+              <p className="font-body text-sm text-flv-muted">{item.lead}</p>
+            </div>
           </div>
         ))}
       </div>
