@@ -12,6 +12,7 @@ export type CodeFlowError =
   | 'invalid-code'
   | 'wrong-or-expired-code'
   | 'throttled'
+  | 'send-failed'
   | 'network'
   | 'unknown'
 
@@ -45,7 +46,8 @@ export const CODE_FLOW_MESSAGES: Record<CodeFlowError, string> = {
   'invalid-code': `Enter the ${CODE_LENGTH}-digit code from the email.`,
   'wrong-or-expired-code':
     'That code is wrong, already used or expired. Check the latest email or send a new code.',
-  throttled: 'Too many attempts. Wait a minute, then try again.',
+  throttled: 'Too many attempts. Wait a minute, then try again. If you still see this, try again in an hour.',
+  'send-failed': 'We could not send your code. Try again in a few minutes.',
   network: 'Could not reach the sign-in service. Check your connection and try again.',
   unknown: 'Sign-in did not work. Try again.',
 }
@@ -145,9 +147,21 @@ export function codeFlowErrorFromAuth({
     return 'invalid-email'
   }
 
-  if (error?.name === 'AuthRetryableFetchError' || error?.status === 0) {
+  // Auth reports a 5xx with the same error name as a lost connection; only
+  // status 0 means the request never got an answer.
+  if (error?.status === 0) {
     return 'network'
   }
 
   return 'unknown'
+}
+
+/** The same, for asking for a code: what's left is that the email didn't go. */
+export function sendErrorFromAuth({
+  error,
+}: {
+  error: { code?: string; status?: number; name?: string } | null | undefined
+}): CodeFlowError {
+  const failure = codeFlowErrorFromAuth({ error })
+  return failure === 'unknown' ? 'send-failed' : failure
 }

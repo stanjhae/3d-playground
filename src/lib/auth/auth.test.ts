@@ -5,6 +5,7 @@ import {
   INITIAL_CODE_FLOW,
   RESEND_SECONDS,
   codeFlowErrorFromAuth,
+  sendErrorFromAuth,
   codeFlowReducer,
   isValidEmail,
   normalizeCode,
@@ -101,6 +102,15 @@ describe('code flow', () => {
     expect(codeFlowErrorFromAuth({ error: { code: 'user_not_found', status: 400 } })).toBe(
       'unknown',
     )
+  })
+
+  test('a server error is not reported as a lost connection', () => {
+    const mailDown = { name: 'AuthRetryableFetchError', status: 500 }
+
+    expect(codeFlowErrorFromAuth({ error: mailDown })).toBe('unknown')
+    expect(sendErrorFromAuth({ error: mailDown })).toBe('send-failed')
+    expect(sendErrorFromAuth({ error: { name: 'AuthRetryableFetchError', status: 0 } })).toBe('network')
+    expect(sendErrorFromAuth({ error: { code: 'over_email_send_rate_limit', status: 429 } })).toBe('throttled')
   })
 })
 

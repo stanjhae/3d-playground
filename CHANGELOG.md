@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **A sign-in email that failed to send told people to check their connection.** It now says the code couldn't be sent, and an outage of the sign-in service no longer blames the connection either (#145).
+- **The email limit for the hour said to wait a minute.** The message now says to try again in an hour if it keeps appearing (#145).
+
 ## 0.9.0-rc.5: alpha release candidate (4 Nov 2026)
 
 The freeze candidate. Closes the requirements audit's proof gaps, runs sign-in and the browser journey on staging for the first time, and fixes what that work found.

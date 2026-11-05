@@ -11,6 +11,7 @@ import {
   normalizeCode,
   normalizeEmail,
   resendSecondsLeft,
+  sendErrorFromAuth,
 } from '../lib/auth/code-flow'
 import { safeReturnPath } from '../lib/auth/return-path'
 import { useSessionStore } from '../lib/auth/session-store'
@@ -81,7 +82,7 @@ function SignIn() {
     if (error) {
       dispatch({
         type: 'failed',
-        error: codeFlowErrorFromAuth({ error }),
+        error: sendErrorFromAuth({ error }),
         now: Date.now(),
       })
       return
