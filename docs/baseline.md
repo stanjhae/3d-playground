@@ -145,6 +145,7 @@ MEASURE=1 E2E_BASE_URL=http://localhost:5399 pnpm exec playwright test measure
 | 0.9.0-rc.2 as tagged (1193fcc), five views, 390×844 / 1366×768 | **2.14 s** / **2.14 s** | ≤ 3 s | **Met** (2 Nov) |
 | 0.9.0-rc.3 as tagged (bb20395), five views, 390×844 / 1366×768 | **2.15 s** / **2.14 s** | ≤ 3 s | **Met** (2 Nov) |
 | 0.9.0-rc.4 as tagged (8da86bf), five views, 390×844 / 1366×768 | **2.14 s** / **2.16 s** | ≤ 3 s | **Met** (3 Nov) |
+| 0.9.0-rc.5 as tagged (5edc90c), five views, 390×844 / 1366×768 | **2.66 s** / **2.67 s** | ≤ 3 s | **Met** (4 Nov) |
 
 For 0.9.0-rc.2 (e67e6c3, 1 Nov), the same setup gave save acknowledgement p50 80 ms, p95 157 ms, max 280 ms (25 saves), and edit → "Saved to cloud" p50 2.05 s. On-demand rendering (#264) and per-layer eraser compositing (#274) didn't move any number.
 
@@ -153,6 +154,8 @@ On the tagged commit (1193fcc, 2 Nov), the same setup gave save acknowledgement 
 On 0.9.0-rc.3 as tagged (bb20395, 2 Nov), the same setup gave save acknowledgement p50 63 ms, p95 75 ms, max 93 ms (25 saves), and edit → "Saved to cloud" p50 1.98 s. The commit doesn't change the save path, so we read the lower numbers as a quieter run.
 
 On 0.9.0-rc.4 as tagged (8da86bf, 3 Nov), the same setup gave save acknowledgement p50 95 ms, p95 128 ms, max 141 ms (25 saves), and edit → "Saved to cloud" p50 2.06 s. The commit doesn't change the save path, and this run came straight after the full browser suite, so we read the higher numbers as run-to-run noise.
+
+On 0.9.0-rc.5 as tagged (5edc90c, 4 Nov), the same setup gave save acknowledgement p50 58 ms, p95 88 ms, max 90 ms, and edit → "Saved to cloud" p50 1.95 s. First image rose about 0.5 s from rc.4 and stays under the budget; we haven't traced the cause. `e2e/measure.spec.ts` now fails above the targets.
 
 Re-measured 1 November 2026 after the sleeve views (#179), same setup (production build, `pnpm preview`, local Supabase, Apple M3); save acknowledgement in that run was p50 59 ms, p95 73 ms. Adding two views didn't move the first image: the front is still the only preload, and the sleeve images are `loading="lazy"` below the main three, so they don't compete with it on a slow link. The run also checks that the page and the pre-rendered overlay (JavaScript off) have no sideways scroll at 390 and 1366 px.
 
