@@ -1,5 +1,6 @@
 import {
   CREATE_STEP_IDS,
+  MERGED_CREATE_STEPS,
   type CreateStepId,
 } from './create-steps'
 import { GARMENT_IDS, type GarmentId } from './design-schema'
@@ -30,7 +31,7 @@ export function parseCreateStep({
     return undefined
   }
 
-  return CREATE_STEP_IDS.find((step) => step === value)
+  return MERGED_CREATE_STEPS[value] ?? CREATE_STEP_IDS.find((step) => step === value)
 }
 
 function parseGarment({

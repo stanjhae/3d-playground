@@ -1,9 +1,6 @@
 import { create } from 'zustand'
 
-import {
-  DEFAULT_AVATAR_MEASUREMENTS,
-  listAvatars,
-} from './avatars'
+import { DEFAULT_AVATAR_MEASUREMENTS } from './avatars'
 import { garmentPanels } from './garments'
 import {
   applyCommand,
@@ -16,7 +13,7 @@ import {
   type DesignCommand,
   type LayerPatch,
 } from './design-commands'
-import type { CreateStepId } from './create-steps'
+import { type CreateStepId, forcesClothView } from './create-steps'
 import {
   cloneDocument,
   createEmptyDocument,
@@ -910,45 +907,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({ studioView })
   },
   setCreateStep: ({ createStep }) => {
-    set((state) => {
-      const forceCloth =
-        createStep === 'preview' ||
-        createStep === 'share' ||
-        createStep === 'select' ||
-        createStep === 'fit' ||
-        createStep === 'color'
-      const next: {
-        createStep: CreateStep
-        studioView?: 'cloth'
-        avatarId?: string
-        avatarMeasurements?: {
-          height: number
-          chest: number
-          waist: number
-        }
-      } = {
+    set(() => {
+      return {
         createStep,
-        ...(forceCloth ? { studioView: 'cloth' as const } : {}),
+        ...(forcesClothView({ step: createStep }) ? { studioView: 'cloth' as const } : {}),
       }
-
-      if (
-        createStep === 'preview' &&
-        state.avatarId === null &&
-        state.garmentId === 'tee'
-      ) {
-        const first = listAvatars()[0]
-
-        if (first) {
-          next.avatarId = first.id
-          next.avatarMeasurements = {
-            height: first.heightCm,
-            chest: first.chestCm,
-            waist: first.waistCm,
-          }
-        }
-      }
-
-      return next
     })
   },
   setDesignEditMode: ({ designEditMode }) => {

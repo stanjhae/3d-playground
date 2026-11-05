@@ -38,7 +38,7 @@ export function StepHeader<Id extends string>({
                 onClick={() => {
                   onSelect(step.id)
                 }}
-                className="flex min-h-11 shrink-0 flex-col items-center gap-1 px-1 font-body text-xs"
+                className="flex min-h-11 w-20 shrink-0 flex-col items-center gap-1 text-center font-body text-xs leading-tight"
               >
                 <span
                   className={cn('flex size-7 items-center justify-center rounded-full border text-xs', {
@@ -62,7 +62,7 @@ export function StepHeader<Id extends string>({
               {index < steps.length - 1 ? (
                 <span
                   aria-hidden
-                  className={cn('mt-3.5 h-px min-w-3 flex-1', {
+                  className={cn('mt-3.5 h-px min-w-1 flex-1', {
                     'bg-flv-ink': isDone,
                     'bg-flv-line': !isDone,
                   })}

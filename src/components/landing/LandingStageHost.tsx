@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
+import { parseCreateStep } from '../../lib/create-search'
 import type { AvatarMeasurements } from '../../lib/avatar-geometry'
 import { CONCEPT_FEATURES, isCanonicalGarment } from '../../lib/concept-flags'
 import type { DesignDocument, HemId, NeckId, SleeveId } from '../../lib/design-document'
@@ -334,7 +335,7 @@ export function LandingStageHost({
         <Link
           to="/create"
           search={{
-            step: activeStage,
+            step: parseCreateStep({ value: activeStage }),
             garment: garmentId,
             color: clothColor,
             neck,

@@ -10,7 +10,10 @@ import {
 describe('create-search', () => {
   test('parses valid create steps and ignores junk', () => {
     expect(parseCreateStep({ value: 'design' })).toBe('design')
-    expect(parseCreateStep({ value: 'preview' })).toBe('preview')
+    expect(parseCreateStep({ value: 'share' })).toBe('share')
+    // Old links to merged steps still open.
+    expect(parseCreateStep({ value: 'preview' })).toBe('share')
+    expect(parseCreateStep({ value: 'fit' })).toBe('select')
     expect(parseCreateStep({ value: 'nope' })).toBeUndefined()
     expect(parseCreateStep({ value: 3 })).toBeUndefined()
   })
@@ -57,8 +60,8 @@ describe('create-search', () => {
   })
 
   test('createStudioSearch omits empty fields', () => {
-    expect(createStudioSearch({ step: 'fit', garment: 'gown' })).toEqual({
-      step: 'fit',
+    expect(createStudioSearch({ step: 'select', garment: 'gown' })).toEqual({
+      step: 'select',
       garment: 'gown',
     })
   })

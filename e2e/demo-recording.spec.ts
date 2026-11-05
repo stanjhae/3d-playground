@@ -82,7 +82,7 @@ test('demo fallback recording', async ({ page }) => {
   await beat({ page, ms: 2_500 })
 
   // Publish the restored version.
-  await page.getByRole('button', { name: /^6\s*Publish$/ }).click()
+  await page.getByRole('button', { name: /Preview & Publish/ }).click()
   await expect(page).toHaveURL(/step=share/)
   await expectSaved({ page })
   await beat({ page })

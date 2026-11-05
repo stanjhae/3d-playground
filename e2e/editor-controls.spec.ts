@@ -169,7 +169,8 @@ test('both bundled faces are available, load from this site and draw differently
   await saved({ read: async () => (await layers({ page, kind: 'text' }))[0]?.face }).toBe('sans')
   await expect.poll(async () => (await panelPixels({ page, panel: 'Front' })).picture).not.toBe(display.picture)
   expect(
-    await page.evaluate(() => ['Cormorant Garamond', 'Outfit'].map((family) => document.fonts.check(`500 24px "${family}"`))),
+    // At the weight words are drawn on the garment (text-faces.ts).
+    await page.evaluate(() => ['Cormorant Garamond', 'Outfit'].map((family) => document.fonts.check(`600 24px "${family}"`))),
   ).toEqual([true, true])
   expect(external).toEqual([])
 })

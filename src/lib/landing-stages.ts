@@ -1,8 +1,14 @@
-import type { CreateStepId } from './create-steps'
 import { FLV_COPY } from './flv-copy'
 
 import { CONCEPT_FEATURES } from './concept-flags'
-export type LandingStageId = CreateStepId | 'vote'
+export type LandingStageId =
+  | 'select'
+  | 'fit'
+  | 'color'
+  | 'design'
+  | 'preview'
+  | 'share'
+  | 'vote'
 
 export const LANDING_STAGE_IDS: readonly LandingStageId[] = [
   'select',
@@ -99,6 +105,6 @@ export function landingStageChip({
 
 export function isCreateLandingStage(
   stage: LandingStageId,
-): stage is CreateStepId {
+): stage is Exclude<LandingStageId, 'vote'> {
   return stage !== 'vote'
 }

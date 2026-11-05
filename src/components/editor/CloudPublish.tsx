@@ -107,6 +107,12 @@ export function CloudPublish() {
     setMessage(null)
     const editor = useEditorStore.getState()
 
+    // Published views show the tee alone, never the try-on mannequin. This
+    // comes first so the wait for the atlas below covers the tee remounting.
+    if (editor.avatarId) {
+      editor.setAvatarId({ avatarId: null })
+    }
+
     if (await countUnavailableImages({ document: editor.document })) {
       setBusy(null)
       setMessage('An image on this design hasn’t loaded, so it would publish as a placeholder. Reload the page, or remove the image, and try again.')

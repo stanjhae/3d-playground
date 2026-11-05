@@ -90,7 +90,6 @@ export function visibleAvatarsForFilter({
 
 export function AvatarRail() {
   const avatarId = useEditorStore((state) => state.avatarId)
-  const createStep = useEditorStore((state) => state.createStep)
   const setAvatarId = useEditorStore((state) => state.setAvatarId)
   const setAvatarMeasurements = useEditorStore(
     (state) => state.setAvatarMeasurements,
@@ -157,7 +156,6 @@ export function AvatarRail() {
                 const nextId = nextAvatarSelection({
                   currentId: avatarId,
                   clickedId: avatar.id,
-                  createStep,
                 })
 
                 if (nextId === avatarId) {

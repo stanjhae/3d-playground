@@ -5,6 +5,11 @@
 ### Changed
 - **New look, first step:** heavy sans headlines, a brighter red-to-orange brand on near-white, sentence-case controls and a new site header. Words on a garment keep their fonts.
 - **Login on the landing goes to sign-in.** It used to jump to the waitlist.
+- **Four steps instead of six:** Garment, Color & Pattern, Design, Preview & Publish, with a numbered stepper. Fit had nothing for the tee, and Preview and Publish are now one step. Old links to `?step=fit` and `?step=preview` still open the right step.
+- **One main button per step, in the same place**: Use this garment, Continue, and Skip on the optional colour step. Back sits beside it.
+- **Tools sit left of the panels on Design and right of the garment on every other step,** in one column that scrolls on its own, so nothing is cut off at laptop height. The camera views float over the bottom of the stage.
+- **Try-on is opt-in.** Choosing a figure on Preview & Publish puts the tee on it, and choosing it again takes it off. Publishing takes the figure off first, so published pictures always show the tee alone. On phones the try-on panel is hidden to keep publishing on screen.
+- **The studio's "Design / The house" switch** shows only in guest builds.
 
 ### Added
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.

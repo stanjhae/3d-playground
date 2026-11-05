@@ -40,7 +40,7 @@ function DesignGarment() {
   const createStep = useEditorStore((state) => state.createStep)
   const avatarId = useEditorStore((state) => state.avatarId)
   const tryOn =
-    createStep === 'preview' && Boolean(avatarId) && garmentId === 'tee'
+    createStep === 'share' && Boolean(avatarId) && garmentId === 'tee'
 
   if (tryOn) {
     return (

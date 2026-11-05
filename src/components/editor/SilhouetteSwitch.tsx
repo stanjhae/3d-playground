@@ -17,7 +17,6 @@ import {
   type GarmentCategoryId,
   type SampleSizeId,
 } from '../../lib/landing-demo'
-import { nextCreateStep } from '../../lib/create-steps'
 import {
   chromeKickerClass,
   chromeMutedClass,
@@ -91,8 +90,6 @@ export function SilhouetteSwitch({
   const storeId = useEditorStore((state) => state.garmentId)
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
   const applyBaseColor = useEditorStore((state) => state.applyBaseColor)
-  const setCreateStep = useEditorStore((state) => state.setCreateStep)
-  const createStep = useEditorStore((state) => state.createStep)
   const setAvatarMeasurements = useEditorStore(
     (state) => state.setAvatarMeasurements,
   )
@@ -116,7 +113,7 @@ export function SilhouetteSwitch({
     garments.find((garment) => garment.id === current) ?? garments[0]
 
   return (
-    <div className="flex w-full max-w-full flex-col gap-3 lg:max-w-[min(100%,52rem)]">
+    <div className="flex w-full max-w-full flex-col gap-3">
       <div className="flex flex-wrap gap-2">
         {categories.map((entry) => (
           <button
@@ -261,17 +258,6 @@ export function SilhouetteSwitch({
             </div>
           </div>
           ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              setCreateStep({
-                createStep: nextCreateStep({ step: createStep }),
-              })
-            }}
-            className="flv-cta inline-flex min-h-12 items-center justify-center px-4 font-body text-xs tracking-[0.12em] uppercase"
-          >
-            {FLV_COPY.selectUse} →
-          </button>
         </aside>
       ) : null}
       {credit && garments.some((garment) => garment.id === current) ? (

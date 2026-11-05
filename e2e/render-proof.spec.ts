@@ -52,10 +52,16 @@ async function chooseInk({ page, name }: { page: Page; name: string }) {
 
 async function sceneShot({ page }: { page: Page }) {
   await page.waitForTimeout(2_000)
-  // The middle of the scene only: side rails sit over the canvas's edges.
+  // The middle of the scene only: side rails sit over the canvas's edges, and
+  // the camera views float over its bottom.
   const box = (await page.locator('canvas[data-engine]').boundingBox())!
-  const clip = { x: box.x + box.width * 0.3, y: box.y, width: box.width * 0.4, height: box.height }
+  const clip = { x: box.x + box.width * 0.3, y: box.y, width: box.width * 0.4, height: box.height - 96 }
   return (await page.screenshot({ clip })).toString('base64')
+}
+
+/** Try-on is opt-in on the publish step: put the tee on the first figure. */
+async function tryOn({ page }: { page: Page }) {
+  await page.getByRole('button', { name: 'Tall' }).click()
 }
 
 async function viewFrom({ page, side }: { page: Page; side: string }) {
@@ -177,6 +183,7 @@ test('the base colour changes the cloth, not the figure, and keeps the artwork',
   await expectSaved({ page })
 
   await goToStep({ page, step: 'preview' })
+  await tryOn({ page })
   const before = await statsOf({ page, picture: await viewFrom({ page, side: 'Front' }) })
   expect(before.bright).toBeGreaterThan(500)
 
@@ -185,6 +192,7 @@ test('the base colour changes the cloth, not the figure, and keeps the artwork',
   await expect.poll(async () => (await savedHead({ page })).content.base.color, { timeout: 20_000 }).toBe(color('Oxblood'))
 
   await goToStep({ page, step: 'preview' })
+  await tryOn({ page })
   const after = await statsOf({ page, picture: await viewFrom({ page, side: 'Front' }) })
   expect(after.bright).toBeLessThan(before.bright / 5)
   expect(after.oxblood).toBeGreaterThan(500)
@@ -192,6 +200,25 @@ test('the base colour changes the cloth, not the figure, and keeps the artwork',
   expect(after.skin).toBeLessThan(before.skin * 1.2)
   // The stroke is still on it.
   expect(after.meadow).toBeGreaterThan(30)
+})
+
+test('publishing with a figure tried on photographs the tee alone', async ({ page }) => {
+  test.setTimeout(180_000)
+  await openDesign({ page, label: 'tryonpub' })
+  await goToStep({ page, step: 'share' })
+  await tryOn({ page })
+  const worn = await statsOf({ page, picture: await sceneShot({ page }) })
+  expect(worn.skin).toBeGreaterThan(200)
+
+  const { seq } = await savedHead({ page })
+  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Confirm publish' }).click()
+  await expect(page.getByText(new RegExp(`Published v${seq}\\b`))).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('button', { name: 'Tall' })).toHaveAttribute('aria-pressed', 'false')
+  const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
+  const slug = (await link.getAttribute('href'))!.split('/s/')[1]!
+  const front = await publishedFront({ page, slug })
+  expect((await statsOf({ page, ...front })).skin).toBeLessThan(worn.skin / 10)
 })
 
 test('a moved layer shows in the 2D panel and the 3D view, and looks the same after reloading', async ({ page }) => {

@@ -1,15 +1,14 @@
 import { HOUSE_COPY } from './house-copy'
 
-export const CREATE_STEP_IDS = [
-  'select',
-  'fit',
-  'color',
-  'design',
-  'preview',
-  'share',
-] as const
+export const CREATE_STEP_IDS = ['select', 'color', 'design', 'share'] as const
 
 export type CreateStepId = (typeof CREATE_STEP_IDS)[number]
+
+/** Steps that were merged. Links and bookmarks to them still land somewhere. */
+export const MERGED_CREATE_STEPS: Readonly<Record<string, CreateStepId>> = {
+  fit: 'select',
+  preview: 'share',
+}
 
 export type CreateStepMeta = {
   id: CreateStepId
@@ -18,10 +17,8 @@ export type CreateStepMeta = {
 
 export const CREATE_STEPS: readonly CreateStepMeta[] = [
   { id: 'select', label: HOUSE_COPY.selectStep },
-  { id: 'fit', label: HOUSE_COPY.fitStep },
   { id: 'color', label: HOUSE_COPY.colorStep },
   { id: 'design', label: HOUSE_COPY.designStep },
-  { id: 'preview', label: HOUSE_COPY.previewStep },
   { id: 'share', label: HOUSE_COPY.shareStep },
 ] as const
 
@@ -58,7 +55,7 @@ export function showsSilhouetteRail({ step }: { step: CreateStepId }) {
 }
 
 export function showsStructureRail({ step }: { step: CreateStepId }) {
-  return step === 'fit'
+  return step === 'select'
 }
 
 export function showsColorRail({ step }: { step: CreateStepId }) {
@@ -70,7 +67,7 @@ export function showsDesignRails({ step }: { step: CreateStepId }) {
 }
 
 export function showsPreviewRails({ step }: { step: CreateStepId }) {
-  return step === 'preview'
+  return step === 'share'
 }
 
 export function showsShareRail({ step }: { step: CreateStepId }) {
@@ -78,13 +75,7 @@ export function showsShareRail({ step }: { step: CreateStepId }) {
 }
 
 export function forcesClothView({ step }: { step: CreateStepId }) {
-  return (
-    step === 'preview' ||
-    step === 'share' ||
-    step === 'select' ||
-    step === 'fit' ||
-    step === 'color'
-  )
+  return step !== 'design'
 }
 
 export function allowsDrawView({ step }: { step: CreateStepId }) {

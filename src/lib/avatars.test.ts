@@ -65,27 +65,12 @@ describe('avatars', () => {
     expect(box.min.x).toBeGreaterThan(SLEEVE_PIVOT.x - 0.1)
   })
 
-  test('preview keeps the current avatar when re-tapped', () => {
+  test('re-tapping the chosen avatar goes back to the tee alone', () => {
     expect(
-      nextAvatarSelection({
-        currentId: 'atelier-tall',
-        clickedId: 'atelier-tall',
-        createStep: 'preview',
-      }),
-    ).toBe('atelier-tall')
-    expect(
-      nextAvatarSelection({
-        currentId: 'atelier-tall',
-        clickedId: 'atelier-tall',
-        createStep: 'design',
-      }),
+      nextAvatarSelection({ currentId: 'atelier-tall', clickedId: 'atelier-tall' }),
     ).toBeNull()
     expect(
-      nextAvatarSelection({
-        currentId: 'atelier-tall',
-        clickedId: 'atelier-soft',
-        createStep: 'preview',
-      }),
+      nextAvatarSelection({ currentId: 'atelier-tall', clickedId: 'atelier-soft' }),
     ).toBe('atelier-soft')
   })
 })

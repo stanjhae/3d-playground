@@ -96,14 +96,13 @@ describe('studio phone chrome', () => {
   test('lets tools scroll without pinning publish', () => {
     expect(studioPhoneToolsClass()).toContain('max-h-[min(32vh,18rem)]')
     expect(studioPhoneToolsClass()).toContain('overflow-y-auto')
-    expect(studioPhoneToolsClass()).toContain('lg:right-6')
-    expect(studioPhoneToolsClass()).toContain('lg:bottom-40')
+    expect(studioPhoneToolsClass()).toContain('lg:max-h-none')
   })
 
-  test('pins publish on the cloth side at a readable scrollable width', () => {
+  test('keeps publish at the bottom of the tool column, below the tools rather than over them', () => {
     expect(studioPhonePublishClass()).toContain('shrink-0')
-    expect(studioPhonePublishClass()).toContain('lg:right-6')
-    expect(studioPhonePublishClass()).toContain('lg:w-80')
+    expect(studioPhonePublishClass()).toContain('lg:max-h-[70%]')
+    expect(studioPhonePublishClass()).not.toContain('sticky')
     expect(studioPhonePublishClass()).toContain('overflow-y-auto')
     expect(studioPhonePublishClass()).toContain('max-h-[min(72vh,42rem)]')
     expect(studioPhonePublishClass()).not.toContain('lg:left-6')

@@ -94,23 +94,13 @@ export function getAvatarById({ avatarId }: { avatarId?: string | null }) {
   return AVATAR_PRESETS.find((avatar) => avatar.id === avatarId)
 }
 
-/** Preview keeps a mannequin selected; other steps may clear by re-tapping. */
+/** Pressing the chosen mannequin again goes back to the tee alone. */
 export function nextAvatarSelection({
   currentId,
   clickedId,
-  createStep,
 }: {
   currentId: string | null
   clickedId: string
-  createStep: string
 }): string | null {
-  if (currentId === clickedId) {
-    if (createStep === 'preview') {
-      return currentId
-    }
-
-    return null
-  }
-
-  return clickedId
+  return currentId === clickedId ? null : clickedId
 }
