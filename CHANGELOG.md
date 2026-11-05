@@ -20,6 +20,7 @@
 - **Publishing** says Private or Published with an icon, and uses the shared buttons.
 - **Pencil and palm:** once a pen has drawn, a resting hand no longer draws on the panels or on the tee. Pen pressure already reached both the panels and the tee.
 - **Plain words:** Right sleeve and Left sleeve (named as worn), Selected item, Position, Rotate, Mirror to other side, Upload image, Layers, Serif, Medium and Large, Your text and Tap to place.
+- **The 3D stage is a light studio.** A soft grey backdrop and a soft shadow replace the dark stage, the tee fills about 70% of the frame instead of 37%, and the cloth has a project-made surface texture. The template is unchanged. Newly published pictures get the new look; stored ones stay as they were.
 
 ### Added
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.

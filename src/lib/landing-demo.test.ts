@@ -16,6 +16,7 @@ import {
   sampleSizeMeasurements,
   stampLandingGraphic,
   studioEnvAppearance,
+  studioStageBackdrop,
   updateLandingGraphicTransform,
   videoStillForScene,
   CANNED_STILLS,
@@ -140,6 +141,21 @@ describe('landing-demo', () => {
       studio.environmentIntensity,
     )
     expect(outdoor.keyIntensity).toBeGreaterThan(studio.keyIntensity)
+  })
+
+  test('the studio is a light backdrop that darkens downward, so a white tee separates', () => {
+    const luma = (hex: string) => {
+      const value = Number.parseInt(hex.slice(1), 16)
+      return (value >> 16) * 0.3 + ((value >> 8) & 255) * 0.59 + (value & 255) * 0.11
+    }
+    const { background, backgroundLow } = studioEnvAppearance({ envMode: 'studio' })
+
+    expect(luma(backgroundLow)).toBeLessThan(luma(background))
+    expect(luma(backgroundLow)).toBeGreaterThan(180)
+    // The default tee cloth, #f3efe6, stays lighter than all of it.
+    expect(luma(background)).toBeLessThan(luma('#f3efe6'))
+    expect(studioStageBackdrop()).toContain(background)
+    expect(studioStageBackdrop()).toContain(backgroundLow)
   })
 
   test('maps Fill to a wider brush and never emits fill tool', () => {

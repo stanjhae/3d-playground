@@ -27,6 +27,7 @@ Credits currently appear in the studio silhouette switch (`SilhouetteSwitch.tsx`
 | File | Source | Evidence | Status |
 | --- | --- | --- | --- |
 | `fabrics/cotton-weave.png`, `denim-twill.png`, `leather-grain.png`, `silk-shine.png`, `wool-nap.png` | Small tiles (333–1,446 bytes) added in `83ed9b9` with `fabrics.ts`; no external source recorded | The commit adds them alongside code (co-authored by Cursor); no generator script | **Needs confirmation** that they were made for the project. Not used by the tee MVP (its material is fixed by the template). |
+| Tee cloth normal map (`src/lib/fabric-normal.ts`) | Computed in the browser from a formula in this repo | No file and no outside source | Project-made. |
 | `images/meadow.jpg` | 1920×1280 photograph; EXIF reads Nikon D7200 | Added in `4436995` from the archived campus app. **No code references it.** | **Removed on 4 Nov.** Unknown photographer and unused. Confirm ownership or delete. |
 | `stills/look-house-ink.png` | Rendered from the app by `scripts/bake-stills.mjs` (Puppeteer screenshots of the seed looks); tee | Script and `data/designs.json` | **Seed content needs confirmation** (see the seed looks section) |
 | `stills/look-midnight-silk.png`, `look-atelier-ivory.png`, `look-oxblood-evening.png`, `look-meadow-walk.png`, `look-slate-denim.png`, `look-wool-hour.png`, `look-blush-first.png` (gown form), `look-cotton-leather.png` (mixed form) | Same baker; these render Style3D forms | Same as above | **Cleared, credit required** (derivatives of CC BY models). **Seed content needs confirmation.** |

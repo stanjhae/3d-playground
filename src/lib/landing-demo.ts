@@ -361,7 +361,10 @@ export function studioEnvAppearance({
 }: {
   envMode: StudioEnvMode
 }): {
+  /** Top of the seamless backdrop; published stills show this behind the garment. */
   background: string
+  /** Bottom of the backdrop. A little darker, so a white tee still separates. */
+  backgroundLow: string
   environmentIntensity: number
   exposure: number
   keyIntensity: number
@@ -369,6 +372,7 @@ export function studioEnvAppearance({
   if (envMode === 'outdoor') {
     return {
       background: '#87a4b8',
+      backgroundLow: '#c4d2d6',
       environmentIntensity: 1.15,
       exposure: 1.28,
       keyIntensity: 2.35,
@@ -376,11 +380,23 @@ export function studioEnvAppearance({
   }
 
   return {
-    background: '#1c1814',
-    environmentIntensity: 0.72,
-    exposure: 1.12,
-    keyIntensity: 1.85,
+    background: '#e6e5e2',
+    backgroundLow: '#cbcac6',
+    environmentIntensity: 0.68,
+    exposure: 1.1,
+    keyIntensity: 1.7,
   }
+}
+
+/** The backdrop as CSS, shown behind a canvas until its first frame draws. */
+export function studioStageBackdrop({
+  envMode = 'studio',
+}: {
+  envMode?: StudioEnvMode
+} = {}) {
+  const { background, backgroundLow } = studioEnvAppearance({ envMode })
+
+  return `linear-gradient(180deg, ${background}, ${backgroundLow})`
 }
 
 export const SAMPLE_SIZE_IDS = ['XS', 'S', 'M', 'L', 'XL'] as const
