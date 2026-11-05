@@ -16,9 +16,11 @@ runs:
       with:
         node-version: 22
         cache: pnpm
+    # A pinned version: "latest" asks GitHub's API every run, and a run
+    # failed on its rate limit before any test ran.
     - uses: supabase/setup-cli@v1
       with:
-        version: latest
+        version: 2.117.0
     - run: pnpm install --frozen-lockfile
       shell: bash
     # Only the services the API and tests use: Postgres, auth, REST,
