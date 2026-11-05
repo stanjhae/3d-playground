@@ -39,6 +39,8 @@ A closed issue doesn't count as evidence, and neither does the implementation ex
 | Doesn't reveal whether the account exists | `requirements-proof` (UI): a known and an unknown email get the same status, response body and screen; `auth.test.ts` (unit). Response time isn't compared | Proven |
 | Resend countdown shows | `requirements-proof` (UI): disabled "Send a new code in Ns" | Proven |
 | Resend sends a working new code | `requirements-proof` expired-code test (UI): after the countdown, the button sends a new code that signs in | Proven |
+| Throttling is recoverable | `sign-in-failures` (UI): a real 429 from Auth shows a wait and a disabled button, and a new code works after it (failed with the countdown removed). The hourly limit's wording is tested with an injected 429 | Proven |
+| A failed send is recoverable | `sign-in-failures` (UI): the answer Auth really gives with its mail server stopped, injected; the message says the email didn't go, the address stays, and trying again works. A failed new code leaves the first code usable, with the send refused by injection, not by Auth (failed before the fix, which said to check the connection) | Proven |
 | Valid code creates a session | `helpers.ts` `signIn`, used by `journey.spec` (UI) | Proven |
 | Returns to the intended safe internal page | `failures.spec` session expiry (UI) | Proven |
 | Unsafe `returnTo` falls back | `requirements-proof` (UI): five unsafe forms land on the studio, nothing goes off-site, a safe path still works (failed when the check was removed); `auth.test.ts` (unit) | Proven |
