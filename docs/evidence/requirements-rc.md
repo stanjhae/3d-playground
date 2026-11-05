@@ -2,7 +2,7 @@
 
 Every acceptance statement of PRD v1.1 R01–R11 and R13–R17, plus the limits and sharing rules in sections 9 and 10, checked against what actually proves it. R12 (AI) isn't enabled in this alpha.
 
-**Commit:** audited on `v0.9.0-rc.2` (1193fcc), plus `e2e/requirements-proof.spec.ts` and the pattern picker fix from that PR. Rows are updated through `v0.9.0-rc.4` (8da86bf).
+**Commit:** audited on `v0.9.0-rc.2` (1193fcc), plus `e2e/requirements-proof.spec.ts` and the pattern picker fix from that PR. Rows are updated through `v0.9.0-rc.5` (5edc90c).
 **Environment:** local Supabase and Mailpit. Since 4 Nov sign-in and the browser suite also run on staging; see the latest `docs/evidence/hosted-*.md` (#186).
 **Audited:** 2 Nov 2026.
 
@@ -259,7 +259,7 @@ Owner review approved on 1 Nov (comment on #166), from `e2e/visual-matrix.spec.t
 | Credible proportions, fabric surface, neutral lighting | Owner review | Checked by hand |
 | Artwork legible, no stretching, mirroring, bleed | Mirroring and bleed proven (pixel); legibility by owner | Checked by hand |
 | Editor and published framing consistent | `capture-framing.test.ts` (pixel); `render-proof.spec` (UI): the cloth's median colour in the published front picture is within 24 of 255 per channel of the editor's. A colour comparison, not a direct check of material settings | Proven |
-| Acceptance set, every preset at 1366×768, public at 390 | Matrix run on 1 Nov, stills only; repeat on the final candidate | Checked by hand |
+| Acceptance set, every preset at 1366×768, public at 390 | Matrix run again on `v0.9.0-rc.5` (5edc90c), chromium and WebKit, 56 stills reviewed on contact sheets | Checked by hand |
 | CTO reviews mapping; owner reviews against mockups | Owner approval recorded; no separate CTO record or mockup comparison | Owner |
 
 ## R17 Starter patterns
