@@ -2,7 +2,30 @@
 
 ## Unreleased
 
+### Changed
+- **New look, first step:** heavy sans headlines, a brighter red-to-orange brand on near-white, sentence-case controls and a new site header. Words on a garment keep their fonts.
+- **Login on the landing goes to sign-in.** It used to jump to the waitlist.
+- **Four steps instead of six:** Garment, Color & Pattern, Design, Preview & Publish, with a numbered stepper. Fit had nothing for the tee, and Preview and Publish are now one step. Old links to `?step=fit` and `?step=preview` still open the right step.
+- **One main button per step, in the same place**: Use this garment, Continue, and Skip on the optional colour step. Back sits beside it.
+- **Tools sit left of the panels on Design and right of the garment on every other step,** in one column that scrolls on its own, so nothing is cut off at laptop height. The camera views float over the bottom of the stage.
+- **Try-on is opt-in.** Choosing a figure on Preview & Publish puts the tee on it, and choosing it again takes it off. Publishing takes the figure off first, so published pictures always show the tee alone. On phones and narrow tablets the try-on panel is hidden to keep publishing on screen, and the tee comes off the figure. A publish that stops short puts the figure back.
+- **The studio's "Design / The house" switch** shows only in guest builds.
+- **Guided by default, with a Pro tools switch.** Guided opens a new design on Garment, keeps one way to set the brush (Fine, Line, Bold), lets you drag, size and rotate a piece, and shows one hint at a time. Pro opens on Design and adds brush size, opacity and hardness, numeric position, mirroring to the other side, layer rename and duplicate, named checkpoints, Save this look and keyboard help, and turns the hints off. The switch is remembered on the device and never changes the design.
+- **A tool rail replaces Draw / Tech:** Draw, Text, Graphics and Upload, each with its own panel; picking one changes only the panel shown. Selected item and Layers stay below.
+- **Landing hero laid out as the mockup:** a three-line uppercase headline beside the live Draw, 3D and Graphics cards, one concept label for the cards, and a value strip with icons. Section headings are uppercase and the stage chips sentence case.
+- **Every brand button** across the landing, My Studio, sign-in, the look page and the studio is sentence case and centred.
+- **Each step says what it's for** in a heading and one line, as the mockups open each screen.
+- **Garment step tells the truth:** a crew-neck, short-sleeve tee with four print areas, with named colours instead of hex codes. The tee is no longer called oversized or drop-shouldered, which its shape isn't.
+- **Color & Pattern:** named colour swatches, the chosen colour shown by name and value, and pattern tiles that show their pattern.
+- **Publishing** says Private or Published with an icon, and uses the shared buttons.
+- **Pencil and palm:** once a pen has drawn, a resting hand no longer draws on the panels or on the tee. Pen pressure already reached both the panels and the tee.
+- **Plain words:** Right sleeve and Left sleeve (named as worn), Selected item, Position, Rotate, Mirror to other side, Upload image, Layers, Serif, Medium and Large, Your text and Tap to place.
+
+### Added
+- **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
+
 ### Fixed
+- **A page behind sign-in stayed blank when the sign-in service couldn't be reached.** It now says it's opening and, after 6 seconds, that it's still connecting, with Try again. It keeps waiting rather than sending a signed-in person to sign in.
 - **A sign-in email that failed to send told people to check their connection.** It now says the code couldn't be sent, and an outage of the sign-in service no longer blames the connection either (#145).
 - **The email limit for the hour said to wait a minute.** The message now says to try again in an hour if it keeps appearing (#145).
 

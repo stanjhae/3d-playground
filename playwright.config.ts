@@ -22,6 +22,9 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
+    // The suite drives the expert controls, so Pro tools start on.
+    // `signIn({ pro: false })` and `guided.spec.ts` cover Guided.
+    storageState: { cookies: [], origins: [{ origin: new URL(baseURL).origin, localStorage: [{ name: 'flp-pro-tools', value: 'on' }] }] },
     trace: 'retain-on-failure',
     viewport: { width: 1280, height: 800 },
   },

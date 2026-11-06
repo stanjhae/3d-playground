@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { deleteAccounts, expectNoCspViolations, newEmail, signIn, watchCsp } from './helpers'
+import { deleteAccounts, expectNoCspViolations, newEmail, signIn, watchCsp, chooseTool } from './helpers'
 
 /**
  * Browser security controls (Q02 #187): the headers every page gets, the
@@ -95,8 +95,9 @@ test('a design title and words show as text in the editor and My Studio', async 
   await title.fill(XSS_TITLE)
   await title.press('Enter')
   await expect(title).toHaveValue(XSS_TITLE)
-  await page.getByPlaceholder('Type').fill(XSS_NAME)
-  await page.getByRole('button', { name: 'Type', exact: true }).click()
+  await chooseTool({ page, tool: 'Text' })
+  await page.getByPlaceholder('Your text').fill(XSS_NAME)
+  await page.getByRole('button', { name: 'Tap to place', exact: true }).click()
   const back = await page.locator('canvas[aria-label^="Design panel Back"]').boundingBox()
   await page.mouse.click(back!.x + back!.width / 2, back!.y + back!.height / 3)
   await expect(page.getByText(XSS_NAME, { exact: true }).first()).toBeVisible()

@@ -110,7 +110,11 @@ export function startSession({ client }: { client: SupabaseClient | null }) {
   return started
 }
 
-/** Resolves once the initial session is known (for route guards). */
+/**
+ * Resolves once the initial session is known (for route guards). An expired
+ * session refreshes over the network first, which can be slow; the route's
+ * pending screen says so rather than treating the wait as signed out.
+ */
 export async function waitForSession({
   client,
 }: {

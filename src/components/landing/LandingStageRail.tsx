@@ -41,7 +41,7 @@ export function LandingStageRail({
                 ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
             className={cn(
-              'min-h-11 rounded-full border px-4 font-body text-xs tracking-[0.1em] uppercase transition',
+              'min-h-11 rounded-full border px-4 font-body text-sm transition',
               {
                 'border-flv-accent bg-flv-accent text-white': active,
                 'border-flv-line text-flv-muted hover:border-flv-accent hover:text-flv-accent':

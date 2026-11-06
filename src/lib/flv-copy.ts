@@ -99,7 +99,7 @@ export const FLV_COPY = {
   selectUseGarment: 'Use this garment',
   selectAvailableColors: 'Available colors',
   selectSampleSize: 'Size (sample)',
-  selectFitOversized: 'Oversized Fit',
+  selectFitOversized: 'Crew neck',
   selectFitClassic: 'Classic Fit',
   selectFitRelaxed: 'Relaxed Fit',
   fitEmptyTitle: 'Construction tools',

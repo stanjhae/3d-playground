@@ -1,9 +1,6 @@
 import { create } from 'zustand'
 
-import {
-  DEFAULT_AVATAR_MEASUREMENTS,
-  listAvatars,
-} from './avatars'
+import { DEFAULT_AVATAR_MEASUREMENTS } from './avatars'
 import { garmentPanels } from './garments'
 import {
   applyCommand,
@@ -16,7 +13,7 @@ import {
   type DesignCommand,
   type LayerPatch,
 } from './design-commands'
-import type { CreateStepId } from './create-steps'
+import { type CreateStepId, forcesClothView } from './create-steps'
 import {
   cloneDocument,
   createEmptyDocument,
@@ -87,7 +84,10 @@ export type CloudContext = {
 export type StudioView = 'draw' | 'cloth'
 export type EditorPaintTool = StrokeTool | 'type'
 export type CreateStep = CreateStepId
-export type DesignEditMode = 'draw' | 'tech'
+/** The Design step's tools. Each shows its own panel; none changes the design. */
+export const DESIGN_TOOLS = ['draw', 'text', 'graphics', 'upload'] as const
+
+export type DesignTool = (typeof DESIGN_TOOLS)[number]
 export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'left' | 'right' | 'orbit'
 export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
 export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
@@ -147,7 +147,7 @@ type EditorState = {
   undoCount: number
   redoCount: number
   createStep: CreateStep
-  designEditMode: DesignEditMode
+  designTool: DesignTool
   publishTags: string[]
   publishMethod: DesignMethod | null
   challengeId: string | null
@@ -188,11 +188,7 @@ type EditorState = {
   setPaintHardness: ({ paintHardness }: { paintHardness: number }) => void
   setStudioView: ({ studioView }: { studioView: StudioView }) => void
   setCreateStep: ({ createStep }: { createStep: CreateStep }) => void
-  setDesignEditMode: ({
-    designEditMode,
-  }: {
-    designEditMode: DesignEditMode
-  }) => void
+  setDesignTool: ({ designTool }: { designTool: DesignTool }) => void
   setPublishTags: ({ tags }: { tags: string[] }) => void
   setPublishMethod: ({
     method,
@@ -588,7 +584,7 @@ const INITIAL_EDITOR_STATE = {
   undoCount: 0,
   redoCount: 0,
   createStep: 'select' as CreateStep,
-  designEditMode: 'draw' as DesignEditMode,
+  designTool: 'draw' as DesignTool,
   publishTags: [] as string[],
   publishMethod: null as DesignMethod | null,
   challengeId: null as string | null,
@@ -910,52 +906,16 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set({ studioView })
   },
   setCreateStep: ({ createStep }) => {
-    set((state) => {
-      const forceCloth =
-        createStep === 'preview' ||
-        createStep === 'share' ||
-        createStep === 'select' ||
-        createStep === 'fit' ||
-        createStep === 'color'
-      const next: {
-        createStep: CreateStep
-        studioView?: 'cloth'
-        avatarId?: string
-        avatarMeasurements?: {
-          height: number
-          chest: number
-          waist: number
-        }
-      } = {
+    set(() => {
+      return {
         createStep,
-        ...(forceCloth ? { studioView: 'cloth' as const } : {}),
+        ...(forcesClothView({ step: createStep }) ? { studioView: 'cloth' as const } : {}),
       }
-
-      if (
-        createStep === 'preview' &&
-        state.avatarId === null &&
-        state.garmentId === 'tee'
-      ) {
-        const first = listAvatars()[0]
-
-        if (first) {
-          next.avatarId = first.id
-          next.avatarMeasurements = {
-            height: first.heightCm,
-            chest: first.chestCm,
-            waist: first.waistCm,
-          }
-        }
-      }
-
-      return next
     })
   },
-  setDesignEditMode: ({ designEditMode }) => {
-    set({
-      designEditMode,
-      ...(designEditMode === 'tech' ? { studioView: 'cloth' as const } : {}),
-    })
+  setDesignTool: ({ designTool }) => {
+    // Only which panel shows: on a phone the panels stay where words are placed.
+    set({ designTool })
   },
   setPublishTags: ({ tags }) => {
     set({

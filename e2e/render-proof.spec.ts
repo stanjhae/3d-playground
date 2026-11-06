@@ -1,7 +1,7 @@
 import { type Page, expect, test } from '@playwright/test'
 
 import { INK_COLORS } from '../src/lib/paint-colors'
-import { deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
+import { chooseTool, deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
 
 /**
  * What reaches the 3D garment and the published pictures, read from their
@@ -46,16 +46,23 @@ async function goToStep({ page, step }: { page: Page; step: string }) {
 }
 
 async function chooseInk({ page, name }: { page: Page; name: string }) {
+  await chooseTool({ page, tool: 'Draw' })
   await page.getByRole('button', { name }).first().click()
   await page.getByRole('slider', { name: 'Size' }).fill('0.06')
 }
 
 async function sceneShot({ page }: { page: Page }) {
   await page.waitForTimeout(2_000)
-  // The middle of the scene only: side rails sit over the canvas's edges.
+  // The middle of the scene only: side rails sit over the canvas's edges, and
+  // the camera views float over its bottom.
   const box = (await page.locator('canvas[data-engine]').boundingBox())!
-  const clip = { x: box.x + box.width * 0.3, y: box.y, width: box.width * 0.4, height: box.height }
+  const clip = { x: box.x + box.width * 0.3, y: box.y, width: box.width * 0.4, height: box.height - 96 }
   return (await page.screenshot({ clip })).toString('base64')
+}
+
+/** Try-on is opt-in on the publish step: put the tee on the first figure. */
+async function tryOn({ page }: { page: Page }) {
+  await page.getByRole('button', { name: 'Tall' }).click()
 }
 
 async function viewFrom({ page, side }: { page: Page; side: string }) {
@@ -177,6 +184,7 @@ test('the base colour changes the cloth, not the figure, and keeps the artwork',
   await expectSaved({ page })
 
   await goToStep({ page, step: 'preview' })
+  await tryOn({ page })
   const before = await statsOf({ page, picture: await viewFrom({ page, side: 'Front' }) })
   expect(before.bright).toBeGreaterThan(500)
 
@@ -185,6 +193,7 @@ test('the base colour changes the cloth, not the figure, and keeps the artwork',
   await expect.poll(async () => (await savedHead({ page })).content.base.color, { timeout: 20_000 }).toBe(color('Oxblood'))
 
   await goToStep({ page, step: 'preview' })
+  await tryOn({ page })
   const after = await statsOf({ page, picture: await viewFrom({ page, side: 'Front' }) })
   expect(after.bright).toBeLessThan(before.bright / 5)
   expect(after.oxblood).toBeGreaterThan(500)
@@ -194,17 +203,36 @@ test('the base colour changes the cloth, not the figure, and keeps the artwork',
   expect(after.meadow).toBeGreaterThan(30)
 })
 
+test('publishing with a figure tried on photographs the tee alone', async ({ page }) => {
+  test.setTimeout(180_000)
+  await openDesign({ page, label: 'tryonpub' })
+  await goToStep({ page, step: 'share' })
+  await tryOn({ page })
+  const worn = await statsOf({ page, picture: await sceneShot({ page }) })
+  expect(worn.skin).toBeGreaterThan(200)
+
+  const { seq } = await savedHead({ page })
+  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Confirm publish' }).click()
+  await expect(page.getByText(new RegExp(`Published v${seq}\\b`))).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('button', { name: 'Tall' })).toHaveAttribute('aria-pressed', 'false')
+  const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
+  const slug = (await link.getAttribute('href'))!.split('/s/')[1]!
+  const front = await publishedFront({ page, slug })
+  expect((await statsOf({ page, ...front })).skin).toBeLessThan(worn.skin / 10)
+})
+
 test('a moved layer shows in the 2D panel and the 3D view, and looks the same after reloading', async ({ page }) => {
   test.setTimeout(180_000)
   await openDesign({ page, label: 'both' })
-  await page.getByRole('radio', { name: 'Tech' }).click()
+  await chooseTool({ page, tool: 'Graphics' })
   await page.getByRole('button', { name: 'Simple Cross' }).click()
   await expectSaved({ page })
 
   const panelPicture = () => panelCanvas({ page, panel: 'Front' }).evaluate((node) => (node as HTMLCanvasElement).toDataURL())
   const panelBefore = await panelPicture()
   const sceneBefore = await sceneShot({ page })
-  const x = page.getByRole('textbox', { name: 'Place X, percent of panel' })
+  const x = page.getByRole('textbox', { name: 'Position X, percent of panel' })
   await x.fill('30')
   await x.press('Enter')
   await expect.poll(panelPicture).not.toBe(panelBefore)
@@ -311,14 +339,14 @@ test('a square image looks square on the 2D panel and on the tee, and each panel
   test.setTimeout(180_000)
   await openDesign({ page, label: 'square' })
 
-  const shape = async (panel: 'Front' | 'Back' | "Wearer's right" | "Wearer's left") =>
+  const shape = async (panel: 'Front' | 'Back' | 'Right sleeve' | 'Left sleeve') =>
     (await panelCanvas({ page, panel }).boundingBox())!
   const front = await shape('Front')
-  const sleeve = await shape("Wearer's right")
+  const sleeve = await shape('Right sleeve')
   expect(front.width / front.height).toBeCloseTo(0.611, 1)
   expect(sleeve.width / sleeve.height).toBeCloseTo(3.037, 0)
 
-  await page.getByRole('radio', { name: 'Tech' }).click()
+  await chooseTool({ page, tool: 'Upload' })
   await page.locator('input[type="file"]').setInputFiles({ name: 'square.png', mimeType: 'image/png', buffer: await squarePng({ page }) })
   await expect.poll(async () => ((await savedHead({ page })).content.panels.front!.layers.filter((layer) => layer.kind === 'image')).length, { timeout: 30_000 }).toBe(1)
   await expectSaved({ page })
@@ -374,7 +402,7 @@ test('a design saved on the older template keeps its look and its 6:7 panels', a
 
   await page.goto(`/create?cloud=${created}&step=design`)
   await expectSaved({ page })
-  const box = (await panelCanvas({ page, panel: "Wearer's right" }).boundingBox())!
+  const box = (await panelCanvas({ page, panel: 'Right sleeve' }).boundingBox())!
   expect(box.width / box.height).toBeCloseTo(6 / 7, 1)
 
   await drawStroke({ page, panel: 'Front' })

@@ -18,7 +18,7 @@ export function AccountControl() {
       <Link
         to="/sign-in"
         search={{ returnTo: location.href }}
-        className="inline-flex min-h-11 items-center px-1 font-body text-xs tracking-[0.08em] text-flv-muted uppercase hover:text-flv-accent"
+        className="inline-flex min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-accent"
       >
         Sign in
       </Link>
@@ -26,19 +26,19 @@ export function AccountControl() {
   }
 
   return (
-    <div className="flex items-center gap-2 font-body text-xs">
+    <div className="flex items-center gap-2 font-body text-sm">
       <Link
         to="/studio"
-        className="inline-flex min-h-11 items-center px-1 tracking-[0.08em] text-flv-muted uppercase hover:text-flv-accent"
+        className="inline-flex min-h-11 items-center px-1 text-flv-muted hover:text-flv-accent"
       >
         My Studio
       </Link>
-      <span className="hidden max-w-40 truncate text-flv-muted sm:inline" title={email ?? undefined}>
+      <span className="hidden max-w-40 truncate text-xs text-flv-muted sm:inline" title={email ?? undefined}>
         {email}
       </span>
       <button
         type="button"
-        className="inline-flex min-h-11 items-center px-1 tracking-[0.08em] text-flv-muted uppercase hover:text-flv-accent"
+        className="inline-flex min-h-11 items-center px-1 text-flv-muted hover:text-flv-accent"
         onClick={() => {
           void signOut({ client: getSupabaseClient() }).then(() => {
             // An explicit sign-out leaves nothing private on screen for the

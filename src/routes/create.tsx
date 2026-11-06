@@ -5,7 +5,8 @@ import { AvatarRail } from '../components/editor/AvatarRail'
 import { CameraPresetBar } from '../components/editor/CameraPresetBar'
 import { ColorPatternPanel } from '../components/editor/ColorPatternPanel'
 import { CreateStepper } from '../components/editor/CreateStepper'
-import { DesignModeToggle } from '../components/editor/DesignModeToggle'
+import { DesignToolRail } from '../components/editor/DesignToolRail'
+import { ProToolsSwitch } from '../components/editor/ProToolsSwitch'
 import { DualStudio } from '../components/editor/DualStudio'
 import { PaintCanvas } from '../components/editor/PaintCanvas'
 import { StudioHint } from '../components/editor/StudioHint'
@@ -15,6 +16,8 @@ import { LayerRail } from '../components/editor/LayerRail'
 import { StudioAnnouncer } from '../components/editor/StudioAnnouncer'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
+import { StepActions } from '../components/editor/StepActions'
+import { StepIntro } from '../components/editor/StepIntro'
 import { StudioViewToggle } from '../components/editor/StudioViewToggle'
 import { TechInspector } from '../components/editor/TechInspector'
 import { VersionRail } from '../components/editor/VersionRail'
@@ -72,8 +75,10 @@ import {
   STUDIO_TOP_VAR,
   studioHeaderClass,
   studioOverlayClass,
+  studioCameraBarClass,
   studioPhoneDrawClass,
   studioSectionClass,
+  studioToolColumnClass,
 } from '../lib/studio-chrome'
 import { useLgUp } from '../lib/viewport'
 import { resolveFetchedLook } from '../lib/fetched-look'
@@ -85,6 +90,7 @@ import {
   studioPhoneToolsClass,
 } from '../lib/studio-chrome'
 import { trackAssumptionOnce } from '../lib/assumption-events'
+import { useStudioMode } from '../lib/studio-mode'
 
 export const Route = createFileRoute('/create')({
   validateSearch: (
@@ -136,7 +142,8 @@ function AtelierHome() {
   const mode = useEditorStore((state) => state.mode)
   const garmentId = useEditorStore((state) => state.garmentId)
   const createStep = useEditorStore((state) => state.createStep)
-  const designEditMode = useEditorStore((state) => state.designEditMode)
+  const designTool = useEditorStore((state) => state.designTool)
+  const pro = useStudioMode((state) => state.pro)
   const setCreateStep = useEditorStore((state) => state.setCreateStep)
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
   const applyBaseColor = useEditorStore((state) => state.applyBaseColor)
@@ -496,6 +503,16 @@ function AtelierHome() {
     }
   }, [remixId])
 
+  // Try-on's rail only shows at lg. Smaller (a phone, an iPad turned to
+  // portrait) goes back to the tee alone rather than a figure with no way off.
+  const avatarId = useEditorStore((state) => state.avatarId)
+
+  useEffect(() => {
+    if (!lgUp && avatarId) {
+      useEditorStore.getState().setAvatarId({ avatarId: null })
+    }
+  }, [avatarId, lgUp])
+
   // The lg studio grid starts below the header, however it wraps (#163).
   useLayoutEffect(() => {
     const section = sectionRef.current
@@ -528,66 +545,67 @@ function AtelierHome() {
     <section ref={sectionRef} className={studioSectionClass({ drawInFlow })}>
       <div className={studioOverlayClass({ drawInFlow })}>
         <div ref={headerRef} className={studioHeaderClass()}>
-          <ModeToggle mode={mode} />
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+            {AUTH_REQUIRED ? null : <ModeToggle mode={mode} />}
+            {mode === 'design' &&
+            canPaint &&
+            allowsDrawView({ step: createStep }) ? (
+              <StudioViewToggle />
+            ) : null}
+            {cloudStatus === 'loaded' ? <CloudTitle /> : null}
+            {cloudStatus === 'loaded' ? <CloudSaveStatus /> : null}
+            {mode === 'design' ? <ProToolsSwitch /> : null}
+            {cloudStatus === 'loading' ? (
+              <p className="font-body text-sm text-flv-muted">Opening your design…</p>
+            ) : null}
+          </div>
           {mode === 'design' && !cloudFailed ? <CreateStepper /> : null}
-          {mode === 'design' && showsSilhouetteRail({ step: createStep }) ? (
-            <SilhouetteSwitch />
-          ) : null}
-          {mode === 'design' &&
-          canPaint &&
-          allowsDrawView({ step: createStep }) ? (
-            <StudioViewToggle />
-          ) : null}
-          {mode === 'design' &&
-          canPaint &&
-          showsDesignRails({ step: createStep }) ? (
-            <DesignModeToggle />
-          ) : null}
-          {mode === 'design' && showsPreviewRails({ step: createStep }) ? (
-            <CameraPresetBar />
-          ) : null}
-          {mode === 'design' ? (
-            <GownCredit garmentId={garmentId} />
-          ) : null}
-          {cloudStatus === 'loaded' ? <CloudTitle /> : null}
-          {cloudStatus === 'loaded' ? <CloudSaveStatus /> : null}
-          {cloudStatus === 'loaded' ? <RecoveryPrompt /> : null}
-          {cloudStatus === 'loading' ? (
-            <p className="font-body text-sm text-flv-muted">Opening your design…</p>
-          ) : null}
-          {cloudFailed ? (
-            <p role="alert" className="font-body text-sm text-flv-accent">
-              {cloudStatus === 'missing'
-                ? 'This design is not available.'
-                : cloudStatus === 'unsupported'
-                  ? 'This design uses a garment template this app cannot open.'
-                  : 'This design could not open.'}{' '}
-              <Link to="/studio" className="underline">
-                Back to My Studio
-              </Link>
-            </p>
-          ) : null}
-          {remixStatus === 'loading' ? (
-            <p className="font-body text-sm text-flv-muted">
-              {HOUSE_COPY.lookLoading}
-            </p>
-          ) : null}
-          {remixStatus === 'loaded' && remixTitle ? (
-            <p className="font-body text-xs tracking-[0.08em] text-flv-accent uppercase">
-              {remixCaption({ title: remixTitle })}
-            </p>
-          ) : null}
-          {remixStatus === 'missing' ? (
-            <p className="font-body text-sm text-flv-muted">
-              {HOUSE_COPY.lookGone} {HOUSE_COPY.studioOpen}
-            </p>
-          ) : null}
-          {remixStatus === 'error' ? (
-            <p className="font-body text-sm text-flv-muted">
-              {HOUSE_COPY.lookFailed} {HOUSE_COPY.studioOpen}
-            </p>
-          ) : null}
+          {mode === 'design' && !cloudFailed ? <StepActions /> : null}
+          <div className="flex flex-col gap-1 empty:hidden lg:col-span-3">
+            {mode === 'design' ? <GownCredit garmentId={garmentId} /> : null}
+            {cloudStatus === 'loaded' ? <RecoveryPrompt /> : null}
+            {cloudFailed ? (
+              <p role="alert" className="font-body text-sm text-flv-accent">
+                {cloudStatus === 'missing'
+                  ? 'This design is not available.'
+                  : cloudStatus === 'unsupported'
+                    ? 'This design uses a garment template this app cannot open.'
+                    : 'This design could not open.'}{' '}
+                <Link to="/studio" className="underline">
+                  Back to My Studio
+                </Link>
+              </p>
+            ) : null}
+            {remixStatus === 'loading' ? (
+              <p className="font-body text-sm text-flv-muted">
+                {HOUSE_COPY.lookLoading}
+              </p>
+            ) : null}
+            {remixStatus === 'loaded' && remixTitle ? (
+              <p className="font-body text-xs tracking-[0.08em] text-flv-accent uppercase">
+                {remixCaption({ title: remixTitle })}
+              </p>
+            ) : null}
+            {remixStatus === 'missing' ? (
+              <p className="font-body text-sm text-flv-muted">
+                {HOUSE_COPY.lookGone} {HOUSE_COPY.studioOpen}
+              </p>
+            ) : null}
+            {remixStatus === 'error' ? (
+              <p className="font-body text-sm text-flv-muted">
+                {HOUSE_COPY.lookFailed} {HOUSE_COPY.studioOpen}
+              </p>
+            ) : null}
+            {!lgUp && mode === 'design' && showsPreviewRails({ step: createStep }) ? (
+              <CameraPresetBar />
+            ) : null}
+          </div>
         </div>
+        {lgUp && mode === 'design' && showsPreviewRails({ step: createStep }) ? (
+          <div className={studioCameraBarClass()}>
+            <CameraPresetBar />
+          </div>
+        ) : null}
         {drawInFlow && !cloudFailed ? (
           <div className={studioPhoneDrawClass()}>
             <PaintCanvas layout="quad" />
@@ -596,9 +614,13 @@ function AtelierHome() {
           <div className="min-h-0 flex-1 lg:hidden" />
         )}
         {mode === 'design' && !cloudFailed ? (
-          <>
+          <div className={studioToolColumnClass({ side: showsDesignRails({ step: createStep }) ? 'left' : 'right' })}>
             <div className={studioPhoneToolsClass({ drawInFlow })}>
+              <StepIntro />
               {cloudStatus === 'loaded' ? <StudioHint /> : null}
+              {showsSilhouetteRail({ step: createStep }) ? (
+                <SilhouetteSwitch />
+              ) : null}
               {showsColorRail({ step: createStep }) ? (
                 <ColorPatternPanel />
               ) : null}
@@ -608,17 +630,16 @@ function AtelierHome() {
               ) : null}
               {showsDesignRails({ step: createStep }) && canPaint ? (
                 <>
-                  <PaintToolbar
-                    tools={
-                      designEditMode === 'tech' ? 'placeables' : 'all'
-                    }
-                  />
-                  {designEditMode === 'tech' ? <GraphicLibrary /> : null}
+                  <DesignToolRail />
+                  {designTool === 'draw' ? <PaintToolbar tools="ink" /> : null}
+                  {designTool === 'text' ? <PaintToolbar tools="text" /> : null}
+                  {designTool === 'upload' ? <PaintToolbar tools="upload" /> : null}
+                  {designTool === 'graphics' ? <GraphicLibrary /> : null}
+                  {designTool === 'draw' ? null : <TechInspector />}
                   <LayerRail />
-                  <KeyboardHelp />
-                  {designEditMode === 'tech' ? <TechInspector /> : null}
-                  <VersionRail />
                   <HistoryPanel />
+                  {pro ? <KeyboardHelp /> : null}
+                  {pro ? <VersionRail /> : null}
                 </>
               ) : null}
               {showsDesignRails({ step: createStep }) && !canPaint ? (
@@ -631,7 +652,8 @@ function AtelierHome() {
                   </p>
                 </div>
               ) : null}
-              {showsPreviewRails({ step: createStep }) ? (
+              {/* Try-on is a concept; on a phone it would push publishing off screen. */}
+              {lgUp && showsPreviewRails({ step: createStep }) ? (
                 <AvatarRail />
               ) : null}
             </div>
@@ -683,7 +705,7 @@ function AtelierHome() {
                 />
               ) : null}
             </div>
-          </>
+          </div>
         ) : null}
       </div>
       {/*

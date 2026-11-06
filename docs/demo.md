@@ -87,24 +87,27 @@ share link.
    `demo@example.test`, press **Email me a code**. Switch to the Mailpit tab,
    open the newest message to `demo@example.test`, copy the six digits, paste
    them into **6-digit code**, press **Sign in**.
+   Before the demo, switch on **Pro tools** in the studio header once on the
+   demo laptop: steps 4 and 5 use Save checkpoint, which Guided hides. It is
+   remembered on that browser.
    *Say:* "No passwords. A one-time code, and a new account is made on first
    sign-in."
 2. **My Studio (0:45–1:00).** You land on My Studio with three designs:
    Studio draft, Crest upload, Night Market. *Say:* "Private by default.
    Everything here is saved to my account."
 3. **Open the draft (1:00–1:15).** Click **Studio draft**. The editor opens
-   with the four panels on the left (Front, Back, Wearer's right, Wearer's
-   left) and the 3D tee in the middle.
+   with the tools on the left, the four sides in the middle (Front, Back,
+   Right sleeve, Left sleeve) and the 3D tee on the right.
 4. **Edit all sides (1:15–2:15).**
    - Draw a stroke across the **Front** panel; the 3D tee updates live.
-   - In the right column, type a word in the **Type** box, press **Type**,
-     then click the **Back** panel to place it. A small edit box opens over
-     the word; press **Esc** or click away to close it.
-   - Press **Brush** and draw a mark on **Wearer's right** (a sleeve).
+   - Pick **Text** in the tool rail, type a word in **Your text**, press
+     **Tap to place**, then click the **Back** panel to place it. A small edit
+     box opens over the word; press **Esc** or click away to close it.
+   - Pick **Draw**, press **Brush** and draw a mark on **Right sleeve**.
    - Watch the status next to the title: "Unsaved changes" turns into
      **Saved to cloud** within a few seconds.
    *Say:* "Front, back, both sleeves. It autosaves to the cloud."
-5. **History (2:15–3:15).** Scroll the right column to **History** and press
+5. **History (2:15–3:15).** Scroll the left column to **History** and press
    **Show**. Point at the seeded versions, including "First pass" and the
    earlier restore.
    - Press **Save checkpoint**, name it "Live demo", press **Save**.
@@ -112,7 +115,7 @@ share link.
      confirmation. The edits from step 4 disappear; a new "Restore · From v3"
      version is on top and the status returns to **Saved to cloud**.
    *Say:* "Nothing is lost: restoring adds a version, it never deletes one."
-6. **Publish (3:15–4:00).** Scroll to the top and click step **6 Publish**.
+6. **Publish (3:15–4:00).** Click step **4 Preview & Publish** at the top.
    Press **Publish…**, check the public name "Demo Studio", press **Confirm
    publish**. It renders the five views (front, three-quarter, back and
    both sleeves; 6 s on a quiet laptop, up to about 25 s on a busy one), then shows "Published v… " and the link.

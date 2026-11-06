@@ -1,3 +1,4 @@
+import { firstCreateStep, useStudioMode } from '../lib/studio-mode'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -41,7 +42,7 @@ export const Route = createFileRoute('/studio')({
 const TEE = resolveTemplate(createEmptyCanonicalDocument().template)
 
 const buttonClass =
-  'flv-cta inline-flex min-h-11 items-center justify-center px-5 font-body text-xs tracking-[0.1em] uppercase disabled:opacity-50'
+  'flv-cta inline-flex min-h-11 items-center justify-center px-5 font-body text-sm font-medium disabled:opacity-50'
 
 function GuardedStudio() {
   if (!authConfigured()) {
@@ -170,7 +171,9 @@ function MyStudio() {
       consumeLandingHandoff()
     }
 
-    void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
+    // A design brought from the landing already has its garment and colour.
+    const step = landing ? 'design' : firstCreateStep({ pro: useStudioMode.getState().pro })
+    void navigate({ to: '/create', search: { cloud: result.data.designId, step } })
   }
 
   /** A private copy of the example, the person's own to change. */

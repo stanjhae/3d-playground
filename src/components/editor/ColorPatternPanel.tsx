@@ -1,4 +1,5 @@
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
+import { Swatch } from '../ui/Swatch'
 import { cn } from '../../lib/cn'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import {
@@ -22,6 +23,27 @@ const PATTERN_OPTIONS: { id: BasePatternId; label: string }[] = [
   { id: 'check', label: HOUSE_COPY.check },
   { id: 'gradient', label: HOUSE_COPY.gradient },
 ]
+
+/** A small picture of each base pattern, so the choice reads without words. */
+function patternPreview({ id }: { id: BasePatternId }) {
+  const ink = '#c9c4ba'
+
+  if (id === 'stripe') {
+    return { backgroundImage: `repeating-linear-gradient(90deg, ${ink} 0 4px, transparent 4px 10px)` }
+  }
+
+  if (id === 'check') {
+    return {
+      backgroundImage: `repeating-linear-gradient(0deg, ${ink}99 0 5px, transparent 5px 10px), repeating-linear-gradient(90deg, ${ink}99 0 5px, transparent 5px 10px)`,
+    }
+  }
+
+  if (id === 'gradient') {
+    return { backgroundImage: `linear-gradient(90deg, white, ${ink})` }
+  }
+
+  return { backgroundColor: '#f1efea' }
+}
 
 function finishLacksRealMap({ fabricId }: { fabricId: string }) {
   const fabric = getFabricById({ id: fabricId })
@@ -59,28 +81,32 @@ export function ColorPatternPanel() {
     <aside className={cn(railFrameClass(), 'gap-4 lg:max-w-80')}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.baseColor}</p>
       <div className="grid grid-cols-4 gap-2">
-        {INK_COLORS.map((ink) => {
-          const pressed =
-            activeColor?.toLowerCase() === ink.value.toLowerCase()
-
-          return (
-            <button
-              key={ink.id}
-              type="button"
-              aria-label={ink.name}
-              aria-pressed={pressed}
-              onClick={() => {
-                applyBaseColor({ color: ink.value })
-              }}
-              className={cn('aspect-square rounded-full border-2', {
-                'border-flv-accent': pressed,
-                'border-flv-line': !pressed,
-              })}
-              style={{ backgroundColor: ink.value }}
-            />
-          )
-        })}
+        {INK_COLORS.map((ink) => (
+          <Swatch
+            key={ink.id}
+            name={ink.name}
+            color={ink.value}
+            selected={activeColor?.toLowerCase() === ink.value.toLowerCase()}
+            onClick={() => {
+              applyBaseColor({ color: ink.value })
+            }}
+          />
+        ))}
       </div>
+      {activeColor ? (
+        <div className="flex items-center gap-3 rounded-xl border border-flv-line p-3">
+          <span
+            aria-hidden
+            className="size-10 shrink-0 rounded-full border border-black/10"
+            style={{ backgroundColor: activeColor }}
+          />
+          <p className="flex flex-col font-body text-sm text-flv-ink">
+            {INK_COLORS.find((ink) => ink.value.toLowerCase() === activeColor.toLowerCase())?.name ??
+              (activeColor.toLowerCase() === activeFabric?.color.toLowerCase() ? 'Natural' : 'Custom colour')}
+            <span className="text-xs text-flv-muted uppercase">{activeColor}</span>
+          </p>
+        </div>
+      ) : null}
       <p className={chromeKickerClass()}>{HOUSE_COPY.patternFill}</p>
       <div className="grid grid-cols-2 gap-2">
         {PATTERN_OPTIONS.filter(
@@ -107,7 +133,10 @@ export function ColorPatternPanel() {
             {basePatternId === pattern.id ? (
               <span className="absolute top-1 right-1 text-flv-accent">✓</span>
             ) : null}
-            {pattern.label}
+            <span className="flex w-full flex-col gap-1.5">
+              <span aria-hidden className="h-8 w-full rounded-md border border-flv-line" style={patternPreview({ id: pattern.id })} />
+              {pattern.label}
+            </span>
           </button>
         ))}
       </div>

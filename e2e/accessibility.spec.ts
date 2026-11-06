@@ -192,7 +192,9 @@ test('save, history, publishing and sharing work from the keyboard alone', async
   await expectSaved({ page })
 
   // An edit, saved with no pointer involved.
-  await tabTo({ page, target: page.getByPlaceholder('Type') })
+  await tabTo({ page, target: page.getByRole('radio', { name: 'Text', exact: true }) })
+  await page.keyboard.press('Space')
+  await tabTo({ page, target: page.getByPlaceholder('Your text') })
   await page.keyboard.type('KEYS')
   await page.keyboard.press('Enter')
   await expectSaved({ page })
@@ -214,7 +216,7 @@ test('save, history, publishing and sharing work from the keyboard alone', async
   await expect(page.getByText(/From v1/).first()).toBeVisible()
   await expectSaved({ page })
 
-  await tabTo({ page, target: page.getByRole('link', { name: /Publish/ }).or(page.getByRole('button', { name: /6\s*Publish/ })).first() })
+  await tabTo({ page, target: page.getByRole('link', { name: /Publish/ }).or(page.getByRole('button', { name: /Preview & Publish/ })).first() })
   await page.keyboard.press('Enter')
   await tabTo({ page, target: page.getByRole('button', { name: 'Publish…' }) })
   await page.keyboard.press('Enter')

@@ -20,6 +20,7 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+import { useStudioMode } from '../../lib/studio-mode'
 
 const actionClass = cn(
   'min-h-11 text-flv-muted hover:text-flv-accent',
@@ -30,6 +31,7 @@ const moveClass =
   'grid size-11 place-items-center border border-flv-line text-flv-ink hover:text-flv-accent aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:text-flv-ink'
 
 export function LayerRail() {
+  const pro = useStudioMode((state) => state.pro)
   const layers = useEditorStore((state) => state.document.layers)
   const garmentId = useEditorStore((state) => state.garmentId)
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
@@ -192,6 +194,8 @@ export function LayerRail() {
                         >
                           {layer.visible ? HOUSE_COPY.hideLayer : HOUSE_COPY.showLayer}
                         </button>
+                        {pro ? (
+                          <>
                         <button
                           type="button"
                           aria-label={`${FLV_COPY.layerRename} ${name}`}
@@ -225,6 +229,8 @@ export function LayerRail() {
                           >
                             {FLV_COPY.layerDuplicate}
                           </button>
+                        ) : null}
+                          </>
                         ) : null}
                         {layer.kind !== 'paint' ? (
                           <button

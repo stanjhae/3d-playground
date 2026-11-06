@@ -17,7 +17,6 @@ import {
   type GarmentCategoryId,
   type SampleSizeId,
 } from '../../lib/landing-demo'
-import { nextCreateStep } from '../../lib/create-steps'
 import {
   chromeKickerClass,
   chromeMutedClass,
@@ -26,12 +25,12 @@ import {
 } from '../../lib/studio-chrome'
 
 const SAMPLE_COLORS = [
-  '#ffffff',
-  '#ff6a3d',
-  '#2c2c2c',
-  '#f5e6d3',
-  '#5c6b4a',
-  '#1e2a44',
+  { name: 'White', value: '#ffffff' },
+  { name: 'Coral', value: '#ff6a3d' },
+  { name: 'Charcoal', value: '#2c2c2c' },
+  { name: 'Sand', value: '#f5e6d3' },
+  { name: 'Olive', value: '#5c6b4a' },
+  { name: 'Navy', value: '#1e2a44' },
 ] as const
 
 const FIT_LABEL: Partial<Record<GarmentId, string>> = {
@@ -91,8 +90,6 @@ export function SilhouetteSwitch({
   const storeId = useEditorStore((state) => state.garmentId)
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
   const applyBaseColor = useEditorStore((state) => state.applyBaseColor)
-  const setCreateStep = useEditorStore((state) => state.setCreateStep)
-  const createStep = useEditorStore((state) => state.createStep)
   const setAvatarMeasurements = useEditorStore(
     (state) => state.setAvatarMeasurements,
   )
@@ -102,7 +99,7 @@ export function SilhouetteSwitch({
   const [category, setCategory] = useState<GarmentCategoryId>(
     garmentCategory({ garmentId: current }),
   )
-  const [sampleColor, setSampleColor] = useState<string>(SAMPLE_COLORS[0])
+  const [sampleColor, setSampleColor] = useState<string>(SAMPLE_COLORS[0].value)
   const [sampleSize, setSampleSize] = useState<SampleSizeId>('L')
   const garments = listGarmentsByCategory({ category }).filter((garment) =>
     showsGarmentInStudio({ garmentId: garment.id }),
@@ -116,7 +113,7 @@ export function SilhouetteSwitch({
     garments.find((garment) => garment.id === current) ?? garments[0]
 
   return (
-    <div className="flex w-full max-w-full flex-col gap-3 lg:max-w-[min(100%,52rem)]">
+    <div className="flex w-full max-w-full flex-col gap-3">
       <div className="flex flex-wrap gap-2">
         {categories.map((entry) => (
           <button
@@ -200,7 +197,7 @@ export function SilhouetteSwitch({
           </p>
           <p className={chromeMutedClass()}>
             {canPaint
-              ? 'A modern oversized tee with dropped shoulders and four-sided print panels.'
+              ? 'A crew-neck, short-sleeve tee with four print areas: front, back and both sleeves.'
               : 'Seated Style3D form for color, preview, and publish. Print studio is on the tee.'}
           </p>
           <div className="flex flex-col gap-2">
@@ -208,20 +205,20 @@ export function SilhouetteSwitch({
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={FLV_COPY.selectAvailableColors}>
               {SAMPLE_COLORS.map((color) => (
                 <button
-                  key={color}
+                  key={color.value}
                   type="button"
                   role="radio"
-                  aria-checked={sampleColor === color}
-                  aria-label={color}
+                  aria-checked={sampleColor === color.value}
+                  aria-label={color.name}
+                  title={color.name}
                   onClick={() => {
-                    setSampleColor(color)
-                    applyBaseColor({ color })
+                    setSampleColor(color.value)
+                    applyBaseColor({ color: color.value })
                   }}
-                  className={cn('size-9 rounded-full border-2', {
-                    'border-flv-accent': sampleColor === color,
-                    'border-flv-line': sampleColor !== color,
+                  className={cn('size-11 rounded-full border border-black/10 ring-offset-2 ring-offset-white', {
+                    'ring-2 ring-flv-accent': sampleColor === color.value,
                   })}
-                  style={{ backgroundColor: color }}
+                  style={{ backgroundColor: color.value }}
                 />
               ))}
             </div>
@@ -261,17 +258,6 @@ export function SilhouetteSwitch({
             </div>
           </div>
           ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              setCreateStep({
-                createStep: nextCreateStep({ step: createStep }),
-              })
-            }}
-            className="flv-cta inline-flex min-h-12 items-center justify-center px-4 font-body text-xs tracking-[0.12em] uppercase"
-          >
-            {FLV_COPY.selectUse} →
-          </button>
         </aside>
       ) : null}
       {credit && garments.some((garment) => garment.id === current) ? (

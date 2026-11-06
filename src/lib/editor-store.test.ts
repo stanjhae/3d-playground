@@ -222,8 +222,8 @@ describe('useEditorStore', () => {
   })
 
   test('create step and avatar fields use named setters', () => {
-    useEditorStore.getState().setCreateStep({ createStep: 'preview' })
-    useEditorStore.getState().setDesignEditMode({ designEditMode: 'tech' })
+    useEditorStore.getState().setCreateStep({ createStep: 'share' })
+    useEditorStore.getState().setDesignTool({ designTool: 'text' })
     useEditorStore.getState().setPublishTags({ tags: ['night'] })
     useEditorStore.getState().setPublishMethod({ method: 'combined' })
     useEditorStore.getState().setChallengeId({ challengeId: 'tee-night' })
@@ -235,9 +235,9 @@ describe('useEditorStore', () => {
     })
 
     const state = useEditorStore.getState()
-    expect(state.createStep).toBe('preview')
+    expect(state.createStep).toBe('share')
     expect(state.studioView).toBe('cloth')
-    expect(state.designEditMode).toBe('tech')
+    expect(state.designTool).toBe('text')
     expect(state.publishTags).toEqual(['night'])
     expect(state.publishMethod).toBe('combined')
     expect(state.challengeId).toBe('tee-night')
@@ -292,14 +292,12 @@ describe('useEditorStore', () => {
     ).toMatchObject({ patternId: 'stripe' })
   })
 
-  test('preview step auto-selects the first avatar for tee', () => {
+  test('the publish step leaves try-on to the person', () => {
     useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
     useEditorStore.getState().setAvatarId({ avatarId: null })
-    useEditorStore.getState().setCreateStep({ createStep: 'preview' })
+    useEditorStore.getState().setCreateStep({ createStep: 'share' })
 
-    const state = useEditorStore.getState()
-    expect(state.avatarId).toBe('atelier-tall')
-    expect(state.avatarMeasurements.height).toBe(188)
+    expect(useEditorStore.getState().avatarId).toBeNull()
   })
 
   test('paint panel can target each tee side', () => {

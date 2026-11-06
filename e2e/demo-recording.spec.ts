@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 
 import { type Page, expect, test } from '@playwright/test'
 
-import { drawStroke, expectSaved, latestCode, panelCanvas } from './helpers'
+import { chooseTool, drawStroke, expectSaved, latestCode, panelCanvas } from './helpers'
 
 /**
  * Recorded fallback for the 17 Nov demo (#201). Plays docs/demo.md's
@@ -51,13 +51,15 @@ test('demo fallback recording', async ({ page }) => {
   // Draw on the front, type on the back, mark a sleeve.
   await drawStroke({ page, panel: 'Front' })
   await beat({ page })
-  await page.getByPlaceholder('Type').pressSequentially('HELLO', { delay: 100 })
-  await page.getByRole('button', { name: 'Type', exact: true }).click()
+  await chooseTool({ page, tool: 'Text' })
+  await page.getByPlaceholder('Your text').pressSequentially('HELLO', { delay: 100 })
+  await page.getByRole('button', { name: 'Tap to place', exact: true }).click()
   const back = await panelCanvas({ page, panel: 'Back' }).boundingBox()
   await page.mouse.click(back!.x + back!.width / 2, back!.y + back!.height / 4)
   await beat({ page })
+  await chooseTool({ page, tool: 'Draw' })
   await page.getByRole('button', { name: 'Brush', exact: true }).click()
-  await drawStroke({ page, panel: "Wearer's right" })
+  await drawStroke({ page, panel: 'Right sleeve' })
   await expectSaved({ page })
   await beat({ page, ms: 2_500 })
 
@@ -82,7 +84,7 @@ test('demo fallback recording', async ({ page }) => {
   await beat({ page, ms: 2_500 })
 
   // Publish the restored version.
-  await page.getByRole('button', { name: /^6\s*Publish$/ }).click()
+  await page.getByRole('button', { name: /Preview & Publish/ }).click()
   await expect(page).toHaveURL(/step=share/)
   await expectSaved({ page })
   await beat({ page })

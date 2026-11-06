@@ -665,7 +665,7 @@ export function PublishBar({
         <button
           type="submit"
           disabled={busy}
-          className="flv-cta min-h-12 w-full shrink-0 px-4 py-2 font-body text-xs tracking-[0.08em] uppercase disabled:opacity-50 sm:flex-1 sm:px-5"
+          className="flv-cta inline-flex items-center justify-center gap-2 min-h-12 w-full shrink-0 px-4 py-2 font-body text-sm font-medium disabled:opacity-50 sm:flex-1 sm:px-5"
         >
           {busy ? HOUSE_COPY.entering : `${HOUSE_COPY.enter} →`}
         </button>

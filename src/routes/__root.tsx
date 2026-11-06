@@ -5,12 +5,14 @@ import {
   useLocation,
   useMatch,
 } from '@tanstack/react-router'
+import { ArrowRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { AccountControl } from '../components/auth/AccountControl'
+import { buttonClass } from '../components/ui/Button'
 import { CONCEPT_FEATURES } from '../lib/concept-flags'
 import { onAccountChange, startSession } from '../lib/auth/session-store'
-import { AUTH_REQUIRED, getSupabaseClient } from '../lib/auth/supabase-client'
+import { AUTH_REQUIRED, authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
 import { useEditorStore } from '../lib/editor-store'
 import { listDesigns } from '../lib/designs-api'
@@ -106,31 +108,31 @@ function RootShell() {
         <Link
           to="/"
           search={{}}
-          className="flex shrink-0 items-end gap-2 text-flv-ink"
+          className="flex shrink-0 items-center gap-2.5 text-flv-ink"
         >
-          <span className="font-display text-2xl leading-none tracking-tight text-flv-accent">
+          <span className="flv-text-gradient font-display text-3xl leading-none">
             {FLV_COPY.brandMark}
           </span>
-          <span className="hidden pb-0.5 font-body text-[0.55rem] leading-tight tracking-[0.16em] uppercase sm:block">
+          <span className="hidden font-display text-[0.65rem] leading-[1.1] tracking-normal uppercase sm:block">
             Fashion
             <br />
             Leader Vote
           </span>
         </Link>
         {isLanding ? (
-          <nav className="hidden items-center gap-4 font-body text-xs tracking-[0.1em] uppercase md:flex">
+          <nav className="hidden items-center gap-8 font-body text-sm md:flex">
             {MARKETING_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="inline-flex min-h-11 items-center border-b-2 border-transparent px-1 text-flv-muted hover:border-flv-accent hover:text-flv-accent"
+                className="inline-flex min-h-11 items-center border-b-2 border-transparent px-1 text-flv-muted hover:border-flv-accent hover:text-flv-ink"
               >
                 {link.label}
               </a>
             ))}
           </nav>
         ) : (
-          <nav className="flex items-center gap-2 font-body text-xs tracking-[0.08em] uppercase sm:gap-3">
+          <nav className="flex items-center gap-2 font-body text-sm sm:gap-4">
             <NavLink
               to="/"
               label="Home"
@@ -166,28 +168,21 @@ function RootShell() {
         )}
         {isLanding ? (
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                document
-                  .getElementById('waitlist')
-                  ?.scrollIntoView({ behavior: 'smooth' })
-                window.requestAnimationFrame(() => {
-                  const input = document.querySelector<HTMLInputElement>(
-                    '#waitlist input[type="email"]',
-                  )
-                  input?.focus()
-                })
-              }}
-              className="hidden min-h-11 items-center px-1 font-body text-xs tracking-[0.1em] text-flv-muted uppercase hover:text-flv-accent sm:inline-flex"
-            >
-              {FLV_COPY.login}
-            </button>
+            {authConfigured() ? (
+              <Link
+                to="/sign-in"
+                search={{ returnTo: '/studio' }}
+                className="hidden min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-ink sm:inline-flex"
+              >
+                {FLV_COPY.login}
+              </Link>
+            ) : null}
             <a
               href="#waitlist"
-              className="flv-cta inline-flex min-h-10 items-center px-4 font-body text-[0.65rem] tracking-[0.1em] uppercase sm:min-h-11 sm:text-xs"
+              className={buttonClass()}
             >
-              {FLV_COPY.joinWaitlist} →
+              {FLV_COPY.joinWaitlist}
+              <ArrowRight aria-hidden className="size-4" />
             </a>
           </div>
         ) : null}

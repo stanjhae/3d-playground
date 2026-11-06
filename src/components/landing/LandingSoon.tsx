@@ -25,7 +25,7 @@ export function LandingSoon() {
           </p>
           <ConceptPreviewBadge />
         </div>
-        <h2 className="font-display text-3xl text-flv-ink">
+        <h2 className="font-display text-3xl text-flv-ink uppercase">
           {FLV_COPY.soonTitle}
         </h2>
       </div>
@@ -63,7 +63,7 @@ function ShootDemo() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="font-display text-2xl text-flv-ink">
+          <h3 className="font-display text-2xl text-flv-ink uppercase">
             {FLV_COPY.soonAiShoot}
           </h3>
           <p className="max-w-2xl font-body text-sm text-flv-muted">
@@ -167,7 +167,7 @@ function ShootDemo() {
               setSelectedResult(0)
               setGenerated(true)
             }}
-            className="flv-cta mt-auto min-h-11 px-4 font-body text-xs tracking-[0.1em] uppercase"
+            className="flv-cta inline-flex items-center justify-center gap-2 mt-auto min-h-11 px-4 font-body text-sm font-medium"
           >
             {FLV_COPY.shootGenerate}
           </button>
@@ -298,7 +298,7 @@ function VideoDemo() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="font-display text-2xl text-flv-ink">
+          <h3 className="font-display text-2xl text-flv-ink uppercase">
             {FLV_COPY.soonAiVideo}
           </h3>
           <p className="max-w-2xl font-body text-sm text-flv-muted">
@@ -386,7 +386,7 @@ function VideoDemo() {
                 setPlaying((current) => !current)
                 setGenerated(true)
               }}
-              className="flv-cta min-h-10 px-4 font-body text-xs tracking-[0.1em] uppercase"
+              className="flv-cta inline-flex items-center justify-center gap-2 min-h-10 px-4 font-body text-sm font-medium"
             >
               {playing ? 'Pause' : 'Play'}
             </button>
@@ -535,7 +535,7 @@ function VideoDemo() {
                 setGenerated(true)
                 setPlaying(true)
               }}
-              className="flv-cta min-h-11 px-4 font-body text-xs tracking-[0.1em] uppercase"
+              className="flv-cta inline-flex items-center justify-center gap-2 min-h-11 px-4 font-body text-sm font-medium"
             >
               {FLV_COPY.videoGenerate}
             </button>

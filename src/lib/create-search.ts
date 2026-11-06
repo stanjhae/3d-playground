@@ -1,5 +1,6 @@
 import {
   CREATE_STEP_IDS,
+  MERGED_CREATE_STEPS,
   type CreateStepId,
 } from './create-steps'
 import { GARMENT_IDS, type GarmentId } from './design-schema'
@@ -28,6 +29,11 @@ export function parseCreateStep({
 }): CreateStepId | undefined {
   if (typeof value !== 'string') {
     return undefined
+  }
+
+  // Own keys only: `?step=constructor` must not find Object.prototype.
+  if (Object.hasOwn(MERGED_CREATE_STEPS, value)) {
+    return MERGED_CREATE_STEPS[value]
   }
 
   return CREATE_STEP_IDS.find((step) => step === value)

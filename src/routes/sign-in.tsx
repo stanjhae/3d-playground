@@ -30,7 +30,7 @@ const fieldClass =
   'min-h-11 w-full border border-flv-line bg-flv-paper px-3 font-body text-base text-flv-ink focus:border-flv-accent focus:outline-none'
 const errorFieldClass = 'border-flv-accent'
 const buttonClass =
-  'flv-cta inline-flex min-h-11 items-center justify-center px-5 font-body text-xs tracking-[0.1em] uppercase disabled:opacity-50'
+  'flv-cta inline-flex min-h-11 items-center justify-center px-5 font-body text-sm font-medium disabled:opacity-50'
 const quietButtonClass =
   'inline-flex min-h-11 items-center px-1 font-body text-xs tracking-[0.08em] text-flv-muted uppercase underline-offset-4 hover:text-flv-accent hover:underline disabled:no-underline disabled:opacity-60'
 

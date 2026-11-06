@@ -1,3 +1,5 @@
+import { cn } from './cn'
+
 export const CLOTH_LIST_ID = 'cloth-list'
 
 export function nextClothOpen({
@@ -44,13 +46,13 @@ export function lookSheetBodyClass() {
 }
 
 /**
- * Studio layout at lg (E12 #163). The tool and publish panels own a
- * right-hand column (`STUDIO_TOOL_COLUMN`), the header spans the rest, and
- * the Draw/scene grid starts below the header's measured bottom
- * (`STUDIO_CHROME_BOTTOM_VAR`, set by the create route). Nothing overlays
- * the panel canvases.
+ * Studio layout at lg (E12 #163). The header spans the page, and everything
+ * else starts below its measured bottom (`STUDIO_CHROME_BOTTOM_VAR`, set by
+ * the create route). One tool column (`STUDIO_TOOL_COLUMN`) sits left of the
+ * panels on Design and right of the garment on every other step. Nothing
+ * overlays the panel canvases.
  */
-export const STUDIO_TOOL_COLUMN = '22rem'
+export const STUDIO_TOOL_COLUMN = '20rem'
 export const STUDIO_CHROME_BOTTOM_VAR = '--studio-chrome-bottom'
 export const STUDIO_TOP_VAR = '--studio-top'
 
@@ -66,26 +68,39 @@ export function studioSectionClass({ drawInFlow = false }: { drawInFlow?: boolea
     : 'relative h-[calc(100dvh_-_var(--studio-top,0px))] min-h-[30rem] overflow-hidden'
 }
 
-/**
- * Solid, because the steps without a Draw pane run the dark scene behind it.
- * The band spans the page at lg with the tool column's width as padding, so
- * the text stays where it was and the tool panels draw over the band's end.
- */
+/** Solid, because the steps without a Draw pane run the 3D scene behind it. */
 export function studioHeaderClass() {
-  return 'pointer-events-auto flex shrink-0 flex-col gap-2 bg-flv-paper px-4 pt-1 pb-3 lg:absolute lg:top-0 lg:right-0 lg:left-0 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-6 lg:gap-y-2 lg:pt-4 lg:pr-[22rem] lg:pb-2 lg:pl-6'
+  return 'pointer-events-auto flex shrink-0 flex-col gap-2 bg-flv-paper px-4 pt-1 pb-3 lg:absolute lg:inset-x-0 lg:top-0 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)_minmax(0,1fr)] lg:items-center lg:gap-x-6 lg:gap-y-1 lg:px-6 lg:pt-3 lg:pb-2'
 }
 
 /**
  * The steps without a Draw pane start the scene below the solid header, so it
- * never covers the garment. Any shape is safe for publishing: `captureFov`
+ * never covers the garment, and stop short of the tool column so the garment
+ * centres in the space left. Any shape is safe for publishing: `captureFov`
  * fits the capture to the canvas's aspect.
  */
 export function studioSceneClass() {
-  return 'relative h-full min-h-80 w-full pt-[var(--studio-chrome-bottom,0px)]'
+  return 'relative h-full min-h-80 w-full pt-[var(--studio-chrome-bottom,0px)] lg:pr-[21rem]'
 }
 
 export function dualStudioGridClass() {
-  return 'grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(20rem,1fr)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_22rem] lg:gap-3 lg:pt-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:pl-3'
+  return 'grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(20rem,1fr)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-3 lg:pt-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:pr-3 lg:pb-3 lg:pl-[21.25rem]'
+}
+
+/**
+ * The one tool column at lg: tools scroll above, publishing sits below. Below
+ * lg its children stay in the page's flow.
+ */
+export function studioToolColumnClass({ side }: { side: 'left' | 'right' }) {
+  return cn(
+    'contents lg:pointer-events-auto lg:absolute lg:top-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:bottom-3 lg:flex lg:w-80 lg:flex-col lg:gap-2',
+    side === 'left' ? 'lg:left-3' : 'lg:right-3',
+  )
+}
+
+/** The camera views float over the bottom of the stage at lg, clear of the tool column. */
+export function studioCameraBarClass() {
+  return 'pointer-events-auto absolute bottom-4 left-[calc(50%_-_10.5rem)] -translate-x-1/2'
 }
 
 /**
@@ -108,11 +123,17 @@ export function studioPhoneToolsClass({ drawInFlow = false }: { drawInFlow?: boo
     return 'pointer-events-auto flex shrink-0 flex-col gap-2 px-3'
   }
 
-  return 'pointer-events-auto flex max-h-[min(32vh,18rem)] min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 lg:absolute lg:top-4 lg:right-6 lg:bottom-40 lg:w-72 lg:max-h-none lg:px-0'
+  return 'pointer-events-auto flex max-h-[min(32vh,18rem)] min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 lg:max-h-none lg:flex-1 lg:px-0'
 }
 
+/**
+ * At lg the publish panel holds the bottom of the tool column, below the
+ * tools' own scrolling area rather than over it, so it never hides focus.
+ * Anchored there, the header settling or a hint going never moves the
+ * button out from under a click in progress.
+ */
 export function studioPhonePublishClass() {
-  return 'pointer-events-auto flex max-h-[min(72vh,42rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:absolute lg:right-6 lg:bottom-4 lg:w-80 lg:max-h-[min(78vh,44rem)] lg:px-0 lg:pb-0'
+  return 'pointer-events-auto flex max-h-[min(72vh,42rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-h-[70%] lg:px-0 lg:pb-0 lg:empty:hidden'
 }
 
 export function railFrameClass() {
@@ -120,15 +141,15 @@ export function railFrameClass() {
 }
 
 export function chromeKickerClass() {
-  return 'font-body text-xs tracking-[0.18em] text-flv-accent uppercase'
+  return 'font-body text-xs font-medium tracking-[0.08em] text-flv-accent uppercase'
 }
 
 export function chromeTextClass() {
-  return 'font-body text-xs tracking-[0.08em] text-flv-ink uppercase'
+  return 'font-body text-sm font-medium text-flv-ink'
 }
 
 export function chromeMutedClass() {
-  return 'font-body text-xs tracking-[0.06em] text-flv-muted'
+  return 'font-body text-xs text-flv-muted'
 }
 
 export function emptyStepClass() {

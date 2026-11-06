@@ -198,7 +198,7 @@ function LookPage() {
                 onClick={() => {
                   void handleVote()
                 }}
-                className="flv-cta min-h-11 min-w-[10rem] flex-1 px-5 py-2 font-body text-xs tracking-[0.08em] uppercase disabled:opacity-50"
+                className="flv-cta inline-flex items-center justify-center gap-2 min-h-11 min-w-[10rem] flex-1 px-5 py-2 font-body text-sm font-medium disabled:opacity-50"
               >
                 {voting ? HOUSE_COPY.voting : HOUSE_COPY.voteThisLook}
               </button>

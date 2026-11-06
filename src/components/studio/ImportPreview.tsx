@@ -102,7 +102,7 @@ export function ImportPreview({
         </div>
       ) : null}
       <div className="flex flex-wrap gap-3">
-        <button type="button" className={`flv-cta ${buttonClass}`} disabled={busy} onClick={onCreate}>
+        <button type="button" className={`flv-cta inline-flex items-center justify-center gap-2 ${buttonClass}`} disabled={busy} onClick={onCreate}>
           {busy ? 'Creating…' : uploadFailures.length > 0 ? 'Try again' : 'Create this design'}
         </button>
         {uploadFailures.length > 0 ? (

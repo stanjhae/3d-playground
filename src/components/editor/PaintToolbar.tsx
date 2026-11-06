@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { cn } from '../../lib/cn'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useEditorStore } from '../../lib/editor-store'
+import { useStudioMode } from '../../lib/studio-mode'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
@@ -40,7 +41,7 @@ function toolButtonClass({ selected }: { selected: boolean }) {
 export function PaintToolbar({
   tools = 'all',
 }: {
-  tools?: 'all' | 'ink' | 'placeables'
+  tools?: 'all' | 'ink' | 'text' | 'upload'
 }) {
   const paintTool = useEditorStore((state) => state.paintTool)
   const paintColor = useEditorStore((state) => state.paintColor)
@@ -82,7 +83,9 @@ export function PaintToolbar({
     selectedLayerId,
   })
   const showInk = tools === 'all' || tools === 'ink'
-  const showPlaceables = tools === 'all' || tools === 'placeables'
+  const showText = tools === 'all' || tools === 'text'
+  const showUpload = tools === 'all' || tools === 'upload'
+  const pro = useStudioMode((state) => state.pro)
 
   return (
     <aside className={railFrameClass()}>
@@ -202,6 +205,8 @@ export function PaintToolbar({
               </button>
             ))}
           </div>
+          {pro ? (
+          <>
           <label className="flex flex-col gap-1">
             <span className={chromeMutedClass()}>{FLV_COPY.brushSize}</span>
             <input
@@ -250,9 +255,11 @@ export function PaintToolbar({
               className="w-full accent-flv-accent"
             />
           </label>
+          </>
+          ) : null}
         </>
       ) : null}
-      {showPlaceables ? (
+      {showUpload ? (
         <>
           <div className="flex flex-wrap gap-2">
             <input
@@ -324,26 +331,6 @@ export function PaintToolbar({
             >
               {uploading ? 'Uploading…' : HOUSE_COPY.artwork}
             </button>
-            <label className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="sr-only">{HOUSE_COPY.type}</span>
-              <input
-                value={typeDraft}
-                onChange={(event) => {
-                  setTypeDraft({ typeDraft: event.target.value })
-                }}
-                onKeyDown={(event) => {
-                  // Keyboard placement (#163): the word lands on the active panel.
-                  if (event.key !== 'Enter' || event.nativeEvent.isComposing || !typeDraft.trim()) {
-                    return
-                  }
-
-                  event.preventDefault()
-                  addText({ content: typeDraft, face: textFace, scale: textScale })
-                }}
-                placeholder={HOUSE_COPY.type}
-                className="min-h-11 min-w-0 flex-1 border border-flv-line bg-flv-paper px-3 font-body text-sm text-flv-ink"
-              />
-            </label>
             {v2Tee ? null : (
             <>
             <button
@@ -372,6 +359,32 @@ export function PaintToolbar({
             </button>
             </>
             )}
+          </div>
+        </>
+      ) : null}
+      {showText ? (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <label className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="sr-only">{HOUSE_COPY.type}</span>
+              <input
+                value={typeDraft}
+                onChange={(event) => {
+                  setTypeDraft({ typeDraft: event.target.value })
+                }}
+                onKeyDown={(event) => {
+                  // Keyboard placement (#163): the word lands on the active panel.
+                  if (event.key !== 'Enter' || event.nativeEvent.isComposing || !typeDraft.trim()) {
+                    return
+                  }
+
+                  event.preventDefault()
+                  addText({ content: typeDraft, face: textFace, scale: textScale })
+                }}
+                placeholder={HOUSE_COPY.type}
+                className="min-h-11 min-w-0 flex-1 border border-flv-line bg-flv-paper px-3 font-body text-sm text-flv-ink"
+              />
+            </label>
             <button
               type="button"
               onClick={() => {
@@ -380,7 +393,7 @@ export function PaintToolbar({
               aria-pressed={paintTool === 'type'}
               className={toolButtonClass({ selected: paintTool === 'type' })}
             >
-              {HOUSE_COPY.type}
+              {HOUSE_COPY.tapToPlace}
             </button>
           </div>
           <p className="font-body text-sm text-flv-muted">{HOUSE_COPY.typeHint}</p>

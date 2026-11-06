@@ -6,10 +6,15 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import { RoutePending } from './components/ui/RoutePending'
 import { routeTree } from './routeTree.gen'
 import './styles.css'
 
-const router = createRouter({ routeTree })
+const router = createRouter({
+  routeTree,
+  defaultPendingComponent: RoutePending,
+  defaultPendingMs: 300,
+})
 
 declare module '@tanstack/react-router' {
   interface Register {
