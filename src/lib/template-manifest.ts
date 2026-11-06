@@ -79,7 +79,7 @@ export type TemplateManifest = {
 const TORSO_V0 = 0.28
 
 /** Front panel height above which the collar band's UVs overlap it. */
-const COLLAR_START_Y = 0.861
+export const COLLAR_START_Y = 0.861
 
 export const TEE_CREW_SHORT_V1: TemplateManifest = Object.freeze({
   id: 'tee-crew-short',
