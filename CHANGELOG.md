@@ -22,6 +22,7 @@
 - **Plain words:** Right sleeve and Left sleeve (named as worn), Selected item, Position, Rotate, Mirror to other side, Upload image, Layers, Serif, Medium and Large, Your text and Tap to place.
 
 ### Added
+- **View buttons under the 3D on Design:** Front, 3/4, Back, both sleeves and Orbit, to check a side while designing.
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
 
 ### Fixed

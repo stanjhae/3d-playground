@@ -14,6 +14,7 @@ import { announce } from '../../lib/studio-announcer'
 import { studioKeyAction } from '../../lib/studio-keys'
 import { dualStudioGridClass, studioSceneClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
+import { CameraPresetBar } from './CameraPresetBar'
 import { PaintCanvas } from './PaintCanvas'
 
 export function DualStudio({
@@ -130,6 +131,12 @@ export function DualStudio({
         })}
       >
         {children}
+        {/* Turn the tee to check a side while designing, as on the publish step. */}
+        {dual && lgUp ? (
+          <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-10 flex justify-center">
+            <CameraPresetBar />
+          </div>
+        ) : null}
       </div>
     </div>
   )
