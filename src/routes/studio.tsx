@@ -198,11 +198,11 @@ function MyStudio() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-16">
+    <section className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-12">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">My Studio</p>
-          <h1 className="font-display text-4xl leading-tight">Your designs</h1>
+          <p className="font-body text-xs font-medium tracking-[0.08em] text-flv-accent uppercase">My Studio</p>
+          <h1 className="font-display text-4xl leading-none uppercase">Your designs</h1>
           <p className="font-body text-sm text-flv-muted">
             Private to you. New designs save to your account as you work.
           </p>
@@ -218,7 +218,7 @@ function MyStudio() {
           </button>
           <button
             type="button"
-            className="min-h-9 font-body text-xs text-flv-muted underline underline-offset-2 hover:text-flv-accent disabled:opacity-50"
+            className="min-h-9 font-body text-sm text-flv-muted underline underline-offset-2 hover:text-flv-ink disabled:opacity-50"
             disabled={creating || !TEE.ok}
             onClick={() => void openExample()}
           >
@@ -264,11 +264,11 @@ function MyStudio() {
           </button>
         </div>
       ) : list.designs.length === 0 ? (
-        <p className="font-body text-sm text-flv-muted">
+        <p className="flv-panel p-8 text-center font-body text-sm text-flv-muted">
           No designs yet. Create a T-shirt to start.
         </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {list.designs.map((design) => (
             <li key={design.id} className="min-w-0">
               <DesignCard
