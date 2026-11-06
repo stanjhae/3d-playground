@@ -72,6 +72,7 @@ import { getAssetSources, getCanonicalDocument, useEditorStore } from '../lib/ed
 import { garmentCanPaint } from '../lib/garments'
 import {
   STUDIO_CHROME_BOTTOM_VAR,
+  STUDIO_TOOLS_HEIGHT_VAR,
   STUDIO_TOP_VAR,
   studioHeaderClass,
   studioOverlayClass,
@@ -87,6 +88,7 @@ import { consumeLandingHandoff } from '../lib/landing-handoff'
 import {
   emptyStepClass,
   studioPhonePublishClass,
+  studioPhoneStageClass,
   studioPhoneToolsClass,
 } from '../lib/studio-chrome'
 import { trackAssumptionOnce } from '../lib/assumption-events'
@@ -159,6 +161,7 @@ function AtelierHome() {
     studioView === 'draw'
   const sectionRef = useRef<HTMLElement | null>(null)
   const headerRef = useRef<HTMLDivElement | null>(null)
+  const stageRef = useRef<HTMLDivElement | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [enteredLabel, setEnteredLabel] = useState<string | null>(null)
@@ -522,21 +525,29 @@ function AtelierHome() {
       return
     }
 
+    const stage = stageRef.current
+
     const measure = () => {
-      const top = section.getBoundingClientRect().top
-      const bottom = header.getBoundingClientRect().bottom - top
+      const box = section.getBoundingClientRect()
+      const bottom = header.getBoundingClientRect().bottom - box.top
       section.style.setProperty(STUDIO_CHROME_BOTTOM_VAR, `${Math.ceil(bottom)}px`)
       // The site header is sticky above the section; fill only what is left.
-      section.style.setProperty(STUDIO_TOP_VAR, `${Math.max(0, Math.round(top + window.scrollY))}px`)
+      section.style.setProperty(STUDIO_TOP_VAR, `${Math.max(0, Math.round(box.top + window.scrollY))}px`)
+      // Below lg the scene stops where the tools start, so they never cover the tee.
+      const tools = stage ? Math.max(0, box.bottom - stage.getBoundingClientRect().bottom) : 0
+      section.style.setProperty(STUDIO_TOOLS_HEIGHT_VAR, `${Math.floor(tools)}px`)
     }
     const observer = new ResizeObserver(measure)
     observer.observe(section)
     observer.observe(header)
+    if (stage) {
+      observer.observe(stage)
+    }
     measure()
     return () => {
       observer.disconnect()
     }
-  }, [])
+  }, [drawInFlow])
 
   // Nothing to edit: drawing here would reach no design and be lost.
   const cloudFailed = cloudStatus === 'missing' || cloudStatus === 'error' || cloudStatus === 'unsupported'
@@ -611,7 +622,7 @@ function AtelierHome() {
             <PaintCanvas layout="quad" />
           </div>
         ) : (
-          <div className="min-h-0 flex-1 lg:hidden" />
+          <div ref={stageRef} className={studioPhoneStageClass()} />
         )}
         {mode === 'design' && !cloudFailed ? (
           <div className={studioToolColumnClass({ side: showsDesignRails({ step: createStep }) ? 'left' : 'right' })}>

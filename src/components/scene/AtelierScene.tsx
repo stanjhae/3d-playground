@@ -99,8 +99,9 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
     }
   }, [isHouse])
 
+  // Below lg the stage can be shorter than 20rem; the scene class keeps it clear of the tools.
   return (
-    <div className="relative h-full min-h-80 w-full min-h-0">
+    <div className="relative h-full min-h-48 w-full lg:min-h-80">
       {isHouse ? (
         <HouseCaption
           title={leader?.title ?? 'The Leader'}
@@ -118,7 +119,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
             far: STUDIO_CAMERA.far,
           }}
           gl={{ antialias: true, preserveDrawingBuffer: true }}
-          className="h-full min-h-80 w-full touch-none"
+          className="h-full min-h-48 w-full touch-none lg:min-h-80"
           style={{ background: studioStageBackdrop() }}
         >
           <StudioStage picking={!isHouse} intro framing={framing}>

@@ -4,11 +4,14 @@ import {
   CLOTH_LIST_ID,
   clothListVisibilityClass,
   clothSheetHeightClass,
+  dualStudioGridClass,
   lookSheetBodyClass,
   lookSheetFrameClass,
   nextClothOpen,
   studioPhonePublishClass,
+  studioPhoneStageClass,
   studioPhoneToolsClass,
+  studioSceneClass,
   studioSectionClass,
 } from './studio-chrome'
 
@@ -93,6 +96,15 @@ describe('look sheet chrome', () => {
 })
 
 describe('studio phone chrome', () => {
+  test('stops the scene above the tools below lg, and not at lg', () => {
+    expect(studioSceneClass()).toContain('pb-[var(--studio-tools-height,0px)]')
+    expect(studioSceneClass()).toContain('lg:pb-0')
+    expect(studioPhoneStageClass()).toContain('min-h-48')
+    expect(studioPhoneStageClass()).toContain('lg:hidden')
+    expect(dualStudioGridClass()).toContain('pb-[var(--studio-tools-height,0px)]')
+    expect(dualStudioGridClass()).toContain('lg:pb-3')
+  })
+
   test('lets tools scroll without pinning publish', () => {
     expect(studioPhoneToolsClass()).toContain('max-h-[min(32vh,18rem)]')
     expect(studioPhoneToolsClass()).toContain('overflow-y-auto')

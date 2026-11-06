@@ -26,6 +26,7 @@
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
 
 ### Fixed
+- **On phones the tools covered the bottom of the tee.** The 3D stage now ends where the tools begin on every step, so the whole tee shows above them, and the tools scroll when a short screen leaves little room.
 - **A page behind sign-in stayed blank when the sign-in service couldn't be reached.** It now says it's opening and, after 6 seconds, that it's still connecting, with Try again. It keeps waiting rather than sending a signed-in person to sign in.
 - **A sign-in email that failed to send told people to check their connection.** It now says the code couldn't be sent, and an outage of the sign-in service no longer blames the connection either (#145).
 - **The email limit for the hour said to wait a minute.** The message now says to try again in an hour if it keeps appearing (#145).

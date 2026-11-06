@@ -195,8 +195,9 @@ test('the base colour changes the cloth, not the figure, and keeps the artwork',
   await goToStep({ page, step: 'preview' })
   await tryOn({ page })
   const after = await statsOf({ page, picture: await viewFrom({ page, side: 'Front' }) })
-  expect(after.bright).toBeLessThan(before.bright / 5)
   expect(after.oxblood).toBeGreaterThan(500)
+  // The light stage is bright too, so count what the cloth lost, not what is left.
+  expect(before.bright - after.bright, JSON.stringify({ before, after })).toBeGreaterThan(after.oxblood / 2)
   expect(after.skin).toBeGreaterThan(before.skin * 0.8)
   expect(after.skin).toBeLessThan(before.skin * 1.2)
   // The stroke is still on it.
