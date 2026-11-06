@@ -114,7 +114,7 @@ test('moving to Publish keeps the 3D canvas and never reports the preview as gon
     }).observe(document.body, { subtree: true, childList: true, characterData: true })
   })
 
-  await page.getByRole('button', { name: /^6\s*Publish$/ }).click()
+  await page.getByRole('button', { name: /Preview & Publish/ }).click()
   await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible()
   await expectSaved({ page })
 

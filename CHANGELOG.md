@@ -25,6 +25,7 @@
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
 
 ### Fixed
+- **Moving between steps restarted the 3D preview,** replaying its intro and telling Publish the preview would be "back" when nothing was wrong. The canvas now stays mounted across steps, and while it starts Publish says so in muted text.
 - **A page behind sign-in stayed blank when the sign-in service couldn't be reached.** It now says it's opening and, after 6 seconds, that it's still connecting, with Try again. It keeps waiting rather than sending a signed-in person to sign in.
 - **A sign-in email that failed to send told people to check their connection.** It now says the code couldn't be sent, and an outage of the sign-in service no longer blames the connection either (#145).
 - **The email limit for the hour said to wait a minute.** The message now says to try again in an hour if it keeps appearing (#145).
