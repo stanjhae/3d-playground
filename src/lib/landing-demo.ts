@@ -363,7 +363,7 @@ export function studioEnvAppearance({
 }): {
   /** Top of the seamless backdrop; published stills show this behind the garment. */
   background: string
-  /** Bottom of the backdrop. A little darker, so a white tee still separates. */
+  /** Bottom of the backdrop. A touch darker, so the floor and the tee's shadow read. */
   backgroundLow: string
   environmentIntensity: number
   exposure: number
@@ -380,8 +380,9 @@ export function studioEnvAppearance({
   }
 
   return {
-    background: '#e6e5e2',
-    backgroundLow: '#cbcac6',
+    // White, as the mockups' 3D preview. The tee separates by its shading and shadow.
+    background: '#ffffff',
+    backgroundLow: '#eeedea',
     environmentIntensity: 0.68,
     exposure: 1.1,
     keyIntensity: 1.7,
