@@ -9,6 +9,7 @@ import {
 
 import { cn } from '../../lib/cn'
 import type { LayerPatch } from '../../lib/design-commands'
+import { Swatch } from '../ui/Swatch'
 import { useEditorStore } from '../../lib/editor-store'
 import { useStudioMode } from '../../lib/studio-mode'
 import { HOUSE_COPY } from '../../lib/house-copy'
@@ -261,44 +262,7 @@ export function TechInspector() {
           Most of this is outside its panel, so most of it won’t show. Move it towards the middle.
         </p>
       ) : null}
-      {pro ? (
-        <>
-      <div className="flex flex-col gap-1">
-        <span className={cn('text-flv-muted', chromeTextClass())}>
-          {HOUSE_COPY.position} X
-        </span>
-        <div className="flex items-start gap-2">
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            aria-label={TRANSFORM_FIELDS.x.name}
-            className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
-            {...bindRange({ key: 'x' })}
-          />
-          {numberField({ key: 'x' })}
-        </div>
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className={cn('text-flv-muted', chromeTextClass())}>
-          {HOUSE_COPY.position} Y
-        </span>
-        <div className="flex items-start gap-2">
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            aria-label={TRANSFORM_FIELDS.y.name}
-            className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
-            {...bindRange({ key: 'y' })}
-          />
-          {numberField({ key: 'y' })}
-        </div>
-      </div>
-        </>
-      ) : null}
+      <p className="font-body text-xs font-medium text-flv-ink">Size and angle</p>
       <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.size}
@@ -333,7 +297,59 @@ export function TechInspector() {
           {pro ? numberField({ key: 'rotation' }) : null}
         </div>
       </div>
+      <div className="flex flex-col gap-2 border-t border-flv-line pt-3">
+        <span className="font-body text-xs font-medium text-flv-ink">Colour</span>
+        <div className="flex flex-wrap gap-2">
+          {INK_COLORS.map((ink) => (
+            <Swatch
+              key={ink.id}
+              name={ink.name}
+              color={ink.value}
+              selected={color.toLowerCase() === ink.value.toLowerCase()}
+              onClick={() => {
+                commitDraft({ patch: { color: ink.value } })
+              }}
+            />
+          ))}
+        </div>
+      </div>
       {pro ? (
+        <div className="flex flex-col gap-3 border-t border-flv-line pt-3">
+          <span className="font-body text-xs font-medium text-flv-ink">Exact placement</span>
+      <div className="flex flex-col gap-1">
+        <span className={cn('text-flv-muted', chromeTextClass())}>
+          {HOUSE_COPY.position} X
+        </span>
+        <div className="flex items-start gap-2">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            aria-label={TRANSFORM_FIELDS.x.name}
+            className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
+            {...bindRange({ key: 'x' })}
+          />
+          {numberField({ key: 'x' })}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className={cn('text-flv-muted', chromeTextClass())}>
+          {HOUSE_COPY.position} Y
+        </span>
+        <div className="flex items-start gap-2">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            aria-label={TRANSFORM_FIELDS.y.name}
+            className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"
+            {...bindRange({ key: 'y' })}
+          />
+          {numberField({ key: 'y' })}
+        </div>
+      </div>
         <label className="flex flex-col gap-1">
           <span className={cn('text-flv-muted', chromeTextClass())}>
             {HOUSE_COPY.opacity}
@@ -347,31 +363,6 @@ export function TechInspector() {
             {...bindRange({ key: 'opacity' })}
           />
         </label>
-      ) : null}
-      <div className="flex flex-col gap-2">
-        <span className={cn('text-flv-muted', chromeTextClass())}>
-          {HOUSE_COPY.baseColor}
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {INK_COLORS.map((ink) => (
-            <button
-              key={ink.id}
-              type="button"
-              aria-label={ink.name}
-              aria-pressed={color.toLowerCase() === ink.value.toLowerCase()}
-              onClick={() => {
-                commitDraft({ patch: { color: ink.value } })
-              }}
-              className={cn('h-8 w-8 border border-flv-line', {
-                'ring-2 ring-flv-accent ring-offset-1 ring-offset-flv-paper':
-                  color.toLowerCase() === ink.value.toLowerCase(),
-              })}
-              style={{ backgroundColor: ink.value }}
-            />
-          ))}
-        </div>
-      </div>
-      {pro ? (
       <button
         type="button"
         onClick={() => {
@@ -384,6 +375,7 @@ export function TechInspector() {
       >
         {HOUSE_COPY.copyOpposite}
       </button>
+        </div>
       ) : null}
     </aside>
   )
