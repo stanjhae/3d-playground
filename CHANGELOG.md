@@ -25,6 +25,7 @@
 - **The 3D stage is a white studio, as in the mockups.** A white backdrop that greys slightly toward the floor, and a soft shadow, replace the dark stage, the tee fills about 70% of the frame instead of 37%, and the cloth has a project-made surface texture. The template is unchanged. Newly published pictures get the new look; stored ones stay as they were.
 
 ### Added
+- **View buttons under the 3D on Design:** Front, 3/4, Back, both sleeves and Orbit, to check a side while designing.
 - **Guides on the front and back panels:** a faint chest line, a centre line, and the collar band marked as not printing, measured on the template so they show where marks really land. Display only, never in the design or its pictures.
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
 
