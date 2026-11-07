@@ -81,7 +81,8 @@ describe('My Studio card', () => {
       }),
     )
 
-    expectInert({ html, fixture })
+    // The card's own icons are Lucide SVGs; an injected tag has no Lucide class.
+    expectInert({ html: html.replace(/<svg[^>]*class="lucide[^"]*"[^>]*>[\s\S]*?<\/svg>/g, ''), fixture })
     expect(html).toContain('&lt;')
   })
 })

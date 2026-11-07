@@ -53,7 +53,7 @@ export function PublicName() {
       <label className="flex flex-col gap-1 font-body text-xs text-flv-muted">
         Public name, shown on designs you publish
         <input
-          className="min-h-9 w-56 border border-flv-line bg-transparent px-2 font-body text-sm text-flv-ink"
+          className="min-h-9 w-56 rounded-lg border border-flv-line bg-white px-2 font-body text-sm text-flv-ink"
           value={draft}
           maxLength={40}
           placeholder="No name"
@@ -66,7 +66,7 @@ export function PublicName() {
       <button
         type="submit"
         disabled={!changed}
-        className="inline-flex min-h-9 items-center border border-flv-line px-3 font-body text-[11px] tracking-[0.1em] uppercase hover:border-flv-accent hover:text-flv-accent disabled:opacity-50"
+        className="inline-flex min-h-9 items-center rounded-full border border-flv-line bg-white px-3 font-body text-xs font-medium hover:border-flv-ink disabled:opacity-50"
       >
         Save name
       </button>
