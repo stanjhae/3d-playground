@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- **Selected item is a properties panel:** Size and angle, then Colour, then, in Pro, Exact placement with position, opacity and Mirror to other side.
 - **My Studio** shows designs as cards with a garment tile, the title, and Private or Published with an icon, three to a row on a laptop. The public name form and delete dialog match the new look.
 - **New look, first step:** heavy sans headlines, a brighter red-to-orange brand on near-white, sentence-case controls and a new site header. Words on a garment keep their fonts.
 - **Login on the landing goes to sign-in.** It used to jump to the waitlist.
