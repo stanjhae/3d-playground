@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Globe, Lock, Shirt } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
@@ -10,7 +11,7 @@ import { type DesignSummary, deleteDesign, updateDesign } from '../../lib/flp-ap
  */
 
 const smallButton =
-  'inline-flex min-h-9 items-center px-3 font-body text-[11px] tracking-[0.1em] uppercase border border-flv-line hover:border-flv-accent hover:text-flv-accent disabled:opacity-50'
+  'inline-flex min-h-9 items-center rounded-full border border-flv-line bg-white px-3 font-body text-xs font-medium hover:border-flv-ink disabled:opacity-50'
 
 export function DesignCard({
   design,
@@ -77,7 +78,10 @@ export function DesignCard({
   }
 
   return (
-    <div className="flex min-h-20 min-w-0 flex-col gap-3 border border-flv-line bg-flv-paper p-4">
+    <div className="flv-panel flex min-h-20 min-w-0 flex-col gap-3 p-4">
+      <div aria-hidden className="flex aspect-[4/3] items-center justify-center rounded-xl bg-flv-soft text-flv-muted">
+        <Shirt className="size-16 stroke-[1.1]" />
+      </div>
       {mode === 'rename' ? (
         <form
           className="flex flex-wrap items-center gap-2"
@@ -91,7 +95,7 @@ export function DesignCard({
           </label>
           <input
             id={`title-${design.id}`}
-            className="min-h-9 min-w-0 flex-1 border border-flv-line bg-transparent px-2 font-display text-xl"
+            className="min-h-9 min-w-0 flex-1 rounded-lg border border-flv-line bg-white px-2 font-display text-lg"
             value={title}
             maxLength={80}
             autoFocus
@@ -122,14 +126,19 @@ export function DesignCard({
         <Link
           to="/create"
           search={{ cloud: design.id, step: 'design' }}
-          className="font-display text-xl [overflow-wrap:anywhere] hover:text-flv-accent"
+          className="font-display text-lg [overflow-wrap:anywhere] hover:text-flv-accent"
         >
           {design.title}
         </Link>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-body text-xs text-flv-muted">
+        <span className="flex items-center gap-1.5 font-body text-xs text-flv-muted">
+          {design.visibility === 'published' ? (
+            <Globe aria-hidden className="size-3.5 text-flv-accent" />
+          ) : (
+            <Lock aria-hidden className="size-3.5" />
+          )}
           {design.visibility === 'published' ? 'Published · ' : 'Private · '}
           edited {new Date(design.updatedAt).toLocaleString()}
         </span>
@@ -154,7 +163,7 @@ export function DesignCard({
       <dialog
         ref={dialog}
         aria-labelledby={`delete-title-${design.id}`}
-        className="m-auto max-w-md border border-flv-line bg-flv-paper p-6 text-flv-ink backdrop:bg-black/40"
+        className="m-auto max-w-md rounded-2xl border border-flv-line bg-white p-6 text-flv-ink shadow-[var(--shadow-flv)] backdrop:bg-black/40"
         onCancel={() => setMode('view')}
       >
         <h2 id={`delete-title-${design.id}`} className="font-display text-2xl [overflow-wrap:anywhere]">

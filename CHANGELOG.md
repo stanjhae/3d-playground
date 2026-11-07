@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- **My Studio** shows designs as cards with a garment tile, the title, and Private or Published with an icon, three to a row on a laptop. The public name form and delete dialog match the new look.
 - **New look, first step:** heavy sans headlines, a brighter red-to-orange brand on near-white, sentence-case controls and a new site header. Words on a garment keep their fonts.
 - **Login on the landing goes to sign-in.** It used to jump to the waitlist.
 - **Four steps instead of six:** Garment, Color & Pattern, Design, Preview & Publish, with a numbered stepper. Fit had nothing for the tee, and Preview and Publish are now one step. Old links to `?step=fit` and `?step=preview` still open the right step.
@@ -23,6 +24,7 @@
 
 ### Added
 - **View buttons under the 3D on Design:** Front, 3/4, Back, both sleeves and Orbit, to check a side while designing.
+- **Guides on the front and back panels:** a faint chest line, a centre line, and the collar band marked as not printing, measured on the template so they show where marks really land. Display only, never in the design or its pictures.
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
 
 ### Fixed
