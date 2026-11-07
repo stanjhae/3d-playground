@@ -88,11 +88,42 @@ test('"Publish…" opens the review when the 3D preview starts mid-click', async
   await expectSaved({ page })
   const open = page.getByRole('button', { name: 'Publish…' })
   // The canvas has not started: publishing explains it is waiting for it.
-  await expect(page.getByRole('status').filter({ hasText: 'Publishing needs the 3D preview' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Starting the 3D preview' })).toBeVisible()
   const box = (await open.boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await page.mouse.down()
-  await expect(page.getByRole('status').filter({ hasText: 'Publishing needs the 3D preview' })).toBeHidden()
+  await expect(page.getByRole('status').filter({ hasText: 'Starting the 3D preview' })).toBeHidden()
   await page.mouse.up()
   await expect(page.getByRole('button', { name: 'Confirm publish' })).toBeVisible({ timeout: 5_000 })
+})
+
+test('moving to Publish keeps the 3D canvas and never reports the preview as gone', async ({ page }) => {
+  await createSavedDesign({ page, label: 'publish-same-canvas' })
+  const scene = page.locator('canvas:not([aria-label^="Design panel"])')
+  await expect(scene).toBeVisible()
+  await scene.evaluate((canvas) => {
+    ;(window as unknown as { __flpScene?: Element }).__flpScene = canvas
+  })
+
+  // Every status line from here on, however briefly it showed.
+  await page.evaluate(() => {
+    const seen: string[] = []
+    ;(window as unknown as { __flpStatuses?: string[] }).__flpStatuses = seen
+    new MutationObserver(() => {
+      document.querySelectorAll('[role="status"]').forEach((line) => seen.push(line.textContent ?? ''))
+    }).observe(document.body, { subtree: true, childList: true, characterData: true })
+  })
+
+  await page.getByRole('button', { name: /Preview & Publish/ }).click()
+  await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible()
+  await expectSaved({ page })
+
+  expect(
+    await scene.evaluate((canvas) => (window as unknown as { __flpScene?: Element }).__flpScene === canvas),
+    'the canvas element after moving to Publish is the one from Design',
+  ).toBe(true)
+  const statuses = await page.evaluate(() => (window as unknown as { __flpStatuses?: string[] }).__flpStatuses ?? [])
+  expect(statuses.filter((line) => line.includes('Publishing needs the 3D preview'))).toEqual([])
+  await page.getByRole('button', { name: 'Publish…' }).click()
+  await expect(page.getByRole('button', { name: 'Confirm publish' })).toBeEnabled()
 })

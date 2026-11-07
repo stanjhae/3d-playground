@@ -113,13 +113,11 @@ export function DualStudio({
     }
   }, [redoLast, undoLast])
 
-  if (!dual) {
-    return <div className={studioSceneClass()}>{children}</div>
-  }
-
+  // One tree for every step: a different one remounts the 3D canvas and it
+  // has to start again. Lay steps out by changing these classes and slots.
   // Below lg the create route draws the canvas in the page flow instead.
   return (
-    <div className={dualStudioGridClass()}>
+    <div className={dual ? dualStudioGridClass() : studioSceneClass()}>
       {lgUp && paintPane ? (
         <div className="h-full min-h-0">
           <PaintCanvas layout="quad" />
@@ -127,7 +125,7 @@ export function DualStudio({
       ) : null}
       <div
         className={cn('relative h-full min-h-80', {
-          hidden: studioView === 'draw',
+          hidden: dual && studioView === 'draw',
           'lg:block': true,
         })}
       >
