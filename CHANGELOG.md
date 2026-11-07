@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- **My Studio** shows designs as cards with a garment tile, the title, and Private or Published with an icon, three to a row on a laptop. The public name form and delete dialog match the new look.
 - **New look, first step:** heavy sans headlines, a brighter red-to-orange brand on near-white, sentence-case controls and a new site header. Words on a garment keep their fonts.
 - **Login on the landing goes to sign-in.** It used to jump to the waitlist.
 - **Four steps instead of six:** Garment, Color & Pattern, Design, Preview & Publish, with a numbered stepper. Fit had nothing for the tee, and Preview and Publish are now one step. Old links to `?step=fit` and `?step=preview` still open the right step.
@@ -23,10 +24,12 @@
 - **The 3D stage is a white studio, as in the mockups.** A white backdrop that greys slightly toward the floor, and a soft shadow, replace the dark stage, the tee fills about 70% of the frame instead of 37%, and the cloth has a project-made surface texture. The template is unchanged. Newly published pictures get the new look; stored ones stay as they were.
 
 ### Added
+- **Guides on the front and back panels:** a faint chest line, a centre line, and the collar band marked as not printing, measured on the template so they show where marks really land. Display only, never in the design or its pictures.
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
 
 ### Fixed
 - **On phones the tools covered the bottom of the tee.** The 3D stage now ends where the tools begin on every step, so the whole tee shows above them, and the tools scroll when a short screen leaves little room.
+- **Moving between steps restarted the 3D preview,** replaying its intro and telling Publish the preview would be "back" when nothing was wrong. The canvas now stays mounted across steps, and while it starts Publish says so in muted text.
 - **A page behind sign-in stayed blank when the sign-in service couldn't be reached.** It now says it's opening and, after 6 seconds, that it's still connecting, with Try again. It keeps waiting rather than sending a signed-in person to sign in.
 - **A sign-in email that failed to send told people to check their connection.** It now says the code couldn't be sent, and an outage of the sign-in service no longer blames the connection either (#145).
 - **The email limit for the hour said to wait a minute.** The message now says to try again in an hour if it keeps appearing (#145).

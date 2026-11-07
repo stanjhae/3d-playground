@@ -48,6 +48,7 @@ export const WEBGL_COPY = {
     title: '3D preview paused',
     lead: 'The graphics card stopped the 3D view. Keep drawing on the panels; your design still saves. The preview comes back on its own when the browser allows it.',
   },
+  publishStarting: 'Starting the 3D preview. You can publish as soon as it’s ready.',
   publishBlocked:
     'Publishing needs the 3D preview to capture the garment views. It will be available again when the preview is back.',
   publishUnsupported:
@@ -60,7 +61,14 @@ export function publishBlockedReason({ status }: { status: WebglStatus }) {
     return null
   }
 
-  return status === 'unsupported' ? WEBGL_COPY.publishUnsupported : WEBGL_COPY.publishBlocked
+  switch (status) {
+    case 'checking':
+      return WEBGL_COPY.publishStarting
+    case 'lost':
+      return WEBGL_COPY.publishBlocked
+    case 'unsupported':
+      return WEBGL_COPY.publishUnsupported
+  }
 }
 
 type ContextProbe = {
