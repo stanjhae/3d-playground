@@ -55,6 +55,8 @@ export function lookSheetBodyClass() {
 export const STUDIO_TOOL_COLUMN = '20rem'
 export const STUDIO_CHROME_BOTTOM_VAR = '--studio-chrome-bottom'
 export const STUDIO_TOP_VAR = '--studio-top'
+/** Below lg, the height of the tools and publishing under the stage (measured by the create route). */
+export const STUDIO_TOOLS_HEIGHT_VAR = '--studio-tools-height'
 
 /**
  * Fills the viewport below the sticky site header instead of overflowing it.
@@ -76,15 +78,17 @@ export function studioHeaderClass() {
 /**
  * The steps without a Draw pane start the scene below the solid header, so it
  * never covers the garment, and stop short of the tool column so the garment
- * centres in the space left. Any shape is safe for publishing: `captureFov`
- * fits the capture to the canvas's aspect.
+ * centres in the space left. Below lg the scene also stops above the tools
+ * and publishing, so the whole tee shows over them. Any shape is safe for
+ * publishing: `captureFov` fits the capture to the canvas's aspect.
  */
 export function studioSceneClass() {
-  return 'relative h-full min-h-80 w-full pt-[var(--studio-chrome-bottom,0px)] lg:pr-[21rem]'
+  return 'relative h-full min-h-80 w-full pt-[var(--studio-chrome-bottom,0px)] pb-[var(--studio-tools-height,0px)] lg:pr-[21rem] lg:pb-0'
 }
 
+/** Below lg only the scene shows here, between the header and the tools, as in `studioSceneClass`. */
 export function dualStudioGridClass() {
-  return 'grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(20rem,1fr)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-3 lg:pt-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:pr-3 lg:pb-3 lg:pl-[21.25rem]'
+  return 'grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(12rem,1fr)] pt-[var(--studio-chrome-bottom,0px)] pb-[var(--studio-tools-height,0px)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:grid-rows-[minmax(20rem,1fr)] lg:gap-3 lg:pt-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:pr-3 lg:pb-3 lg:pl-[21.25rem]'
 }
 
 /**
@@ -111,6 +115,14 @@ export function studioOverlayClass({ drawInFlow }: { drawInFlow: boolean }) {
   return drawInFlow
     ? 'pointer-events-auto absolute inset-0 z-20 flex flex-col overflow-y-auto overscroll-contain bg-flv-paper'
     : 'pointer-events-none absolute inset-0 z-20 flex flex-col lg:block'
+}
+
+/**
+ * Below lg, the stage between the header and the tools. Its floor keeps the
+ * tee in view on short phones: the tools scroll in what is left.
+ */
+export function studioPhoneStageClass() {
+  return 'min-h-48 flex-1 lg:hidden'
 }
 
 export function studioPhoneDrawClass() {

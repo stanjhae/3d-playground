@@ -124,7 +124,7 @@ export function DualStudio({
         </div>
       ) : null}
       <div
-        className={cn('relative h-full min-h-80', {
+        className={cn('relative h-full min-h-48 lg:min-h-80', {
           hidden: dual && studioView === 'draw',
           'lg:block': true,
         })}

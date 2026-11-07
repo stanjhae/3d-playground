@@ -36,6 +36,7 @@ import { useLayerImageLoad } from '../../lib/layer-images'
 import { ATLAS_COMPILER_VERSION, artworkState, useAtlasBuild } from '../../lib/atlas-status'
 import { rasterizeLayers } from '../../lib/paint-atlas'
 import { useTextFacesVersion } from '../../lib/text-faces'
+import { clothNormalMap } from '../../lib/fabric-normal'
 import { createClothingMesh } from '../../lib/tee-geometry'
 import { ClothingPoseContext } from './clothing-pose'
 import { SelectableMesh } from './SelectableMesh'
@@ -272,6 +273,7 @@ function HouseFormGarment({
       inkDocument={inkDocument}
       overrides={overrides}
       picking={picking}
+      clothDetail
     />
   )
 }
@@ -304,11 +306,13 @@ function SeatedForm({
   inkDocument,
   overrides,
   picking,
+  clothDetail = false,
 }: {
   scene: Object3D
   inkDocument: DesignDocument
   overrides: MaterialOverride[]
   picking: boolean
+  clothDetail?: boolean
 }) {
   const activeStroke = useEditorStore((state) => state.activeStroke)
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
@@ -348,9 +352,21 @@ function SeatedForm({
       animate: picking,
     })
 
+    // After the overrides, which can swap a mesh's material for a new one.
+    if (clothDetail) {
+      for (const mesh of meshes) {
+        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+          if (material instanceof MeshStandardMaterial && !material.normalMap) {
+            material.normalMap = clothNormalMap()
+            material.needsUpdate = true
+          }
+        }
+      }
+    }
+
     lerpClock.current = picking ? 0 : 1
     invalidate()
-  }, [baseMaterials, invalidate, loadedMaps, meshes, overrides, picking])
+  }, [baseMaterials, clothDetail, invalidate, loadedMaps, meshes, overrides, picking])
 
   useLayoutEffect(() => {
     if (typeof document === 'undefined') {

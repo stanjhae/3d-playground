@@ -2,7 +2,8 @@ import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 
 import type { DesignDocument } from '../../lib/design-document'
-import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
+import { resolveGarmentId, type GarmentId, type MaterialOverride } from '../../lib/design-schema'
+import { studioStageBackdrop } from '../../lib/landing-demo'
 import { FashionLoader } from './FashionLoader'
 import { Garment } from './Garment'
 import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
@@ -30,9 +31,10 @@ export function LookStage({
           far: STUDIO_CAMERA.far,
         }}
         gl={{ antialias: true }}
-        className="h-full min-h-80 w-full touch-none bg-flv-ink"
+        className="h-full min-h-80 w-full touch-none"
+        style={{ background: studioStageBackdrop() }}
       >
-        <StudioStage>
+        <StudioStage framing={resolveGarmentId({ garmentId }) === 'tee' ? 'garment' : 'figure'}>
           <Suspense fallback={<FashionLoader />}>
             <Garment
               garmentId={garmentId}

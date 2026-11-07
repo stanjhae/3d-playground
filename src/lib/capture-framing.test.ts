@@ -7,6 +7,7 @@ import {
   captureFov,
   presetTarget,
   STILL_FRAME,
+  stillSeat,
   STUDIO_CAMERA,
 } from './studio-camera'
 import { createClothingMesh } from './tee-geometry'
@@ -168,10 +169,22 @@ describe('published still framing (#167)', () => {
     }
   })
 
-  test('the garment is a readable size in the still, not a speck', () => {
+  test('the garment is large in the still, as in the mockups', () => {
     for (const preset of STILLS) {
       const { top, bottom } = stillBounds({ preset, canvasAspect: 1.6, pose: 'flat' })
-      expect(bottom - top).toBeGreaterThan(0.3)
+      expect(bottom - top).toBeGreaterThan(0.6)
+    }
+  })
+
+  test('a figure keeps the wider seats, so the mannequin is not cropped', () => {
+    for (const preset of STILLS) {
+      const distance = (seat: readonly number[]) =>
+        new Vector3(seat[0], seat[1], seat[2]).distanceTo(new Vector3(...STUDIO_CAMERA.target))
+      const garment = distance(liveSeat({ preset }))
+
+      expect(distance(liveSeat({ preset, framing: 'figure' }))).toBeGreaterThan(garment * 1.5)
+      expect(distance(stillSeat({ preset, framing: 'figure' }))).toBeGreaterThan(garment * 1.5)
+      expect(liveSeat({ preset })).toEqual(stillSeat({ preset }))
     }
   })
 
@@ -240,7 +253,7 @@ describe('published still framing (#167)', () => {
     }
   })
 
-  test('studio views keep the studio fov; only portrait captures widen it', () => {
+  test('studio views keep the studio fov; only portrait canvases widen it', () => {
     expect(captureFov({ aspect: 1.6 })).toBe(STUDIO_CAMERA.fov)
     expect(captureFov({ aspect: 0.8 })).toBe(STUDIO_CAMERA.fov)
     expect(captureFov({ aspect: 0.46 })).toBeGreaterThan(STUDIO_CAMERA.fov)

@@ -23,7 +23,7 @@ export type ViewSample = { mesh: string; printable: boolean; u: number; v: numbe
 
 export type ViewMap = { width: number; height: number; samples: Array<ViewSample | null> }
 
-export const STILL_BACKGROUND = [0x1c, 0x18, 0x14] as const
+export const STILL_BACKGROUND = [0xd9, 0xd8, 0xd4] as const
 export const FABRIC = [0xf3, 0xef, 0xe6] as const
 
 /** The render panel whose atlas rectangle holds `u, v`. */

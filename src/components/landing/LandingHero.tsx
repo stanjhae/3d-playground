@@ -280,7 +280,7 @@ export function LandingHero({
           </p>
         </aside>
 
-        <div className="relative order-1 min-h-96 overflow-hidden rounded-2xl bg-flv-ink lg:order-2 lg:min-h-[28rem]">
+        <div className="relative order-1 min-h-96 overflow-hidden rounded-2xl bg-flv-line/40 lg:order-2 lg:min-h-[28rem]">
           {stage}
           <span className="flv-live-badge absolute top-4 left-1/2 z-10 -translate-x-1/2">
             ⚡ Live 3D Update

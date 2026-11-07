@@ -1,9 +1,9 @@
 import { ContactShadows, OrbitControls } from '@react-three/drei'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   ACESFilmicToneMapping,
-  DoubleSide,
+  CanvasTexture,
   PCFShadowMap,
   PMREMGenerator,
   SRGBColorSpace,
@@ -24,7 +24,9 @@ import {
   captureFov,
   liveSeat,
   presetTarget,
+  stillSeat,
   STUDIO_CAMERA,
+  type StageFraming,
 } from '../../lib/studio-camera'
 
 export { CAMERA_PRESET_POSITIONS, STUDIO_CAMERA }
@@ -49,6 +51,49 @@ function RenderOnEditorChange() {
   const invalidate = useThree((state) => state.invalidate)
 
   useEffect(() => useEditorStore.subscribe(() => invalidate()), [invalidate])
+
+  return null
+}
+
+/**
+ * The seamless backdrop: a screen-fixed gradient, so no floor edge or horizon
+ * shows from any angle. An sRGB background skips tone mapping, so these are
+ * the exact colours on screen and in a still.
+ */
+function StudioBackdrop({
+  top,
+  bottom,
+}: {
+  top: string
+  bottom: string
+}) {
+  const scene = useThree((state) => state.scene)
+  const invalidate = useThree((state) => state.invalidate)
+
+  useLayoutEffect(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 2
+    canvas.height = 256
+    const context = canvas.getContext('2d')
+
+    if (context) {
+      const gradient = context.createLinearGradient(0, 0, 0, canvas.height)
+      gradient.addColorStop(0, top)
+      gradient.addColorStop(1, bottom)
+      context.fillStyle = gradient
+      context.fillRect(0, 0, canvas.width, canvas.height)
+    }
+
+    const texture = new CanvasTexture(canvas)
+    texture.colorSpace = SRGBColorSpace
+    scene.background = texture
+    invalidate()
+
+    return () => {
+      scene.background = null
+      texture.dispose()
+    }
+  }, [bottom, invalidate, scene, top])
 
   return null
 }
@@ -110,42 +155,85 @@ export function StudioLights({
       <hemisphereLight
         args={[
           outdoor ? '#d7e8f5' : '#f4ead4',
-          outdoor ? '#6a8a4a' : '#1a1612',
-          outdoor ? 0.55 : 0.28,
+          outdoor ? '#6a8a4a' : '#cfccc6',
+          outdoor ? 0.55 : 0.32,
         ]}
       />
       <directionalLight
         castShadow
-        color={outdoor ? '#fff8e8' : '#fff6e8'}
+        color={outdoor ? '#fff8e8' : '#fffaf2'}
         intensity={keyIntensity}
         position={outdoor ? [3.2, 4.2, 1.2] : [2.2, 3.4, 1.6]}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
       />
       <directionalLight
-        color={outdoor ? '#8ec5e8' : '#9bb4d0'}
-        intensity={outdoor ? 0.62 : 0.38}
+        color={outdoor ? '#8ec5e8' : '#e4e8ee'}
+        intensity={outdoor ? 0.62 : 1.1}
         position={[-2.4, 1.2, -1.2]}
       />
       <directionalLight
-        color={outdoor ? '#ffe0a8' : '#c4a15a'}
-        intensity={outdoor ? 0.55 : 0.42}
+        color={outdoor ? '#ffe0a8' : '#f2ede4'}
+        intensity={outdoor ? 0.55 : 1.2}
         position={[0.2, 1.8, -2.4]}
       />
     </>
   )
 }
 
+/** Just under the tee's hem, so its shadow sits in frame; a figure stands on 0. */
+const FLOOR_HEIGHT: Record<StageFraming, number> = { garment: 0.3, figure: 0 }
+
+/**
+ * A soft pool of shade under the tee. `ContactShadows` can't draw this one: it
+ * looks up from the floor, and from there an open tube is nearly all back faces,
+ * which its depth pass skips.
+ */
+function HemShadow({ height }: { height: number }) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 128
+    const context = canvas.getContext('2d')
+
+    if (context) {
+      const shade = context.createRadialGradient(64, 64, 0, 64, 64, 64)
+      shade.addColorStop(0, 'rgba(44, 42, 40, 0.3)')
+      shade.addColorStop(0.55, 'rgba(44, 42, 40, 0.14)')
+      shade.addColorStop(1, 'rgba(44, 42, 40, 0)')
+      context.fillStyle = shade
+      context.fillRect(0, 0, canvas.width, canvas.height)
+    }
+
+    const map = new CanvasTexture(canvas)
+    map.colorSpace = SRGBColorSpace
+    return map
+  }, [])
+
+  useEffect(() => () => texture.dispose(), [texture])
+
+  return (
+    <mesh position={[0, height + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
+      <planeGeometry args={[1.1, 0.5]} />
+      <meshBasicMaterial depthWrite={false} map={texture} toneMapped={false} transparent />
+    </mesh>
+  )
+}
+
 export function StudioFloor({
   picking = true,
+  framing = 'garment',
 }: {
   picking?: boolean
+  framing?: StageFraming
 }) {
+  const height = FLOOR_HEIGHT[framing]
+
   return (
     <>
+      {/* Unseen: the backdrop is the floor. It only catches clicks off the garment. */}
       <mesh
-        position={[0, 0, 0]}
-        receiveShadow
+        position={[0, height, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         onClick={(event: ThreeEvent<MouseEvent>) => {
           event.stopPropagation()
@@ -158,34 +246,26 @@ export function StudioFloor({
         }}
       >
         <circleGeometry args={[10, 64]} />
-        <meshStandardMaterial color="#1d1914" metalness={0.08} roughness={0.78} />
+        <meshBasicMaterial depthWrite={false} opacity={0} transparent />
       </mesh>
-      <mesh position={[0, 2.8, -4]} receiveShadow>
-        <cylinderGeometry args={[9.5, 9.5, 6, 48, 1, true]} />
-        <meshStandardMaterial
-          color="#241f19"
-          metalness={0.04}
-          roughness={0.92}
-          side={DoubleSide}
-        />
-      </mesh>
-      <ContactShadows
-        blur={2.8}
-        far={4}
-        opacity={0.48}
-        position={[0, 0.01, 0]}
-        scale={10}
-      />
+      {framing === 'garment' ? (
+        <HemShadow height={height} />
+      ) : (
+        <ContactShadows blur={2.8} far={4} opacity={0.36} position={[0, height + 0.01, 0]} scale={10} />
+      )}
     </>
   )
 }
 
 export function StudioCamera({
   intro = false,
+  framing = 'garment',
 }: {
   intro?: boolean
+  framing?: StageFraming
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
+  const aspect = useThree((state) => state.size.width / state.size.height)
   const invalidate = useThree((state) => state.invalidate)
   const cameraPreset = useEditorStore((state) => state.cameraPreset)
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
@@ -195,17 +275,18 @@ export function StudioCamera({
   const moving = useRef(false)
   const freeOrbit = cameraPreset === 'orbit' && !capturingAngles
   const seatPreset = cameraPreset === 'orbit' ? 'threeQuarter' : cameraPreset
-  const presetSeat = capturingAngles ? CAMERA_PRESET_POSITIONS[seatPreset] : liveSeat({ preset: seatPreset })
+  const presetSeat = capturingAngles
+    ? stillSeat({ preset: seatPreset, framing })
+    : liveSeat({ preset: seatPreset, framing })
   // The sleeve views aim at their sleeve; every other preset at the garment.
   const presetAim = presetTarget({ preset: seatPreset })
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
     camera.far = STUDIO_CAMERA.far
-    // Stills crop the canvas to 4:5; keep the garment inside it (#167).
-    camera.fov = capturingAngles
-      ? captureFov({ aspect: camera.aspect })
-      : STUDIO_CAMERA.fov
+    // Stills crop the canvas to 4:5, and a narrow live canvas is no wider than
+    // that; keep the garment inside it (#167).
+    camera.fov = captureFov({ aspect })
     camera.updateProjectionMatrix()
     invalidate()
 
@@ -221,6 +302,7 @@ export function StudioCamera({
     camera.position.set(seat[0], seat[1], seat[2])
     camera.lookAt(...presetAim)
   }, [
+    aspect,
     camera,
     cameraPreset,
     capturingAngles,
@@ -316,11 +398,13 @@ export function StudioStage({
   picking = false,
   intro = false,
   envMode,
+  framing = 'garment',
 }: {
   children?: ReactNode
   picking?: boolean
   intro?: boolean
   envMode?: StudioEnvMode
+  framing?: StageFraming
 }) {
   const storeEnv = useEditorStore((state) => state.studioEnv)
   const resolvedEnv = envMode ?? storeEnv
@@ -328,15 +412,15 @@ export function StudioStage({
 
   return (
     <>
-      <color attach="background" args={[appearance.background]} />
+      <StudioBackdrop top={appearance.background} bottom={appearance.backgroundLow} />
       <StudioRenderer exposure={appearance.exposure} />
       <StudioEnvironment intensity={appearance.environmentIntensity} />
       <StudioLights
         keyIntensity={appearance.keyIntensity}
         envMode={resolvedEnv}
       />
-      <StudioFloor picking={picking} />
-      <StudioCamera intro={intro} />
+      <StudioFloor picking={picking} framing={framing} />
+      <StudioCamera intro={intro} framing={framing} />
       <RenderOnEditorChange />
       {children}
     </>
@@ -393,7 +477,7 @@ export function StudioOrbit({
         enablePan={false}
         maxDistance={6.5}
         maxPolarAngle={Math.PI / 2.05}
-        minDistance={3.2}
+        minDistance={1.7}
         minPolarAngle={Math.PI / 4}
         onStart={() => {
           setSpinning(false)

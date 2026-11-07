@@ -4,9 +4,10 @@ import { Suspense } from 'react'
 import type { AvatarMeasurements } from '../../lib/avatar-geometry'
 import type { DesignDocument } from '../../lib/design-document'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
-import type {
-  LandingCameraView,
-  StudioEnvMode,
+import {
+  studioStageBackdrop,
+  type LandingCameraView,
+  type StudioEnvMode,
 } from '../../lib/landing-demo'
 import { AvatarBody } from '../scene/AvatarBody'
 import { FashionLoader } from '../scene/FashionLoader'
@@ -35,7 +36,10 @@ export function LandingCloth({
   const seatTee = garmentId === 'tee'
 
   return (
-    <div className="relative h-full min-h-80 w-full overflow-hidden bg-flv-ink">
+    <div
+      className="relative h-full min-h-80 w-full overflow-hidden"
+      style={{ background: studioStageBackdrop({ envMode }) }}
+    >
       <Canvas
         shadows
         frameloop="demand"
@@ -48,7 +52,7 @@ export function LandingCloth({
         gl={{ antialias: true }}
         className="h-full min-h-80 w-full touch-none"
       >
-        <StudioStage envMode={envMode}>
+        <StudioStage envMode={envMode} framing="figure">
           <Suspense fallback={<FashionLoader />}>
             {seatTee ? (
               <AvatarBody measurements={measurements}>

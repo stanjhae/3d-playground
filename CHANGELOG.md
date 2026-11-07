@@ -21,12 +21,14 @@
 - **Publishing** says Private or Published with an icon, and uses the shared buttons.
 - **Pencil and palm:** once a pen has drawn, a resting hand no longer draws on the panels or on the tee. Pen pressure already reached both the panels and the tee.
 - **Plain words:** Right sleeve and Left sleeve (named as worn), Selected item, Position, Rotate, Mirror to other side, Upload image, Layers, Serif, Medium and Large, Your text and Tap to place.
+- **The 3D stage is a white studio, as in the mockups.** A white backdrop that greys slightly toward the floor, and a soft shadow, replace the dark stage, the tee fills about 70% of the frame instead of 37%, and the cloth has a project-made surface texture. The template is unchanged. Newly published pictures get the new look; stored ones stay as they were.
 
 ### Added
 - **Guides on the front and back panels:** a faint chest line, a centre line, and the collar band marked as not printing, measured on the template so they show where marks really land. Display only, never in the design or its pictures.
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
 
 ### Fixed
+- **On phones the tools covered the bottom of the tee.** The 3D stage now ends where the tools begin on every step, so the whole tee shows above them, and the tools scroll when a short screen leaves little room.
 - **Moving between steps restarted the 3D preview,** replaying its intro and telling Publish the preview would be "back" when nothing was wrong. The canvas now stays mounted across steps, and while it starts Publish says so in muted text.
 - **A page behind sign-in stayed blank when the sign-in service couldn't be reached.** It now says it's opening and, after 6 seconds, that it's still connecting, with Try again. It keeps waiting rather than sending a signed-in person to sign in.
 - **A sign-in email that failed to send told people to check their connection.** It now says the code couldn't be sent, and an outage of the sign-in service no longer blames the connection either (#145).
