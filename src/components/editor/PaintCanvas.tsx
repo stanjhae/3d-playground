@@ -11,6 +11,8 @@ import { documentHasInk } from '../../lib/design-document'
 import { trackAssumption } from '../../lib/assumption-events'
 import type { PanelId } from '../../lib/design-document'
 import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
+import { isCanonicalGarment } from '../../lib/concept-flags'
+import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { acceptsPointer } from '../../lib/palm-rejection'
 import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
@@ -262,6 +264,27 @@ function WordOnCloth({
   )
 }
 
+/** Chest line and collar band, faint and out of the pointer's way. */
+function PanelGuideOverlay({ guides }: { guides: PanelGuides }) {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden font-body text-[0.6rem] text-flv-muted">
+      <div
+        className="absolute inset-x-0 top-0 border-b border-dashed border-flv-muted/40 bg-[repeating-linear-gradient(135deg,transparent_0_4px,rgb(91_98_112/0.08)_4px_8px)]"
+        style={{ height: `${guides.collarFromTop * 100}%` }}
+      >
+        <span className="absolute bottom-0.5 left-1">Collar · doesn't print</span>
+      </div>
+      <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-flv-muted/25" />
+      <div
+        className="absolute inset-x-0 border-t border-dashed border-flv-muted/35"
+        style={{ top: `${guides.chestFromTop * 100}%` }}
+      >
+        <span className="absolute top-0.5 left-1">{guides.chestLabel}</span>
+      </div>
+    </div>
+  )
+}
+
 function PaintSurface({
   panel,
   label,
@@ -305,6 +328,9 @@ function PaintSurface({
   setEditingWord: (editing: boolean) => void
   onActivate: () => void
 }) {
+  // Guides are measured on the tee; concept garments have none.
+  const teeGuides = useEditorStore((state) => isCanonicalGarment({ garmentId: state.garmentId }))
+  const guides = teeGuides ? panelGuides({ panel }) : null
   const startStroke = useEditorStore((state) => state.startStroke)
   const appendStroke = useEditorStore((state) => state.appendStroke)
   const endStroke = useEditorStore((state) => state.endStroke)
@@ -614,6 +640,7 @@ function PaintSurface({
           endStroke()
         }}
       />
+      {guides ? <PanelGuideOverlay guides={guides} /> : null}
       {editingWord && selected?.kind === 'text' && selected.panel === panel ? (
         <WordOnCloth
           layer={selected}
