@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- **My Studio** shows designs as cards with a garment tile, the title, and Private or Published with an icon, three to a row on a laptop. The public name form and delete dialog match the new look.
 - **New look, first step:** heavy sans headlines, a brighter red-to-orange brand on near-white, sentence-case controls and a new site header. Words on a garment keep their fonts.
 - **Login on the landing goes to sign-in.** It used to jump to the waitlist.
 - **Four steps instead of six:** Garment, Color & Pattern, Design, Preview & Publish, with a numbered stepper. Fit had nothing for the tee, and Preview and Publish are now one step. Old links to `?step=fit` and `?step=preview` still open the right step.
