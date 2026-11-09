@@ -81,6 +81,9 @@ export function DesignCard({
       // Local recovery for a deleted design would only offer a dead end.
       void clearRecovery({ storage: indexedDbRecoveryStorage, ownerId, designId: design.id })
       setMode('view')
+      // Now, not on the next render: the open dialog makes the page inert,
+      // and the list moves focus as soon as it hears.
+      dialog.current?.close()
       onDeleted()
     } else if (result.code !== 'account-changed') {
       setMode('view')
