@@ -14,6 +14,7 @@ import {
 } from '../../lib/cloth-pointer'
 import { useEditorStore } from '../../lib/editor-store'
 import { acceptsPointer } from '../../lib/palm-rejection'
+import { claimDrawingPointer, isOtherPointer } from '../../lib/pointer-owner'
 import { showsPaintPane } from '../../lib/create-steps'
 import { garmentCanPaint, partLabel } from '../../lib/garment-parts'
 import {
@@ -60,6 +61,7 @@ export function SelectableMesh({
   const startStroke = useEditorStore((state) => state.startStroke)
   const appendStroke = useEditorStore((state) => state.appendStroke)
   const endStroke = useEditorStore((state) => state.endStroke)
+  const cancelStroke = useEditorStore((state) => state.cancelStroke)
   const addText = useEditorStore((state) => state.addText)
   const selectLayer = useEditorStore((state) => state.selectLayer)
   const startLayerEdit = useEditorStore((state) => state.startLayerEdit)
@@ -91,13 +93,21 @@ export function SelectableMesh({
       return
     }
 
-    function finishClothPointer() {
+    function finishClothPointer(event: PointerEvent) {
+      if (isOtherPointer({ pointerId: event.pointerId })) {
+        return
+      }
+
       if (endClothDrag()) {
         endLayerEdit()
       }
 
       if (endClothPaint()) {
-        endStroke()
+        if (event.type === 'pointercancel') {
+          cancelStroke({ pointerType: event.pointerType })
+        } else {
+          endStroke()
+        }
       }
     }
 
@@ -108,7 +118,7 @@ export function SelectableMesh({
       window.removeEventListener('pointerup', finishClothPointer)
       window.removeEventListener('pointercancel', finishClothPointer)
     }
-  }, [canPaint, endLayerEdit, endStroke])
+  }, [canPaint, cancelStroke, endLayerEdit, endStroke])
 
   return (
     <primitive
@@ -142,6 +152,16 @@ export function SelectableMesh({
 
         event.stopPropagation()
         event.nativeEvent.preventDefault()
+
+        if (
+          !claimDrawingPointer({
+            pointerId: event.nativeEvent.pointerId,
+            pointerType: event.nativeEvent.pointerType,
+          })
+        ) {
+          return
+        }
+
         setPaintPanel({ paintPanel: point.panel })
 
         if (paintTool === 'type') {
@@ -205,7 +225,11 @@ export function SelectableMesh({
         })
       }}
       onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-        if (!canPaint || !acceptsPointer({ pointerType: event.nativeEvent.pointerType })) {
+        if (
+          !canPaint ||
+          !acceptsPointer({ pointerType: event.nativeEvent.pointerType }) ||
+          isOtherPointer({ pointerId: event.nativeEvent.pointerId })
+        ) {
           return
         }
 
@@ -249,8 +273,8 @@ export function SelectableMesh({
               : undefined,
         })
       }}
-      onPointerUp={() => {
-        if (!canPaint) {
+      onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+        if (!canPaint || isOtherPointer({ pointerId: event.nativeEvent.pointerId })) {
           return
         }
 
@@ -263,8 +287,8 @@ export function SelectableMesh({
           endStroke()
         }
       }}
-      onPointerCancel={() => {
-        if (!canPaint) {
+      onPointerCancel={(event: ThreeEvent<PointerEvent>) => {
+        if (!canPaint || isOtherPointer({ pointerId: event.nativeEvent.pointerId })) {
           return
         }
 
@@ -273,7 +297,7 @@ export function SelectableMesh({
         }
 
         if (endClothPaint()) {
-          endStroke()
+          cancelStroke({ pointerType: event.nativeEvent.pointerType })
         }
       }}
       onPointerOver={(event: ThreeEvent<PointerEvent>) => {

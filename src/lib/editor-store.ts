@@ -231,6 +231,8 @@ type EditorState = {
     pressure?: number
   }) => void
   endStroke: () => void
+  /** A touch that was cancelled is dropped; a pen or mouse keeps its drawing. */
+  cancelStroke: ({ pointerType }: { pointerType: string }) => void
   /** Clears the ink on one panel (default: the panel being drawn on). */
   clearInk: ({ panel }?: { panel?: PanelId }) => void
   addGraphic: ({
@@ -1270,6 +1272,14 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         activeStroke: null,
       }
     })
+  },
+  cancelStroke: ({ pointerType }) => {
+    if (pointerType === 'touch') {
+      set({ activeStroke: null })
+      return
+    }
+
+    get().endStroke()
   },
   clearInk: ({ panel } = {}) => {
     set((state) =>
