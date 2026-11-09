@@ -104,7 +104,9 @@ function staticShareMarkup({ payload }: { payload: PublicDesign }) {
 
 /**
  * Replaces the shell's site-wide title and preview tags with this design's,
- * and adds the preload and payload. Pure, so it is tested directly.
+ * and adds the preload and payload. A published design also loses the
+ * build's JS preloads: on a slow connection they share the line with the
+ * first image and held it past the 3 s budget. Pure, so it is tested directly.
  */
 export function injectShareHead({
   shell,
@@ -115,7 +117,9 @@ export function injectShareHead({
   head: string
   payload: PublicDesign | null
 }) {
-  const stripped = shell
+  const firstImageFirst = payload ? shell.replace(/<link\b[^>]*\brel="modulepreload"[^>]*>\s*/gi, '') : shell
+
+  const stripped = firstImageFirst
     .replace(/<title>[\s\S]*?<\/title>/i, '')
     .replace(/<meta\b[^>]*\b(?:property="og:[^"]*"|name="(?:twitter:[^"]*|description)")[^>]*>/gi, '')
 

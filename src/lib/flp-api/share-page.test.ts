@@ -89,6 +89,25 @@ describe('share page head (#182, #184)', () => {
     expect(html).toContain('og:image" content="https://house.test/og-default.png"')
   })
 
+  test('a published design drops the JS preloads so the first image is not queued behind them', () => {
+    const shell = SHELL.replace(
+      '</head>',
+      '<link rel="modulepreload" crossorigin href="/assets/a.js">\n    <link rel="modulepreload" crossorigin href="/assets/b.js">\n  </head>',
+    )
+
+    const html = injectShareHead({ shell, head: headFor(PAYLOAD), payload: PAYLOAD })
+
+    expect(html).not.toContain('modulepreload')
+    expect(html).toContain('src="/assets/index-abc.js"')
+    expect(html).toContain('rel="preload" as="image"')
+  })
+
+  test('an unknown design keeps the JS preloads, since it has no image to put first', () => {
+    const shell = SHELL.replace('</head>', '<link rel="modulepreload" crossorigin href="/assets/a.js">\n  </head>')
+
+    expect(injectShareHead({ shell, head: headFor(null), payload: null })).toContain('modulepreload')
+  })
+
   test('the views are in the HTML before the app loads, escaped', () => {
     const shell = SHELL.replace('<body><div id="root"></div></body>', '<body><div id="root"></div></body>')
     const html = injectShareHead({ shell, head: headFor(PAYLOAD), payload: PAYLOAD })

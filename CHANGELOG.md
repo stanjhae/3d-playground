@@ -32,6 +32,7 @@ The studio overhaul candidate. Four steps instead of six, Guided by default with
 - **Shared UI parts** for buttons, tools, choices, swatches, sliders, panels and steps, with Lucide icons. The studio panels move onto them as they're rebuilt.
 
 ### Fixed
+- **A shared design's first picture was over its 3 s budget on slow connections,** waiting behind the page's scripts. It now loads first; the page's controls follow a little later.
 - **The Pro tools switch** no longer hides the P of its own label, and its knob stays inside the track.
 - **On phones the tools covered the bottom of the tee.** The 3D stage now ends where the tools begin on every step, so the whole tee shows above them, and the tools scroll when a short screen leaves little room.
 - **Moving between steps restarted the 3D preview,** replaying its intro and telling Publish the preview would be "back" when nothing was wrong. The canvas now stays mounted across steps, and while it starts Publish says so in muted text.
