@@ -14,6 +14,7 @@ import {
   createOwnedDesign,
   listOwnedDesigns,
 } from '../lib/flp-api/client'
+import { failureSentence } from '../lib/flp-api/plain-messages'
 import { consumeLandingHandoff, peekLandingHandoff } from '../lib/landing-handoff'
 import type { CanonicalDocument } from '../lib/canonical-document'
 import type { PendingAsset } from '../lib/legacy-import'
@@ -158,7 +159,7 @@ function MyStudio() {
         setCreateError(result.message)
       } else if (result.code !== 'account-changed') {
         setCreateError(
-          `Your design was not created (${result.message}). Nothing was saved to the cloud; try again.`,
+          `${failureSentence({ lead: 'Your design was not created', reason: result.message })} Nothing was saved to the cloud; try again.`,
         )
       }
       return
@@ -193,7 +194,7 @@ function MyStudio() {
       void trackAssumption({ name: 'design_created' })
       void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
     } else if (result.code !== 'account-changed') {
-      setCreateError(result.code === 'quota_exceeded' ? result.message : `The example could not open (${result.message}). Try again.`)
+      setCreateError(result.code === 'quota_exceeded' ? result.message : failureSentence({ lead: 'The example could not open', reason: result.message }))
     }
   }
 
@@ -257,7 +258,7 @@ function MyStudio() {
       ) : list.status === 'failed' ? (
         <div className="flex flex-col items-start gap-3">
           <p role="alert" className="font-body text-sm text-flv-accent">
-            Your designs could not load ({list.message}).
+            {failureSentence({ lead: 'Your designs could not load', reason: list.message })}
           </p>
           <button type="button" className={buttonClass} onClick={() => void load()}>
             Try again

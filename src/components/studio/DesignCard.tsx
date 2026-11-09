@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
 import { type DesignSummary, deleteDesign, updateDesign } from '../../lib/flp-api/client'
+import { failureSentence } from '../../lib/flp-api/plain-messages'
 
 /**
  * One owned design in My Studio: open, rename in place, or delete after a
@@ -56,7 +57,7 @@ export function DesignCard({
       onRenamed(result.data.title)
       setMode('view')
     } else if (result.code !== 'account-changed') {
-      setError(`Not renamed (${result.message}).`)
+      setError(failureSentence({ lead: 'Not renamed', reason: result.message }))
     }
   }
 
@@ -73,7 +74,7 @@ export function DesignCard({
       onDeleted()
     } else if (result.code !== 'account-changed') {
       setMode('view')
-      setError(`Not deleted (${result.message}).`)
+      setError(failureSentence({ lead: 'Not deleted', reason: result.message }))
     }
   }
 

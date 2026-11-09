@@ -22,6 +22,7 @@ import type {
   VersionResponse,
 } from './contract.ts'
 import type { OwnerPublication, PublicRenderKind } from './publication.ts'
+import { plainApiMessage } from './plain-messages.ts'
 
 /**
  * Browser calls to `/api/flp/*` (S03 #172). Each call carries the current
@@ -191,16 +192,16 @@ async function callOnce<T>({
 
   if (!response.ok) {
     const error = payload && 'error' in payload ? payload.error : undefined
+    const code = (error?.code as ApiErrorCode | undefined) ?? 'internal'
+    const retryAfter = response.status === 429 ? Number(response.headers.get('retry-after')) || 5 : undefined
 
     return {
       ok: false,
-      code: (error?.code as ApiErrorCode | undefined) ?? 'internal',
-      message: error?.message ?? 'Something went wrong',
+      code,
+      message: plainApiMessage({ code, message: error?.message, retryAfter }),
       ...(error && 'headSeq' in error ? { headSeq: error.headSeq } : {}),
       ...(error?.reason ? { reason: error.reason } : {}),
-      ...(response.status === 429
-        ? { retryAfter: Number(response.headers.get('retry-after')) || 5 }
-        : {}),
+      ...(retryAfter === undefined ? {} : { retryAfter }),
     }
   }
 

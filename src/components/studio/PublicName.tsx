@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { getProfile, setDisplayName } from '../../lib/flp-api/client'
+import { failureSentence } from '../../lib/flp-api/plain-messages'
 
 /**
  * The name this account shows on published designs (A06 #150). Optional;
@@ -46,7 +47,7 @@ export function PublicName() {
           setDraft(result.data.displayName ?? '')
           setStatus(result.data.displayName ? 'Saved' : 'Cleared: published designs show no name')
         } else if (result.code !== 'account-changed') {
-          setStatus(`Not saved (${result.message})`)
+          setStatus(failureSentence({ lead: 'Not saved', reason: result.message }))
         }
       }}
     >

@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { useEditorStore } from '../../lib/editor-store'
 import { updateDesign } from '../../lib/flp-api/client'
+import { failureSentence } from '../../lib/flp-api/plain-messages'
 
 /**
  * The open cloud design's name, renamable in place (A06 #150). A rename is
@@ -33,7 +34,7 @@ export function CloudTitle() {
 
     if (!result.ok && result.code !== 'account-changed') {
       setCloudTitle({ title: current })
-      setError(`Not renamed (${result.message}).`)
+      setError(failureSentence({ lead: 'Not renamed', reason: result.message }))
     } else {
       setError(null)
     }
@@ -101,7 +102,7 @@ function CloudDescription() {
 
     if (!result.ok && result.code !== 'account-changed') {
       setCloudDescription({ description: current })
-      setError(`Description not saved (${result.message}).`)
+      setError(failureSentence({ lead: 'Description not saved', reason: result.message }))
     } else {
       setError(null)
     }

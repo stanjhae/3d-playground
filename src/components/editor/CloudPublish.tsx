@@ -15,6 +15,7 @@ import {
   unpublishDesign,
   uploadRenders,
 } from '../../lib/flp-api/client'
+import { failureSentence } from '../../lib/flp-api/plain-messages'
 import type { OwnerPublication, PublicRenderKind } from '../../lib/flp-api/publication'
 import { publishBlockedReason, useWebglStore } from '../scene/webgl-status'
 import { useCloudSaveStore } from './CloudSave'
@@ -181,7 +182,7 @@ export function CloudPublish() {
 
       if (!uploaded.ok) {
         setBusy(null)
-        setMessage(`The views could not be saved (${uploaded.message}).`)
+        setMessage(failureSentence({ lead: 'The views could not be saved', reason: uploaded.message }))
         return
       }
 
@@ -195,7 +196,7 @@ export function CloudPublish() {
 
       if (!result.ok) {
         void trackAssumption({ name: 'publish_failed' })
-        setMessage(`Not published (${result.message}).`)
+        setMessage(failureSentence({ lead: 'Not published', reason: result.message }))
         return
       }
 
@@ -225,7 +226,7 @@ export function CloudPublish() {
     setBusy(null)
 
     if (!result.ok) {
-      setMessage(`Still published (${result.message}).`)
+      setMessage(failureSentence({ lead: 'Still published', reason: result.message }))
       return
     }
 
