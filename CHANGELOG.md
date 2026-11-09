@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.9.0-rc.6: alpha release candidate (9 Nov 2026)
+
+The studio overhaul candidate. Four steps instead of six, Guided by default with a Pro tools switch, a white 3D stage, a new look across the site, and clearer sign-in failures. Delivered by #310–#318.
 
 ### Changed
 - **Selected item is a properties panel:** Size and angle, then Colour, then, in Pro, Exact placement with position, opacity and Mirror to other side.
