@@ -77,7 +77,7 @@ async function renewOrEnd(): Promise<string | null> {
     return data.session.access_token
   }
 
-  await signOut({ client })
+  await signOut({ client, expired: true })
   return null
 }
 

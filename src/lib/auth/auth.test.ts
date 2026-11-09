@@ -7,16 +7,21 @@ import {
   codeFlowErrorFromAuth,
   sendErrorFromAuth,
   codeFlowReducer,
+  CODE_LIFETIME_MS,
+  forgetCodeStep,
   isValidEmail,
   normalizeCode,
   normalizeEmail,
+  rememberCodeStep,
   resendSecondsLeft,
+  restoreCodeFlow,
 } from './code-flow'
 import { DEFAULT_RETURN_PATH, safeReturnPath } from './return-path'
 import {
   accountGuard,
   applySession,
   onAccountChange,
+  signOut,
   useSessionStore,
 } from './session-store'
 
@@ -170,5 +175,84 @@ describe('session store', () => {
     stop()
 
     expect(seen).toEqual(['a', 'b', null])
+  })
+})
+
+describe('code step across a reload', () => {
+  function fakeStorage() {
+    const items = new Map<string, string>()
+
+    return {
+      getItem: (key: string) => items.get(key) ?? null,
+      setItem: (key: string, value: string) => void items.set(key, value),
+      removeItem: (key: string) => void items.delete(key),
+      items,
+    }
+  }
+
+  const sentAt = 1_000_000
+
+  test('returns to the code step with the resend wait intact', () => {
+    const storage = fakeStorage()
+    rememberCodeStep({ storage, email: 'ada@example.com', sentAt })
+
+    expect(restoreCodeFlow({ storage, now: sentAt + 5_000 })).toEqual({
+      ...INITIAL_CODE_FLOW,
+      step: 'code',
+      email: 'ada@example.com',
+      resendAt: sentAt + RESEND_SECONDS * 1000,
+    })
+  })
+
+  test('stores only the address and the time', () => {
+    const storage = fakeStorage()
+    rememberCodeStep({ storage, email: 'ada@example.com', sentAt })
+
+    expect(JSON.parse([...storage.items.values()][0]!)).toEqual({ email: 'ada@example.com', sentAt })
+  })
+
+  test('starts over once the code has expired', () => {
+    const storage = fakeStorage()
+    rememberCodeStep({ storage, email: 'ada@example.com', sentAt })
+
+    expect(restoreCodeFlow({ storage, now: sentAt + CODE_LIFETIME_MS })).toEqual(INITIAL_CODE_FLOW)
+  })
+
+  test('starts over after forgetting, or with nothing usable stored', () => {
+    const storage = fakeStorage()
+    rememberCodeStep({ storage, email: 'ada@example.com', sentAt })
+    forgetCodeStep({ storage })
+    expect(restoreCodeFlow({ storage, now: sentAt })).toEqual(INITIAL_CODE_FLOW)
+
+    storage.setItem('flp-sign-in-code-step', '{not json')
+    expect(restoreCodeFlow({ storage, now: sentAt })).toEqual(INITIAL_CODE_FLOW)
+    expect(restoreCodeFlow({ storage: null, now: sentAt })).toEqual(INITIAL_CODE_FLOW)
+  })
+})
+
+describe('sessionExpired', () => {
+  beforeEach(() => {
+    applySession({ session: session({ userId: 'a' }) })
+  })
+
+  test('a session that ends by itself counts as expired', () => {
+    applySession({ session: null })
+    expect(useSessionStore.getState().sessionExpired).toBe(true)
+  })
+
+  test('choosing to sign out does not', async () => {
+    await signOut({ client: null })
+    expect(useSessionStore.getState().sessionExpired).toBe(false)
+  })
+
+  test('the server ending it does', async () => {
+    await signOut({ client: null, expired: true })
+    expect(useSessionStore.getState().sessionExpired).toBe(true)
+  })
+
+  test('signing back in clears it', () => {
+    applySession({ session: null })
+    applySession({ session: session({ userId: 'a' }) })
+    expect(useSessionStore.getState().sessionExpired).toBe(false)
   })
 })
