@@ -9,9 +9,11 @@ import { ArrowRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { AccountControl } from '../components/auth/AccountControl'
+import { SiteFooter } from '../components/site/SiteFooter'
+import { SiteMenu } from '../components/site/SiteMenu'
 import { buttonClass } from '../components/ui/Button'
 import { CONCEPT_FEATURES } from '../lib/concept-flags'
-import { onAccountChange, startSession } from '../lib/auth/session-store'
+import { onAccountChange, startSession, useSessionStore } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
 import { useEditorStore } from '../lib/editor-store'
@@ -49,6 +51,35 @@ const MARKETING_LINKS = [
   ...(CONCEPT_FEATURES ? [{ href: '#community', label: FLV_COPY.navCommunity }] : []),
   { href: '#waitlist', label: FLV_COPY.navAbout },
 ] as const
+
+/**
+ * The studio fills the window, and a shared design carries its own footer
+ * with these links.
+ */
+function showsSiteFooter({ pathname }: { pathname: string }) {
+  return pathname !== '/create' && !pathname.startsWith('/s/')
+}
+
+/** Back to your designs when signed in; otherwise a way to sign in. */
+function LandingAccountLink({ className }: { className: string }) {
+  const signedIn = useSessionStore((state) => state.status === 'signed-in')
+
+  if (signedIn) {
+    return (
+      <Link to="/studio" className={className}>
+        {FLV_COPY.myStudio}
+      </Link>
+    )
+  }
+
+  return authConfigured() ? (
+    <Link to="/sign-in" search={{ returnTo: '/studio' }} className={className}>
+      {FLV_COPY.login}
+    </Link>
+  ) : null
+}
+
+const MENU_LINK_CLASS = 'flex min-h-11 items-center rounded-lg px-3 text-flv-ink hover:bg-flv-soft'
 
 function RootShell() {
   const lookMatch = useMatch({
@@ -120,7 +151,7 @@ function RootShell() {
           </span>
         </Link>
         {isLanding ? (
-          <nav className="hidden items-center gap-8 font-body text-sm md:flex">
+          <nav aria-label="Site" className="hidden items-center gap-8 font-body text-sm md:flex">
             {MARKETING_LINKS.map((link) => (
               <a
                 key={link.href}
@@ -132,7 +163,7 @@ function RootShell() {
             ))}
           </nav>
         ) : (
-          <nav className="flex items-center gap-2 font-body text-sm sm:gap-4">
+          <nav aria-label="Site" className="flex items-center gap-2 font-body text-sm sm:gap-4">
             <NavLink
               to="/"
               label="Home"
@@ -168,15 +199,7 @@ function RootShell() {
         )}
         {isLanding ? (
           <div className="flex items-center gap-2 sm:gap-3">
-            {authConfigured() ? (
-              <Link
-                to="/sign-in"
-                search={{ returnTo: '/studio' }}
-                className="hidden min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-ink sm:inline-flex"
-              >
-                {FLV_COPY.login}
-              </Link>
-            ) : null}
+            <LandingAccountLink className="hidden min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-ink md:inline-flex" />
             <a
               href="#waitlist"
               className={buttonClass()}
@@ -184,12 +207,21 @@ function RootShell() {
               {FLV_COPY.joinWaitlist}
               <ArrowRight aria-hidden className="size-4" />
             </a>
+            <SiteMenu>
+              {MARKETING_LINKS.map((link) => (
+                <a key={link.href} href={link.href} className={MENU_LINK_CLASS}>
+                  {link.label}
+                </a>
+              ))}
+              <LandingAccountLink className={MENU_LINK_CLASS} />
+            </SiteMenu>
           </div>
         ) : null}
       </header>
       <main className="relative flex-1 bg-flv-paper text-flv-ink">
         <Outlet />
       </main>
+      {showsSiteFooter({ pathname: location.pathname }) ? <SiteFooter /> : null}
     </div>
   )
 }
