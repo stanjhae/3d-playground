@@ -15,8 +15,12 @@ test.afterAll(async () => {
 })
 
 const OTP = '**/auth/v1/otp'
-/** Auth refuses a second code for one email within a minute. */
-const RESEND_WAIT_MS = 61_000
+/**
+ * Auth refuses a second code for one email within a minute. The page counts
+ * that minute from the answer, which comes after the email the test reads,
+ * and redraws once a second, so the button can be a few seconds later.
+ */
+const RESEND_WAIT_MS = 70_000
 
 function answer({ status, body }: { status: number; body: Record<string, unknown> }) {
   return (route: Route) =>
