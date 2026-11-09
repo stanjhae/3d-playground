@@ -5,7 +5,7 @@ import { type Page, expect, test } from '@playwright/test'
 import { chooseTool, drawStroke, expectSaved, latestCode, panelCanvas } from './helpers'
 
 /**
- * Recorded fallback for the 17 Nov demo (#201). Plays docs/demo.md's
+ * Recorded fallback for the 1 Dec demo (#201). Plays docs/demo.md's
  * five-minute script against the preview build, slowly enough to watch,
  * and saves the video as `demo-fallback.webm` in the repo root (ignored
  * by git). Runs only on request, after `node scripts/demo-reset.mjs`:

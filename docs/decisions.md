@@ -1,6 +1,12 @@
 # Product and delivery decisions (V03 #198)
 
-Decisions that change scope or behaviour for the 17 November alpha, with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
+Decisions that change scope or behaviour for the 1 December alpha (17 November until the entry of 9 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
+
+## 9 Nov 2026: the alpha moves to 1 December, and the freeze to 24 November
+
+**Decided by:** owner.
+
+The 17 November demo is replaced by a 1 December target, to use the time on quality. The feature freeze moves from 12 to 24 November, followed by a week of hardening only. Changes to stored data land by 20 November (`docs/release.md`). This brings back into scope work deferred past the 17 November demo, including #164 and the template and compiler revision on stored renders (#179), and account-based voting. The entries below keep the dates they were decided against.
 
 ## 4 Nov 2026: the preview says when it isn't the whole design (#164)
 

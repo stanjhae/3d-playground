@@ -4,13 +4,15 @@ How the alpha is versioned, what may change after the freeze, and the checks eve
 
 ## Versions
 
-- `0.9.0-rc.N`: release candidates for the 17 Nov alpha. The version is in `package.json`, and each candidate gets a git tag `v0.9.0-rc.N`.
-- `0.9.0`: the alpha shown on 17 Nov. It is the last green candidate, retagged with no code changes.
+- `0.9.0-rc.N`: release candidates for the 1 Dec alpha. The version is in `package.json`, and each candidate gets a git tag `v0.9.0-rc.N`.
+- `0.9.0`: the alpha shown on 1 Dec. It is the last green candidate, retagged with no code changes.
 - `CHANGELOG.md` gets one entry per candidate, grouped by area, with the PRs that delivered each change.
 
-## Freeze (12 Nov 2026)
+## Freeze (24 Nov 2026)
 
-From the freeze until the demo:
+Changes to stored data (migrations, a new document format, or a change to the pixels the atlas draws) land by 20 Nov, so they have the longest time in use.
+
+From the freeze until the alpha:
 - **Only fixes for critical or high defects**, meaning anything that loses or leaks data, shows the wrong version publicly, or breaks the demo journey. No new features, no refactors, no dependency upgrades.
 - Each fix is its own PR, links its issue, and adds a test that would have caught it. CI must be green, browser tests included.
 - After any merge, cut a new candidate (`rc.N+1`) and rerun the checklist below.
