@@ -63,7 +63,9 @@ test('asking again too soon is refused by the server, says to wait, and works af
   await askForCode({ page, email })
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
 
-  // A reload loses the countdown, so only the server stops this one.
+  // A reload keeps the code step, but a new tab starts afresh with no
+  // countdown, so only the server stops this one.
+  await page.evaluate(() => sessionStorage.clear())
   await page.reload()
   const refused = page.waitForResponse((response) => response.url().includes('/auth/v1/otp'))
   await askForCode({ page, email })
