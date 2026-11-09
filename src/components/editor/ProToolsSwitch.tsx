@@ -14,17 +14,17 @@ export function ProToolsSwitch() {
       onClick={() => {
         setPro({ pro: !pro })
       }}
-      className="inline-flex min-h-11 items-center gap-2 font-body text-sm text-flv-muted hover:text-flv-ink"
+      className="inline-flex min-h-11 items-center gap-2 font-body text-sm whitespace-nowrap text-flv-muted hover:text-flv-ink"
     >
       <span
         aria-hidden
-        className={cn('relative h-5 w-9 rounded-full transition-colors', {
+        className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', {
           'bg-flv-ink': pro,
           'bg-flv-line': !pro,
         })}
       >
         <span
-          className={cn('absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform', {
+          className={cn('absolute top-0.5 left-0 size-4 rounded-full bg-white shadow transition-transform', {
             'translate-x-4.5': pro,
             'translate-x-0.5': !pro,
           })}
