@@ -2,7 +2,7 @@
 
 ## 0.9.0-rc.6: alpha release candidate (9 Nov 2026)
 
-The studio overhaul candidate. Four steps instead of six, Guided by default with a Pro tools switch, a white 3D stage, a new look across the site, and clearer sign-in failures. Delivered by #310–#318.
+The studio overhaul candidate. Four steps instead of six, Guided by default with a Pro tools switch, a white 3D stage, a new look across the site, and clearer sign-in failures. Delivered by #310–#318 and #320.
 
 ### Changed
 - **Selected item is a properties panel:** Size and angle, then Colour, then, in Pro, Exact placement with position, opacity and Mirror to other side.
@@ -39,6 +39,21 @@ The studio overhaul candidate. Four steps instead of six, Guided by default with
 - **A page behind sign-in stayed blank when the sign-in service couldn't be reached.** It now says it's opening and, after 6 seconds, that it's still connecting, with Try again. It keeps waiting rather than sending a signed-in person to sign in.
 - **A sign-in email that failed to send told people to check their connection.** It now says the code couldn't be sent, and an outage of the sign-in service no longer blames the connection either (#145).
 - **The email limit for the hour said to wait a minute.** The message now says to try again in an hour if it keeps appearing (#145).
+
+### Known limits for the alpha
+- **The browser journey was not run on staging for this candidate.** The hosted check passed its other 11 checks with none failed, but the run had no way to read sign-in codes, so sign-in and the journey on staging were last proven on rc.5 (4 Nov). The studio overhaul has not been through them there.
+- **First-image time on staging was not re-measured for this candidate.** The local production build gives 1.42 to 1.45 s on Fast 3G.
+- **The first request after a sign-in can fail on the local stack.** When the database API has been quiet for 30 seconds or more, it can refuse a token issued moments earlier ("JWT issued at future", PGRST303), and that request returns a server error. In the demo walk the list retried and My Studio showed every design a second later. Not seen in any test failure, and not known whether staging does the same.
+- **Marks near a side seam read narrower:** the torso is an oval, so shapes are true across the central half.
+- **Brush dabs and base patterns draw in atlas proportions:** on a sleeve a dab looks about 1.7:1 tall, and a check's cells aren't square.
+- **A very large design** may not fit the copy made as the page goes away, so an instant reload can still lose its last stroke.
+- **After a full page navigation straight after a rename,** My Studio can briefly show the old name.
+- **After sign-out,** a direct database read with the old access token can still work until it expires, at most an hour (`docs/decisions.md`, 3 Nov).
+- **The remaining decisions** keep these differences from the PRD: the input limits, no reset camera, pruned autosaves, a manual takedown, two pattern colours from ground and brush, no confirmation on unpublish, and the thin side-on view (`docs/decisions.md`, 2 Nov).
+- **Stored renders** don't carry a template or compiler revision, which needs a migration (part of #179).
+- **WebKit stands in for recent Safari.** Real iPhone Safari and Android aren't tested, and editing on phones isn't claimed (#191).
+- **Local draft restore** re-imports on `@1`, so it loses the true-shape drawing. Cloud designs and their recovery aren't affected.
+- **Owner items:** rights (#138), brand and product decisions (#198), the claims questions (#199), branch protection (#192), the operator for alerts (#193), and validation and pitch work (#196, #197, #200, #201).
 
 ## 0.9.0-rc.5: alpha release candidate (4 Nov 2026)
 
