@@ -2,6 +2,7 @@ import { ImageUp, Pencil, Shapes, Type, type LucideIcon } from 'lucide-react'
 
 import { cn } from '../../lib/cn'
 import { type DesignTool, useEditorStore } from '../../lib/editor-store'
+import { RadioGroup } from '../ui/RadioGroup'
 
 const TOOLS: ReadonlyArray<{ id: DesignTool; label: string; icon: LucideIcon }> = [
   { id: 'draw', label: 'Draw', icon: Pencil },
@@ -16,7 +17,7 @@ export function DesignToolRail() {
   const setDesignTool = useEditorStore((state) => state.setDesignTool)
 
   return (
-    <div role="radiogroup" aria-label="Tools" className="flv-panel grid grid-cols-4 gap-1 p-1.5">
+    <RadioGroup aria-label="Tools" className="flv-panel grid grid-cols-4 gap-1 p-1.5">
       {TOOLS.map((tool) => {
         const selected = tool.id === designTool
         const Icon = tool.icon
@@ -43,6 +44,6 @@ export function DesignToolRail() {
           </button>
         )
       })}
-    </div>
+    </RadioGroup>
   )
 }

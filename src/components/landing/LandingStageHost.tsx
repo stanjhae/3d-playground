@@ -45,6 +45,7 @@ import {
 import { INK_COLORS } from '../../lib/paint-colors'
 import { isSafeThumbnail } from '../../lib/look-thumbnail'
 import { rankDesigns } from '../../lib/rank-designs'
+import { RadioGroup } from '../ui/RadioGroup'
 
 type DocumentChangeHandler = ({
   apply,
@@ -1052,7 +1053,7 @@ function PreviewDemo({
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Environment">
+        <RadioGroup className="flex flex-wrap gap-2" aria-label="Environment">
           {(['studio', 'outdoor'] as const).map((mode) => (
             <button
               key={mode}
@@ -1073,7 +1074,7 @@ function PreviewDemo({
               {mode}
             </button>
           ))}
-        </div>
+        </RadioGroup>
       </div>
     </div>
   )

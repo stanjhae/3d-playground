@@ -37,6 +37,7 @@ import {
   chromeTextClass,
 } from '../../lib/studio-chrome'
 import { trimAngleStillsForLook } from '../../lib/look-payload'
+import { RadioGroup } from '../ui/RadioGroup'
 
 let studioCanvas: HTMLCanvasElement | null = null
 
@@ -335,9 +336,8 @@ export function PublishBar({
           <p className={chromeKickerClass()}>{HOUSE_COPY.angles}</p>
           <p className={chromeMutedClass()}>Design details</p>
         </div>
-        <div
+        <RadioGroup
           className="grid grid-cols-3 gap-2"
-          role="radiogroup"
           aria-label={HOUSE_COPY.angles}
         >
           {ANGLE_STRIP.map((angle) => {
@@ -383,7 +383,7 @@ export function PublishBar({
               </button>
             )
           })}
-        </div>
+        </RadioGroup>
       </div>
       <label className="flex min-w-0 flex-col gap-2">
         <span className={chromeKickerClass()}>{HOUSE_COPY.lookTitle}</span>
@@ -475,9 +475,8 @@ export function PublishBar({
       </div>
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.method}</p>
-        <div
+        <RadioGroup
           className="flex flex-wrap gap-2"
-          role="radiogroup"
           aria-label={HOUSE_COPY.method}
         >
           {METHOD_OPTIONS.map((method) => (
@@ -504,13 +503,12 @@ export function PublishBar({
               {method.label}
             </button>
           ))}
-        </div>
+        </RadioGroup>
       </div>
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>Visibility</p>
-        <div
+        <RadioGroup
           className="flex flex-wrap gap-2"
-          role="radiogroup"
           aria-label="Visibility"
         >
           {VISIBILITY_OPTIONS.map((option) => (
@@ -537,7 +535,7 @@ export function PublishBar({
               {option.label}
             </button>
           ))}
-        </div>
+        </RadioGroup>
       </div>
       <div className="flex w-full flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -586,9 +584,8 @@ export function PublishBar({
       </div>
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.challenge}</p>
-        <div
+        <RadioGroup
           className="flex flex-wrap gap-2"
-          role="radiogroup"
           aria-label={HOUSE_COPY.challenge}
         >
           <button
@@ -635,7 +632,7 @@ export function PublishBar({
               {challenge.title}
             </button>
           ))}
-        </div>
+        </RadioGroup>
       </div>
       {inkError ? (
         <p className="w-full font-body text-sm text-flv-muted">{inkError}</p>

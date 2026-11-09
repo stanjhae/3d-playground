@@ -2,16 +2,17 @@ import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { chromeTextClass } from '../../lib/studio-chrome'
+import { RadioGroup } from '../ui/RadioGroup'
 
 export function StudioViewToggle() {
   const studioView = useEditorStore((state) => state.studioView)
   const setStudioView = useEditorStore((state) => state.setStudioView)
 
   return (
-    <nav
+    <RadioGroup
+      as="nav"
       aria-label={HOUSE_COPY.studioView}
       className="flex gap-3 lg:hidden"
-      role="radiogroup"
     >
       <button
         type="button"
@@ -41,6 +42,6 @@ export function StudioViewToggle() {
       >
         {HOUSE_COPY.cloth}
       </button>
-    </nav>
+    </RadioGroup>
   )
 }

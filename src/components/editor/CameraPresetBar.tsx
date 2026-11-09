@@ -5,6 +5,7 @@ import {
 } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { chromeTextClass } from '../../lib/studio-chrome'
+import { RadioGroup } from '../ui/RadioGroup'
 
 /** Sleeve presets name the render side: `left` is the wearer's right (see `garments.ts`). */
 export const CAMERA_BAR_PRESETS: { id: CameraPreset; label: string }[] = [
@@ -21,10 +22,10 @@ export function CameraPresetBar() {
   const setCameraPreset = useEditorStore((state) => state.setCameraPreset)
 
   return (
-    <nav
+    <RadioGroup
+      as="nav"
       aria-label="Camera"
       className="flex flex-wrap justify-center gap-x-3 rounded-xl border border-flv-line bg-flv-paper/92 px-3 py-2"
-      role="radiogroup"
     >
       {CAMERA_BAR_PRESETS.map((preset) => (
         <button
@@ -43,6 +44,6 @@ export function CameraPresetBar() {
           {preset.label}
         </button>
       ))}
-    </nav>
+    </RadioGroup>
   )
 }
