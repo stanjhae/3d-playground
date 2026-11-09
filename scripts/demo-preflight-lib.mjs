@@ -37,7 +37,7 @@ const CHECKS = [
   {
     id: 'env',
     label: '.env.local is set for the local stack',
-    fix: 'Copy the values from supabase status into .env.local (see .env.example), and leave VITE_FLP_REQUIRE_AUTH unset.',
+    fix: 'Copy the values from supabase status into .env.local (see .env.example), set VITE_FLP_CONTACT_EMAIL, and leave VITE_FLP_REQUIRE_AUTH unset.',
     run: ({ probes }) => probes.envReady(),
   },
   {

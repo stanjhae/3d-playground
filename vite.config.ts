@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { loadEnv } from 'vite'
 import { defineConfig, type Plugin } from 'vitest/config'
 
+import { assertDeployEnv } from './src/lib/build-env.ts'
 import { securityHeaders, supabaseMetaPolicy, supabaseOrigin } from './src/lib/security-headers.ts'
 
 async function incomingToRequest({
@@ -194,7 +195,13 @@ function supabaseCspPlugin({ supabase }: { supabase: string | null }): Plugin {
 }
 
 export default defineConfig(({ command, mode }) => {
-  const supabase = supabaseOrigin({ url: loadEnv(mode, process.cwd(), 'VITE_').VITE_SUPABASE_URL })
+  const viteEnv = loadEnv(mode, process.cwd(), 'VITE_')
+  const supabase = supabaseOrigin({ url: viteEnv.VITE_SUPABASE_URL })
+
+  if (command === 'build') {
+    assertDeployEnv({ env: { VERCEL: process.env.VERCEL, ...viteEnv } })
+  }
+
   // Vite's dev client injects its React refresh preamble and CSS inline;
   // a per-start nonce lets them run under the same policy as production.
   const devNonce = command === 'serve' ? crypto.randomUUID().replaceAll('-', '') : undefined

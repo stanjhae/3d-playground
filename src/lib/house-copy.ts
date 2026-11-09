@@ -86,7 +86,7 @@ export const HOUSE_COPY = {
   tapToPlace: 'Tap to place',
   morning: 'Save this look',
   restoreMorning: 'Morning',
-  join: 'Join the house',
+  join: 'Your email',
   joining: 'Joining',
   joined: 'You are on the list.',
   waitlistFailed: 'The list could not take that address.',

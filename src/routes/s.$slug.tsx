@@ -224,11 +224,9 @@ function SharedDesign() {
       <footer className="flex flex-wrap items-center justify-between gap-3 font-body text-xs text-flv-muted">
         <p>{PUBLIC_PREVIEW_DISCLAIMER} Shown on a fixed T-shirt template.</p>
         <p className="flex gap-4">
-          {reportHref ? (
-            <a className="underline hover:text-flv-accent" href={reportHref}>
-              Report this design
-            </a>
-          ) : null}
+          <a className="underline hover:text-flv-accent" href={reportHref}>
+            Report this design
+          </a>
           <Link to="/privacy" className="underline hover:text-flv-accent">
             Privacy
           </Link>

@@ -39,6 +39,10 @@ function Privacy() {
           <li>Images you upload into a design, checked and stored privately.</li>
           <li>Unsaved changes, kept only in this browser until they reach your account.</li>
           <li>
+            If you join the waitlist: the email address you enter, kept only to tell you when there’s news. It isn’t
+            linked to an account.
+          </li>
+          <li>
             If you publish a design: the version you chose, five pictures of it, its name and the public name you
             entered.
           </li>
@@ -68,7 +72,8 @@ function Privacy() {
         <h2 className={headingClass}>Removing your data</h2>
         <p className={textClass}>
           Delete any design from <Link to="/studio" className="underline">My Studio</Link>; its history, pictures and
-          public link go with it. To delete your whole account, email {contact} from the address you sign in with.
+          public link go with it. To delete your whole account, email {contact} from the address you sign in with. To
+          leave the waitlist, email the same address from the one you joined with.
         </p>
       </div>
 

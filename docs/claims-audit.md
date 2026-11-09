@@ -44,7 +44,7 @@ Listed top to bottom. "Before" is the copy on `master`. Copy lives in `src/lib/f
 | Claim | State | Evidence or change |
 | --- | --- | --- |
 | Brand "FLV / Fashion Leader Vote" | Open question | The public brand isn't decided (#125 §2, #198); see Q1. |
-| Nav: Product, How it works, Community, About, Login, Join the waitlist | Working | Anchors on the same page. "Community" scrolls to the concept-labelled sample ranking. "About" goes to the waitlist; see Q6. |
+| Nav: Product, How it works, Community, About, Sign in, Join the waitlist | Working | Anchors on the same page. "Community" scrolls to the concept-labelled sample ranking. "About" goes to the waitlist; see Q6. |
 | "Design fashion. See it instantly. Lead the future." | Working (slogan) | "See it instantly": the hero 3D updates as you draw on the pad. "Lead the future" is aspirational and makes no measurable claim. |
 | "Draw freely, refine digitally and see every change instantly on a realistic 3D garment." | Working | Draw and Tech modes, live 3D: WA0000/WA0012 rows. The visual quality bar is R16 (#125); the owner judges "realistic". |
 | "Start creating →" | Working | Links to `/create`, which requires sign-in. The handoff carries the landing design: `e2e/landing-import.spec.ts`. |
@@ -65,7 +65,7 @@ Listed top to bottom. "Before" is the copy on `master`. Copy lives in `src/lib/f
 | "Three steps. One seamless flow. Same garment. Live at every step." | Working | The three landing stages drive one shared hero stage. |
 | Garment: "Choose a silhouette and cut. Bring ideas to life." | Working (tee), concept (others) | Neck, hem and sleeve on the tee are in the studio (`src/lib/garments.ts` structural options). Non-tees: WA0001 row. |
 | Design: "Draw freely. Tech refine. See every side live." | Working | WA0008, WA0012 rows. |
-| **Try on & share: "Try it on. Capture media. Enter the board."** | **Removed**, replaced | "Capture media" (AI shoot) and "Enter the board" (rankings) are concepts. Now "Preview every side. Share a saved version by link." The rail label "Try on & share" stays, and the stage it opens is concept-labelled; see Q2. |
+| **Try on & share: "Try it on. Capture media. Enter the board."** | **Removed**, replaced | "Capture media" (AI shoot) and "Enter the board" (rankings) are concepts. Now "Preview every side. Share a saved version by link." The rail label is now "Preview & share", matching the studio's "Preview & Publish" step, and the stage it opens is concept-labelled; see Q2. |
 
 ### Stage demos (`src/components/landing/LandingStageHost.tsx`)
 

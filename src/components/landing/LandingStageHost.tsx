@@ -5,6 +5,7 @@ import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import { parseCreateStep } from '../../lib/create-search'
 import type { AvatarMeasurements } from '../../lib/avatar-geometry'
+import { AUTH_REQUIRED } from '../../lib/auth/supabase-client'
 import { CONCEPT_FEATURES, isCanonicalGarment } from '../../lib/concept-flags'
 import type { DesignDocument, HemId, NeckId, SleeveId } from '../../lib/design-document'
 import { listDesigns } from '../../lib/designs-api'
@@ -1080,6 +1081,8 @@ function PreviewDemo({
   )
 }
 
+const shareLinkClass = 'flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-sm font-medium'
+
 function ShareDemo({
   onBeforeStudioNavigate,
 }: {
@@ -1213,16 +1216,16 @@ function ShareDemo({
             </button>
           ))}
         </div>
-        <Link
-          to="/create"
-          search={{ step: 'share' }}
-          onClick={() => {
-            onBeforeStudioNavigate?.()
-          }}
-          className="flv-cta inline-flex min-h-11 items-center justify-center px-4 font-body text-sm font-medium"
-        >
-          {FLV_COPY.sharePublish} →
-        </Link>
+        {/* With accounts, publishing starts from a saved design in My Studio. */}
+        {AUTH_REQUIRED ? (
+          <Link to="/studio" onClick={onBeforeStudioNavigate} className={shareLinkClass}>
+            {FLV_COPY.shareFromMyStudio} →
+          </Link>
+        ) : (
+          <Link to="/create" search={{ step: 'share' }} onClick={onBeforeStudioNavigate} className={shareLinkClass}>
+            {FLV_COPY.sharePublish} →
+          </Link>
+        )}
       </div>
     </div>
   )
