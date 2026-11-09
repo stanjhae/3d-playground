@@ -147,12 +147,16 @@ export async function handleSharePage({
 }) {
   const url = new URL(request.url)
   const slug = url.searchParams.get('slug') ?? url.pathname.match(/^\/s\/([^/]+)\/?$/)?.[1] ?? undefined
+  // A failed read still serves the app, which asks again and can say so.
   const published = env
     ? await findPublishedDesign({
         admin: createClient(env.url, env.secretKey, {
           auth: { persistSession: false, autoRefreshToken: false },
         }),
         slug,
+      }).catch((error: unknown) => {
+        console.error('flp share page read failed', { error })
+        return null
       })
     : null
 

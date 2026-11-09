@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { describe, expect, test, vi } from 'vitest'
 
 import {
   BASE_PUBLIC_RENDER_KINDS,
@@ -8,6 +9,7 @@ import {
   parseRenderUpload,
   publicDesignPayload,
   publicImagePath,
+  readPublicDesign,
 } from './publication'
 
 const renders = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data: 'AAAA' }))
@@ -89,5 +91,42 @@ describe('publicDesignPayload', () => {
     const payload = publicDesignPayload({ published: published([...BASE_PUBLIC_RENDER_KINDS, 'atlas']) })
 
     expect(Object.keys(payload.renders)).toEqual([...BASE_PUBLIC_RENDER_KINDS])
+  })
+})
+
+describe('readPublicDesign', () => {
+  function adminAnswering(answer: { data: unknown; error: unknown }) {
+    const query = {
+      select: () => query,
+      eq: () => query,
+      maybeSingle: async () => answer,
+    }
+
+    return { from: () => query } as unknown as SupabaseClient
+  }
+
+  const respond = ({ status, body }: { status: number; body?: unknown }) => Response.json(body, { status })
+
+  test('a design that is not published is a 404', async () => {
+    const response = await readPublicDesign({
+      admin: adminAnswering({ data: null, error: null }),
+      slug: '3f9a1c22b7e04d11',
+      respond,
+    })
+
+    expect(response.status).toBe(404)
+  })
+
+  test('a database failure is a 500, not "not published"', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const response = await readPublicDesign({
+      admin: adminAnswering({ data: null, error: { message: 'connection refused' } }),
+      slug: '3f9a1c22b7e04d11',
+      respond,
+    })
+
+    expect(response.status).toBe(500)
+    expect(JSON.stringify(await response.json())).not.toContain('connection refused')
+    quiet.mockRestore()
   })
 })
