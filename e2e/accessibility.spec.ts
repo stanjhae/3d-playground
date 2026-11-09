@@ -192,8 +192,11 @@ test('save, history, publishing and sharing work from the keyboard alone', async
   await expectSaved({ page })
 
   // An edit, saved with no pointer involved.
-  await tabTo({ page, target: page.getByRole('radio', { name: 'Text', exact: true }) })
-  await page.keyboard.press('Space')
+  // A radio group is one Tab stop; the arrow keys choose within it.
+  await tabTo({ page, target: page.getByRole('radio', { name: 'Draw', exact: true }) })
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('radio', { name: 'Text', exact: true })).toBeFocused()
+  await expect(page.getByRole('radio', { name: 'Text', exact: true })).toHaveAttribute('aria-checked', 'true')
   await tabTo({ page, target: page.getByPlaceholder('Your text') })
   await page.keyboard.type('KEYS')
   await page.keyboard.press('Enter')
@@ -224,16 +227,20 @@ test('save, history, publishing and sharing work from the keyboard alone', async
   await page.keyboard.press('Enter')
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   await expect(link).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('status').filter({ hasText: /^Published version \d+\./ })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Published' })).toBeFocused()
 
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
   await tabTo({ page, target: page.getByRole('button', { name: 'Copy link' }) })
   await page.keyboard.press('Enter')
   const href = (await link.getAttribute('href'))!
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(href)
+  await expect(page.getByRole('status').filter({ hasText: 'Link copied.' })).toBeVisible()
 
   await tabTo({ page, target: page.getByRole('button', { name: 'Unpublish' }) })
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Publish…' })).toBeFocused()
+  await expect(page.getByRole('status').filter({ hasText: 'Unpublished.' })).toBeVisible()
   const visitor = await browser.newContext()
   const anonymous = await visitor.newPage()
   await anonymous.goto(new URL(href).pathname)
