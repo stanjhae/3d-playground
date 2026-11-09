@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { reportDesignHref } from '../lib/alpha-contact'
 import { useCopyStatus } from '../lib/copy-text'
 import { HOUSE_COPY } from '../lib/house-copy'
+import { pageTitle } from '../lib/page-title'
 import { PUBLIC_PREVIEW_DISCLAIMER } from '../lib/og-card'
 import { getPublicDesign } from '../lib/flp-api/public-read'
 import type { PublicDesign } from '../lib/flp-api/publication'
@@ -124,6 +125,16 @@ function SharedDesign() {
     }
   }, [attempt, state.status])
 
+  // Named after the design, once it is known which one this is.
+  const designTitle = state.status === 'ready' ? state.design.title : null
+  const failureHeading = state.status === 'ready' || state.status === 'loading' ? null : FAILURES[state.status].heading
+
+  useEffect(() => {
+    if (designTitle || failureHeading) {
+      document.title = pageTitle({ label: designTitle ?? failureHeading })
+    }
+  }, [designTitle, failureHeading])
+
   // The server's pre-rendered views cover the app until this page has
   // rendered (#182); take them away once there is something to show.
   useEffect(() => {
@@ -145,7 +156,7 @@ function SharedDesign() {
 
     return (
       <section className="mx-auto max-w-xl px-4 py-24">
-        <h1 ref={heading} tabIndex={-1} className="font-display text-3xl outline-none">
+        <h1 ref={heading} tabIndex={-1} data-focus-target className="font-display text-3xl">
           {failure.heading}
         </h1>
         <p className="mt-2 font-body text-sm text-flv-muted">{failure.detail}</p>
@@ -173,7 +184,7 @@ function SharedDesign() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Shared design</p>
-          <h1 ref={heading} tabIndex={-1} className="font-display text-4xl leading-tight outline-none [overflow-wrap:anywhere]">
+          <h1 ref={heading} tabIndex={-1} data-focus-target className="font-display text-4xl leading-tight [overflow-wrap:anywhere]">
             {design.title}
           </h1>
           <p className="font-body text-sm text-flv-muted">

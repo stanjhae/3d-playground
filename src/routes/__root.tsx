@@ -4,9 +4,10 @@ import {
   createRootRoute,
   useLocation,
   useMatch,
+  useRouterState,
 } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { AccountControl } from '../components/auth/AccountControl'
 import { SiteFooter } from '../components/site/SiteFooter'
@@ -20,6 +21,7 @@ import { useEditorStore } from '../lib/editor-store'
 import { listDesigns } from '../lib/designs-api'
 import { listSnapshots } from '../lib/design-snapshots'
 import { FLV_COPY } from '../lib/flv-copy'
+import { ownsPageTitle, pageTitle, routeLabel } from '../lib/page-title'
 import { HOUSE_LOOK_FALLBACK_ID, lookIdFromPathname } from '../lib/paths'
 import { rankDesigns } from '../lib/rank-designs'
 
@@ -93,6 +95,32 @@ function RootShell() {
     lookIdFromPathname({ pathname: location.pathname }) ??
     leaderId
   const isLanding = location.pathname === '/'
+  const main = useRef<HTMLElement | null>(null)
+  // The page actually on screen, unlike `location`, which moves first.
+  const shownPath = useRouterState({ select: (state) => state.resolvedLocation?.pathname })
+  const previousPath = useRef(shownPath)
+
+  useEffect(() => {
+    if (shownPath && !ownsPageTitle({ pathname: shownPath })) {
+      document.title = pageTitle({ label: routeLabel({ pathname: shownPath }) })
+    }
+
+    const firstPage = previousPath.current === undefined
+    const changed = previousPath.current !== shownPath
+    previousPath.current = shownPath
+
+    if (firstPage || !changed) {
+      return
+    }
+
+    // A new page starts reading at its content, unless it already chose
+    // where to put focus, as sign-in does with its first field.
+    const active = document.activeElement
+
+    if (!main.current?.contains(active) || active === main.current) {
+      main.current?.focus({ preventScroll: true })
+    }
+  }, [shownPath])
 
   useEffect(() => {
     void startSession({ client: getSupabaseClient() })
@@ -125,6 +153,17 @@ function RootShell() {
 
   return (
     <div className="flv flex min-h-dvh flex-col">
+      <a
+        href="#main-content"
+        className="flv-cta sr-only rounded-full px-4 py-2 font-body text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+        // Without changing the URL, which the router would treat as a move.
+        onClick={(event) => {
+          event.preventDefault()
+          main.current?.focus()
+        }}
+      >
+        Skip to content
+      </a>
       <header
         className={cn(
           'z-30 flex items-center justify-between gap-3 border-b border-flv-line bg-flv-paper/95 text-flv-ink backdrop-blur-sm',
@@ -218,7 +257,13 @@ function RootShell() {
           </div>
         ) : null}
       </header>
-      <main className="relative flex-1 bg-flv-paper text-flv-ink">
+      <main
+        ref={main}
+        id="main-content"
+        tabIndex={-1}
+        data-focus-target
+        className="relative flex-1 bg-flv-paper text-flv-ink"
+      >
         <Outlet />
       </main>
       {showsSiteFooter({ pathname: location.pathname }) ? <SiteFooter /> : null}

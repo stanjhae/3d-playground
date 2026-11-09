@@ -173,6 +173,11 @@ html {
   outline-offset: 2px;
 }
 
+/* Places focus is moved to by script, so reading continues there; not controls. */
+[data-focus-target]:focus-visible {
+  outline: none;
+}
+
 /* Inside scrolling rails an outset ring would be clipped; draw it inside. */
 .flv-panel :focus-visible {
   outline-offset: -2px;

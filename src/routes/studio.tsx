@@ -73,6 +73,8 @@ function MyStudio() {
   const [list, setList] = useState<ListState>({ status: 'loading' })
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [listNotice, setListNotice] = useState('')
+  const designsHeading = useRef<HTMLHeadingElement | null>(null)
   const [landing] = useState(() => peekLandingHandoff())
   // A landing design is shown before and after conversion, then created
   // only when the person chooses (F06 #141).
@@ -203,7 +205,9 @@ function MyStudio() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <p className="font-body text-xs font-medium tracking-[0.08em] text-flv-accent uppercase">My Studio</p>
-          <h1 className="font-display text-4xl leading-none uppercase">Your designs</h1>
+          <h1 ref={designsHeading} tabIndex={-1} data-focus-target className="font-display text-4xl leading-none uppercase">
+            Your designs
+          </h1>
           <p className="font-body text-sm text-flv-muted">
             Private to you. New designs save to your account as you work.
           </p>
@@ -249,6 +253,10 @@ function MyStudio() {
 
       <PublicName />
 
+      <p role="status" className="sr-only">
+        {listNotice}
+      </p>
+
       <p role="status" aria-live="polite" className="min-h-5 font-body text-sm text-flv-accent">
         {createError}
       </p>
@@ -275,7 +283,8 @@ function MyStudio() {
               <DesignCard
                 design={design}
                 ownerId={ownerId ?? ''}
-                onRenamed={(title) =>
+                onRenamed={(title) => {
+                  setListNotice(`Renamed to ${title}.`)
                   setList((current) =>
                     current.status === 'ready'
                       ? {
@@ -286,14 +295,17 @@ function MyStudio() {
                         }
                       : current,
                   )
-                }
-                onDeleted={() =>
+                }}
+                onDeleted={() => {
+                  setListNotice(`Deleted ${design.title}.`)
                   setList((current) =>
                     current.status === 'ready'
                       ? { status: 'ready', designs: current.designs.filter((each) => each.id !== design.id) }
                       : current,
                   )
-                }
+                  // The card and everything in it are gone.
+                  designsHeading.current?.focus()
+                }}
               />
             </li>
           ))}

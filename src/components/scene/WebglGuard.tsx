@@ -1,6 +1,8 @@
 import { useThree } from '@react-three/fiber'
-import { Component, useEffect, useState, type ReactNode } from 'react'
+import { Component, useEffect, useMemo, useState, type ReactNode } from 'react'
 
+import { useEditorStore } from '../../lib/editor-store'
+import { describeDesign } from '../../lib/scene-description'
 import {
   WEBGL_COPY,
   detectWebgl,
@@ -25,6 +27,20 @@ declare global {
   }
 }
 
+const SCENE_DESCRIPTION_ID = 'studio-scene-description'
+
+/** Not a live region: it would read out every stroke. */
+function SceneDescription() {
+  const design = useEditorStore((state) => state.document)
+  const description = useMemo(() => describeDesign({ document: design }), [design])
+
+  return (
+    <p id={SCENE_DESCRIPTION_ID} className="sr-only">
+      {description}
+    </p>
+  )
+}
+
 /**
  * Lives inside the R3F Canvas: reports context loss and restore on the
  * renderer's canvas. Listeners come off before R3F disposes the renderer,
@@ -47,6 +63,10 @@ export function WebglContextWatcher() {
       dispatch('context-restored')
     }
 
+    // A canvas is blank to a screen reader without this; the words sit beside it.
+    canvas.setAttribute('role', 'img')
+    canvas.setAttribute('aria-label', '3D preview')
+    canvas.setAttribute('aria-describedby', SCENE_DESCRIPTION_ID)
     canvas.addEventListener('webglcontextlost', onLost)
     canvas.addEventListener('webglcontextrestored', onRestored)
     dispatch('probe-ok')
@@ -156,11 +176,17 @@ export function WebglGuard({ children }: { children: ReactNode }) {
   )
 
   if (!available || status === 'unsupported') {
-    return <PreviewNotice {...WEBGL_COPY.unsupported} />
+    return (
+      <>
+        <SceneDescription />
+        <PreviewNotice {...WEBGL_COPY.unsupported} />
+      </>
+    )
   }
 
   return (
     <>
+      <SceneDescription />
       <CanvasErrorBoundary key={generation} onError={() => dispatch('canvas-failed')}>
         {children}
       </CanvasErrorBoundary>
