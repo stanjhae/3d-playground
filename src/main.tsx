@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client'
 import { RouteError, RouteNotFound } from './components/ui/RouteFallbacks'
 import { RoutePending } from './components/ui/RoutePending'
 import { createErrorReporter, installWindowHandlers, sendToTunnel } from './lib/error-reporter'
+import { startWebVitals } from './lib/web-vitals'
 import { routeTree } from './routeTree.gen'
 import './styles.css'
 
@@ -30,6 +31,11 @@ declare module '@tanstack/react-router' {
 // work and dev servers never send anything.
 const report = createErrorReporter({ send: import.meta.env.PROD ? sendToTunnel : () => {} })
 installWindowHandlers({ target: window, report })
+
+// Web Vitals ratings (P4, docs/operations.md), also production only.
+if (import.meta.env.PROD) {
+  void startWebVitals()
+}
 
 /** Router control flow (a redirect or a not-found) is thrown, but isn't a fault. */
 function reportReactError({ error, mechanism }: { error: unknown; mechanism: string }) {

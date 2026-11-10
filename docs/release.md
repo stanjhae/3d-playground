@@ -24,7 +24,8 @@ Run it on the exact commit to be tagged, in the main checkout.
 
 **Build and tests**
 - [ ] `pnpm install --frozen-lockfile`
-- [ ] `pnpm build` (route generation, typecheck, Vite) is clean, and the bundle is within budget (the CI `check` job)
+- [ ] `pnpm lint` and `pnpm audit --audit-level high` are clean
+- [ ] `pnpm build` (route generation, typecheck, Vite) is clean, and `node scripts/check-budgets.mjs` passes (JS and GLB budgets, also in the CI `check` job)
 - [ ] `pnpm test`
 - [ ] `supabase test db`: **Result: PASS**
 - [ ] `pnpm test:integration`

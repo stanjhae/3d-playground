@@ -128,6 +128,7 @@ try {
       const text = await page.evaluate(() => document.body.innerText)
       throw new Error(
         `Remix for ${look.id} did not land.\n${text.slice(0, 800)}\n${error}`,
+        { cause: error },
       )
     }
 

@@ -38,7 +38,7 @@ Environment variables:
 
 Reproducibility gaps:
 
-- `package.json` has no `packageManager` field, so the pnpm version is not pinned. Pinning under pnpm 12 also writes the pnpm binary into `pnpm-lock.yaml` and can change how Vercel installs, so it belongs to Q07 #192 (CI and release process), not this record.
+- `package.json` had no `packageManager` field, so the pnpm version was not pinned. Pinned to `pnpm@12.15.0` on 10 Nov 2026 (P4). pnpm 12 then writes its own binaries into `pnpm-lock.yaml`, which pnpm 10 can't read, but Vercel reads the field and installs with pnpm 12.15.0 (checked with a preview deployment of the P4 branch), and CI's `pnpm/action-setup` takes the version from it.
 
 ## Uncommitted work at audit time
 
@@ -90,7 +90,7 @@ Measured 30 October 2026 on `03f6f07` plus the #168 change (the WebGL guard adds
 | CSS + fonts | 9 KiB + 37 KiB | |
 | **Total** | **≈1.6 MiB** | |
 
-All JS in `dist/assets` (every route) is 492 KiB gzip; the largest chunk is `StudioStage` at 269 KiB.
+All JS in `dist/assets` (every route) was 492 KiB gzip; the largest chunk was `StudioStage` at 269 KiB. For today's figures see Budgets below.
 
 ### Editor frame time
 
@@ -122,17 +122,22 @@ The numbers are atlas work only, before the canvas upload and the WebGL frame. S
 
 ### Budgets
 
+Refreshed 10 November 2026 (P4) on the P4 branch, which is `master` at `34808bf` plus the lazily loaded Web Vitals chunk (3 KiB). `master` alone is 531.2 KiB of JS, so the 492 KiB above is out of date: the studio overhaul (rc.6) moved code out of `StudioStage` and into shared chunks.
+
 | Budget | Limit | Today | Enforced |
 | --- | --- | --- | --- |
-| All JS, gzip | 570 KiB | 492 KiB | CI `check` job (`JS_TOTAL_KIB`) |
-| Largest JS chunk, gzip | 310 KiB | 269 KiB | CI `check` job (`JS_CHUNK_KIB`) |
-| Editor first load, all bytes | 2.0 MiB | ≈1.6 MiB | Manual, re-measure before release |
-| GLB per garment template | 1.2 MiB | 1.10 MiB max (`coat.glb`) | Manual |
-| Editor frame time on a laptop-class GPU | p95 ≤ 16.7 ms (60 fps); uncapped p95 ≤ 8 ms | 16.8 / 3.8 ms | Manual |
+| All JS, gzip | 570 KiB | 534.6 KiB (37 chunks) | CI `check` job, `scripts/check-budgets.mjs` |
+| Largest JS chunk, gzip | 310 KiB | 173.2 KiB (`StudioStage`) | CI `check` job, `scripts/check-budgets.mjs` |
+| GLB per garment template | 1.2 MiB | 1.10 MiB max (`coat.glb`, 1,127 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
+| Editor first load, all bytes over the wire | 2.0 MiB | 611 KiB (the tee editor, signed in, cold cache) | CI browser tests, `e2e/budgets.spec.ts` |
+| Editor frame time on a laptop-class GPU | p95 ≤ 16.7 ms (60 fps); uncapped p95 ≤ 8 ms | 16.8 / 3.8 ms (30 Oct) | Manual |
+| Editor frame cost on CI (software WebGL) | see `ciFrameCostP95Ms` | see below | CI browser tests, `e2e/budgets.spec.ts` |
 
-The CI limits sit about 15% over today. Raising one is a deliberate change: update this table and the `env` in `.github/workflows/ci.yml` together.
+All limits live in `scripts/budgets.json`. Raising one is a deliberate change: update that file and this table in the same commit. The all-JS limit now has only about 7% headroom, not 15%. Lazy chunks count toward it as well, so a new route or library has to fit.
 
-To re-measure: `pnpm build`, then `pnpm preview`, then load `/create?step=design` at 1440×900 with the cache disabled and sum the Network panel by type. For frame time, sample `requestAnimationFrame` deltas for ~10 s with vsync off.
+The browser budgets run in the CI browser shards against the production build:
+- **First load** reloads the editor of a new tee with the cache cleared and switched off. It then adds up every response's encoded size from the Chrome DevTools Protocol (`Network.loadingFinished`), headers included. That covers what the tee editor loads, including Supabase calls. It is lower than the 1.6 MiB above because the default gown is no longer preloaded on the editor.
+- **Frame cost** times each `requestAnimationFrame` callback while the camera is dragged back and forth on Preview & Publish. CI draws WebGL in software (SwiftShader) inside that callback, so the cost there is a CPU regression signal. It is not a frame rate, and it is limited only on CI. On a laptop GPU the same callbacks take well under 1 ms, because the GPU does the work after the callback.
 
 Cheap wins, not done here: drop the default-gown `useGLTF.preload` on the editor (saves ~900 KiB when another garment is chosen), and split `@supabase/supabase-js` out of the first paint.
 

@@ -93,6 +93,7 @@ export function HistoryPanel() {
       void loadPage({ append: false })
     }
     // Reload the first page when the panel opens or the design changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only those two
   }, [open, designId])
 
   if (!cloud) {
