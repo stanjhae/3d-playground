@@ -72,9 +72,22 @@ function isRenderKind(value: unknown): value is PublicRenderKind {
   return typeof value === 'string' && (PUBLIC_RENDER_KINDS as readonly string[]).includes(value)
 }
 
-/** Parse `{ seq, renders: [{ kind, data }] }` strictly. */
+/** What drew a set of views (C2): the garment template and the atlas compiler. */
+export type RenderBuildStamp = { templateVersion: number | null; compilerVersion: number | null }
+
+const STAMP_FIELDS = ['templateVersion', 'compilerVersion'] as const
+
+function isStampVersion(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 1000
+}
+
+/**
+ * Parse `{ seq, renders: [{ kind, data }], templateVersion?, compilerVersion? }`
+ * strictly. The stamp is optional so a studio tab opened before C2 can still
+ * publish; its views are stored unstamped.
+ */
 export function parseRenderUpload({ value }: { value: unknown }):
-  | { ok: true; seq: number; renders: Array<{ kind: PublicRenderKind; data: string }> }
+  | { ok: true; seq: number; renders: Array<{ kind: PublicRenderKind; data: string }>; stamp: RenderBuildStamp }
   | { ok: false; error: ApiError } {
   const invalid = (path: string, message: string) => ({
     ok: false as const,
@@ -88,8 +101,14 @@ export function parseRenderUpload({ value }: { value: unknown }):
   const record = value as Record<string, unknown>
 
   for (const key of Object.keys(record)) {
-    if (key !== 'seq' && key !== 'renders') {
+    if (key !== 'seq' && key !== 'renders' && !(STAMP_FIELDS as readonly string[]).includes(key)) {
       return invalid(`$.${key}`, 'unknown field')
+    }
+  }
+
+  for (const key of STAMP_FIELDS) {
+    if (record[key] !== undefined && !isStampVersion(record[key])) {
+      return invalid(`$.${key}`, 'expected a version number')
     }
   }
 
@@ -117,7 +136,15 @@ export function parseRenderUpload({ value }: { value: unknown }):
     renders.push({ kind: entry.kind, data: entry.data })
   }
 
-  return { ok: true, seq: record.seq as number, renders }
+  return {
+    ok: true,
+    seq: record.seq as number,
+    renders,
+    stamp: {
+      templateVersion: (record.templateVersion as number | undefined) ?? null,
+      compilerVersion: (record.compilerVersion as number | undefined) ?? null,
+    },
+  }
 }
 
 async function ownedDesign({ asUser, designId }: { asUser: SupabaseClient; designId: string }) {
@@ -170,9 +197,51 @@ async function sha256Hex({ bytes }: { bytes: ArrayBuffer }) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
+/**
+ * The ready views of one version whose stored bytes still hash to the hash
+ * recorded at upload. A view whose file is missing or changed isn't intact,
+ * so an upload repairs it instead of keeping it (docs/backup-restore.md).
+ */
+async function intactRenderKinds({ admin, designId, seq }: { admin: SupabaseClient; designId: string; seq: number }) {
+  const { data, error } = await admin
+    .from('render_artifacts')
+    .select('kind, storage_path, sha256')
+    .eq('design_id', designId)
+    .eq('version_seq', seq)
+    .eq('status', 'ready')
+
+  if (error) {
+    throw new Error('render read failed', { cause: error })
+  }
+
+  const intact = new Set<string>()
+
+  for (const row of data ?? []) {
+    const stored = await admin.storage.from(BUCKET).download(row.storage_path as string)
+
+    if (!stored.error && stored.data && (await sha256Hex({ bytes: await stored.data.arrayBuffer() })) === row.sha256) {
+      intact.add(row.kind as string)
+    }
+  }
+
+  return intact
+}
+
 const notFound = () => apiError({ code: 'not_found', message: 'Design not found' })
 
-/** POST /designs/:id/renders — store validated views of one saved version. */
+/**
+ * POST /designs/:id/renders — store validated views of one saved version.
+ *
+ * A version's views are write-once (C2): a view that is already ready is
+ * kept as it is, bytes, hash and stamp, and never replaced by a later
+ * upload. Republishing a version (a new display name, or after unpublishing)
+ * re-sends its views; overwriting them would swap what an earlier publish
+ * showed, and the swap itself left a moment where the stored file and its
+ * recorded hash disagreed, so the public view 404'd. Missing views (the
+ * sleeves of a version published before #179) are still added, and a view
+ * whose stored file no longer matches its hash is replaced, so republishing
+ * still repairs a broken view.
+ */
 export async function uploadRenders({
   value,
   admin,
@@ -207,6 +276,15 @@ export async function uploadRenders({
     return respond({ status: error.status, body: error.body })
   }
 
+  let kept: Set<string>
+
+  try {
+    kept = await intactRenderKinds({ admin, designId, seq: parsed.seq })
+  } catch {
+    console.error('flp render read failed')
+    return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+  }
+
   for (const render of parsed.renders) {
     const checked = await validateImage({ bytes: decodeBase64({ value: render.data }) })
 
@@ -217,6 +295,10 @@ export async function uploadRenders({
         issues: [{ path: `$.renders.${render.kind}`, message: checked.reason }],
       })
       return respond({ status: error.status, body: error.body })
+    }
+
+    if (kept.has(render.kind)) {
+      continue
     }
 
     const extension = checked.image.mimeType === 'image/png' ? 'png' : 'jpg'
@@ -240,6 +322,8 @@ export async function uploadRenders({
         status: 'ready',
         storage_path: storagePath,
         sha256: checked.image.sha256,
+        template_version: parsed.stamp.templateVersion,
+        compiler_version: parsed.stamp.compilerVersion,
       },
       { onConflict: 'design_id,version_seq,kind' },
     )
@@ -250,7 +334,15 @@ export async function uploadRenders({
     }
   }
 
-  return respond({ status: 201, body: { seq: parsed.seq, kinds: parsed.renders.map((render) => render.kind) } })
+  return respond({
+    status: 201,
+    body: {
+      seq: parsed.seq,
+      kinds: parsed.renders.map((render) => render.kind),
+      // Views this version already had, left untouched.
+      kept: parsed.renders.map((render) => render.kind).filter((kind) => kept.has(kind)),
+    },
+  })
 }
 
 /** GET /designs/:id/publication — the owner's view of publication state. */

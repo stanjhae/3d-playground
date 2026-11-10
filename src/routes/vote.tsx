@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { LookCard } from '../components/vote/LookCard'
 import { ConceptPreviewBadge } from '../components/ui/ConceptPreviewBadge'
-import { trackAssumption } from '../lib/assumption-events'
 import {
   DEFAULT_BOARD_FILTERS,
   boardGarmentOptions,
@@ -16,7 +15,7 @@ import {
 } from '../lib/board-filters'
 import { listChallenges } from '../lib/challenges'
 import { cn } from '../lib/cn'
-import { listDesigns, voteOnDesign } from '../lib/designs-api'
+import { listDesigns } from '../lib/designs-api'
 import type { Design, GarmentId } from '../lib/design-schema'
 import { FLV_COPY } from '../lib/flv-copy'
 import { getGarment, listRailGarments } from '../lib/garments'
@@ -24,13 +23,7 @@ import { HOUSE_COPY } from '../lib/house-copy'
 import { isSafeThumbnail } from '../lib/look-thumbnail'
 import { rankDesigns } from '../lib/rank-designs'
 import { chromeKickerClass, chromeTextClass } from '../lib/studio-chrome'
-import {
-  applyOptimisticVote,
-  applyVoteResult,
-  isLiveBoardLoad,
-  nextBoardLoadId,
-  revertOptimisticVote,
-} from '../lib/vote-board'
+import { isLiveBoardLoad, nextBoardLoadId } from '../lib/vote-board'
 import { RadioGroup } from '../components/ui/RadioGroup'
 
 export const Route = createFileRoute('/vote')({
@@ -43,7 +36,8 @@ export const Route = createFileRoute('/vote')({
 
     return {}
   },
-  // The guest board is retired where sign-in is required (F09 #144).
+  // The guest board is retired where sign-in is required (F09 #144), and
+  // is read-only everywhere: votes are by account on shared designs (V1).
   component: AUTH_REQUIRED ? NotInAlpha : VotePage,
 })
 
@@ -68,10 +62,7 @@ function VotePage() {
   const { entered } = Route.useSearch()
   const [looks, setLooks] = useState<Design[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [voteError, setVoteError] = useState<string | null>(null)
-  const [votingIds, setVotingIds] = useState<string[]>([])
   const [filters, setFilters] = useState<BoardFilterState>(DEFAULT_BOARD_FILTERS)
-  const votingIdsRef = useRef<string[]>([])
   const boardLoadRef = useRef(0)
   const challenges = listChallenges()
 
@@ -79,7 +70,6 @@ function VotePage() {
     const loadId = nextBoardLoadId({ current: boardLoadRef.current })
     boardLoadRef.current = loadId
     setStatus('loading')
-    setVoteError(null)
 
     void listDesigns()
       .then((designs) => {
@@ -118,37 +108,6 @@ function VotePage() {
       })
     }
   }, [])
-
-  async function handleVote({ id }: { id: string }) {
-    if (votingIdsRef.current.includes(id)) {
-      return
-    }
-
-    votingIdsRef.current = [...votingIdsRef.current, id]
-    setVotingIds(votingIdsRef.current)
-    setVoteError(null)
-    setLooks((current) => applyOptimisticVote({ looks: current, id }))
-
-    try {
-      const result = await voteOnDesign({ id })
-      void trackAssumption({ name: 'voted' })
-      setLooks((current) =>
-        applyVoteResult({
-          looks: current,
-          id: result.id,
-          votes: result.votes,
-        }),
-      )
-    } catch {
-      setLooks((current) => revertOptimisticVote({ looks: current, id }))
-      setVoteError(HOUSE_COPY.voteFailed)
-    } finally {
-      votingIdsRef.current = votingIdsRef.current.filter(
-        (votingId) => votingId !== id,
-      )
-      setVotingIds(votingIdsRef.current)
-    }
-  }
 
   const filteredLooks = useMemo(
     () => filterBoardLooks({ looks, filters }),
@@ -307,9 +266,6 @@ function VotePage() {
           ))}
         </RadioGroup>
       </div>
-      {voteError ? (
-        <p className="font-body text-sm text-flv-muted">{voteError}</p>
-      ) : null}
       {status === 'loading' ? (
         <div className="h-48 rounded-2xl border border-flv-line bg-flv-soft" />
       ) : null}
@@ -351,8 +307,6 @@ function VotePage() {
               isLeader
               featured
               isEntered={entered === leader.id}
-              voting={votingIds.includes(leader.id)}
-              onVote={handleVote}
             />
           </div>
           <div className="flv-panel overflow-x-auto">
@@ -394,11 +348,6 @@ function VotePage() {
                     className={cn('px-4 py-3 text-flv-muted', chromeTextClass())}
                   >
                     {HOUSE_COPY.votes}
-                  </th>
-                  <th
-                    className={cn('px-4 py-3 text-flv-muted', chromeTextClass())}
-                  >
-                    {HOUSE_COPY.vote}
                   </th>
                 </tr>
               </thead>
@@ -476,23 +425,6 @@ function VotePage() {
                       </td>
                       <td className="px-4 py-3 font-body text-sm text-flv-muted">
                         {look.votes}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          disabled={votingIds.includes(look.id)}
-                          onClick={() => {
-                            void handleVote({ id: look.id })
-                          }}
-                          className={cn(
-                            'min-h-9 rounded-full border border-flv-line px-3 text-flv-muted hover:text-flv-accent disabled:opacity-50',
-                            chromeTextClass(),
-                          )}
-                        >
-                          {votingIds.includes(look.id)
-                            ? HOUSE_COPY.voting
-                            : HOUSE_COPY.vote}
-                        </button>
                       </td>
                     </tr>
                   )

@@ -6,6 +6,7 @@
 
 export const DEFAULT_RETURN_PATH = '/studio'
 
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/
 
 export function safeReturnPath({ value }: { value: unknown }) {

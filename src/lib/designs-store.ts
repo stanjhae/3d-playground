@@ -730,31 +730,3 @@ export function removeStoredDesign({ id }: { id: string }) {
 
   liveDesigns = liveDesigns.filter((design) => design.id !== id)
 }
-
-export function voteStoredDesign({ id }: { id: string }): Design | null {
-  const found = getLiveDesigns().find((design) => design.id === id)
-
-  if (!found) {
-    return null
-  }
-
-  found.votes += 1
-
-  return cloneDesign({ design: found })
-}
-
-export function restoreStoredVotes({
-  id,
-  votes,
-}: {
-  id: string
-  votes: number
-}) {
-  const found = getLiveDesigns().find((design) => design.id === id)
-
-  if (!found) {
-    return
-  }
-
-  found.votes = votes
-}

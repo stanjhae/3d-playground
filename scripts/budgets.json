@@ -1,0 +1,8 @@
+{
+  "$comment": "Renderer budgets (R06 #169, P4). Raising one is a deliberate change: update docs/baseline.md in the same commit.",
+  "jsTotalGzipKiB": 570,
+  "jsChunkGzipKiB": 310,
+  "glbPerTemplateKiB": 1228.8,
+  "editorFirstLoadKiB": 2048,
+  "ciFrameCostP95Ms": 8
+}

@@ -46,13 +46,19 @@ function Privacy() {
             If you publish a design: the version you chose, five pictures of it, its name and the public name you
             entered.
           </li>
+          <li>Your votes on shared designs, one per design, linked to your account.</li>
+          <li>
+            To stop any one visitor flooding the site: a scrambled form of your device’s network address, never the
+            address itself, with a count of recent requests. It is deleted within a day.
+          </li>
         </ul>
       </div>
 
       <div className={sectionClass}>
         <h2 className={headingClass}>Who can see it</h2>
         <p className={textClass}>
-          Only you can see your designs, history and uploads. A published design can be viewed, and its pictures
+          Only you can see your designs, history, uploads and votes. Others see only how many votes a shared design
+          has, never who voted. A published design can be viewed, and its pictures
           copied, by anyone with its link. Unpublishing or deleting it stops the link and its pictures working straight
           away. A page someone already has open may keep showing its pictures, and pictures someone already saved can't
           be taken back.
@@ -63,7 +69,10 @@ function Privacy() {
         <h2 className={headingClass}>Usage counts</h2>
         <p className={textClass}>
           To learn whether the alpha works, it counts a few steps in total, such as signing in, creating, saving and
-          publishing a design. The counts carry no email, account, design or device identifiers and no design content.
+          publishing a design. It also counts how fast pages load and respond: for each page visit, whether loading,
+          responding to a tap or click, and layout shifts were good, slow or poor, and for saving and drawing, a
+          rough time range. No exact times are sent. The counts carry no email, account, design or device identifiers
+          and no design content.
           There are no ads, and nothing is sold or shared for marketing.
         </p>
       </div>
@@ -83,8 +92,10 @@ function Privacy() {
         <h2 className={headingClass}>Removing your data</h2>
         <p className={textClass}>
           Delete any design from <Link to="/studio" className="underline">My Studio</Link>; its history, pictures and
-          public link go with it. To delete your whole account, email {contact} from the address you sign in with. To
-          leave the waitlist, email the same address from the one you joined with.
+          public link go with it. To delete your whole account, choose Delete account at the bottom of My Studio and
+          type your email to confirm: your designs, history, pictures, uploads and public links are removed straight
+          away, and you are signed out. Copies in encrypted backups are deleted within 30 days. To leave the waitlist,
+          email {contact} from the address you joined with.
         </p>
       </div>
 
@@ -92,7 +103,8 @@ function Privacy() {
         <h2 className={headingClass}>Reporting a design</h2>
         <p className={textClass}>
           Every shared design page has a “Report this design” link. Reports go to {contact}, and a design that breaks
-          the rules is unpublished.
+          the rules is unpublished and can’t be published again unless the decision is reversed. Its owner keeps the
+          design itself.
         </p>
       </div>
 

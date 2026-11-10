@@ -23,10 +23,6 @@ async function readErrorMessage({
   return fallback
 }
 
-export function voteRequestPath({ id }: { id: string }) {
-  return `/api/designs/${encodeURIComponent(id)}/vote`
-}
-
 export async function listDesigns(): Promise<Design[]> {
   const response = await fetch('/api/designs')
 
@@ -108,29 +104,4 @@ export async function createDesign({
   const body = (await response.json()) as { design: Design }
 
   return body.design
-}
-
-export async function voteOnDesign({
-  id,
-}: {
-  id: string
-}): Promise<{ id: string; votes: number }> {
-  const response = await fetch(voteRequestPath({ id }), {
-    method: 'POST',
-  })
-
-  if (response.status === 404) {
-    throw new Error('That look is gone')
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      await readErrorMessage({
-        response,
-        fallback: HOUSE_COPY.voteFailed,
-      }),
-    )
-  }
-
-  return (await response.json()) as { id: string; votes: number }
 }

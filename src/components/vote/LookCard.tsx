@@ -18,16 +18,12 @@ export function LookCard({
   design,
   isLeader = false,
   isEntered = false,
-  voting = false,
   featured = false,
-  onVote,
 }: {
   design: Design
   isLeader?: boolean
   isEntered?: boolean
-  voting?: boolean
   featured?: boolean
-  onVote?: ({ id }: { id: string }) => void
 }) {
   return (
     <article
@@ -108,19 +104,6 @@ export function LookCard({
           {design.votes}{' '}
           {design.votes === 1 ? HOUSE_COPY.voteOne : HOUSE_COPY.votes}
         </p>
-        <button
-          type="button"
-          disabled={voting}
-          onClick={() => {
-            onVote?.({ id: design.id })
-          }}
-          className={cn(
-            'min-h-11 border border-flv-accent px-4 py-2 text-flv-accent hover:bg-flv-soft disabled:opacity-50',
-            chromeTextClass(),
-          )}
-        >
-          {voting ? HOUSE_COPY.voting : HOUSE_COPY.vote}
-        </button>
       </div>
     </article>
   )

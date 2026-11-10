@@ -12,6 +12,7 @@ export const PLAIN_ERROR_MESSAGES: Record<string, string> = {
   invalid: 'That could not be saved because something in it isn’t valid.',
   quota_exceeded: 'This account has reached a limit. Delete something you no longer need and try again.',
   rate_limited: 'Too many requests. Wait a few seconds and try again.',
+  taken_down: 'This design was taken down after a report, so it can’t be published. Your design itself is kept. Contact us if you think this is a mistake.',
   internal: 'Something went wrong on our side. Try again.',
   unavailable: 'This isn’t available right now. Try again later.',
 }

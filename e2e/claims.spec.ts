@@ -28,7 +28,10 @@ const FORBIDDEN: Array<[string, RegExp]> = [
 ]
 
 async function expectNoClaims({ page, name }: { page: Page; name: string }) {
-  const text = await page.locator('body').innerText()
+  // A shared design's own vote count (V1) is read from the database, not
+  // claimed; everything else on the page still is checked.
+  const live = await page.getByTestId('vote-count').allInnerTexts()
+  const text = live.reduce((rest, count) => rest.replace(count, ''), await page.locator('body').innerText())
 
   for (const [what, pattern] of FORBIDDEN) {
     expect(text.match(pattern)?.[0] ?? null, `${what} on ${name}`).toBeNull()
@@ -87,6 +90,7 @@ test('the studio, shared page and privacy page make no such claim, and the page 
   const visitor = await (await browser.newContext()).newPage()
   await visitor.goto(`/s/${slug}`)
   await expect(visitor.getByText('Creator-supplied preview, not a certified fit or manufacturing render.')).toBeVisible()
+  await expect(visitor.getByTestId('vote-count')).toHaveText('0 votes')
   await expectNoClaims({ page: visitor, name: 'shared page' })
   const report = visitor.getByRole('link', { name: 'Report this design' })
   await expect(report).toHaveAttribute('href', new RegExp(`^mailto:[^?]+@[^?]+\\?.*${slug}`))
@@ -100,7 +104,7 @@ test('the studio, shared page and privacy page make no such claim, and the page 
     'What is stored',
     'Your email address, to send sign-in codes. There are no passwords.',
     'Who can see it',
-    'Only you can see your designs, history and uploads.',
+    'Only you can see your designs, history, uploads and votes.',
     'The counts carry no email, account, design or device identifiers and no design content.',
     'Removing your data',
     'Reporting a design',

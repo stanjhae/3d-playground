@@ -12,6 +12,7 @@ export function StudioViewToggle() {
     <RadioGroup
       as="nav"
       aria-label={HOUSE_COPY.studioView}
+      data-hint-anchor="panels"
       className="flex gap-3 lg:hidden"
     >
       <button

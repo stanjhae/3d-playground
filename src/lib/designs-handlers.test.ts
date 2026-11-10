@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import { GET, POST } from '../../api/designs'
 import type { Design } from './design-schema'
-import { guestBoardClosed, handleDesignsRequest } from './designs-handlers'
+import { GUEST_VOTE_RETIRED, guestBoardClosed, handleDesignsRequest } from './designs-handlers'
 import type { DesignsPersist } from './designs-persist'
 import { HOUSE_COPY } from './house-copy'
 import {
@@ -50,7 +50,7 @@ describe('guest board closed where sign-in is required (#144)', () => {
       })
       const list = await handleDesignsRequest({ request: new Request('http://localhost/api/designs') })
 
-      expect([create.status, vote.status, list.status]).toEqual([403, 403, 200])
+      expect([create.status, vote.status, list.status]).toEqual([403, 410, 200])
     } finally {
       if (saved.url === undefined) delete env.SUPABASE_URL
       else env.SUPABASE_URL = saved.url
@@ -171,81 +171,30 @@ describe('designs HTTP handlers', () => {
     expect(createdBody.design.attachments).toEqual(['garment', 'shoot'])
   })
 
-  test('create and vote share one board', async () => {
-    const created = await POST(
-      new Request('http://localhost/api/designs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: 'Studio Guest',
-          author: 'Guest',
-          thumbnailDataUrl: '',
-          overrides: [{ meshName: 'body' }],
-        }),
-      }),
-    )
-    const createdBody = (await created.json()) as {
-      design: { id: string; votes: number }
+  test('guest votes are retired, by path or by query, and count nothing (V1)', async () => {
+    const before = (
+      (await (await GET(new Request('http://localhost/api/designs'))).json()) as {
+        designs: { id: string; votes: number }[]
+      }
+    ).designs.find((design) => design.id === 'look-atelier-ivory')?.votes
+
+    for (const url of [
+      'http://localhost/api/designs/look-atelier-ivory/vote',
+      'http://localhost/api/designs?voteId=look-atelier-ivory',
+      'http://localhost/api/designs/look-missing/vote',
+    ]) {
+      const response = await POST(new Request(url, { method: 'POST' }))
+      expect(response.status, url).toBe(410)
+      expect(await response.json()).toEqual({ error: GUEST_VOTE_RETIRED })
     }
 
-    expect(created.status).toBe(201)
-    expect(createdBody.design.votes).toBe(0)
+    const after = (
+      (await (await GET(new Request('http://localhost/api/designs'))).json()) as {
+        designs: { id: string; votes: number }[]
+      }
+    ).designs.find((design) => design.id === 'look-atelier-ivory')?.votes
 
-    const voted = await POST(
-      new Request(
-        `http://localhost/api/designs/${createdBody.design.id}/vote`,
-        { method: 'POST' },
-      ),
-    )
-    const votedBody = (await voted.json()) as { id: string; votes: number }
-
-    expect(voted.status).toBe(200)
-    expect(votedBody.id).toBe(createdBody.design.id)
-    expect(votedBody.votes).toBe(1)
-
-    const listed = await GET(
-      new Request('http://localhost/api/designs', { method: 'GET' }),
-    )
-    const listedBody = (await listed.json()) as {
-      designs: { id: string; votes: number }[]
-    }
-    const onBoard = listedBody.designs.find(
-      (design) => design.id === createdBody.design.id,
-    )
-
-    expect(onBoard?.votes).toBe(1)
-
-    const missing = await POST(
-      new Request('http://localhost/api/designs/look-missing/vote', {
-        method: 'POST',
-      }),
-    )
-
-    expect(missing.status).toBe(404)
-  })
-
-  test('rewritten voteId query hits the same store', async () => {
-    const voted = await handleDesignsRequest({
-      request: new Request(
-        'http://localhost/api/designs?voteId=look-atelier-ivory',
-        { method: 'POST' },
-      ),
-    })
-    const body = (await voted.json()) as { id: string; votes: number }
-    const listed = await GET(
-      new Request('http://localhost/api/designs', { method: 'GET' }),
-    )
-    const listedBody = (await listed.json()) as {
-      designs: { id: string; votes: number }[]
-    }
-
-    expect(voted.status).toBe(200)
-    expect(body.id).toBe('look-atelier-ivory')
-    expect(body.votes).toBe(6)
-    expect(
-      listedBody.designs.find((design) => design.id === 'look-atelier-ivory')
-        ?.votes,
-    ).toBe(6)
+    expect(after).toBe(before)
   })
 
   test('POST drops an oversized thumbnail at parse time', async () => {
@@ -281,7 +230,7 @@ describe('designs HTTP handlers', () => {
     expect(response.status).toBe(400)
   })
 
-  test('keeps a create and a vote when persist is slow', async () => {
+  test('keeps two creates when persist is slow', async () => {
     const bucket: { value: Design[] | null } = { value: null }
     const persist: DesignsPersist = {
       async load() {
@@ -304,7 +253,7 @@ describe('designs HTTP handlers', () => {
 
     resetDesignsStore({ persist })
 
-    const [created, voted] = await Promise.all([
+    const [created, other] = await Promise.all([
       POST(
         new Request('http://localhost/api/designs', {
           method: 'POST',
@@ -313,15 +262,19 @@ describe('designs HTTP handlers', () => {
         }),
       ),
       POST(
-        new Request('http://localhost/api/designs/look-atelier-ivory/vote', {
+        new Request('http://localhost/api/designs', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...GUEST_DRAFT, title: 'Second Guest' }),
         }),
       ),
     ])
     const createdBody = (await created.json()) as {
       design: { id: string }
     }
-    const votedBody = (await voted.json()) as { votes: number }
+    const otherBody = (await other.json()) as {
+      design: { id: string }
+    }
     const listed = await GET(
       new Request('http://localhost/api/designs', { method: 'GET' }),
     )
@@ -330,15 +283,10 @@ describe('designs HTTP handlers', () => {
     }
 
     expect(created.status).toBe(201)
-    expect(voted.status).toBe(200)
-    expect(votedBody.votes).toBe(6)
-    expect(
-      listedBody.designs.some((design) => design.id === createdBody.design.id),
-    ).toBe(true)
-    expect(
-      listedBody.designs.find((design) => design.id === 'look-atelier-ivory')
-        ?.votes,
-    ).toBe(6)
+    expect(other.status).toBe(201)
+    for (const id of [createdBody.design.id, otherBody.design.id]) {
+      expect(listedBody.designs.some((design) => design.id === id)).toBe(true)
+    }
   })
 
   test('rolls back a look when persist throws', async () => {

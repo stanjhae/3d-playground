@@ -17,13 +17,16 @@ import {
   LIBRARY_ASSET_PREFIX,
   MAX_CONTENT_BYTES,
   type ProfileResponse,
+  type VoteState,
   type VersionDetail,
   type VersionPage,
   type VersionResponse,
   type VersionSummary,
   apiError,
   apiErrorFromDatabase,
+  parseAcceptTermsRequest,
   parseCreateDesignRequest,
+  parseDeleteAccountRequest,
   parseProfileRequest,
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
@@ -31,6 +34,7 @@ import {
   parseVersionListQuery,
   parseVersionSeq,
   prepareContent,
+  sameEmail,
   unknownLibraryReferences,
   uploadedAssetReferences,
 } from './contract.ts'
@@ -42,6 +46,16 @@ import {
   unpublish,
   uploadRenders,
 } from './publication.ts'
+import {
+  type OutagePolicy,
+  type PublicLimiter,
+  decisionFromWait,
+  outageDecision,
+  refusal,
+  sharedLimiter,
+} from '../rate-limit.ts'
+import { TERMS_VERSION } from '../terms.ts'
+import { deleteAccountAndFiles } from './account-deletion.mjs'
 
 /**
  * FLP design API (S03 #172) behind `/api/flp/*`. The server is the trust
@@ -71,11 +85,34 @@ export const RATE_LIMITS = {
   upload: 20,
   publish: 10,
   details: 30,
+  vote: 30,
 } as const
 
 export type RateBucket = keyof typeof RATE_LIMITS
 
+/**
+ * What each account bucket does when its count can't be taken (P2; see
+ * `src/lib/rate-limit.ts` and docs/abuse.md). Every bucket must choose.
+ * - save, details: allow. Blocking a save or rename loses someone's work,
+ *   and the account's quotas still cap what is stored.
+ * - upload: allow. The per-account storage quota is enforced in the
+ *   database whatever the limiter says.
+ * - vote: allow. A missed limit on votes is a small, reversible cost.
+ * - publish: refuse. Publishing is what puts content in front of the
+ *   public; a refused publish loses nothing and the studio retries.
+ */
+export const RATE_OUTAGE_POLICY: Record<RateBucket, OutagePolicy> = {
+  save: 'allow',
+  upload: 'allow',
+  publish: 'refuse',
+  details: 'allow',
+  vote: 'allow',
+}
+
 const RATE_WINDOW_SECONDS = 60
+/** A slow limiter is an outage: its bucket's policy decides. */
+const RATE_TIMEOUT_MS = 1500
+const SLUG = /^[a-f0-9]{16}$/
 
 type DesignVersionRow = {
   design_id: string
@@ -224,7 +261,7 @@ async function verifiedUser({
   }
 
   const { data, error } = await admin.auth.getUser(token)
-  return error || !data.user ? null : { userId: data.user.id, token }
+  return error || !data.user ? null : { userId: data.user.id, email: data.user.email ?? null, token }
 }
 
 async function callWrite({
@@ -789,7 +826,10 @@ async function handleProfile({
   userId: string
 }) {
   if (request.method === 'GET') {
-    const { data, error } = await asUser.from('profiles').select('display_name').maybeSingle()
+    const { data, error } = await asUser
+      .from('profiles')
+      .select('display_name, terms_version, terms_accepted_at')
+      .maybeSingle()
 
     // A failed read must not look like "no public name" (#150).
     if (error) {
@@ -797,8 +837,7 @@ async function handleProfile({
       return internalError()
     }
 
-    const profile: ProfileResponse = { displayName: (data?.display_name as string | null) ?? null }
-    return json({ status: 200, body: profile })
+    return json({ status: 200, body: profileResponse({ row: data }) })
   }
 
   if (request.method !== 'POST') {
@@ -819,14 +858,186 @@ async function handleProfile({
 
   const { data, error } = await admin
     .rpc('flp_set_display_name', { p_owner_id: userId, p_display_name: parsed.request.displayName })
-    .single<{ display_name: string | null }>()
+    .single<ProfileRow>()
 
   if (error) {
     return writeFailed({ fn: 'flp_set_display_name', error })
   }
 
-  const profile: ProfileResponse = { displayName: data.display_name }
-  return json({ status: 200, body: profile })
+  return json({ status: 200, body: profileResponse({ row: data }) })
+}
+
+type ProfileRow = {
+  display_name: string | null
+  terms_version: string | null
+  terms_accepted_at: string | null
+}
+
+function profileResponse({ row }: { row: ProfileRow | null }): ProfileResponse {
+  return {
+    displayName: row?.display_name ?? null,
+    termsVersion: row?.terms_version ?? null,
+    termsAcceptedAt: row?.terms_accepted_at ?? null,
+  }
+}
+
+// POST /terms — the account accepts the terms in force (P1). Only the
+// current version is recorded: a page left open across a terms change is
+// told to reload and read the new ones.
+async function acceptTerms({
+  request,
+  admin,
+  userId,
+}: {
+  request: Request
+  admin: SupabaseClient
+  userId: string
+}) {
+  if (request.method !== 'POST') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseAcceptTermsRequest({ value: body.value })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  if (parsed.request.version !== TERMS_VERSION) {
+    return fromError({
+      error: apiError({ code: 'conflict', message: 'The terms have changed. Reload the page to read the current terms.' }),
+    })
+  }
+
+  const { data, error } = await admin
+    .rpc('flp_accept_terms', { p_owner_id: userId, p_version: TERMS_VERSION })
+    .single<ProfileRow>()
+
+  if (error) {
+    return writeFailed({ fn: 'flp_accept_terms', error })
+  }
+
+  return json({ status: 200, body: profileResponse({ row: data }) })
+}
+
+// DELETE /account — the caller deletes their own account and everything it
+// stored (P1), with the same steps as scripts/delete-account.mjs. The body
+// repeats the account's email as the confirmation. Other devices' sessions
+// stop working once the account is gone.
+async function deleteOwnAccount({
+  request,
+  admin,
+  userId,
+  email,
+}: {
+  request: Request
+  admin: SupabaseClient
+  userId: string
+  email: string | null
+}) {
+  if (request.method !== 'DELETE') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseDeleteAccountRequest({ value: body.value })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  if (!sameEmail({ typed: parsed.request.confirmEmail, account: email })) {
+    return fromError({
+      error: apiError({
+        code: 'invalid',
+        message: 'Type the email address you sign in with',
+        issues: [{ path: '$.confirmEmail', message: 'does not match this account' }],
+      }),
+    })
+  }
+
+  try {
+    await deleteAccountAndFiles({ admin, userId })
+  } catch (error) {
+    // Nothing is half-visible: files are private, and the account and its
+    // rows stay until a retry (or scripts/delete-account.mjs) finishes.
+    console.error('flp account deletion failed', {
+      stage: (error as { stage?: string }).stage ?? 'unknown',
+    })
+    return internalError()
+  }
+
+  return respond({ status: 204 })
+}
+
+function designUnavailable() {
+  return fromError({ error: apiError({ code: 'not_found', message: 'This design is not available' }) })
+}
+
+/**
+ * GET /public/:slug/vote — the count, and whether the caller voted (false
+ * signed out). POST casts the caller's vote and DELETE retracts it; both
+ * need a session and are idempotent (V1). Never cached: the share page
+ * itself is, so the count is read here.
+ */
+async function handleVote({
+  request,
+  env,
+  slug,
+}: {
+  request: Request
+  env: FlpServerEnv
+  slug: string | undefined
+}) {
+  const admin = createClient(env.url, env.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const write = request.method === 'POST' || request.method === 'DELETE'
+
+  if (!write && request.method !== 'GET') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  // Signed out may read the count; a stale token reads as signed out.
+  const user = await verifiedUser({ request, admin })
+
+  if (write && !user) {
+    return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  if (!slug || !SLUG.test(slug)) {
+    return designUnavailable()
+  }
+
+  if (write && user) {
+    const limited = await rateLimited({ admin, userId: user.userId, bucket: 'vote', env })
+
+    if (limited) {
+      return limited
+    }
+  }
+
+  const fn = request.method === 'POST' ? 'flp_cast_vote' : request.method === 'DELETE' ? 'flp_retract_vote' : 'flp_vote_state'
+  const args = write ? { p_voter_id: user!.userId, p_slug: slug } : { p_slug: slug, p_voter_id: user?.userId ?? null }
+  const { data, error } = await admin.rpc(fn, args).single<{ vote_count: number; voted: boolean }>()
+
+  if (error) {
+    return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn, error })
+  }
+
+  const state: VoteState = { count: data.vote_count, voted: data.voted }
+  return json({ status: 200, body: state })
 }
 
 /** Which limit a mutation counts against; reads are not limited. */
@@ -853,8 +1064,8 @@ function rateBucket({
     return 'publish'
   }
 
-  // Rename, delete and the public name.
-  if (collection === 'profile' || (designId && !action)) {
+  // Rename, delete, the public name, terms and deleting the account.
+  if (collection === 'profile' || collection === 'terms' || collection === 'account' || (designId && !action)) {
     return 'details'
   }
 
@@ -872,23 +1083,32 @@ async function rateLimited({
   bucket: RateBucket
   env: FlpServerEnv
 }) {
-  const { data, error } = await admin.rpc('flp_take_token', {
-    p_owner_id: userId,
-    p_bucket: bucket,
-    p_limit: env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
-    p_window_seconds: RATE_WINDOW_SECONDS,
-  })
+  const { data, error } = await admin
+    .rpc('flp_take_token', {
+      p_owner_id: userId,
+      p_bucket: bucket,
+      p_limit: env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
+      p_window_seconds: RATE_WINDOW_SECONDS,
+    })
+    .abortSignal(AbortSignal.timeout(RATE_TIMEOUT_MS))
 
-  // A limiter outage must not block saving.
+  const decision = error
+    ? outageDecision({ rule: { onOutage: RATE_OUTAGE_POLICY[bucket] } })
+    : decisionFromWait({ wait: data })
+
   if (error) {
-    console.error('flp rate limit check failed', { code: error.code })
+    console.error('flp rate limit check failed', { bucket, code: error.code })
+  }
+
+  if (decision.allowed) {
     return null
   }
 
-  const wait = Number(data ?? 0)
-
-  if (wait <= 0) {
-    return null
+  if (decision.reason === 'unavailable') {
+    return json({
+      status: 503,
+      body: { error: { code: 'unavailable', message: 'This isn’t available right now. Try again later.' } },
+    })
   }
 
   const limited = apiError({
@@ -897,16 +1117,19 @@ async function rateLimited({
   })
   return Response.json(limited.body, {
     status: limited.status,
-    headers: { 'Cache-Control': 'no-store', 'Retry-After': String(wait) },
+    headers: { 'Cache-Control': 'no-store', 'Retry-After': String(decision.retryAfter) },
   })
 }
 
 export async function handleFlpRequest({
   request,
   env = flpServerEnv(),
+  limiter = sharedLimiter,
 }: {
   request: Request
   env?: FlpServerEnv | null
+  /** Limits signed-out reads (P2); the shared Postgres one unless a test passes its own. */
+  limiter?: PublicLimiter
 }): Promise<Response> {
   if (crossOriginMutation({ request })) {
     return json({
@@ -925,8 +1148,25 @@ export async function handleFlpRequest({
   const [collection, designId, action, ...rest] = flpRoute({ request })
 
   // GET /public/:slug — anonymous read of a published design (P04 #182);
-  // GET /public/:slug/image — its published views, also for link previews (#184).
+  // GET /public/:slug/image — its published views, also for link previews (#184);
+  // /public/:slug/vote — its votes (V1).
   if (collection === 'public') {
+    // Every signed-out read counts, found or not, so guessing links costs
+    // the same as reading them (P2).
+    const decision = await limiter({ request, bucket: 'public_read' })
+
+    if (!decision.allowed) {
+      return refusal({
+        decision,
+        limitedBody: apiError({ code: 'rate_limited', message: 'Too many requests. Try again shortly.' }).body,
+        unavailableBody: { error: { code: 'unavailable', message: 'This isn’t available right now. Try again later.' } },
+      })
+    }
+
+    if (action === 'vote' && rest.length === 0) {
+      return handleVote({ request, env, slug: designId })
+    }
+
     if (request.method !== 'GET' || (action && action !== 'image') || rest.length > 0) {
       return fromError({ error: apiError({ code: 'not_found', message: 'This design is not available' }) })
     }
@@ -948,7 +1188,7 @@ export async function handleFlpRequest({
     ) {
       return fromError({ error: assetNotFound() })
     }
-  } else if (collection === 'profile') {
+  } else if (collection === 'profile' || collection === 'terms' || collection === 'account') {
     if (designId) {
       return fromError({ error: apiError({ code: 'not_found', message: 'Not found' }) })
     }
@@ -987,6 +1227,14 @@ export async function handleFlpRequest({
 
   if (collection === 'profile') {
     return handleProfile({ request, admin, asUser, userId: user.userId })
+  }
+
+  if (collection === 'terms') {
+    return acceptTerms({ request, admin, userId: user.userId })
+  }
+
+  if (collection === 'account') {
+    return deleteOwnAccount({ request, admin, userId: user.userId, email: user.email })
   }
 
   if (collection === 'assets') {

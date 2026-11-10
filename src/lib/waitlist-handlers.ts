@@ -1,62 +1,27 @@
 import { parseEventBody } from './assumption-events.ts'
 import { HOUSE_COPY } from './house-copy.ts'
+import { type PublicLimiter, refusal, sharedLimiter } from './rate-limit.ts'
 import { addWaitlistEmail, incrementAssumption } from './waitlist-store.ts'
-
-const WAITLIST_LIMIT = { max: 8, windowMs: 15 * 60 * 1000 }
-const EVENTS_LIMIT = { max: 40, windowMs: 60 * 1000 }
-
-const writeHits = new Map<string, number[]>()
-
-export function resetPublicWriteGuards() {
-  writeHits.clear()
-}
-
-function clientKey({ request }: { request: Request }) {
-  const forwarded = request.headers.get('x-forwarded-for')
-  const first = forwarded?.split(',')[0]?.trim()
-
-  return first || request.headers.get('x-real-ip') || 'local'
-}
-
-export function allowPublicWrite({
-  key,
-  max,
-  windowMs,
-}: {
-  key: string
-  max: number
-  windowMs: number
-}) {
-  const now = Date.now()
-  const recent = (writeHits.get(key) ?? []).filter((time) => now - time < windowMs)
-
-  if (recent.length >= max) {
-    writeHits.set(key, recent)
-    return false
-  }
-
-  recent.push(now)
-  writeHits.set(key, recent)
-  return true
-}
 
 export async function handleWaitlistRequest({
   request,
+  limiter = sharedLimiter,
 }: {
   request: Request
+  limiter?: PublicLimiter
 }) {
   if (request.method !== 'POST') {
     return Response.json({ error: 'Not found' }, { status: 404 })
   }
 
-  if (
-    !allowPublicWrite({
-      key: `waitlist:${clientKey({ request })}`,
-      max: WAITLIST_LIMIT.max,
-      windowMs: WAITLIST_LIMIT.windowMs,
+  const decision = await limiter({ request, bucket: 'waitlist' })
+
+  if (!decision.allowed) {
+    return refusal({
+      decision,
+      limitedBody: { error: HOUSE_COPY.waitlistBusy },
+      unavailableBody: { error: HOUSE_COPY.waitlistBusy },
     })
-  ) {
-    return Response.json({ error: HOUSE_COPY.waitlistBusy }, { status: 429 })
   }
 
   let body: unknown
@@ -86,21 +51,23 @@ export async function handleWaitlistRequest({
 
 export async function handleEventsRequest({
   request,
+  limiter = sharedLimiter,
 }: {
   request: Request
+  limiter?: PublicLimiter
 }) {
   if (request.method !== 'POST') {
     return Response.json({ error: 'Not found' }, { status: 404 })
   }
 
-  if (
-    !allowPublicWrite({
-      key: `events:${clientKey({ request })}`,
-      max: EVENTS_LIMIT.max,
-      windowMs: EVENTS_LIMIT.windowMs,
+  const decision = await limiter({ request, bucket: 'events' })
+
+  if (!decision.allowed) {
+    return refusal({
+      decision,
+      limitedBody: { error: 'The count is busy' },
+      unavailableBody: { error: 'The count is busy' },
     })
-  ) {
-    return Response.json({ error: 'The count is busy' }, { status: 429 })
   }
 
   let body: unknown

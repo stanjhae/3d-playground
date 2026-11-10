@@ -2,7 +2,7 @@ import { type APIRequestContext, type Page, expect, test } from '@playwright/tes
 
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
-import { chooseTool, createExistingAccount, deleteAccounts, drawStroke, expectSaved, expireSentCode, latestCode, newEmail, panelCanvas, signIn } from './helpers'
+import { chooseTool, createExistingAccount, deleteAccounts, drawStroke, expectSaved, expireSentCode, latestCode, newEmail, panelCanvas, passTermsGate, signIn } from './helpers'
 
 /**
  * What docs/evidence/requirements-rc.md found proven only below the UI:
@@ -83,6 +83,7 @@ test('sign-in by keyboard: a wrong code is recoverable, a used one is refused, s
   await page.keyboard.type(`${code.slice(0, 3)} ${code.slice(3)}`)
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/studio$/)
+  await passTermsGate({ page })
   await expect(page.getByText(email)).toBeVisible()
 
   // Sign-out ends the local session and takes the account off the screen.
@@ -258,6 +259,7 @@ test('no code or token reaches the console, the address bar, analytics or other 
   await page.getByRole('textbox', { name: '6-digit code' }).fill(code)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(/\/studio$/)
+  await passTermsGate({ page })
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
   await expect.poll(() => analytics).toContainEqual(JSON.stringify({ name: 'signed_in' }))

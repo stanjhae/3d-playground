@@ -3,12 +3,13 @@ import { Globe, Lock, Shirt } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
+import { type DesignThumbnail, designThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
 import { type DesignSummary, deleteDesign, updateDesign } from '../../lib/flp-api/client'
 import { failureSentence } from '../../lib/flp-api/plain-messages'
 
 /**
- * One owned design in My Studio: open, rename in place, or delete after a
- * confirmation that names it (A06 #150, A07 #151).
+ * One owned design in My Studio: open, rename in place, duplicate, or delete
+ * after a confirmation that names it (A06 #150, A07 #151, P3).
  */
 
 const smallButton =
@@ -19,11 +20,16 @@ export function DesignCard({
   ownerId,
   onRenamed,
   onDeleted,
+  onDuplicate,
+  duplicating = false,
 }: {
   design: DesignSummary
   ownerId: string
   onRenamed: (title: string) => void
   onDeleted: () => void
+  onDuplicate: () => void
+  /** A copy of this design is being made. */
+  duplicating?: boolean
 }) {
   const [mode, setMode] = useState<'view' | 'rename' | 'confirm-delete'>('view')
   const [title, setTitle] = useState(design.title)
@@ -93,9 +99,7 @@ export function DesignCard({
 
   return (
     <div className="flv-panel flex min-h-20 min-w-0 flex-col gap-3 p-4">
-      <div aria-hidden className="flex aspect-[4/3] items-center justify-center rounded-xl bg-flv-soft text-flv-muted">
-        <Shirt className="size-16 stroke-[1.1]" />
-      </div>
+      <CardThumbnail design={design} />
       {mode === 'rename' ? (
         <form
           className="flex flex-wrap items-center gap-2"
@@ -161,6 +165,15 @@ export function DesignCard({
             <button ref={renameButton} type="button" className={smallButton} onClick={() => setMode('rename')}>
               Rename
             </button>
+            <button
+              type="button"
+              className={smallButton}
+              disabled={duplicating}
+              aria-label={`Duplicate ${design.title}`}
+              onClick={onDuplicate}
+            >
+              {duplicating ? 'Copying…' : 'Duplicate'}
+            </button>
             <button ref={deleteButton} type="button" className={smallButton} onClick={() => setMode('confirm-delete')}>
               Delete
             </button>
@@ -201,6 +214,83 @@ export function DesignCard({
           </button>
         </div>
       </dialog>
+    </div>
+  )
+}
+
+/**
+ * The design's picture, loaded once the card is near the screen so a long
+ * list does not open every design at once. The shirt icon stays until then,
+ * and if the picture cannot be made.
+ */
+function CardThumbnail({ design }: { design: DesignSummary }) {
+  const frame = useRef<HTMLDivElement>(null)
+  const key = thumbnailKey({ design })
+  const [loaded, setLoaded] = useState<{ key: string; thumbnail: DesignThumbnail | null } | null>(null)
+  const [broken, setBroken] = useState<string | null>(null)
+  const thumbnail = loaded?.key === key ? loaded.thumbnail : null
+
+  useEffect(() => {
+    const element = frame.current
+
+    if (!element || design.headSeq === null) {
+      return
+    }
+
+    let cancelled = false
+    const start = () => {
+      void designThumbnail({ design }).then((result) => {
+        if (!cancelled) {
+          setLoaded({ key, thumbnail: result })
+        }
+      })
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      start()
+      return () => {
+        cancelled = true
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect()
+          start()
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(element)
+
+    return () => {
+      cancelled = true
+      observer.disconnect()
+    }
+    // A rename changes `design` but not `key`; the cached picture returns at once.
+  }, [design, key])
+
+  const shown = thumbnail && broken !== thumbnail.src ? thumbnail : null
+
+  return (
+    <div
+      ref={frame}
+      aria-hidden
+      data-thumbnail={shown?.kind ?? 'placeholder'}
+      className={`flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl text-flv-muted ${shown?.kind === 'render' ? 'bg-white' : 'bg-flv-soft'}`}
+    >
+      {shown ? (
+        <img
+          src={shown.src}
+          alt=""
+          decoding="async"
+          className={shown.kind === 'render' ? 'size-full object-contain' : 'h-[88%] w-auto object-contain'}
+          onError={() => setBroken(shown.src)}
+        />
+      ) : (
+        <Shirt className="size-16 stroke-[1.1]" />
+      )}
     </div>
   )
 }

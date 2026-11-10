@@ -1,0 +1,117 @@
+# Nightly backup of the hosted project: database AND storage (P1).
+#
+# Dumps the FLP schemas over the session pooler, downloads every stored
+# file, rehearses the restore on a throwaway local Supabase stack (checks
+# a–d in docs/backup-restore.md), then encrypts the lot with age to the
+# owner's public key and keeps it as a workflow artifact. Nothing is ever
+# written to the hosted project. On failure it opens (or comments on) one
+# `backup-alert` issue; the next good run closes it.
+#
+# Owner setup (docs/backup-restore.md, "Automated backups"):
+#   secrets   BACKUP_SUPABASE_URL, BACKUP_SUPABASE_SECRET_KEY, BACKUP_SUPABASE_DB_URL
+#   variables BACKUP_AGE_RECIPIENT (age1…), optionally BACKUP_RETENTION_DAYS (default 30)
+name: Backup
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  backup:
+    name: Back up database and storage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ALERT_LABEL: backup-alert
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Check the backup is configured
+        id: configured
+        env:
+          HAS_URL: ${{ secrets.BACKUP_SUPABASE_URL != '' }}
+          HAS_KEY: ${{ secrets.BACKUP_SUPABASE_SECRET_KEY != '' }}
+          HAS_DB: ${{ secrets.BACKUP_SUPABASE_DB_URL != '' }}
+          HAS_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT != '' }}
+        run: |
+          missing=""
+          [ "$HAS_URL" = true ] || missing="$missing BACKUP_SUPABASE_URL(secret)"
+          [ "$HAS_KEY" = true ] || missing="$missing BACKUP_SUPABASE_SECRET_KEY(secret)"
+          [ "$HAS_DB" = true ] || missing="$missing BACKUP_SUPABASE_DB_URL(secret)"
+          [ "$HAS_RECIPIENT" = true ] || missing="$missing BACKUP_AGE_RECIPIENT(variable)"
+          if [ -n "$missing" ]; then
+            echo "Backups are not configured. Missing:$missing. See docs/backup-restore.md." | tee report.md
+            echo "::error::Backups are not configured. Missing:$missing"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+      # The restore rehearsal's scratch stack, and node with dependencies.
+      - uses: ./.github/actions/start-supabase
+      - uses: ./.github/actions/postgres-client
+
+      - name: Back up, rehearse the restore, encrypt
+        # bash with pipefail, so a failure isn't hidden by `tee`.
+        shell: bash
+        env:
+          SOURCE_SUPABASE_URL: ${{ secrets.BACKUP_SUPABASE_URL }}
+          SOURCE_SUPABASE_SECRET_KEY: ${{ secrets.BACKUP_SUPABASE_SECRET_KEY }}
+          SOURCE_SUPABASE_DB_URL: ${{ secrets.BACKUP_SUPABASE_DB_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|SECRET_KEY)=')"
+          export CHECK_SUPABASE_URL="$API_URL" CHECK_SUPABASE_SECRET_KEY="$SECRET_KEY"
+          # The local stack's superuser, so the scratch restore can create its database.
+          export CHECK_SUPABASE_DB_URL="postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres"
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          echo "BACKUP_NAME=flp-$stamp" >> "$GITHUB_ENV"
+          scripts/backup-encrypted.sh "$RUNNER_TEMP/flp-$stamp" 2>&1 | tee report.log
+          {
+            echo "### Backup flp-$stamp"
+            echo '```'
+            grep -E '^(  database:|  storage:|  verified|All checks|warning:|FAIL)' report.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_NAME }}
+          path: |
+            ${{ runner.temp }}/${{ env.BACKUP_NAME }}.tar.age
+            ${{ runner.temp }}/${{ env.BACKUP_NAME }}.tar.age.sha256
+          if-no-files-found: error
+          retention-days: ${{ vars.BACKUP_RETENTION_DAYS || 30 }}
+          # Already encrypted; compressing again gains nothing.
+          compression-level: 0
+
+      - name: Open or update the alert issue
+        if: failure()
+        run: |
+          [ -f report.md ] || { echo "The backup failed."; tail -n 40 report.log 2>/dev/null; } > report.md
+          printf '\n[Failed run](%s). Runbook: docs/backup-restore.md\n' "$RUN_URL" >> report.md
+          gh label create "$ALERT_LABEL" --color B60205 --description "Nightly backup failing (docs/backup-restore.md)" --force
+          open=$(gh issue list --label "$ALERT_LABEL" --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file report.md
+          else
+            gh issue create --title "Nightly backup failing" \
+              --label "$ALERT_LABEL" --assignee "${{ github.repository_owner }}" --body-file report.md
+          fi
+
+      - name: Close the alert issue
+        if: success()
+        run: |
+          open=$(gh issue list --label "$ALERT_LABEL" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$open" ]; then
+            gh issue close "$open" --comment "Backup ${BACKUP_NAME} succeeded. [Run]($RUN_URL)"
+          fi
