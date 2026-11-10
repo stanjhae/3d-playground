@@ -17,7 +17,7 @@ export function DesignToolRail() {
   const setDesignTool = useEditorStore((state) => state.setDesignTool)
 
   return (
-    <RadioGroup aria-label="Tools" className="flv-panel grid grid-cols-4 gap-1 p-1.5">
+    <RadioGroup aria-label="Tools" data-hint-anchor="precise" className="flv-panel grid grid-cols-4 gap-1 p-1.5">
       {TOOLS.map((tool) => {
         const selected = tool.id === designTool
         const Icon = tool.icon
@@ -28,6 +28,7 @@ export function DesignToolRail() {
             type="button"
             role="radio"
             aria-checked={selected}
+            data-hint-anchor={tool.id === 'draw' ? 'drawing' : undefined}
             onClick={() => {
               setDesignTool({ designTool: tool.id })
             }}

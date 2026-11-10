@@ -163,7 +163,7 @@ export function CloudSaveStatus() {
   const settled = state.status === 'saved'
 
   return (
-    <div className="flex flex-wrap items-center gap-2 font-body text-xs" role="status" aria-live="polite">
+    <div className="flex flex-wrap items-center gap-2 font-body text-xs" role="status" aria-live="polite" data-hint-anchor="saving">
       <span className={settled ? 'text-flv-muted' : 'text-flv-accent'}>{LABELS[state.status]}</span>
       {!settled && local.status === 'kept' ? (
         <span className="text-flv-muted">· Kept on this device</span>

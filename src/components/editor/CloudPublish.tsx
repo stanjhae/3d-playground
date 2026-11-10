@@ -179,6 +179,8 @@ export function CloudPublish() {
         return
       }
 
+      // What drew these views (C2): the stamp of the build checked above.
+      const drawn = build ? await atlasStamp({ build }) : null
       const uploaded = await uploadRenders({
         designId,
         seq: headSeq,
@@ -186,6 +188,7 @@ export function CloudPublish() {
           kind: KIND_BY_ANGLE[index]!,
           data: still.slice(still.indexOf(',') + 1),
         })),
+        stamp: drawn ? { templateVersion: drawn.template.version, compilerVersion: drawn.compilerVersion } : undefined,
       })
 
       if (!uploaded.ok) {
@@ -255,7 +258,7 @@ export function CloudPublish() {
     copyStatus === 'copied' || (copyStatus === 'idle' && saved && !message && (Boolean(notice) || webglStatus === 'checking'))
 
   return (
-    <section className="flv-panel flex w-full flex-col gap-3 p-3" aria-label="Publish">
+    <section className="flv-panel flex w-full flex-col gap-3 p-3" aria-label="Publish" data-hint-anchor="publishing">
       {live && publication ? (
         <div className="flex flex-col gap-2">
           <p className="flex items-center gap-2 font-body text-sm font-medium text-flv-ink">
