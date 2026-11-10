@@ -423,7 +423,7 @@ export async function runRestoreCheck({ admin, container, dbUrl, backupDir, uplo
 
   const restoreBucket = `flp-restore-${Date.now().toString(36)}`
   let bucketCreated = false
-  let restored = { designIds: new Set(), publications: new Map() }
+  let restored
   const verified = { versions: 0, renders: [], assets: 0 }
 
   try {

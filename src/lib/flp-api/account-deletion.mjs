@@ -45,15 +45,12 @@ export async function deleteAccountAndFiles({ admin, userId }) {
   // land after them. The account is gone now, so nothing new can start:
   // one more sweep catches it. A failure here leaves unreachable private
   // files that scripts/cleanup-orphans.mjs removes.
-  let late = 0
-
-  try {
-    const rest = await listFilesUnder({ admin, prefix: userId })
-    await removeFiles({ admin, files: rest })
-    late = rest.length
-  } catch {
-    late = 0
-  }
+  const late = await listFilesUnder({ admin, prefix: userId })
+    .then(async (rest) => {
+      await removeFiles({ admin, files: rest })
+      return rest.length
+    })
+    .catch(() => 0)
 
   return { files: files.length + late }
 }

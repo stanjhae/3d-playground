@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.9.0-rc.6",
   "type": "module",
+  "packageManager": "pnpm@12.15.0",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
@@ -19,7 +20,8 @@
     "test:integration": "FLP_INTEGRATION=1 vitest run integration --testTimeout=20000",
     "e2e": "playwright test",
     "hosted:check": "node scripts/hosted-check.mjs",
-    "demo:preflight": "node scripts/demo-preflight.mjs"
+    "demo:preflight": "node scripts/demo-preflight.mjs",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.8",
@@ -28,27 +30,33 @@
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@supabase/supabase-js": "^2.118.0",
-    "@tanstack/react-router": "^1.170.32",
+    "@tanstack/react-router": "^1.170.46",
     "lucide-react": "^1.68.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.185.1",
+    "web-vitals": "^6.2.3",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/router-generator": "^1.167.33",
-    "@tanstack/router-plugin": "^1.168.35",
+    "@tanstack/router-generator": "^1.168.0",
+    "@tanstack/router-plugin": "^1.169.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^6.1.1",
-    "puppeteer-core": "^25.9.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "puppeteer-core": "^25.16.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.7",
     "vitest": "^4.1.4"
   }
 }

@@ -60,7 +60,7 @@ const migrations = readdirSync(new URL('supabase/migrations/', root))
   }))
 
 // The latest CI runs for this exact commit.
-let ci = []
+let ci
 
 try {
   ci = JSON.parse(

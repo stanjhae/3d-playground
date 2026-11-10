@@ -38,9 +38,24 @@ export const TIMING_BUCKETS = [
 
 export type TimingBucket = (typeof TIMING_BUCKETS)[number]['bucket']
 
+/**
+ * Web Vitals (P4): the page's own rating of each, per page load. Only the
+ * rating is sent (Google's thresholds, as `web-vitals` applies them), never
+ * the value.
+ */
+export const VITAL_EVENTS = ['lcp', 'inp', 'cls'] as const
+
+export type VitalEvent = (typeof VITAL_EVENTS)[number]
+
+export const VITAL_RATINGS = ['good', 'needs_improvement', 'poor'] as const
+
+export type VitalRating = (typeof VITAL_RATINGS)[number]
+
 const EVENT_SET = new Set<string>(ASSUMPTION_EVENTS)
 const TIMING_SET = new Set<string>(TIMING_EVENTS)
 const BUCKET_SET = new Set<string>(TIMING_BUCKETS.map(({ bucket }) => bucket))
+const VITAL_SET = new Set<string>(VITAL_EVENTS)
+const RATING_SET = new Set<string>(VITAL_RATINGS)
 
 export function parseAssumptionEvent({
   value,
@@ -59,8 +74,9 @@ export function timingBucket({ ms }: { ms: number }): TimingBucket {
 
 /**
  * The count key an `/api/events` body adds to, or null. A count is its
- * bare name; a timing is `name:bucket`. Anything else (unknown names,
- * unknown buckets, a bucket on a count, extra fields) is refused.
+ * bare name; a timing is `name:bucket`, and a Web Vital `name:rating`.
+ * Anything else (unknown names, unknown buckets, a bucket on a count,
+ * extra fields) is refused.
  */
 export function parseEventBody({ body }: { body: unknown }): string | null {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -77,20 +93,23 @@ export function parseEventBody({ body }: { body: unknown }): string | null {
     return parseAssumptionEvent({ value: name })
   }
 
-  return typeof name === 'string' &&
-    TIMING_SET.has(name) &&
-    typeof bucket === 'string' &&
-    BUCKET_SET.has(bucket)
-    ? `${name}:${bucket}`
-    : null
+  if (typeof name !== 'string' || typeof bucket !== 'string') {
+    return null
+  }
+
+  const known = (TIMING_SET.has(name) && BUCKET_SET.has(bucket)) || (VITAL_SET.has(name) && RATING_SET.has(bucket))
+
+  return known ? `${name}:${bucket}` : null
 }
 
-async function postEvent(body: { name: string; bucket?: TimingBucket }) {
+async function postEvent(body: { name: string; bucket?: TimingBucket | VitalRating }, { keepalive = false } = {}) {
   try {
     await fetch('/api/events', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      // Web Vitals are often final only as the page is hidden or closed.
+      keepalive,
     })
   } catch {
     return
@@ -166,4 +185,16 @@ export function trackTiming({ name, ms }: { name: TimingEvent; ms: number }) {
   }
 
   void postEvent({ name, bucket: timingBucket({ ms }) })
+}
+
+const vitalsSent = new Set<VitalEvent>()
+
+/** Sends one Web Vital's rating, at most once per vital per page load. */
+export function trackVital({ name, rating }: { name: VitalEvent; rating: VitalRating }) {
+  if (vitalsSent.has(name)) {
+    return
+  }
+
+  vitalsSent.add(name)
+  void postEvent({ name, bucket: rating }, { keepalive: true })
 }

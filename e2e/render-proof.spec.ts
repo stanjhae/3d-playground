@@ -209,7 +209,8 @@ test('publishing with a figure tried on photographs the tee alone', async ({ pag
   await openDesign({ page, label: 'tryonpub' })
   await goToStep({ page, step: 'share' })
   await tryOn({ page })
-  // The figure loads after the click; wait until it is in the picture.
+  // The figure can take more than one 2 s settle to appear on CI's software
+  // WebGL right after the step loads, so wait until it shows.
   let worn = await statsOf({ page, picture: await sceneShot({ page }) })
   await expect
     .poll(
@@ -217,7 +218,7 @@ test('publishing with a figure tried on photographs the tee alone', async ({ pag
         worn = await statsOf({ page, picture: await sceneShot({ page }) })
         return worn.skin
       },
-      { timeout: 30_000 },
+      { timeout: 30_000, intervals: [0] },
     )
     .toBeGreaterThan(200)
 
