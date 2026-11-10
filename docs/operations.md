@@ -4,7 +4,7 @@ What the deployed studio reports about itself, how to read it, and when someone 
 
 ## What is collected
 
-Every report is a `POST /api/events` with a JSON body of a known **name**, plus a **bucket** for timings. The handler (`src/lib/waitlist-handlers.ts` → `parseEventBody` in `src/lib/assumption-events.ts`) refuses anything else with a 400: unknown names, unknown buckets, a bucket on a count, or any extra field. So no ID, email, design content or exact duration can be stored. The endpoint is also limited to 40 requests a minute per client address.
+Every report is a `POST /api/events` with a JSON body of a known **name**, plus a **bucket** for timings and Web Vitals. The handler (`src/lib/waitlist-handlers.ts` → `parseEventBody` in `src/lib/assumption-events.ts`) refuses anything else with a 400: unknown names, unknown buckets, a bucket on a count, or any extra field. So no ID, email, design content or exact duration can be stored. The endpoint is also limited to 40 requests a minute per client address.
 
 Counts are kept as one JSON object of totals under the KV key `flv:assumptions` (with `KV_REST_API_URL` / `KV_REST_API_TOKEN` set, see [deploy.md](deploy.md) §3). Without KV they live in the function's memory only and are lost on each cold start.
 
@@ -24,6 +24,12 @@ Two timings, each stored as `name:bucket`:
 Buckets: `lt100`, `lt250`, `lt500`, `lt1000`, `lt2500` (under that many ms) and `gte2500`.
 
 **Sampling.** Each browser sends at most one sample per timing every 30 s, and at most 20 per timing per page load (`TIMING_SAMPLE`). The kept sample is simply the first after each gap, so it isn't biased toward fast or slow ones. A tab left open all day sends at most 40 timing reports.
+
+### Web Vitals (P4)
+
+Each page load reports the rating of its Largest Contentful Paint, Interaction to Next Paint and Cumulative Layout Shift, once each, stored as `lcp:<rating>`, `inp:<rating>` and `cls:<rating>` with ratings `good`, `needs_improvement` and `poor` (Google's thresholds, as the `web-vitals` library applies them: LCP 2.5 s / 4 s, INP 200 ms / 500 ms, CLS 0.1 / 0.25). The value itself never leaves the browser. Production builds only; the library loads after the page (`src/lib/web-vitals.ts`, started from `src/main.tsx`). INP and CLS are final when the page is hidden, so they're sent then with `keepalive`; a visit with no interaction has no INP.
+
+**Alert when** more than 25% of a day's `lcp` or `inp` ratings are `needs_improvement` or `poor` (Google's own pass mark is 75% good), or any `cls:poor` share above 10%. First look at a recent change to the landing, `StudioStage` or fonts.
 
 ## Reading the counts
 

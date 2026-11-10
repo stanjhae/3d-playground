@@ -119,9 +119,11 @@ function paths({ value }: { value: unknown }) {
   return issuesFor({ value }).map((issue) => issue.path)
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tests write invalid shapes on purpose
 function mutate(edit: (document: Record<string, any>) => void) {
   const document = structuredClone(
     fullDocument({ base: BASES[0]! }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- as above
   ) as Record<string, any>
   edit(document)
   return document

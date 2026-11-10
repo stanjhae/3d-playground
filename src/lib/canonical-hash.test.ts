@@ -14,6 +14,7 @@ import {
 
 const GOLDEN_HASH = 'sha256:e081116ffc8971eccb2c8b466f21bf289306bbec33a906e6bd173fc542843b56'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tests write invalid shapes on purpose
 function edited(edit: (document: any) => void): CanonicalDocument {
   const document = structuredClone(GOLDEN_DOCUMENT)
   edit(document)

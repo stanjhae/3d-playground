@@ -651,7 +651,7 @@ function drawPatternMark({
 
   for (let row = 0; row < tile; row += 1) {
     for (let column = 0; column < tile; column += 1) {
-      let fill = false
+      let fill: boolean
       let alpha = a
 
       if (layer.patternId === 'gradient') {

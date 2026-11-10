@@ -445,6 +445,7 @@ export function checkpointLabelIssues({ value }: { value: unknown }): Validation
     return [{ path: '$.label', message: `Use at most ${MAX_CHECKPOINT_LABEL} characters` }]
   }
 
+  // eslint-disable-next-line no-control-regex -- matching control characters is the point
   if (/[\u0000-\u001f\u007f]/.test(value) || value !== value.trim()) {
     return [{ path: '$.label', message: 'Use plain text without line breaks or outer spaces' }]
   }
