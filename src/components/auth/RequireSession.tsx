@@ -3,11 +3,13 @@ import { type ReactNode, useEffect } from 'react'
 
 import { useSessionStore } from '../../lib/auth/session-store'
 import { AUTH_REQUIRED } from '../../lib/auth/supabase-client'
+import { TermsGate } from './TermsGate'
 
 /**
  * Sends a signed-out visitor to sign-in when the studio requires an
  * account, including when a session expires mid-edit. The editor store is
  * left in memory so the same account picks up where it left off.
+ * A signed-in account accepts the terms of use first (P1, `TermsGate`).
  */
 export function RequireSession({ children }: { children: ReactNode }) {
   const status = useSessionStore((state) => state.status)
@@ -24,5 +26,10 @@ export function RequireSession({ children }: { children: ReactNode }) {
     }
   }, [status, location.href, router])
 
-  return blocked ? null : children
+  if (blocked) {
+    return null
+  }
+
+  // Always wrapped, so signing in never remounts the page; signed out, the gate passes through.
+  return <TermsGate>{children}</TermsGate>
 }

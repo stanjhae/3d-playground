@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { parseAssumptionEvent } from './assumption-events'
-import {
-  allowPublicWrite,
-  handleWaitlistRequest,
-  resetPublicWriteGuards,
-} from './waitlist-handlers'
+import { HOUSE_COPY } from './house-copy'
+import { countingLimiter, outageLimiter } from './rate-limit.fake'
+import { handleEventsRequest, handleWaitlistRequest } from './waitlist-handlers'
 import {
   addWaitlistEmail,
   incrementAssumption,
@@ -19,7 +17,6 @@ import {
 describe('waitlist', () => {
   beforeEach(() => {
     resetWaitlistStore()
-    resetPublicWriteGuards()
   })
 
   test('reads a Redis string as the current list', () => {
@@ -77,18 +74,10 @@ describe('waitlist', () => {
   })
 
   test('caps public waitlist writes', async () => {
-    expect(
-      allowPublicWrite({ key: 'waitlist:1.1.1.1', max: 2, windowMs: 60_000 }),
-    ).toBe(true)
-    expect(
-      allowPublicWrite({ key: 'waitlist:1.1.1.1', max: 2, windowMs: 60_000 }),
-    ).toBe(true)
-    expect(
-      allowPublicWrite({ key: 'waitlist:1.1.1.1', max: 2, windowMs: 60_000 }),
-    ).toBe(false)
-
+    const limiter = countingLimiter()
     const join = () =>
       handleWaitlistRequest({
+        limiter,
         request: new Request('http://local/api/waitlist', {
           method: 'POST',
           headers: {
@@ -109,6 +98,36 @@ describe('waitlist', () => {
     const body = (await blocked.json()) as { ok?: boolean; count?: number }
     expect(body.ok).toBeUndefined()
     expect(body.count).toBeUndefined()
+  })
+
+  test('turns sign-ups away when the limiter is down (fails closed)', async () => {
+    const response = await handleWaitlistRequest({
+      limiter: outageLimiter({ allowed: false, reason: 'unavailable' }),
+      request: new Request('http://local/api/waitlist', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'down@house.test' }),
+      }),
+    })
+
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ error: HOUSE_COPY.waitlistBusy })
+  })
+
+  test('caps anonymous counts per client', async () => {
+    const limiter = countingLimiter({ limits: { events: { limit: 1 } } })
+    const count = () =>
+      handleEventsRequest({
+        limiter,
+        request: new Request('http://local/api/events', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-forwarded-for': '9.9.9.8' },
+          body: JSON.stringify({ name: 'design_saved' }),
+        }),
+      })
+
+    expect((await count()).status).toBe(201)
+    expect((await count()).status).toBe(429)
   })
 })
 

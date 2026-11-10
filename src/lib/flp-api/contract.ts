@@ -34,6 +34,8 @@ export const API_ERROR_STATUS = {
   /** An account or design limit is full (S09 #178); nothing was evicted. */
   quota_exceeded: 409,
   rate_limited: 429,
+  /** An operator took the design down after a report (P2); publishing waits until they clear it. */
+  taken_down: 403,
 } as const
 
 export type ApiErrorCode = keyof typeof API_ERROR_STATUS
@@ -98,6 +100,29 @@ export type ProfileRequest = {
 
 export type ProfileResponse = {
   displayName: string | null
+  /** The terms version this account accepted, or null if none yet (P1). */
+  termsVersion: string | null
+  termsAcceptedAt: string | null
+}
+
+/** POST /terms — accept the terms in force (`src/lib/terms.ts`). */
+export type AcceptTermsRequest = {
+  version: string
+}
+
+/**
+ * DELETE /account — deletes the caller's account and everything it stored
+ * (P1). The email must match the signed-in account's, so a stray or
+ * replayed request can't delete it.
+ */
+export type DeleteAccountRequest = {
+  confirmEmail: string
+}
+
+/** Votes on a published design (V1): the count, and whether the caller voted. */
+export type VoteState = {
+  count: number
+  voted: boolean
 }
 
 export type VersionResponse = {
@@ -220,6 +245,7 @@ const SQLSTATE_CODES: Record<string, ApiErrorCode> = {
   FL413: 'too_large',
   FL422: 'invalid',
   FL429: 'quota_exceeded',
+  FL451: 'taken_down',
 }
 
 /**
@@ -243,6 +269,10 @@ export function apiErrorFromDatabase({
 
   if (mapped === 'not_found') {
     return apiError({ code: mapped, message: 'Design not found' })
+  }
+
+  if (mapped === 'taken_down') {
+    return apiError({ code: mapped, message: PLAIN_ERROR_MESSAGES.taken_down! })
   }
 
   if (mapped === 'conflict' && details) {
@@ -445,6 +475,7 @@ export function checkpointLabelIssues({ value }: { value: unknown }): Validation
     return [{ path: '$.label', message: `Use at most ${MAX_CHECKPOINT_LABEL} characters` }]
   }
 
+  // eslint-disable-next-line no-control-regex -- matching control characters is the point
   if (/[\u0000-\u001f\u007f]/.test(value) || value !== value.trim()) {
     return [{ path: '$.label', message: 'Use plain text without line breaks or outer spaces' }]
   }
@@ -539,6 +570,27 @@ export function parseProfileRequest({ value }: { value: unknown }) {
         ? []
         : textIssue({ value: record.displayName, path: '$.displayName', max: 40 }),
   })
+}
+
+export function parseAcceptTermsRequest({ value }: { value: unknown }) {
+  return parseFields<AcceptTermsRequest>({
+    value,
+    required: ['version'],
+    check: (record) => textIssue({ value: record.version, path: '$.version', max: 32 }),
+  })
+}
+
+export function parseDeleteAccountRequest({ value }: { value: unknown }) {
+  return parseFields<DeleteAccountRequest>({
+    value,
+    required: ['confirmEmail'],
+    check: (record) => textIssue({ value: record.confirmEmail, path: '$.confirmEmail', max: 320 }),
+  })
+}
+
+/** Emails compare without case or outer spaces, as sign-in treats them. */
+export function sameEmail({ typed, account }: { typed: string; account: string | null | undefined }) {
+  return Boolean(account) && typed.trim().toLowerCase() === account!.trim().toLowerCase()
 }
 
 /**

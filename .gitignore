@@ -3,7 +3,6 @@ node_modules
 dist
 .DS_Store
 *.local
-/.idea
 .tanstack
 .vercel
 .qa
@@ -22,3 +21,8 @@ public/models/garment-house.glb
 
 # Local hosted-check runs (--allow-local) aren't hosted evidence (#186)
 /docs/evidence/hosted-*-local.md
+
+# Local editor settings and the retired vanilla prototype (P4); kept on
+# disk and in history, no longer tracked.
+/.idea/
+/archive/

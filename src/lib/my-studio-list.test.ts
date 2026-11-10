@@ -1,0 +1,87 @@
+import { describe, expect, test } from 'vitest'
+
+import { storedRenderSrc, thumbnailKey } from './design-thumbnail'
+import type { DesignSummary } from './flp-api/client'
+import { copyTitle, readStudioSort, visibleDesigns, writeStudioSort } from './my-studio-list'
+
+const design = (title: string, updatedAt: string): DesignSummary => ({
+  id: title,
+  title,
+  visibility: 'private',
+  headSeq: 1,
+  updatedAt,
+})
+
+const DESIGNS = [
+  design('crest tee', '2026-11-03T10:00:00.000Z'),
+  design('Café run 10', '2026-11-05T10:00:00.000Z'),
+  design('Café run 9', '2026-11-01T10:00:00.000Z'),
+  design('Alpha', '2026-11-02T10:00:00.000Z'),
+]
+
+describe('My Studio list', () => {
+  test('recent puts the last edited first', () => {
+    expect(visibleDesigns({ designs: DESIGNS, query: '', sort: 'recent' }).map((each) => each.title)).toEqual([
+      'Café run 10',
+      'crest tee',
+      'Alpha',
+      'Café run 9',
+    ])
+  })
+
+  test('name ignores case and orders numbers as numbers', () => {
+    expect(visibleDesigns({ designs: DESIGNS, query: '', sort: 'name' }).map((each) => each.title)).toEqual([
+      'Alpha',
+      'Café run 9',
+      'Café run 10',
+      'crest tee',
+    ])
+  })
+
+  test('search matches every word, in any case and without accents', () => {
+    expect(visibleDesigns({ designs: DESIGNS, query: '  CAFE   10 ', sort: 'recent' }).map((each) => each.title)).toEqual([
+      'Café run 10',
+    ])
+    expect(visibleDesigns({ designs: DESIGNS, query: 'zebra', sort: 'recent' })).toEqual([])
+  })
+
+  test('a copy is named after its original, inside the limit', () => {
+    expect(copyTitle({ title: 'Crest tee' })).toBe('Crest tee copy')
+    expect(copyTitle({ title: 'x'.repeat(80) })).toHaveLength(80)
+    expect(copyTitle({ title: '   ' })).toBe('Untitled tee copy')
+  })
+
+  test('the sort is remembered, and junk or failing storage gives recent', () => {
+    const stored = new Map<string, string>()
+    const storage = { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => void stored.set(key, value) }
+    writeStudioSort({ storage, sort: 'name' })
+    expect(readStudioSort({ storage })).toBe('name')
+    expect(readStudioSort({ storage: { getItem: () => 'oldest' } })).toBe('recent')
+    expect(
+      readStudioSort({
+        storage: {
+          getItem: () => {
+            throw new Error('blocked')
+          },
+        },
+      }),
+    ).toBe('recent')
+  })
+})
+
+describe('card thumbnails', () => {
+  test('use the stored front view only when the published version is the latest', () => {
+    const publication = { slug: '0123456789abcdef', status: 'published' as const, seq: 4 }
+    expect(storedRenderSrc({ publication, headSeq: 4 })).toBe('/api/flp/public/0123456789abcdef/image?seq=4')
+    expect(storedRenderSrc({ publication, headSeq: 5 })).toBeNull()
+    expect(storedRenderSrc({ publication: { ...publication, status: 'revoked' }, headSeq: 4 })).toBeNull()
+    expect(storedRenderSrc({ publication: null, headSeq: 4 })).toBeNull()
+  })
+
+  test('a new save or publish makes a new picture', () => {
+    const base = design('Crest', '2026-11-03T10:00:00.000Z')
+    expect(thumbnailKey({ design: base })).not.toBe(thumbnailKey({ design: { ...base, headSeq: 2 } }))
+    expect(thumbnailKey({ design: base })).not.toBe(thumbnailKey({ design: { ...base, visibility: 'published' } }))
+    expect(thumbnailKey({ design: base })).toBe(thumbnailKey({ design: { ...base, title: 'Renamed' } }))
+  })
+})

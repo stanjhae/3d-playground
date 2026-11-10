@@ -73,3 +73,96 @@ export function nextHint({ step, dismissed }: { step: CreateStepId; dismissed: r
     ) ?? null
   )
 }
+
+/** The control a hint is about carries `data-hint-anchor="<hint id>"` (P3). */
+export const HINT_ANCHOR_ATTRIBUTE = 'data-hint-anchor'
+/**
+ * Places a floating hint must never cover: the work (the 3D stage and the
+ * panels), the step buttons, the tools rail and any group of choices.
+ */
+export const HINT_KEEP_CLEAR_SELECTOR = 'canvas, [data-hint-keep-clear], [role="radiogroup"]'
+
+export type HintBox = { left: number; top: number; width: number; height: number }
+export type HintSide = 'below' | 'above' | 'right' | 'left'
+export type HintPlacement = { side: HintSide; left: number; top: number; arrow: number }
+
+const SIDES: readonly HintSide[] = ['below', 'above', 'right', 'left']
+
+export function hintBoxesOverlap(a: HintBox, b: HintBox) {
+  return a.left < b.left + b.width && b.left < a.left + a.width && a.top < b.top + b.height && b.top < a.top + a.height
+}
+
+function clamp({ value, min, max }: { value: number; min: number; max: number }) {
+  return Math.min(Math.max(value, min), Math.max(min, max))
+}
+
+/** Where the card goes on one side of the anchor, kept inside the screen. */
+export function hintPosition({
+  side,
+  anchor,
+  card,
+  viewport,
+  gap = 10,
+  gutter = 16,
+}: {
+  side: HintSide
+  anchor: HintBox
+  card: { width: number; height: number }
+  viewport: { width: number; height: number }
+  gap?: number
+  gutter?: number
+}): HintPlacement {
+  const vertical = side === 'below' || side === 'above'
+  const left = vertical
+    ? clamp({ value: anchor.left, min: gutter, max: viewport.width - gutter - card.width })
+    : side === 'right'
+      ? anchor.left + anchor.width + gap
+      : anchor.left - gap - card.width
+  const top = vertical
+    ? side === 'below'
+      ? anchor.top + anchor.height + gap
+      : anchor.top - gap - card.height
+    : clamp({ value: anchor.top, min: gutter, max: viewport.height - gutter - card.height })
+  // The arrow points at the anchor's middle, or its first 2 rem when it is wide.
+  const target = vertical
+    ? anchor.left + Math.min(anchor.width / 2, 32) - left
+    : anchor.top + Math.min(anchor.height / 2, 32) - top
+  const span = vertical ? card.width : card.height
+
+  return { side, left, top, arrow: clamp({ value: target, min: 14, max: span - 14 }) }
+}
+
+/**
+ * The first side where the whole card is on screen and covers neither the
+ * anchor nor anything kept clear; null when none does, and then the hint
+ * stays in the tools rail instead (E13 #214: never over the work).
+ */
+export function placeHint({
+  anchor,
+  card,
+  viewport,
+  keepClear,
+  gutter = 16,
+}: {
+  anchor: HintBox
+  card: { width: number; height: number }
+  viewport: { width: number; height: number }
+  keepClear: readonly HintBox[]
+  gutter?: number
+}): HintPlacement | null {
+  for (const side of SIDES) {
+    const placed = hintPosition({ side, anchor, card, viewport, gutter })
+    const box = { left: placed.left, top: placed.top, width: card.width, height: card.height }
+    const onScreen =
+      box.left >= gutter &&
+      box.top >= gutter &&
+      box.left + box.width <= viewport.width - gutter &&
+      box.top + box.height <= viewport.height - gutter
+
+    if (onScreen && !hintBoxesOverlap(box, anchor) && !keepClear.some((other) => hintBoxesOverlap(box, other))) {
+      return placed
+    }
+  }
+
+  return null
+}

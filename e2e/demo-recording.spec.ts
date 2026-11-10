@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 
 import { type Page, expect, test } from '@playwright/test'
 
-import { chooseTool, drawStroke, expectSaved, latestCode, panelCanvas } from './helpers'
+import { chooseTool, drawStroke, expectSaved, latestCode, panelCanvas, passTermsGate } from './helpers'
 
 /**
  * Recorded fallback for the 1 Dec demo (#201). Plays docs/demo.md's
@@ -41,6 +41,7 @@ test('demo fallback recording', async ({ page }) => {
 
   // My Studio → the draft.
   await expect(page).toHaveURL(/\/studio$/)
+  await passTermsGate({ page })
   await expect(page.getByRole('link', { name: 'Studio draft' })).toBeVisible()
   await beat({ page, ms: 2_500 })
   await page.getByRole('link', { name: 'Studio draft' }).click()

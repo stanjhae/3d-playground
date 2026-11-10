@@ -40,6 +40,20 @@ Wherever Supabase is configured, `/create` and `/studio` require a session (A05 
 - `VITE_FLP_REQUIRE_AUTH=false` opts out, for a guest-only demo build.
 - Deploys without Supabase env vars, such as today's Vercel production, keep the guest studio.
 
+## Terms of use (P1)
+
+- `/terms` holds the terms; the version in force is `TERMS_VERSION` in `src/lib/terms.ts`, the date they took effect.
+- Before My Studio or the studio opens, `TermsGate` (inside `RequireSession`) reads `GET /api/flp/profile`. If `termsVersion` isn't the current one, it shows the terms gate: a link to `/terms`, **Accept and continue**, and **Not now**, which signs out. New accounts meet it straight after their first sign-in; accounts from before the terms (null in the database) meet it the next time they open either page. Pages outside the studio (landing, `/terms`, `/privacy`, shared designs) never ask.
+- `POST /api/flp/terms` `{ version }` records only the current version (anything else is 409, so a page left open across a change reloads first). Accepting the same version again keeps the first time. Stored in `profiles.terms_version` and `terms_accepted_at`, so other devices don't ask again.
+- **Changing the terms:** edit `src/routes/terms.tsx`, set a new `TERMS_VERSION` and `TERMS_UPDATED`. Every account is then asked once more.
+- e2e: `signIn` accepts the gate for the test (`acceptTerms: false` leaves it); a test that signs in by hand calls `passTermsGate`. `e2e/account.spec.ts` tests the gate itself.
+
+## Deleting an account (P1)
+
+- **Self-serve:** My Studio → Delete account (at the bottom) → type the account's email → Delete my account. `DELETE /api/flp/account` `{ confirmEmail }` checks the email against the session's account (case and outer spaces ignored), then runs `src/lib/flp-api/account-deletion.mjs`: the account's files first, then the account, whose rows go by cascade (designs, history, publications, renders, uploads, profile and terms, rate limits), then one more sweep for an upload that was in flight. A failure part-way leaves the account in place and answers 500; trying again finishes it.
+- The browser then forgets that account's local copies (snapshots, unsaved recovery), goes to `/account-deleted` and signs out locally. Other devices' sessions stop at the API at once (the account no longer exists); direct Supabase REST sees no rows.
+- **Operator:** `scripts/delete-account.mjs <email> [--confirm]` runs the same module, for requests by email.
+
 ## Known gaps (tracked)
 
 - **Snapshots are owner-scoped** (#147). Cloud designs recover per owner (S05 #174, see `docs/data-model.md`), and the guest draft `flv:draft:current` is only used while signed out. Snapshots (`design-snapshots.ts`) are stored under `flv:draft:mornings:<userId>` while signed in; signed-out guests keep `flv:draft:mornings`. The list refreshes on every account change.

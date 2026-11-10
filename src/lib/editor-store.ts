@@ -299,14 +299,19 @@ type EditorState = {
     dy: number
     now?: number
   }) => void
-  /** Move a layer one place up (towards the top) or down its panel (#157). */
+  /**
+   * Move a layer one place up (towards the top) or down its panel (#157), or
+   * all the way to the front (top) or back (A5).
+   */
   moveLayer: ({
     layerId,
     direction,
   }: {
     layerId: string
-    direction: 'up' | 'down'
+    direction: 'up' | 'down' | 'front' | 'back'
   }) => void
+  /** Put a layer at `toIndex` in its panel's stack (0 is the bottom), as one undo step (A5). */
+  moveLayerTo: ({ layerId, toIndex }: { layerId: string; toIndex: number }) => void
   setNeck: ({ neck }: { neck: NeckId }) => void
   setStructural: ({ structural }: { structural: StructuralParams }) => void
   addPattern: ({
@@ -1549,16 +1554,25 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     })
   },
   moveLayer: ({ layerId, direction }) => {
+    const placement = layerPlacement({ layerId })
+
+    if (!placement) {
+      return
+    }
+
+    const toIndex =
+      direction === 'front'
+        ? placement.count - 1
+        : direction === 'back'
+          ? 0
+          : placement.index + (direction === 'up' ? 1 : -1)
+    get().moveLayerTo({ layerId, toIndex })
+  },
+  moveLayerTo: ({ layerId, toIndex }) => {
     set((state) => {
       const placement = layerPlacement({ layerId })
 
-      if (!placement) {
-        return state
-      }
-
-      const toIndex = placement.index + (direction === 'up' ? 1 : -1)
-
-      if (toIndex < 0 || toIndex >= placement.count) {
+      if (!placement || toIndex === placement.index || toIndex < 0 || toIndex >= placement.count) {
         return state
       }
 

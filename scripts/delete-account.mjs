@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-import { listFilesUnder, removeFiles } from './storage-tree.mjs'
+import { AccountDeletionError, deleteAccountAndFiles } from '../src/lib/flp-api/account-deletion.mjs'
+import { listFilesUnder } from './storage-tree.mjs'
 
 /**
  * Deletes one account and everything it stored (A07 #151). The database
@@ -12,6 +13,8 @@ import { listFilesUnder, removeFiles } from './storage-tree.mjs'
  *
  * Without --confirm it only reports what would go. Safe to rerun: a run
  * interrupted after the files were removed finishes the account next time.
+ * People can also delete their own account from My Studio (P1); both use
+ * src/lib/flp-api/account-deletion.mjs.
  */
 
 const url = process.env.SUPABASE_URL
@@ -48,12 +51,17 @@ if (!confirm) {
   process.exit(0)
 }
 
-await removeFiles({ admin, files })
-const deleted = await admin.auth.admin.deleteUser(user.id)
+let result
 
-if (deleted.error) {
-  console.error(`Files removed, but the account was not deleted (${deleted.error.message}). Rerun to finish.`)
-  process.exit(1)
+try {
+  result = await deleteAccountAndFiles({ admin, userId: user.id })
+} catch (failure) {
+  if (failure instanceof AccountDeletionError && failure.stage === 'account') {
+    console.error(`Files removed, but the account was not deleted (${failure.message}). Rerun to finish.`)
+    process.exit(1)
+  }
+
+  throw failure
 }
 
-console.log(`Deleted ${email}: account, designs, history, publications, uploads and ${files.length} file(s).`)
+console.log(`Deleted ${email}: account, designs, history, publications, uploads and ${result.files} file(s).`)

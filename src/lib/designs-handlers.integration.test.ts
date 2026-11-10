@@ -115,7 +115,7 @@ describe.skipIf(!env)('guest board with sign-in required, against local Supabase
     expect(listStoredDesigns()).toHaveLength(before)
   })
 
-  test('an anonymous vote is refused with 403, by path or by query, for guest and alpha ids', async () => {
+  test('a guest vote is gone (410), by path or by query, for guest and alpha ids', async () => {
     const [seed] = listStoredDesigns({ boardOnly: true })
     const votes = seed!.votes
 
@@ -126,7 +126,7 @@ describe.skipIf(!env)('guest board with sign-in required, against local Supabase
       `/${alpha.slug}/vote`,
     ]) {
       const response = await board({ path, method: 'POST' })
-      expect(response.status, path).toBe(403)
+      expect(response.status, path).toBe(410)
     }
 
     expect(listStoredDesigns().find((design) => design.id === seed!.id)?.votes).toBe(votes)

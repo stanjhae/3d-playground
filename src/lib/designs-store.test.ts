@@ -20,7 +20,6 @@ import {
   parseDesignDraft,
   persistDesignsStore,
   resetDesignsStore,
-  voteStoredDesign,
 } from './designs-store'
 import type { DesignsPersist } from './designs-persist'
 import { createEmptyDesign } from './design-schema'
@@ -270,17 +269,6 @@ describe('designs store', () => {
     expect(parsed?.thumbnailDataUrl).toBe('')
   })
 
-  test('votes increment and missing ids stay gone', () => {
-    const before = getStoredDesign({ id: 'look-atelier-ivory' })
-
-    expect(before).not.toBeNull()
-
-    const voted = voteStoredDesign({ id: 'look-atelier-ivory' })
-
-    expect(voted?.votes).toBe((before?.votes ?? 0) + 1)
-    expect(voteStoredDesign({ id: 'look-missing' })).toBeNull()
-  })
-
   test('rankDesigns puts the Leader first and one vote can flip it', () => {
     const designs = listStoredDesigns()
     const ranked = rankDesigns({ designs })
@@ -288,9 +276,11 @@ describe('designs store', () => {
     expect(ranked[0]?.id).toBe('look-midnight-silk')
     expect(ranked[1]?.id).toBe('look-atelier-ivory')
 
-    voteStoredDesign({ id: 'look-atelier-ivory' })
-
-    const after = rankDesigns({ designs: listStoredDesigns() })
+    const after = rankDesigns({
+      designs: designs.map((design) =>
+        design.id === 'look-atelier-ivory' ? { ...design, votes: design.votes + 1 } : design,
+      ),
+    })
 
     expect(after[0]?.id).toBe('look-atelier-ivory')
     expect(after[0]?.votes).toBe(6)

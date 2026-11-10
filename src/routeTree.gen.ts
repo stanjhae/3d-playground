@@ -10,11 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountDeletedRouteImport } from './routes/account-deleted'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SoonRouteImport } from './routes/soon'
 import { Route as StudioRouteImport } from './routes/studio'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VoteRouteImport } from './routes/vote'
 import { Route as LookLookIdRouteImport } from './routes/look.$lookId'
 import { Route as SSlugRouteImport } from './routes/s.$slug'
@@ -22,6 +24,11 @@ import { Route as SSlugRouteImport } from './routes/s.$slug'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountDeletedRoute = AccountDeletedRouteImport.update({
+  id: '/account-deleted',
+  path: '/account-deleted',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreateRoute = CreateRouteImport.update({
@@ -49,6 +56,11 @@ const StudioRoute = StudioRouteImport.update({
   path: '/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VoteRoute = VoteRouteImport.update({
   id: '/vote',
   path: '/vote',
@@ -67,22 +79,26 @@ const SSlugRoute = SSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account-deleted': typeof AccountDeletedRoute
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
+  '/terms': typeof TermsRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
   '/s/$slug': typeof SSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account-deleted': typeof AccountDeletedRoute
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
+  '/terms': typeof TermsRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
   '/s/$slug': typeof SSlugRoute
@@ -90,11 +106,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account-deleted': typeof AccountDeletedRoute
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
+  '/terms': typeof TermsRoute
   '/vote': typeof VoteRoute
   '/look/$lookId': typeof LookLookIdRoute
   '/s/$slug': typeof SSlugRoute
@@ -103,33 +121,39 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account-deleted'
     | '/create'
     | '/privacy'
     | '/sign-in'
     | '/soon'
     | '/studio'
+    | '/terms'
     | '/vote'
     | '/look/$lookId'
     | '/s/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account-deleted'
     | '/create'
     | '/privacy'
     | '/sign-in'
     | '/soon'
     | '/studio'
+    | '/terms'
     | '/vote'
     | '/look/$lookId'
     | '/s/$slug'
   id:
     | '__root__'
     | '/'
+    | '/account-deleted'
     | '/create'
     | '/privacy'
     | '/sign-in'
     | '/soon'
     | '/studio'
+    | '/terms'
     | '/vote'
     | '/look/$lookId'
     | '/s/$slug'
@@ -137,11 +161,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountDeletedRoute: typeof AccountDeletedRoute
   CreateRoute: typeof CreateRoute
   PrivacyRoute: typeof PrivacyRoute
   SignInRoute: typeof SignInRoute
   SoonRoute: typeof SoonRoute
   StudioRoute: typeof StudioRoute
+  TermsRoute: typeof TermsRoute
   VoteRoute: typeof VoteRoute
   LookLookIdRoute: typeof LookLookIdRoute
   SSlugRoute: typeof SSlugRoute
@@ -154,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-deleted': {
+      id: '/account-deleted'
+      path: '/account-deleted'
+      fullPath: '/account-deleted'
+      preLoaderRoute: typeof AccountDeletedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/create': {
@@ -191,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vote': {
       id: '/vote'
       path: '/vote'
@@ -217,11 +257,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountDeletedRoute: AccountDeletedRoute,
   CreateRoute: CreateRoute,
   PrivacyRoute: PrivacyRoute,
   SignInRoute: SignInRoute,
   SoonRoute: SoonRoute,
   StudioRoute: StudioRoute,
+  TermsRoute: TermsRoute,
   VoteRoute: VoteRoute,
   LookLookIdRoute: LookLookIdRoute,
   SSlugRoute: SSlugRoute,

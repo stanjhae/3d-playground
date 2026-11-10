@@ -1,0 +1,31 @@
+# Dependency updates (P4). Weekly, grouped so a week's updates arrive as
+# a few PRs, each checked by CI like any other. Actions are pinned by SHA;
+# Dependabot moves the SHA and the version comment together.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+      runtime-dependencies:
+        dependency-type: production
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    # `/` covers .github/workflows; the composite actions are listed too.
+    directories:
+      - /
+      - /.github/actions/start-supabase
+      - /.github/actions/playwright-browsers
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']

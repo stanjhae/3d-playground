@@ -7,7 +7,7 @@ import {
   sentryEnvelope,
   type ErrorReport,
 } from './error-report.ts'
-import { allowPublicWrite } from './waitlist-handlers.ts'
+import { type PublicLimiter, refusal, sharedLimiter } from './rate-limit.ts'
 
 /**
  * The server half of error reporting (O1): `POST /api/errors` takes the
@@ -18,7 +18,6 @@ import { allowPublicWrite } from './waitlist-handlers.ts'
 type Env = Record<string, string | undefined>
 type Fetch = typeof fetch
 
-const ERRORS_LIMIT = { max: 10, windowMs: 60 * 1000 }
 const FORWARD_TIMEOUT_MS = 2000
 
 function processEnv(): Env {
@@ -74,10 +73,6 @@ export async function forwardErrorReport({
   }
 }
 
-function clientKey({ request }: { request: Request }) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'local'
-}
-
 /**
  * `POST /api/errors`: one browser report. Answers 202 whether or not it
  * was forwarded, so the page learns nothing about the tracker.
@@ -86,10 +81,12 @@ export async function handleErrorsRequest({
   request,
   env = processEnv(),
   fetchImpl = fetch,
+  limiter = sharedLimiter,
 }: {
   request: Request
   env?: Env
   fetchImpl?: Fetch
+  limiter?: PublicLimiter
 }) {
   const noStore = { 'Cache-Control': 'no-store' }
 
@@ -103,8 +100,14 @@ export async function handleErrorsRequest({
     return Response.json({ error: 'Cross-origin reports are not accepted' }, { status: 403, headers: noStore })
   }
 
-  if (!allowPublicWrite({ key: `errors:${clientKey({ request })}`, ...ERRORS_LIMIT })) {
-    return Response.json({ error: 'Too many reports' }, { status: 429, headers: noStore })
+  const decision = await limiter({ request, bucket: 'errors' })
+
+  if (!decision.allowed) {
+    return refusal({
+      decision,
+      limitedBody: { error: 'Too many reports' },
+      unavailableBody: { error: 'Reports are not being accepted right now' },
+    })
   }
 
   const body = await request.text()

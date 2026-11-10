@@ -13,6 +13,9 @@ export function SiteFooter() {
         <Link to="/privacy" className={linkClass}>
           Privacy
         </Link>
+        <Link to="/terms" className={linkClass}>
+          Terms
+        </Link>
         {CONTACT_EMAIL ? (
           <a href={`mailto:${CONTACT_EMAIL}`} className={linkClass}>
             Contact

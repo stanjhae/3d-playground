@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 import { shareCardHead, shareCardHtml } from '../og-card.ts'
+import { type PublicLimiter, sharedLimiter } from '../rate-limit.ts'
 import type { PublicDesign } from './publication.ts'
 import {
   PUBLIC_CACHE_CONTROL,
@@ -140,15 +141,21 @@ export async function handleSharePage({
   request,
   env = flpServerEnv(),
   loadShell = fetchShell,
+  limiter = sharedLimiter,
 }: {
   request: Request
   env?: FlpServerEnv | null
   loadShell?: ShellLoader
+  limiter?: PublicLimiter
 }) {
   const url = new URL(request.url)
   const slug = url.searchParams.get('slug') ?? url.pathname.match(/^\/s\/([^/]+)\/?$/)?.[1] ?? undefined
+  // Over the limit (P2), the design isn't read or embedded: the page comes
+  // back as a 429 with the plain app, which asks the public API itself and
+  // says the design can't load right now if that is limited too.
+  const decision = await limiter({ request, bucket: 'share_page' })
   // A failed read still serves the app, which asks again and can say so.
-  const published = env
+  const published = env && decision.allowed
     ? await findPublishedDesign({
         admin: createClient(env.url, env.secretKey, {
           auth: { persistSession: false, autoRefreshToken: false },
@@ -182,11 +189,13 @@ export async function handleSharePage({
     : shareCardHtml({ origin: url.origin, shared })
 
   return new Response(html, {
+    status: decision.allowed ? 200 : decision.reason === 'limited' ? 429 : 503,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       // Unpublishing must take effect at once (#183).
       'Cache-Control': PUBLIC_CACHE_CONTROL,
       'X-Robots-Tag': PUBLIC_ROBOTS,
+      ...(decision.allowed ? {} : { 'Retry-After': decision.reason === 'limited' ? String(decision.retryAfter) : '30' }),
     },
   })
 }
