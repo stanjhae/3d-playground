@@ -2,7 +2,7 @@
 
 The garment is the product. The building is the house.
 
-Live: [https://3d-playground-vert.vercel.app/](https://3d-playground-vert.vercel.app/)
+Live (beta): [https://beta.fashionleadervote.com/](https://beta.fashionleadervote.com/)
 
 ## Develop
 

@@ -31,6 +31,9 @@ import {
  *   SUPABASE_ANON_KEY=… [SUPABASE_SECRET_KEY=…] [SUPABASE_ACCESS_TOKEN=…] \
  *   [MAILPIT_URL=…] pnpm hosted:check [--production-readonly] [--allow-local]
  *
+ * SITE_ORIGIN names the public site when it isn't E2E_BASE_URL, so the
+ * auth config may point at it (staging: https://beta.fashionleadervote.com).
+ *
  * Writes go only through `it-*@example.test` accounts this run creates,
  * removed at the end with `deleteAccounts` (e2e/helpers.ts).
  */
@@ -391,14 +394,19 @@ await check({
     })
     expect(response.ok, `Management API answered ${response.status} for project ${ref}`)
     const config = await response.json()
-    const origin = new URL(BASE).origin
+    // The public site may differ from the host being checked: staging is
+    // served at beta.fashionleadervote.com and checked through its
+    // *.vercel.app alias, where the checks that write are allowed.
+    const origin = new URL(env.SITE_ORIGIN ?? BASE).origin
+    const allowed = [...new Set([origin, new URL(BASE).origin])]
+    const allows = (entry) => allowed.some((host) => entry === host || entry.startsWith(`${host}/`))
     const redirects = (config.uri_allow_list ?? '').split(',').map((entry) => entry.trim()).filter(Boolean)
 
     expect(new URL(config.site_url).origin === origin, `Site URL is ${config.site_url}, not ${origin}`)
     expect(redirects.length > 0, 'the redirect allowlist is empty')
     expect(
-      redirects.every((entry) => entry === origin || entry.startsWith(`${origin}/`)),
-      `the redirect allowlist allows other hosts: ${redirects.filter((entry) => !entry.startsWith(origin)).join(', ')}`,
+      redirects.every(allows),
+      `the redirect allowlist allows other hosts: ${redirects.filter((entry) => !allows(entry)).join(', ')}`,
     )
     expect(config.mailer_otp_length === 6, `code length is ${config.mailer_otp_length}`)
     expect(config.mailer_otp_exp === 600, `code expiry is ${config.mailer_otp_exp} s`)
