@@ -1,0 +1,25 @@
+name: Playwright browsers
+description: Installs one Playwright browser, cached by Playwright version; system packages are installed every run.
+inputs:
+  browser:
+    description: chromium or webkit
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Playwright version
+      id: version
+      shell: bash
+      run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      id: cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-ubuntu-24.04-${{ steps.version.outputs.version }}-${{ inputs.browser }}
+    # The cache holds the browser; its system packages still come from apt.
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm exec playwright install --with-deps ${{ inputs.browser }}
+    - if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: pnpm exec playwright install-deps ${{ inputs.browser }}

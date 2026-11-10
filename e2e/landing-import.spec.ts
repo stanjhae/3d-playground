@@ -1,5 +1,8 @@
 import { type Page, expect, test } from '@playwright/test'
 
+import { createEmptyDocument } from '../src/lib/design-document'
+import { TINY_JPEG } from '../src/lib/image-fixtures'
+import { LANDING_HANDOFF_KEY, serializeLandingHandoff } from '../src/lib/landing-handoff'
 import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
 
 /**
@@ -7,38 +10,31 @@ import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
  * preview, and its image becomes a real upload (F06 #141).
  */
 
-// The hand-off is seeded with the app's own modules, which only the Vite
-// dev server serves; a built deployment (E2E_BASE_URL) has no /src.
-test.skip(Boolean(process.env.E2E_BASE_URL), 'seeds the landing hand-off from dev-server modules')
-
 const emails: string[] = []
 test.afterAll(async () => {
   await deleteAccounts({ emails })
 })
 
 // What the landing page stores when someone moves to the studio: a design
-// with one real image, inline.
+// with one real image, inline. Built here with the app's own modules, so it
+// runs against the dev server, a preview build or a deployment alike.
 async function storeLandingDesign({ page }: { page: Page }) {
-  await page.evaluate(async () => {
-    const { TINY_JPEG } = await import('/src/lib/image-fixtures.ts')
-    const { createEmptyDocument } = await import('/src/lib/design-document.ts')
-    const { LANDING_HANDOFF_KEY, serializeLandingHandoff } = await import('/src/lib/landing-handoff.ts')
-    const document = createEmptyDocument({ garmentId: 'tee' })
-    document.layers.push({
-      id: 'mark-landing',
-      kind: 'graphic',
-      panel: 'front',
-      // A real image, so the server's validation accepts it.
-      src: `data:image/jpeg;base64,${btoa(String.fromCharCode(...TINY_JPEG))}`,
-      x: 0.5,
-      y: 0.5,
-      scale: 0.3,
-      rotation: 0,
-      opacity: 1,
-      visible: true,
-    })
-    sessionStorage.setItem(LANDING_HANDOFF_KEY, serializeLandingHandoff({ garmentId: 'tee', document }))
+  const document = createEmptyDocument({ garmentId: 'tee' })
+  document.layers.push({
+    id: 'mark-landing',
+    kind: 'graphic',
+    panel: 'front',
+    // A real image, so the server's validation accepts it.
+    src: `data:image/jpeg;base64,${Buffer.from(TINY_JPEG).toString('base64')}`,
+    x: 0.5,
+    y: 0.5,
+    scale: 0.3,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
   })
+  const handoff = serializeLandingHandoff({ garmentId: 'tee', document })
+  await page.evaluate(([key, value]) => sessionStorage.setItem(key, value), [LANDING_HANDOFF_KEY, handoff] as const)
   await page.reload()
 }
 
