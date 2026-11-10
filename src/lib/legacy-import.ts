@@ -316,6 +316,7 @@ function convertStroke({
   }
 
   const points: number[] = []
+  const pressures: number[] = []
   let hasPressure = false
   let pressureSum = 0
 
@@ -327,8 +328,9 @@ function convertStroke({
       return null
     }
 
-    const pressure = isFiniteNumber(point.p) ? point.p : V1_DEFAULT_PRESSURE
+    const pressure = isFiniteNumber(point.p) ? Math.min(1, Math.max(0, point.p)) : V1_DEFAULT_PRESSURE
     pressureSum += pressure
+    pressures.push(pressure)
 
     if (pressure !== V1_DEFAULT_PRESSURE) {
       hasPressure = true
@@ -340,27 +342,31 @@ function convertStroke({
     )
   }
 
-  // v1 drew radius = width × (0.55 + p × 0.7); v2 has no pressure and the
-  // renderer assumes p = 0.7, so fold the stroke's mean pressure into width.
+  // Both draw radius = width × (0.55 + p × 0.7), with p = 0.7 when a point has
+  // none. Pressure that changes along the stroke (a pen's taper) is kept per
+  // point (W2). Pressure that doesn't, as with every mouse stroke, folds into
+  // the width as before, so those strokes are stored exactly as they were.
+  const varies = pressures.some((pressure) => pressure !== pressures[0])
   const meanPressure = pressureSum / value.points.length
-  const evenWidth = Number(
-    ((width * (0.55 + meanPressure * 0.7)) / (0.55 + V1_DEFAULT_PRESSURE * 0.7)).toFixed(6),
-  )
+  const evenWidth = varies
+    ? width
+    : Number(((width * (0.55 + meanPressure * 0.7)) / (0.55 + V1_DEFAULT_PRESSURE * 0.7)).toFixed(6))
+  const pressureField = varies ? { pressures } : {}
 
   if (evenWidth < CANONICAL_LIMITS.minStrokeWidth || evenWidth > CANONICAL_LIMITS.maxStrokeWidth) {
     context.unsupported.push({ path: `${path}.width`, message: 'stroke width out of range; left out' })
     return null
   }
 
-  if (hasPressure) {
+  if (hasPressure && !varies) {
     context.warnings.push({
       path,
-      message: 'pen pressure is not in v2; folded into an even stroke width',
+      message: 'even pen pressure folded into the stroke width',
     })
   }
 
   if (tool === 'eraser') {
-    return { panel, stroke: { id, tool: 'eraser', width: evenWidth, points } }
+    return { panel, stroke: { id, tool: 'eraser', width: evenWidth, points, ...pressureField } }
   }
 
   const rawColor = typeof value.color === 'string' ? value.color.trim().toLowerCase() : ''
@@ -381,6 +387,7 @@ function convertStroke({
     width: evenWidth,
     opacity: Number(alpha.toFixed(6)),
     points,
+    ...pressureField,
   }
   return { panel, stroke }
 }
