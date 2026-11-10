@@ -222,15 +222,18 @@ describe.skipIf(!env)('publication against local Supabase', () => {
   })
 
   test('views record what drew them, and republishing a version never replaces them (C2)', async () => {
+    // Its own account: the publish rate limit is per account.
+    const owner = await createAccount({ admin, env: serverEnv, label: 'pub-stamp' })
+    owners.push(owner)
     const created = await api({
       path: 'designs',
       method: 'POST',
-      token: a.token,
+      token: owner.token,
       body: { mutationKey: crypto.randomUUID(), title: 'Stamp check', content: DOCUMENT },
     })
     const stampId = ((await created.json()) as { designId: string }).designId
     const upload = (stamp: { templateVersion: number; compilerVersion: number }) =>
-      api({ path: `designs/${stampId}/renders`, method: 'POST', token: a.token, body: { seq: 1, renders: RENDERS, ...stamp } })
+      api({ path: `designs/${stampId}/renders`, method: 'POST', token: owner.token, body: { seq: 1, renders: RENDERS, ...stamp } })
     const stored = async () =>
       (
         await admin
@@ -249,17 +252,17 @@ describe.skipIf(!env)('publication against local Supabase', () => {
     )
 
     const { slug } = (await (
-      await api({ path: `designs/${stampId}/publication`, method: 'POST', token: a.token, body: { seq: 1 } })
+      await api({ path: `designs/${stampId}/publication`, method: 'POST', token: owner.token, body: { seq: 1 } })
     ).json()) as { slug: string }
 
     // Unpublish, then publish the same version again with a new stamp.
-    await api({ path: `designs/${stampId}/publication`, method: 'DELETE', token: a.token })
+    await api({ path: `designs/${stampId}/publication`, method: 'DELETE', token: owner.token })
     const again = await upload({ templateVersion: 3, compilerVersion: 2 })
     expect(again.status).toBe(201)
     expect(await again.json()).toMatchObject({ kept: [...PUBLIC_RENDER_KINDS] })
     expect(await stored()).toEqual(before)
 
-    await api({ path: `designs/${stampId}/publication`, method: 'POST', token: a.token, body: { seq: 1 } })
+    await api({ path: `designs/${stampId}/publication`, method: 'POST', token: owner.token, body: { seq: 1 } })
     const front = await handleFlpRequest({
       env: serverEnv,
       request: new Request(`http://localhost/api/flp/public/${slug}/image?seq=1`),
