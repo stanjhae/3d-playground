@@ -1,4 +1,5 @@
 import { handleDesignsRequest } from '../src/lib/designs-handlers.ts'
+import { withErrorReporting } from '../src/lib/error-tunnel.ts'
 
 function designsRequest({ request }: { request?: Request }) {
   return (
@@ -9,18 +10,18 @@ function designsRequest({ request }: { request?: Request }) {
   )
 }
 
+const handle = withErrorReporting((request) => handleDesignsRequest({ request }))
+
 export function GET(request?: Request) {
-  return handleDesignsRequest({
-    request: designsRequest({ request }),
-  })
+  return handle(designsRequest({ request }))
 }
 
 export function POST(request: Request) {
-  return handleDesignsRequest({ request })
+  return handle(request)
 }
 
 export default {
   fetch(request: Request) {
-    return handleDesignsRequest({ request })
+    return handle(request)
   },
 }
