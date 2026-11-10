@@ -209,8 +209,13 @@ test('publishing with a figure tried on photographs the tee alone', async ({ pag
   await openDesign({ page, label: 'tryonpub' })
   await goToStep({ page, step: 'share' })
   await tryOn({ page })
-  const worn = await statsOf({ page, picture: await sceneShot({ page }) })
-  expect(worn.skin).toBeGreaterThan(200)
+  // The figure loads after the click; on a slow runner it can take more
+  // than one shot's wait, so look again until it is there.
+  let worn: Stats | null = null
+  await expect(async () => {
+    worn = await statsOf({ page, picture: await sceneShot({ page }) })
+    expect(worn.skin).toBeGreaterThan(200)
+  }).toPass({ timeout: 30_000 })
 
   const { seq } = await savedHead({ page })
   await page.getByRole('button', { name: 'Publish…' }).click()
@@ -220,7 +225,7 @@ test('publishing with a figure tried on photographs the tee alone', async ({ pag
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   const slug = (await link.getAttribute('href'))!.split('/s/')[1]!
   const front = await publishedFront({ page, slug })
-  expect((await statsOf({ page, ...front })).skin).toBeLessThan(worn.skin / 10)
+  expect((await statsOf({ page, ...front })).skin).toBeLessThan(worn!.skin / 10)
 })
 
 test('a moved layer shows in the 2D panel and the 3D view, and looks the same after reloading', async ({ page }) => {
