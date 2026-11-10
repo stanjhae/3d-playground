@@ -7,10 +7,10 @@
  * Changing the terms: edit `src/routes/terms.tsx`, then set a new version
  * here (the date it takes effect). Every account is then asked again.
  */
-export const TERMS_VERSION = '2026-11-14'
+export const TERMS_VERSION = '2026-11-11'
 
 /** Shown on `/terms`, as "Last updated". */
-export const TERMS_UPDATED = '14 November 2026'
+export const TERMS_UPDATED = '11 November 2026'
 
 /** True when the stored acceptance covers the terms in force. */
 export function termsAccepted({ version }: { version: string | null | undefined }) {
