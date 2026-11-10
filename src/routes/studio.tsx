@@ -3,6 +3,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { RequireSession } from '../components/auth/RequireSession'
+import { DeleteAccount } from '../components/studio/DeleteAccount'
 import { DesignCard } from '../components/studio/DesignCard'
 import { ImportPreview } from '../components/studio/ImportPreview'
 import { PublicName } from '../components/studio/PublicName'
@@ -454,6 +455,11 @@ function MyStudio() {
         )}
         </>
       )}
+
+      {/* The list shows at most 100, so a full list doesn't give a count. */}
+      <DeleteAccount
+        designCount={list.status === 'ready' && list.designs.length < 100 ? list.designs.length : null}
+      />
     </section>
   )
 }

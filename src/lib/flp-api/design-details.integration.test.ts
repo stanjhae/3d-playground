@@ -182,17 +182,17 @@ describe.skipIf(!env)('design details against local Supabase', () => {
   })
 
   test('the public display name is per account and can be cleared', async () => {
-    expect(await (await api({ path: 'profile', token: a.token })).json()).toEqual({ displayName: null })
+    expect(await (await api({ path: 'profile', token: a.token })).json()).toMatchObject({ displayName: null })
 
     const set = await api({ path: 'profile', method: 'POST', token: a.token, body: { displayName: ' Ada ' } })
-    expect(await set.json()).toEqual({ displayName: 'Ada' })
-    expect(await (await api({ path: 'profile', token: b.token })).json()).toEqual({ displayName: null })
+    expect(await set.json()).toMatchObject({ displayName: 'Ada' })
+    expect(await (await api({ path: 'profile', token: b.token })).json()).toMatchObject({ displayName: null })
 
     const tooLong = await api({ path: 'profile', method: 'POST', token: a.token, body: { displayName: 'x'.repeat(41) } })
     expect(tooLong.status).toBe(422)
 
     const cleared = await api({ path: 'profile', method: 'POST', token: a.token, body: { displayName: null } })
-    expect(await cleared.json()).toEqual({ displayName: null })
+    expect(await cleared.json()).toMatchObject({ displayName: null })
     expect((await api({ path: 'profile' })).status).toBe(401)
   })
 })

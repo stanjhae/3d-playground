@@ -5,6 +5,8 @@
  * route is checked in both places once it is added here.
  */
 
+import { TERMS_VERSION } from '../terms.ts'
+
 export type RouteMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 
 export type RouteFixture = { designId: string; assetId: string; slug: string }
@@ -64,6 +66,9 @@ export function flpRoutes({ document, renders }: { document: unknown; renders: u
     { method: 'POST', path: ({ assetId }) => `assets/${assetId}/finalize`, scope: 'owner' },
     { method: 'GET', path: () => 'profile', scope: 'account' },
     { method: 'POST', path: () => 'profile', body: () => ({ displayName: 'Stranger' }), scope: 'account' },
+    { method: 'POST', path: () => 'terms', body: () => ({ version: TERMS_VERSION }), scope: 'account' },
+    // Only ever sent signed out by the stranger checks: with a session it deletes that account.
+    { method: 'DELETE', path: () => 'account', body: () => ({ confirmEmail: 'stranger@example.test' }), scope: 'account' },
     { method: 'GET', path: ({ slug }) => `public/${slug}`, scope: 'public' },
     { method: 'GET', path: ({ slug }) => `public/${slug}/image?kind=view_front`, scope: 'public' },
     { method: 'GET', path: ({ slug }) => `public/${slug}/vote`, scope: 'public' },

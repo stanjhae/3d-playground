@@ -88,8 +88,10 @@ function Privacy() {
         <h2 className={headingClass}>Removing your data</h2>
         <p className={textClass}>
           Delete any design from <Link to="/studio" className="underline">My Studio</Link>; its history, pictures and
-          public link go with it. To delete your whole account, email {contact} from the address you sign in with. To
-          leave the waitlist, email the same address from the one you joined with.
+          public link go with it. To delete your whole account, choose Delete account at the bottom of My Studio and
+          type your email to confirm: your designs, history, pictures, uploads and public links are removed straight
+          away, and you are signed out. Copies in encrypted backups are deleted within 30 days. To leave the waitlist,
+          email {contact} from the address you joined with.
         </p>
       </div>
 

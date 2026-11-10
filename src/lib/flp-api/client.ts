@@ -299,6 +299,19 @@ export function setDisplayName({
   return call<ProfileResponse>({ path: 'profile', method: 'POST', body: { displayName }, fetchImpl })
 }
 
+/** Records that this account accepted the terms in force (P1). */
+export function acceptTerms({ version, fetchImpl }: { version: string; fetchImpl?: typeof fetch }) {
+  return call<ProfileResponse>({ path: 'terms', method: 'POST', body: { version }, fetchImpl })
+}
+
+/**
+ * Deletes this account and everything it stored (P1). `confirmEmail` must
+ * be the account's own email. The caller signs out locally afterwards.
+ */
+export function deleteOwnAccount({ confirmEmail, fetchImpl }: { confirmEmail: string; fetchImpl?: typeof fetch }) {
+  return call<null>({ path: 'account', method: 'DELETE', body: { confirmEmail }, fetchImpl })
+}
+
 /** Publication state for the owner (P03 #181). */
 export function getPublication({ designId, fetchImpl }: { designId: string; fetchImpl?: typeof fetch }) {
   return call<{ publication: OwnerPublication | null }>({ path: `designs/${designId}/publication`, fetchImpl })
