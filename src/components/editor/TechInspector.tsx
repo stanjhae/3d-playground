@@ -16,6 +16,7 @@ import { useStudioMode } from '../../lib/studio-mode'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { type PlaceableLayer, layerMostlyOffPanel } from '../../lib/layer-hit'
 import { INK_COLORS } from '../../lib/paint-colors'
+import { chestLineY } from '../../lib/panel-snap'
 import {
   chromeKickerClass,
   chromeTextClass,
@@ -203,8 +204,10 @@ export function TechInspector() {
 
   const selected = layer
   const pose = draft
-  const flipButtonClass = cn(
-    'min-h-11 flex-1 border border-flv-line px-3 text-flv-muted hover:text-flv-accent',
+  // Only the tee's chest is measured.
+  const chest = isCanonicalGarment({ garmentId }) && selected.kind !== 'pattern' ? chestLineY({ panel: selected.panel }) : null
+  const alignButtonClass = cn(
+    'min-h-11 flex-1 border border-flv-line px-3 text-flv-muted hover:text-flv-accent disabled:opacity-50 disabled:hover:text-flv-muted',
     chromeTextClass(),
   )
 
@@ -323,6 +326,31 @@ export function TechInspector() {
       </div>
       )}
       {selected.kind !== 'pattern' ? (
+        <div role="group" aria-label="Align" className="flex flex-col gap-1">
+          <span className={cn('text-flv-muted', chromeTextClass())}>Align</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => commitDraft({ patch: { x: 0.5 } })}
+              disabled={pose.x === 0.5}
+              className={alignButtonClass}
+            >
+              Centre
+            </button>
+            {chest !== null ? (
+              <button
+                type="button"
+                onClick={() => commitDraft({ patch: { y: chest } })}
+                disabled={pose.y === chest}
+                className={alignButtonClass}
+              >
+                {selected.panel === 'back' ? 'On shoulder blades' : 'On chest'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {selected.kind !== 'pattern' ? (
         <div role="group" aria-label="Flip" className="flex flex-col gap-1">
           <span className={cn('text-flv-muted', chromeTextClass())}>Flip</span>
           <div className="flex gap-2">
@@ -337,7 +365,7 @@ export function TechInspector() {
                 type="button"
                 aria-pressed={Boolean(selected[flag])}
                 onClick={() => commitDraft({ patch: { [flag]: !selected[flag] } })}
-                className={cn(flipButtonClass, { 'border-flv-accent text-flv-accent': Boolean(selected[flag]) })}
+                className={cn(alignButtonClass, { 'border-flv-accent text-flv-accent': Boolean(selected[flag]) })}
               >
                 {name}
               </button>

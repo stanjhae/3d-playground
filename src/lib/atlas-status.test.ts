@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from 'vitest'
 
-import { type AtlasBuild, ATLAS_COMPILER_VERSION, artworkState, atlasBuildState, useAtlasBuild, waitForCurrentAtlas } from './atlas-status'
+import { type AtlasBuild, ATLAS_COMPILER_VERSION, artworkState, atlasBuildState, atlasStamp, useAtlasBuild, waitForCurrentAtlas } from './atlas-status'
 import { createEmptyCanonicalDocument } from './canonical-document'
+import { hashCanonicalDocument } from './canonical-hash'
 import { type DesignDocument, createEmptyDocument } from './design-document'
 import { rasterizeLayers } from './paint-atlas'
 import { toRenderDocument } from './render-projection'
@@ -36,8 +37,8 @@ const word = {
 const withLayers = (layers: unknown[]) => ({ ...createEmptyDocument({ garmentId: 'tee' }), layers }) as DesignDocument
 const buildOf = (document: DesignDocument, extra: Partial<AtlasBuild> = {}): AtlasBuild => ({
   document,
+  canonical: createEmptyCanonicalDocument(),
   revision: 3,
-  templateVersion: 3,
   compilerVersion: ATLAS_COMPILER_VERSION,
   state: 'ready',
   ...extra,
@@ -87,6 +88,28 @@ describe('whether a build is current', () => {
     expect(atlasBuildState({ build: buildOf(document), document, revision: 4 })).toBe('loading')
     expect(atlasBuildState({ build: buildOf(withLayers([])), document, revision: 3 })).toBe('loading')
     expect(atlasBuildState({ build: buildOf(document, { compilerVersion: 0 }), document, revision: 3 })).toBe('loading')
+  })
+
+  test('and, when asked, for the same template', () => {
+    const canonical = createEmptyCanonicalDocument()
+    const other = { ...canonical, template: { ...canonical.template, version: canonical.template.version + 1 } }
+    expect(atlasBuildState({ build: buildOf(document, { canonical }), document, revision: 3, canonical })).toBe('ready')
+    expect(atlasBuildState({ build: buildOf(document, { canonical }), document, revision: 3, canonical: other })).toBe('loading')
+    expect(atlasBuildState({ build: buildOf(document, { canonical: other }), document, revision: 3, canonical })).toBe('loading')
+  })
+
+  test('a stamp names the content, template and compiler it was drawn from', async () => {
+    const canonical = createEmptyCanonicalDocument()
+    const stamp = await atlasStamp({ build: buildOf(document, { canonical }) })
+    expect(stamp).toEqual({
+      contentHash: await hashCanonicalDocument({ document: canonical }),
+      template: canonical.template,
+      compilerVersion: ATLAS_COMPILER_VERSION,
+    })
+
+    const edited = createEmptyCanonicalDocument()
+    edited.panels.front.layers = [{ id: 'paint', kind: 'paint', visible: true, opacity: 1, strokes: [] }]
+    expect((await atlasStamp({ build: buildOf(document, { canonical: edited }) })).contentHash).not.toBe(stamp.contentHash)
   })
 
   test('an older build reported late does not count for a newer revision', async () => {

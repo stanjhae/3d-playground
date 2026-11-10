@@ -1,0 +1,71 @@
+# Synthetic check of beta (O1). Read-only GETs every 15 minutes; on
+# failure it opens (or comments on) one `synthetic-alert` issue assigned to
+# the repository owner, and closes it when the site recovers. See
+# docs/alerts.md.
+name: Synthetic check
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Site to check
+        default: https://beta.fashionleadervote.com
+
+concurrency:
+  group: synthetic
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Beta synthetic check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SYNTHETIC_BASE_URL: ${{ inputs.base_url || 'https://beta.fashionleadervote.com' }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ALERT_LABEL: synthetic-alert
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            package.json
+            scripts/synthetic-check.mjs
+            src/lib/synthetic-check.ts
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # No install: the script and its library have no dependencies.
+      - name: Check the site
+        id: check
+        run: SYNTHETIC_REPORT=report.md node scripts/synthetic-check.mjs
+
+      - name: Open or update the alert issue
+        if: failure() && steps.check.outcome == 'failure'
+        run: |
+          gh label create "$ALERT_LABEL" --color B60205 --description "Synthetic check failing (docs/alerts.md)" --force
+          printf '\n[Failed run](%s)\n' "$RUN_URL" >> report.md
+          open=$(gh issue list --label "$ALERT_LABEL" --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file report.md
+          else
+            gh issue create --title "Synthetic check failing: $SYNTHETIC_BASE_URL" \
+              --label "$ALERT_LABEL" --assignee "${{ github.repository_owner }}" --body-file report.md
+          fi
+
+      - name: Close the alert issue
+        if: success()
+        run: |
+          open=$(gh issue list --label "$ALERT_LABEL" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$open" ]; then
+            printf '\nRecovered. [Run](%s)\n' "$RUN_URL" >> report.md
+            gh issue close "$open" --comment "$(cat report.md)"
+          fi

@@ -39,6 +39,8 @@ The totals only grow, so compare two reads (for example a day apart) and work on
 
 Ignore a window with fewer than about 50 samples for a timing; the buckets are too coarse to say much below that.
 
+Crashes, the health endpoint and the scheduled check of beta are in [alerts.md](alerts.md).
+
 ## Proposed alert thresholds
 
 To be checked daily during the alpha, on the difference since the last check:
