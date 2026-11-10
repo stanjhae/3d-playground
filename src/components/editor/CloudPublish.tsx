@@ -2,7 +2,7 @@ import { Globe, Lock } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { buttonClass } from '../ui/Button'
-import { waitForCurrentAtlas } from '../../lib/atlas-status'
+import { useAtlasBuild, waitForCurrentAtlas } from '../../lib/atlas-status'
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
 import { cn } from '../../lib/cn'
 import { useCopyStatus } from '../../lib/copy-text'
@@ -150,6 +150,10 @@ export function CloudPublish() {
         return
       }
 
+      // What drew these views (C2), read while the atlas is known current.
+      const build = useAtlasBuild.getState().build
+      const stamp = build ? { templateVersion: build.templateVersion, compilerVersion: build.compilerVersion } : undefined
+
       const stills = await captureAngleStills({
         canvas: getStudioCanvas(),
         setCameraPreset: editor.setCameraPreset,
@@ -178,6 +182,7 @@ export function CloudPublish() {
           kind: KIND_BY_ANGLE[index]!,
           data: still.slice(still.indexOf(',') + 1),
         })),
+        stamp,
       })
 
       if (!uploaded.ok) {
