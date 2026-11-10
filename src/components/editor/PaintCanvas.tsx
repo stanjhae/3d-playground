@@ -31,7 +31,8 @@ import {
   type PlaceableLayer,
 } from '../../lib/layer-hit'
 import { paintSurfacePanels } from '../../lib/paint-layout'
-import { rasterizeLayers } from '../../lib/paint-atlas'
+import { createLiveAtlas } from '../../lib/paint-atlas'
+import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { SELECTION_COLOR } from '../../lib/selection-chrome'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
@@ -713,6 +714,8 @@ export function PaintCanvas({
   const layerImages = useLayerImages({ document: documentState })
   // Words draw in a fallback until their face loads, then redraw (#155).
   const textFaces = useTextFacesVersion()
+  // Its own cache: the 2D panel draws pending words in a stand-in face.
+  const [liveAtlas] = useState(() => createLiveAtlas({ enabled: LIVE_STROKE_CACHE }))
   const [draftWord, setDraftWord] = useState('')
   const [editingWord, setEditingWord] = useState(false)
   const lgUp = useLgUp()
@@ -742,13 +745,14 @@ export function PaintCanvas({
       return null
     }
 
-    const buffer = rasterizeLayers({
+    const buffer = liveAtlas({
       document: liveDocument,
       extraStroke: activeStroke,
       extraStrokeLayerId: liveStrokeLayerId({ stroke: activeStroke }),
       width: 512,
       height: 512,
       images: layerImages,
+      fontVersion: textFaces,
     })
     const scratch = document.createElement('canvas')
     scratch.width = buffer.width
@@ -760,7 +764,7 @@ export function PaintCanvas({
     )
     scratch.getContext('2d')?.putImageData(image, 0, 0)
     return scratch
-  }, [activeStroke, layerImages, liveDocument, textFaces])
+  }, [activeStroke, layerImages, liveAtlas, liveDocument, textFaces])
 
   useEffect(() => {
     if (!selected || selected.kind !== 'text') {

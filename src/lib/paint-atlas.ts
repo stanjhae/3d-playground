@@ -171,7 +171,8 @@ function stampDot({
   }
 }
 
-function drawStroke({
+/** Exported for `stroke-cover.test.ts`, which pins it to plain dot stamping. */
+export function drawStroke({
   buffer,
   stroke,
 }: {
@@ -259,41 +260,55 @@ function drawStroke({
     }
   }
 
-  const { a } = hexToRgb({ color: stroke.color })
-
-  if (stroke.tool === 'eraser' || a >= 255) {
-    for (const dot of dots) {
-      stampDot({ buffer, ...dot, color: stroke.color, erase: stroke.tool === 'eraser' })
-    }
-    return
-  }
-
-  coverStroke({ buffer, dots, color: stroke.color })
+  coverStroke({ buffer, dots, color: stroke.color, erase: stroke.tool === 'eraser' })
 }
 
 /**
- * A translucent brush stroke: the dots overlap many times along a stroke,
- * so stamping each at the stroke's alpha would darken it toward opaque.
- * Mark the covered pixels once, then composite each at the alpha exactly
- * once, so a 30% stroke reads as 30% wherever it lies (#158).
+ * The dots overlap many times along a stroke. Each covered pixel is found
+ * once, row span by row span, then written once:
+ * - a translucent brush composites at its alpha exactly once, so a 30%
+ *   stroke reads as 30% wherever it lies (#158);
+ * - an opaque brush or an eraser sets the pixel outright, which is what
+ *   stamping every dot in turn produced, without the overdraw.
  */
 function coverStroke({
   buffer,
   dots,
   color,
+  erase,
 }: {
   buffer: AtlasBuffer
   dots: { u: number; v: number; radius: number }[]
   color: string
+  erase: boolean
 }) {
-  const disks = dots.map((dot) => ({
-    ...atlasPixelForUv({ u: dot.u, v: dot.v, width: buffer.width, height: buffer.height }),
-    pixelRadius: Math.max(1, Math.round(dot.radius * buffer.width)),
-  }))
-  const x0 = Math.max(0, Math.min(...disks.map((disk) => disk.column - disk.pixelRadius)))
-  const y0 = Math.max(0, Math.min(...disks.map((disk) => disk.row - disk.pixelRadius)))
-  const x1 = Math.min(buffer.width - 1, Math.max(...disks.map((disk) => disk.column + disk.pixelRadius)))
-  const y1 = Math.min(buffer.height - 1, Math.max(...disks.map((disk) => disk.row + disk.pixelRadius)))
+  const columns = new Int32Array(dots.length)
+  const rows = new Int32Array(dots.length)
+  const radii = new Int32Array(dots.length)
+  let x0 = Infinity
+  let y0 = Infinity
+  let x1 = -Infinity
+  let y1 = -Infinity
+
+  for (let index = 0; index < dots.length; index += 1) {
+    const dot = dots[index]!
+    const center = atlasPixelForUv({ u: dot.u, v: dot.v, width: buffer.width, height: buffer.height })
+    const pixelRadius = Math.max(1, Math.round(dot.radius * buffer.width))
+    columns[index] = center.column
+    rows[index] = center.row
+    radii[index] = pixelRadius
+    x0 = Math.min(x0, center.column - pixelRadius)
+    y0 = Math.min(y0, center.row - pixelRadius)
+    x1 = Math.max(x1, center.column + pixelRadius)
+    y1 = Math.max(y1, center.row + pixelRadius)
+  }
+
+  // Writes outside the clip are dropped, so nothing outside it is visited.
+  const clip = buffer.clip
+  x0 = Math.max(0, x0, clip ? clip.x0 : 0)
+  y0 = Math.max(0, y0, clip ? clip.y0 : 0)
+  x1 = Math.min(buffer.width - 1, x1, clip ? clip.x1 - 1 : Infinity)
+  y1 = Math.min(buffer.height - 1, y1, clip ? clip.y1 - 1 : Infinity)
 
   if (x1 < x0 || y1 < y0) {
     return
@@ -302,28 +317,55 @@ function coverStroke({
   const spanX = x1 - x0 + 1
   const covered = new Uint8Array(spanX * (y1 - y0 + 1))
 
-  for (const { column, row, pixelRadius } of disks) {
-    for (let dy = -pixelRadius; dy <= pixelRadius; dy += 1) {
-      for (let dx = -pixelRadius; dx <= pixelRadius; dx += 1) {
-        const x = column + dx
-        const y = row + dy
+  for (let index = 0; index < dots.length; index += 1) {
+    const column = columns[index]!
+    const row = rows[index]!
+    const pixelRadius = radii[index]!
+    // Consecutive dots often land on the same pixel at the same size.
+    if (index > 0 && column === columns[index - 1] && row === rows[index - 1] && pixelRadius === radii[index - 1]) {
+      continue
+    }
 
-        if (dx * dx + dy * dy > pixelRadius * pixelRadius || x < x0 || y < y0 || x > x1 || y > y1) {
-          continue
-        }
+    const squared = pixelRadius * pixelRadius
 
-        covered[(y - y0) * spanX + (x - x0)] = 1
+    for (let dy = Math.max(-pixelRadius, y0 - row); dy <= Math.min(pixelRadius, y1 - row); dy += 1) {
+      // The widest dx with dx² + dy² ≤ r², as the disk test had it.
+      let half = Math.floor(Math.sqrt(squared - dy * dy))
+      while (half * half > squared - dy * dy) half -= 1
+      while ((half + 1) * (half + 1) <= squared - dy * dy) half += 1
+      const left = Math.max(x0, column - half)
+      const right = Math.min(x1, column + half)
+
+      if (left <= right) {
+        const start = (row + dy - y0) * spanX
+        covered.fill(1, start + left - x0, start + right - x0 + 1)
       }
     }
   }
 
   const { r, g, b, a } = hexToRgb({ color })
+  const pixels = buffer.pixels
+  const outright = erase || a >= 255
 
   for (let y = y0; y <= y1; y += 1) {
+    const maskRow = (y - y0) * spanX
+
     for (let x = x0; x <= x1; x += 1) {
-      if (covered[(y - y0) * spanX + (x - x0)]) {
-        writePixel({ buffer, index: (y * buffer.width + x) * 4, r, g, b, a })
+      if (!covered[maskRow + x - x0]) {
+        continue
       }
+
+      const index = (y * buffer.width + x) * 4
+
+      if (outright) {
+        pixels[index] = erase ? 0 : r
+        pixels[index + 1] = erase ? 0 : g
+        pixels[index + 2] = erase ? 0 : b
+        pixels[index + 3] = erase ? 0 : 255
+        continue
+      }
+
+      writePixel({ buffer, index, r, g, b, a })
     }
   }
 }
@@ -899,6 +941,13 @@ export function rasterizeLayers({
   const target = ({ panel }: { panel: Stroke['panel'] }) =>
     document.garmentId === 'tee' ? clipToPanel({ buffer, panel }) : buffer
   const liveEraser = extraStroke?.tool === 'eraser' && extraStrokeLayerId !== undefined
+  // A live stroke previews inside the layer it will be committed to, so it
+  // looks as it will once saved: at that layer's opacity, under its erasers.
+  const liveLayerId =
+    liveEraser || (extraStroke?.tool === 'brush' && extraStrokeLayerId)
+      ? extraStrokeLayerId
+      : undefined
+  let liveDrawn = false
   // One scratch buffer, cleared over each paint layer's region in turn.
   let scratch: AtlasBuffer | null = null
   const layerBuffer = ({ region }: { region: NonNullable<AtlasBuffer['clip']> }) => {
@@ -927,12 +976,14 @@ export function rasterizeLayers({
     }
 
     if (layer.kind === 'paint') {
-      const opacity = Math.min(1, Math.max(0, layer.opacity ?? 1))
-      const live = liveEraser && layer.id === extraStrokeLayerId ? extraStroke : null
+      const opacity = paintOpacity({ layer })
+      const live = liveLayerId !== undefined && layer.id === liveLayerId ? extraStroke : null
+      const strokes = live ? [...layer.strokes, live] : layer.strokes
+      liveDrawn ||= Boolean(live)
 
       // Without an eraser, an opaque layer draws straight onto the atlas.
-      if (opacity >= 1 && !live && !layer.strokes.some((stroke) => stroke.tool === 'eraser')) {
-        for (const stroke of layer.strokes) {
+      if (drawsDirect({ opacity, strokes })) {
+        for (const stroke of strokes) {
           drawStroke({ buffer: target(stroke), stroke })
         }
         continue
@@ -941,21 +992,11 @@ export function rasterizeLayers({
       // Otherwise the layer is drawn on its own and composited once (#158,
       // #159), so its erasers clear only its own strokes, never the text,
       // graphics, pattern or paint beneath.
-      const strokes = live ? [...layer.strokes, live] : layer.strokes
-      // Only the layer's panels are cleared and composited, not the atlas.
-      const region =
-        document.garmentId === 'tee'
-          ? unionClip({ clips: strokes.map((stroke) => clipToPanel({ buffer, panel: stroke.panel }).clip!) })
-          : { x0: 0, y0: 0, x1: width, y1: height }
+      const region = paintRegion({ document, buffer, strokes })
 
       if (!region) {
         continue
       }
-
-      region.x0 = Math.max(0, region.x0)
-      region.y0 = Math.max(0, region.y0)
-      region.x1 = Math.min(width, region.x1)
-      region.y1 = Math.min(height, region.y1)
 
       const own = layerBuffer({ region })
 
@@ -966,11 +1007,7 @@ export function rasterizeLayers({
         })
       }
 
-      for (let row = region.y0; row < region.y1; row += 1) {
-        for (let column = region.x0; column < region.x1; column += 1) {
-          sampleSource({ dest: buffer, source: own, column, row, srcX: column, srcY: row, opacity })
-        }
-      }
+      compositeRegion({ dest: buffer, source: own, region, opacity })
       continue
     }
 
@@ -992,12 +1029,239 @@ export function rasterizeLayers({
   }
 
   // A live eraser on a layer not drawn yet starts a new, empty layer: it
-  // has nothing of its own to erase, as after it is committed.
-  if (extraStroke && !liveEraser) {
+  // has nothing of its own to erase, as after it is committed. A brush that
+  // starts a new layer is drawn on top, where that layer will be.
+  if (extraStroke && !liveEraser && !liveDrawn) {
     drawStroke({ buffer: target(extraStroke), stroke: extraStroke })
   }
 
   return buffer
+}
+
+type PaintLayer = Extract<DesignLayer, { kind: 'paint' }>
+type Region = NonNullable<AtlasBuffer['clip']>
+
+function paintOpacity({ layer }: { layer: PaintLayer }) {
+  return Math.min(1, Math.max(0, layer.opacity ?? 1))
+}
+
+function drawsDirect({ opacity, strokes }: { opacity: number; strokes: readonly Stroke[] }) {
+  return opacity >= 1 && !strokes.some((stroke) => stroke.tool === 'eraser')
+}
+
+/** The pixels a paint layer drawn on its own covers: only its panels on the tee. */
+function paintRegion({
+  document,
+  buffer,
+  strokes,
+}: {
+  document: DesignDocument
+  buffer: AtlasBuffer
+  strokes: readonly Stroke[]
+}): Region | null {
+  const region =
+    document.garmentId === 'tee'
+      ? unionClip({ clips: strokes.map((stroke) => clipToPanel({ buffer, panel: stroke.panel }).clip!) })
+      : { x0: 0, y0: 0, x1: buffer.width, y1: buffer.height }
+
+  if (!region) {
+    return null
+  }
+
+  return {
+    x0: Math.max(0, region.x0),
+    y0: Math.max(0, region.y0),
+    x1: Math.min(buffer.width, region.x1),
+    y1: Math.min(buffer.height, region.y1),
+  }
+}
+
+function compositeRegion({
+  dest,
+  source,
+  region,
+  opacity,
+}: {
+  dest: AtlasBuffer
+  source: AtlasBuffer
+  region: Region
+  opacity: number
+}) {
+  for (let row = region.y0; row < region.y1; row += 1) {
+    for (let column = region.x0; column < region.x1; column += 1) {
+      sampleSource({ dest, source, column, row, srcX: column, srcY: row, opacity })
+    }
+  }
+}
+
+function copyBuffer({ buffer }: { buffer: AtlasBuffer }): AtlasBuffer {
+  return { width: buffer.width, height: buffer.height, pixels: new Uint8ClampedArray(buffer.pixels) }
+}
+
+type RasterInput = Parameters<typeof rasterizeLayers>[0]
+
+/**
+ * How a live stroke can be drawn from a cache, given where it will land:
+ * - `over`: on top of the finished design (a new layer, or an opaque top
+ *   layer with no erasers);
+ * - `isolated`: into its layer's own pixels, composited over the design
+ *   beneath (a translucent or erased layer, or any live eraser);
+ * - `none`: an eraser with nothing of its own to erase;
+ * - `full`: anything else, drawn by `rasterizeLayers` every frame.
+ */
+type LivePlan =
+  | { kind: 'full' }
+  | { kind: 'over' }
+  | { kind: 'none' }
+  | { kind: 'isolated'; index: number; layer: PaintLayer; opacity: number }
+
+function touchesPanel({ layer, panel }: { layer: DesignLayer; panel: Stroke['panel'] }) {
+  if (layer.kind === 'paint') {
+    return layer.strokes.some((stroke) => stroke.panel === panel)
+  }
+
+  return layer.kind === 'art' || layer.panel === panel
+}
+
+function livePlan({
+  document,
+  stroke,
+  layerId,
+}: {
+  document: DesignDocument
+  stroke: Stroke
+  layerId: string | null | undefined
+}): LivePlan {
+  // Concept garments draw without panel clips, so order matters everywhere.
+  if (document.garmentId !== 'tee' || stroke.tool === 'fill' || layerId === undefined) {
+    return { kind: 'full' }
+  }
+
+  const index = layerId === null
+    ? -1
+    : document.layers.findIndex((layer) => layer.kind === 'paint' && layer.visible && layer.id === layerId)
+
+  if (index < 0) {
+    return stroke.tool === 'eraser' ? { kind: 'none' } : { kind: 'over' }
+  }
+
+  // Panels never overlap, so only what is drawn later on the same panel can
+  // cover the stroke; then nothing can be cached beneath it.
+  if (document.layers.slice(index + 1).some((layer) => layer.visible && touchesPanel({ layer, panel: stroke.panel }))) {
+    return { kind: 'full' }
+  }
+
+  const layer = document.layers[index] as PaintLayer
+  const opacity = paintOpacity({ layer })
+
+  if (drawsDirect({ opacity, strokes: [...layer.strokes, stroke] })) {
+    return { kind: 'over' }
+  }
+
+  // The layer is composited over its whole region; one panel keeps that exact.
+  if (layer.strokes.some((own) => own.panel !== stroke.panel)) {
+    return { kind: 'full' }
+  }
+
+  return { kind: 'isolated', index, layer, opacity }
+}
+
+type LiveCache = {
+  key: readonly unknown[]
+  plan: LivePlan
+  base: AtlasBuffer
+  own: AtlasBuffer | null
+}
+
+function sameKey({ a, b }: { a: readonly unknown[]; b: readonly unknown[] }) {
+  return a.length === b.length && a.every((value, index) => Object.is(value, b[index]))
+}
+
+/**
+ * Draws the design with a live stroke, as `rasterizeLayers` does, pixel for
+ * pixel, without redrawing the whole design for every point: what lies under
+ * the stroke is drawn once at pen-down and reused while the stroke grows.
+ * The stroke itself is redrawn whole each frame, because stamping only its
+ * new points would composite overlapping dots twice.
+ *
+ * Each view keeps its own instance, since they differ in `pendingText`.
+ * `fontVersion` must change whenever a text face finishes loading. With
+ * `enabled: false` every frame is a full redraw.
+ */
+export function createLiveAtlas({ enabled = true }: { enabled?: boolean } = {}) {
+  let cache: LiveCache | null = null
+
+  return function renderLive(input: RasterInput & { fontVersion?: unknown }): AtlasBuffer {
+    const { fontVersion, ...raster } = input
+    const { document, extraStroke, extraStrokeLayerId, images, pendingText = 'fallback' } = raster
+    const width = raster.width ?? ATLAS_SIZE
+    const height = raster.height ?? ATLAS_SIZE
+
+    if (!extraStroke || !enabled) {
+      cache = null
+      return rasterizeLayers(raster)
+    }
+
+    const key = [
+      document,
+      images,
+      pendingText,
+      width,
+      height,
+      fontVersion,
+      extraStrokeLayerId,
+      extraStroke.panel,
+      extraStroke.tool,
+    ]
+
+    if (!cache || !sameKey({ a: cache.key, b: key })) {
+      const plan = livePlan({ document, stroke: extraStroke, layerId: extraStrokeLayerId })
+
+      if (plan.kind === 'full') {
+        cache = null
+        return rasterizeLayers(raster)
+      }
+
+      const shared = { images, pendingText, width, height }
+      let own: AtlasBuffer | null = null
+      let base: AtlasBuffer
+
+      if (plan.kind === 'isolated') {
+        base = rasterizeLayers({
+          ...shared,
+          document: { ...document, layers: document.layers.filter((_, index) => index !== plan.index) },
+        })
+        own = createAtlasBuffer({ width, height })
+
+        for (const stroke of plan.layer.strokes) {
+          drawStroke({ buffer: clipToPanel({ buffer: own, panel: stroke.panel }), stroke })
+        }
+      } else {
+        base = rasterizeLayers({ ...shared, document })
+      }
+
+      cache = { key, plan, base, own }
+    }
+
+    const { plan, base, own } = cache
+    const out = copyBuffer({ buffer: base })
+
+    if (plan.kind === 'over') {
+      drawStroke({ buffer: clipToPanel({ buffer: out, panel: extraStroke.panel }), stroke: extraStroke })
+    }
+
+    if (plan.kind === 'isolated' && own) {
+      const layerOwn = copyBuffer({ buffer: own })
+      drawStroke({ buffer: clipToPanel({ buffer: layerOwn, panel: extraStroke.panel }), stroke: extraStroke })
+      const region = paintRegion({ document, buffer: out, strokes: [...plan.layer.strokes, extraStroke] })
+
+      if (region) {
+        compositeRegion({ dest: out, source: layerOwn, region, opacity: plan.opacity })
+      }
+    }
+
+    return out
+  }
 }
 
 export function bakePublishedArt({

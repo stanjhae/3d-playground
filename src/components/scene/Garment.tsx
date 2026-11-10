@@ -1,6 +1,6 @@
 import { useGLTF, useTexture } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   CanvasTexture,
   Color,
@@ -35,7 +35,8 @@ import { garmentSrc } from '../../lib/garment-parts'
 import { applyLayerEdit } from '../../lib/layer-hit'
 import { useLayerImageLoad } from '../../lib/layer-images'
 import { ATLAS_COMPILER_VERSION, artworkState, useAtlasBuild } from '../../lib/atlas-status'
-import { rasterizeLayers } from '../../lib/paint-atlas'
+import { createLiveAtlas } from '../../lib/paint-atlas'
+import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { clothNormalMap } from '../../lib/fabric-normal'
 import { createClothingMesh } from '../../lib/tee-geometry'
@@ -328,6 +329,8 @@ function SeatedForm({
   const atlasRef = useRef<CanvasTexture | null>(null)
   const { images: layerImages, settled: imagesSettled } = useLayerImageLoad({ document: inkDocument })
   const textFaces = useTextFacesVersion()
+  // Its own cache: the tee leaves pending words out.
+  const [liveAtlas] = useState(() => createLiveAtlas({ enabled: LIVE_STROKE_CACHE }))
 
   const { tree, meshes, baseMaterials } = useMemo(() => {
     const root = scene.clone(true)
@@ -389,7 +392,8 @@ function SeatedForm({
     }
 
     const texture = atlasRef.current
-    const buffer = rasterizeLayers({
+    const buffer = liveAtlas({
+      fontVersion: textFaces,
       document: applyLayerEdit({
         document: inkDocument,
         edit: picking ? activeLayerEdit : null,
@@ -437,7 +441,7 @@ function SeatedForm({
         },
       })
     }
-  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, meshes, picking, textFaces])
+  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, picking, textFaces])
 
   // Nothing is on screen to be current once this form goes.
   useEffect(() => () => useAtlasBuild.setState({ build: null }), [])
