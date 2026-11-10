@@ -6,7 +6,7 @@ Run every Supabase CLI command from the **main checkout** (see [auth.md](auth.md
 
 ## Where staging is now
 
-Staging is the Vercel project's **Production** environment at `https://3d-playground-vert.vercel.app`, on the Supabase project "Fashion Leader Vote Staging" (`docs/decisions.md`, 3 Nov). Where this page says Preview for staging, that deployment uses Production instead. Every merge to master deploys there, so a merge with a new migration also needs `supabase db push`. A real production later gets its own Supabase project and these variables move.
+Staging is the Vercel project's **Production** environment at `https://3d-playground-vert.vercel.app`, on the Supabase project "Fashion Leader Vote Staging" (`docs/decisions.md`, 3 Nov). Where this page says Preview for staging, that deployment uses Production instead. Every merge to master deploys there, so a merge with a new migration also needs `supabase db push`. Other branches don't deploy (`git.deploymentEnabled` in `vercel.json`), to save Vercel build usage; PRs are checked by CI against a local stack instead. To preview a branch by hand, run `vercel` from it. A real production later gets its own Supabase project and these variables move.
 
 Custom SMTP is set, and staging sends 6-digit sign-in codes. Latest record: `docs/evidence/hosted-2026-11-09.md`, which skipped the browser journey because the run had no way to read sign-in codes (section 5 lists the ways to read them). Last full run, journey included: `docs/evidence/hosted-2026-11-04.md`.
 
