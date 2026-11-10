@@ -22,6 +22,8 @@ export type StudioKeyAction =
   | { type: 'paste' }
   | { type: 'cancelStroke' }
   | { type: 'tool'; tool: StudioToolKey }
+  /** Restack the selected item in its panel (A5). */
+  | { type: 'arrange'; direction: 'up' | 'down' | 'front' | 'back' }
 
 /** Single-letter tools, as in most drawing apps. */
 export type StudioToolKey = 'brush' | 'eraser' | 'text' | 'graphics'
@@ -134,6 +136,15 @@ export function studioKeyAction({
       return { type: 'redo' }
     }
 
+    // ] and [ move one place; with Shift (} and { on most layouts) all the way.
+    if (hasSelection && (key === ']' || key === '}')) {
+      return { type: 'arrange', direction: shiftKey ? 'front' : 'up' }
+    }
+
+    if (hasSelection && (key === '[' || key === '{')) {
+      return { type: 'arrange', direction: shiftKey ? 'back' : 'down' }
+    }
+
     if (shiftKey) {
       return null
     }
@@ -208,6 +219,8 @@ export function studioKeyList({ mod = MOD }: { mod?: string } = {}) {
     { keys: `${mod} + D`, does: 'Duplicate the selected mark or word' },
     { keys: `${mod} + C, then ${mod} + V`, does: 'Copy it, then paste onto the side you are working on' },
     { keys: 'B, E, T, G', does: 'Brush, eraser, text, graphics' },
+    { keys: `${mod} + ] or ${mod} + [`, does: 'Bring the selected item forward, or send it back' },
+    { keys: `Shift + ${mod} + ] or [`, does: 'Bring it to the front, or send it to the back' },
     { keys: `${mod} + Z`, does: 'Undo' },
     { keys: `Shift + ${mod} + Z`, does: 'Redo' },
     { keys: 'Enter in the type field', does: 'Place the word on the active panel' },

@@ -18,6 +18,7 @@ import {
 import { uploadForStudio } from '../../lib/uploaded-images'
 import { ImportNotice } from './ImportNotice'
 import { LimitMeter } from './LimitMeter'
+import { ProColour } from './ProColour'
 
 function inkWidthLabel({ width }: { width: number }) {
   if (width === INK_WIDTHS[0]) {
@@ -207,6 +208,14 @@ export function PaintToolbar({
           </div>
           {pro ? (
           <>
+          <ProColour
+            label="Brush colour"
+            value={paintColor}
+            onChange={({ color }) => {
+              setPaintColor({ paintColor: color })
+              setPaintTool({ paintTool: 'brush' })
+            }}
+          />
           <label className="flex flex-col gap-1">
             <span className={chromeMutedClass()}>{FLV_COPY.brushSize}</span>
             <input
