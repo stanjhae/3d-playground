@@ -318,21 +318,27 @@ export function getPublication({ designId, fetchImpl }: { designId: string; fetc
 }
 
 /** Upload the views of one saved version (P02 #180). Data is base64 JPEG/PNG. */
+/**
+ * Store one saved version's views. `stamp` records what drew them (C2); a
+ * view the version already has is kept, and comes back in `kept`.
+ */
 export function uploadRenders({
   designId,
   seq,
   renders,
+  stamp,
   fetchImpl,
 }: {
   designId: string
   seq: number
   renders: Array<{ kind: PublicRenderKind; data: string }>
+  stamp?: { templateVersion: number; compilerVersion: number }
   fetchImpl?: typeof fetch
 }) {
-  return call<{ seq: number; kinds: PublicRenderKind[] }>({
+  return call<{ seq: number; kinds: PublicRenderKind[]; kept?: PublicRenderKind[] }>({
     path: `designs/${designId}/renders`,
     method: 'POST',
-    body: { seq, renders },
+    body: { seq, renders, ...(stamp ?? {}) },
     fetchImpl,
   })
 }
