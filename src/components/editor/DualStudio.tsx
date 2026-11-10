@@ -6,10 +6,10 @@ import {
   showsDualStudio,
   showsPaintPane,
 } from '../../lib/create-steps'
-import { garmentCanPaint } from '../../lib/garments'
-import { hasCopiedLayer, useEditorStore } from '../../lib/editor-store'
+import { garmentCanPaint, garmentPanels } from '../../lib/garments'
+import { hasCopiedLayer, layerPlacement, useEditorStore } from '../../lib/editor-store'
 import { layerVoice } from '../../lib/layer-hit'
-import { layerDeletedMessage } from '../../lib/layer-list'
+import { layerDeletedMessage, layerEdgeMessage, layerMovedMessage } from '../../lib/layer-list'
 import { isOtherPointer } from '../../lib/pointer-owner'
 import { announce } from '../../lib/studio-announcer'
 import { studioKeyAction } from '../../lib/studio-keys'
@@ -118,6 +118,20 @@ export function DualStudio({
         if (useEditorStore.getState().selectedLayerId !== placeable.id) {
           announce({ message: `${layerVoice({ layer: placeable })} duplicated.` })
         }
+        return
+      }
+
+      if (action.type === 'arrange') {
+        const before = layerPlacement({ layerId: placeable.id })
+        state.moveLayer({ layerId: placeable.id, direction: action.direction })
+        const after = layerPlacement({ layerId: placeable.id })
+        const name = layerVoice({ layer: placeable })
+        announce({
+          message:
+            !after || after.index === before?.index
+              ? layerEdgeMessage({ name, direction: action.direction })
+              : layerMovedMessage({ name, direction: action.direction, placement: after, panelLabel: garmentPanels({ garmentId: state.garmentId }).find((entry) => entry.id === after.panel)?.label ?? after.panel }),
+        })
         return
       }
 

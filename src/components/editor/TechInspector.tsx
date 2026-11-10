@@ -10,6 +10,7 @@ import {
 import { cn } from '../../lib/cn'
 import type { LayerPatch } from '../../lib/design-commands'
 import { Swatch } from '../ui/Swatch'
+import { ProColour } from './ProColour'
 import { useEditorStore } from '../../lib/editor-store'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useStudioMode } from '../../lib/studio-mode'
@@ -323,6 +324,13 @@ export function TechInspector() {
             />
           ))}
         </div>
+        {pro ? (
+          <ProColour
+            label={`${selected.kind === 'text' ? 'Word' : 'Item'} colour`}
+            value={color}
+            onChange={({ color: next }) => commitDraft({ patch: { color: next } })}
+          />
+        ) : null}
       </div>
       )}
       {selected.kind !== 'pattern' ? (
