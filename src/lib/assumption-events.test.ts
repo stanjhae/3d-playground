@@ -44,6 +44,20 @@ describe('event bodies', () => {
     )
   })
 
+  test('a Web Vital is its name and rating', () => {
+    expect(parseEventBody({ body: { name: 'lcp', bucket: 'good' } })).toBe('lcp:good')
+    expect(parseEventBody({ body: { name: 'inp', bucket: 'needs_improvement' } })).toBe('inp:needs_improvement')
+    expect(parseEventBody({ body: { name: 'cls', bucket: 'poor' } })).toBe('cls:poor')
+  })
+
+  test('refuses a vital with a value, a timing bucket or no rating', () => {
+    expect(parseEventBody({ body: { name: 'lcp', bucket: 'good', value: 1200 } })).toBeNull()
+    expect(parseEventBody({ body: { name: 'lcp', bucket: 'lt2500' } })).toBeNull()
+    expect(parseEventBody({ body: { name: 'save_ack', bucket: 'good' } })).toBeNull()
+    expect(parseEventBody({ body: { name: 'cls' } })).toBeNull()
+    expect(parseEventBody({ body: { name: 'fid', bucket: 'good' } })).toBeNull()
+  })
+
   test('refuses unknown names, buckets and extra fields', () => {
     expect(parseEventBody({ body: { name: 'vibes' } })).toBeNull()
     expect(parseEventBody({ body: { name: 'save_ack' } })).toBeNull()

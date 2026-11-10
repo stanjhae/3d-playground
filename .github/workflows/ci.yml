@@ -17,47 +17,32 @@ permissions:
 
 jobs:
   check:
-    name: Typecheck, unit tests, build
+    name: Lint, typecheck, unit tests, build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 12.15.0
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        # The version comes from package.json `packageManager`.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      # Known high or critical advisories in any dependency fail the run
+      # (P4). Dependabot (.github/dependabot.yml) proposes the updates.
+      - name: Dependency audit
+        run: pnpm audit --audit-level high
       # `pnpm build` runs route generation, tsc and the Vite build.
       - run: pnpm build
-      # Renderer budget (R06 #169). Limits are gzip KiB with about 15%
-      # headroom over docs/baseline.md; raise them there first, on purpose.
-      - name: Bundle size budget
-        env:
-          JS_TOTAL_KIB: 570
-          JS_CHUNK_KIB: 310
-        run: |
-          node --input-type=module -e '
-          import { readdirSync, readFileSync } from "node:fs"
-          import { gzipSync } from "node:zlib"
-          const dir = "dist/assets"
-          const kib = (n) => n / 1024
-          const chunks = readdirSync(dir)
-            .filter((f) => f.endsWith(".js"))
-            .map((f) => ({ f, size: kib(gzipSync(readFileSync(`${dir}/${f}`)).length) }))
-          const total = chunks.reduce((sum, c) => sum + c.size, 0)
-          const largest = chunks.reduce((a, c) => (c.size > a.size ? c : a))
-          const totalLimit = Number(process.env.JS_TOTAL_KIB)
-          const chunkLimit = Number(process.env.JS_CHUNK_KIB)
-          console.log(`JS gzip total ${total.toFixed(1)} KiB (budget ${totalLimit})`)
-          console.log(`Largest chunk ${largest.f} ${largest.size.toFixed(1)} KiB (budget ${chunkLimit})`)
-          if (total > totalLimit || largest.size > chunkLimit) {
-            console.error("::error::JS bundle over budget. See docs/baseline.md (#169).")
-            process.exit(1)
-          }
-          '
+      # Byte budgets (R06 #169, P4): all JS and the largest chunk (gzip),
+      # and each garment GLB. Limits are in scripts/budgets.json, with
+      # headroom over docs/baseline.md; raise them there, on purpose. The
+      # editor's first-load and frame budgets run in e2e/budgets.spec.ts.
+      - name: Byte budgets
+        run: node scripts/check-budgets.mjs
       - run: pnpm test
 
   database:
@@ -65,7 +50,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/start-supabase
       - run: supabase test db
       - name: API integration tests
@@ -89,7 +74,7 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/start-supabase
       - uses: ./.github/actions/playwright-browsers
         with:
@@ -113,7 +98,7 @@ jobs:
             echo "::error::Visual baselines were missing and have been written. Commit them from the playwright-report artifact (docs/e2e.md)."
             exit 1
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: playwright-report-${{ matrix.shard }}
@@ -130,7 +115,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/start-supabase
       - uses: ./.github/actions/playwright-browsers
         with:
@@ -155,7 +140,7 @@ jobs:
             echo "::warning::WebKit smoke failed (non-blocking). See the webkit-report artifact."
             echo "WebKit smoke failed (non-blocking until WebGL2 is proven on Linux)." >> "$GITHUB_STEP_SUMMARY"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: steps.smoke.outcome == 'failure'
         with:
           name: webkit-report

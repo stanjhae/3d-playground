@@ -118,6 +118,7 @@ function SharedDesign() {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch on a new slug or a retry, not on each state change
   }, [slug, attempt])
 
   // Try again goes away with the screen it was on: land on the new heading.
