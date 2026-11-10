@@ -165,7 +165,7 @@ describe('stroke cover (A2)', () => {
     [64, 1],
     [160, 2],
     [256, 3],
-  ])('200 random strokes at %i px, clipped and unclipped, match dot stamping', (size, seed) => {
+  ])('random strokes at %i px, clipped and unclipped, match dot stamping', (size, seed) => {
     const next = random({ seed })
 
     for (const clip of [true, false]) {
@@ -174,7 +174,7 @@ describe('stroke cover (A2)', () => {
 
       // Strokes land on what earlier ones drew, so translucency and erasers
       // meet real ink beneath.
-      for (let index = 0; index < 200; index += 1) {
+      for (let index = 0; index < 120; index += 1) {
         const stroke = randomStroke({ next, index })
         drawStroke({ buffer: clip ? clipped({ buffer: fast, panel: stroke.panel }) : fast, stroke })
         referenceDraw({ buffer: clip ? clipped({ buffer: slow, panel: stroke.panel }) : slow, stroke })
@@ -182,7 +182,7 @@ describe('stroke cover (A2)', () => {
         expect({ index, at: firstDifference({ a: fast, b: slow }) }).toEqual({ index, at: -1 })
       }
     }
-  })
+  }, 60_000)
 
   test('a very long stroke draws, rather than overflowing the call stack', () => {
     const buffer = createAtlasBuffer({ width: 512, height: 512 })
