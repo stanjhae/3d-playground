@@ -109,6 +109,10 @@ function panelAspects({ manifest }: { manifest: TemplateManifest }) {
     : {}
 }
 
+function flipsOf(layer: { flipX?: true; flipY?: true }) {
+  return { ...(layer.flipX ? { flipX: true } : {}), ...(layer.flipY ? { flipY: true } : {}) }
+}
+
 export function toRenderDocument({
   document,
   assetSources = {},
@@ -170,7 +174,8 @@ export function toRenderDocument({
 
             for (let index = 0; index < stroke.points.length; index += 2) {
               const x = stroke.points[index]!
-              points.push({ x: mirrored ? 1 - x : x, y: stroke.points[index + 1]! })
+              const p = stroke.pressures?.[index / 2]
+              points.push({ x: mirrored ? 1 - x : x, y: stroke.points[index + 1]!, ...(p === undefined ? {} : { p }) })
             }
 
             return {
@@ -205,6 +210,7 @@ export function toRenderDocument({
           opacity: layer.opacity,
           visible: layer.visible,
           ...(layer.aspect !== 1 ? { aspect: layer.aspect } : {}),
+          ...flipsOf(layer),
           ...surface,
           ...label,
         })
@@ -223,6 +229,7 @@ export function toRenderDocument({
         scale: layer.scale,
         opacity: layer.opacity,
         visible: layer.visible,
+        ...flipsOf(layer),
         ...surface,
         ...label,
       })

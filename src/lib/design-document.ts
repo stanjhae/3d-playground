@@ -108,6 +108,9 @@ export type GraphicLayer = {
    * hatched placeholder at the layer's box instead (#154).
    */
   missing?: true
+  /** Mirrored about the object's own axes. */
+  flipX?: boolean
+  flipY?: boolean
 }
 
 export type TextLayer = {
@@ -126,6 +129,9 @@ export type TextLayer = {
   label?: string
   /** Absent on older templates, which draw in atlas proportions. */
   surface?: PanelSurface
+  /** Mirrored about the object's own axes. */
+  flipX?: boolean
+  flipY?: boolean
 }
 
 export type ArtLayer = {
