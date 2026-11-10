@@ -13,6 +13,7 @@ import type { PanelId } from '../../lib/design-document'
 import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
+import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
 import { acceptsPointer } from '../../lib/palm-rejection'
 import { claimDrawingPointer, isOtherPointer } from '../../lib/pointer-owner'
 import { garmentPanels } from '../../lib/garments'
@@ -287,6 +288,21 @@ function PanelGuideOverlay({ guides }: { guides: PanelGuides }) {
   )
 }
 
+/** Where a dragged item has snapped: thin accent lines across the panel. */
+function SnapGuideOverlay({ guides }: { guides: SnapGuide[] }) {
+  return (
+    <div aria-hidden data-testid="snap-guides" className="pointer-events-none absolute inset-0 overflow-hidden">
+      {guides.map((guide) =>
+        guide.axis === 'x' ? (
+          <div key="x" className="absolute inset-y-0 border-l border-flv-accent" style={{ left: `${guide.value * 100}%` }} />
+        ) : (
+          <div key="y" className="absolute inset-x-0 border-t border-flv-accent" style={{ top: `${(1 - guide.value) * 100}%` }} />
+        ),
+      )}
+    </div>
+  )
+}
+
 function PaintSurface({
   panel,
   label,
@@ -345,6 +361,7 @@ function PaintSurface({
   const updateLayer = useEditorStore((state) => state.updateLayer)
   const panelAspect = documentState.panelAspects?.[panel] ?? DEFAULT_PANEL_ASPECT
   const canvasSize = panelCanvasSize({ aspect: panelAspect })
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -517,11 +534,25 @@ function PaintSurface({
       }
 
       if (drag.handle === 'move') {
+        const x = Math.min(1, Math.max(0, drag.startX + (point.x - drag.originX)))
+        const y = Math.min(1, Math.max(0, drag.startY + (point.y - drag.originY)))
+        const rect = node.getBoundingClientRect()
+        // Alt (Option) places freely.
+        const snapped = event.altKey
+          ? { x, y, guides: [] }
+          : snapMove({
+              x,
+              y,
+              targets: snapTargets({ document: liveDocument, panel, layerId: selected.id, withChest: teeGuides }),
+              withinX: SNAP_PIXELS / Math.max(1, rect.width),
+              withinY: SNAP_PIXELS / Math.max(1, rect.height),
+            })
+        setSnapGuides(snapped.guides)
         moveLayerEdit({
           edit: {
             layerId: selected.id,
-            x: Math.min(1, Math.max(0, drag.startX + (point.x - drag.originX))),
-            y: Math.min(1, Math.max(0, drag.startY + (point.y - drag.originY))),
+            x: snapped.x,
+            y: snapped.y,
             scale: drag.startScale,
             rotation: drag.startRotation,
           },
@@ -560,10 +591,13 @@ function PaintSurface({
           x: drag.startX,
           y: drag.startY,
           scale: drag.startScale,
-          rotation:
-            drag.startRotation +
-            Math.atan2(point.y - drag.startY, (point.x - drag.startX) * trueAspect) -
-            Math.atan2(drag.originY - drag.startY, (drag.originX - drag.startX) * trueAspect),
+          rotation: (() => {
+            const rotation =
+              drag.startRotation +
+              Math.atan2(point.y - drag.startY, (point.x - drag.startX) * trueAspect) -
+              Math.atan2(drag.originY - drag.startY, (drag.originX - drag.startX) * trueAspect)
+            return event.altKey ? rotation : snapRotation({ rotation })
+          })(),
         },
       })
       return
@@ -595,6 +629,7 @@ function PaintSurface({
     const drag = dragRef.current
 
     if (drag && drag.panel === panel) {
+      setSnapGuides([])
       const openWord =
         drag.handle === 'move' && !drag.moved && drag.layerKind === 'text'
       dragRef.current = null
@@ -659,11 +694,13 @@ function PaintSurface({
           if (dragRef.current?.panel === panel) {
             dragRef.current = null
           }
+          setSnapGuides([])
           endLayerEdit()
           cancelStroke({ pointerType: event.pointerType })
         }}
       />
       {guides ? <PanelGuideOverlay guides={guides} /> : null}
+      {snapGuides.length ? <SnapGuideOverlay guides={snapGuides} /> : null}
       {editingWord && selected?.kind === 'text' && selected.panel === panel ? (
         <WordOnCloth
           layer={selected}
