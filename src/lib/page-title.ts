@@ -6,6 +6,8 @@ const LABELS: Record<string, string> = {
   '/studio': FLV_COPY.myStudio,
   '/sign-in': FLV_COPY.login,
   '/privacy': 'Privacy',
+  '/terms': 'Terms of use',
+  '/account-deleted': 'Account deleted',
   '/vote': 'Vote',
   '/soon': 'Coming soon',
 }

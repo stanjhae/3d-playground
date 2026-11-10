@@ -100,6 +100,23 @@ export type ProfileRequest = {
 
 export type ProfileResponse = {
   displayName: string | null
+  /** The terms version this account accepted, or null if none yet (P1). */
+  termsVersion: string | null
+  termsAcceptedAt: string | null
+}
+
+/** POST /terms — accept the terms in force (`src/lib/terms.ts`). */
+export type AcceptTermsRequest = {
+  version: string
+}
+
+/**
+ * DELETE /account — deletes the caller's account and everything it stored
+ * (P1). The email must match the signed-in account's, so a stray or
+ * replayed request can't delete it.
+ */
+export type DeleteAccountRequest = {
+  confirmEmail: string
 }
 
 /** Votes on a published design (V1): the count, and whether the caller voted. */
@@ -553,6 +570,27 @@ export function parseProfileRequest({ value }: { value: unknown }) {
         ? []
         : textIssue({ value: record.displayName, path: '$.displayName', max: 40 }),
   })
+}
+
+export function parseAcceptTermsRequest({ value }: { value: unknown }) {
+  return parseFields<AcceptTermsRequest>({
+    value,
+    required: ['version'],
+    check: (record) => textIssue({ value: record.version, path: '$.version', max: 32 }),
+  })
+}
+
+export function parseDeleteAccountRequest({ value }: { value: unknown }) {
+  return parseFields<DeleteAccountRequest>({
+    value,
+    required: ['confirmEmail'],
+    check: (record) => textIssue({ value: record.confirmEmail, path: '$.confirmEmail', max: 320 }),
+  })
+}
+
+/** Emails compare without case or outer spaces, as sign-in treats them. */
+export function sameEmail({ typed, account }: { typed: string; account: string | null | undefined }) {
+  return Boolean(account) && typed.trim().toLowerCase() === account!.trim().toLowerCase()
 }
 
 /**

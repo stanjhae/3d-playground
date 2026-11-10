@@ -24,7 +24,9 @@ import {
   type VersionSummary,
   apiError,
   apiErrorFromDatabase,
+  parseAcceptTermsRequest,
   parseCreateDesignRequest,
+  parseDeleteAccountRequest,
   parseProfileRequest,
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
@@ -32,6 +34,7 @@ import {
   parseVersionListQuery,
   parseVersionSeq,
   prepareContent,
+  sameEmail,
   unknownLibraryReferences,
   uploadedAssetReferences,
 } from './contract.ts'
@@ -51,6 +54,8 @@ import {
   refusal,
   sharedLimiter,
 } from '../rate-limit.ts'
+import { TERMS_VERSION } from '../terms.ts'
+import { deleteAccountAndFiles } from './account-deletion.mjs'
 
 /**
  * FLP design API (S03 #172) behind `/api/flp/*`. The server is the trust
@@ -256,7 +261,7 @@ async function verifiedUser({
   }
 
   const { data, error } = await admin.auth.getUser(token)
-  return error || !data.user ? null : { userId: data.user.id, token }
+  return error || !data.user ? null : { userId: data.user.id, email: data.user.email ?? null, token }
 }
 
 async function callWrite({
@@ -821,7 +826,10 @@ async function handleProfile({
   userId: string
 }) {
   if (request.method === 'GET') {
-    const { data, error } = await asUser.from('profiles').select('display_name').maybeSingle()
+    const { data, error } = await asUser
+      .from('profiles')
+      .select('display_name, terms_version, terms_accepted_at')
+      .maybeSingle()
 
     // A failed read must not look like "no public name" (#150).
     if (error) {
@@ -829,8 +837,7 @@ async function handleProfile({
       return internalError()
     }
 
-    const profile: ProfileResponse = { displayName: (data?.display_name as string | null) ?? null }
-    return json({ status: 200, body: profile })
+    return json({ status: 200, body: profileResponse({ row: data }) })
   }
 
   if (request.method !== 'POST') {
@@ -851,14 +858,127 @@ async function handleProfile({
 
   const { data, error } = await admin
     .rpc('flp_set_display_name', { p_owner_id: userId, p_display_name: parsed.request.displayName })
-    .single<{ display_name: string | null }>()
+    .single<ProfileRow>()
 
   if (error) {
     return writeFailed({ fn: 'flp_set_display_name', error })
   }
 
-  const profile: ProfileResponse = { displayName: data.display_name }
-  return json({ status: 200, body: profile })
+  return json({ status: 200, body: profileResponse({ row: data }) })
+}
+
+type ProfileRow = {
+  display_name: string | null
+  terms_version: string | null
+  terms_accepted_at: string | null
+}
+
+function profileResponse({ row }: { row: ProfileRow | null }): ProfileResponse {
+  return {
+    displayName: row?.display_name ?? null,
+    termsVersion: row?.terms_version ?? null,
+    termsAcceptedAt: row?.terms_accepted_at ?? null,
+  }
+}
+
+// POST /terms — the account accepts the terms in force (P1). Only the
+// current version is recorded: a page left open across a terms change is
+// told to reload and read the new ones.
+async function acceptTerms({
+  request,
+  admin,
+  userId,
+}: {
+  request: Request
+  admin: SupabaseClient
+  userId: string
+}) {
+  if (request.method !== 'POST') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseAcceptTermsRequest({ value: body.value })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  if (parsed.request.version !== TERMS_VERSION) {
+    return fromError({
+      error: apiError({ code: 'conflict', message: 'The terms have changed. Reload the page to read the current terms.' }),
+    })
+  }
+
+  const { data, error } = await admin
+    .rpc('flp_accept_terms', { p_owner_id: userId, p_version: TERMS_VERSION })
+    .single<ProfileRow>()
+
+  if (error) {
+    return writeFailed({ fn: 'flp_accept_terms', error })
+  }
+
+  return json({ status: 200, body: profileResponse({ row: data }) })
+}
+
+// DELETE /account — the caller deletes their own account and everything it
+// stored (P1), with the same steps as scripts/delete-account.mjs. The body
+// repeats the account's email as the confirmation. Other devices' sessions
+// stop working once the account is gone.
+async function deleteOwnAccount({
+  request,
+  admin,
+  userId,
+  email,
+}: {
+  request: Request
+  admin: SupabaseClient
+  userId: string
+  email: string | null
+}) {
+  if (request.method !== 'DELETE') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseDeleteAccountRequest({ value: body.value })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  if (!sameEmail({ typed: parsed.request.confirmEmail, account: email })) {
+    return fromError({
+      error: apiError({
+        code: 'invalid',
+        message: 'Type the email address you sign in with',
+        issues: [{ path: '$.confirmEmail', message: 'does not match this account' }],
+      }),
+    })
+  }
+
+  try {
+    await deleteAccountAndFiles({ admin, userId })
+  } catch (error) {
+    // Nothing is half-visible: files are private, and the account and its
+    // rows stay until a retry (or scripts/delete-account.mjs) finishes.
+    console.error('flp account deletion failed', {
+      stage: (error as { stage?: string }).stage ?? 'unknown',
+    })
+    return internalError()
+  }
+
+  return respond({ status: 204 })
 }
 
 function designUnavailable() {
@@ -944,8 +1064,8 @@ function rateBucket({
     return 'publish'
   }
 
-  // Rename, delete and the public name.
-  if (collection === 'profile' || (designId && !action)) {
+  // Rename, delete, the public name, terms and deleting the account.
+  if (collection === 'profile' || collection === 'terms' || collection === 'account' || (designId && !action)) {
     return 'details'
   }
 
@@ -1068,7 +1188,7 @@ export async function handleFlpRequest({
     ) {
       return fromError({ error: assetNotFound() })
     }
-  } else if (collection === 'profile') {
+  } else if (collection === 'profile' || collection === 'terms' || collection === 'account') {
     if (designId) {
       return fromError({ error: apiError({ code: 'not_found', message: 'Not found' }) })
     }
@@ -1107,6 +1227,14 @@ export async function handleFlpRequest({
 
   if (collection === 'profile') {
     return handleProfile({ request, admin, asUser, userId: user.userId })
+  }
+
+  if (collection === 'terms') {
+    return acceptTerms({ request, admin, userId: user.userId })
+  }
+
+  if (collection === 'account') {
+    return deleteOwnAccount({ request, admin, userId: user.userId, email: user.email })
   }
 
   if (collection === 'assets') {

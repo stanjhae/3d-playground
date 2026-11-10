@@ -1,0 +1,23 @@
+name: Postgres client 17 and age
+description: Installs psql, pg_dump and pg_restore 17 (the hosted and local server's major version) from the PostgreSQL apt repository, and age for encrypting backups.
+runs:
+  using: composite
+  steps:
+    # The runner's own client is older than the server, and pg_dump refuses
+    # to dump a newer server.
+    - name: Install postgresql-client-17 and age
+      shell: bash
+      run: |
+        sudo install -d /usr/share/postgresql-common/pgdg
+        sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        . /etc/os-release
+        echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+          | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq postgresql-client-17 age > /dev/null
+        echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+    - name: Versions
+      shell: bash
+      run: |
+        pg_dump --version
+        age --version

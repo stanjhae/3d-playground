@@ -9,8 +9,11 @@ import { RESTORE_DATABASE, findDbContainer, formatPhases, runRestoreCheck } from
  *   … node scripts/restore-check.mjs <backup-dir> --verify-only   (no re-upload)
  *   … node scripts/restore-check.mjs <backup-dir> --keep          (leave the copy for inspection)
  *
- * Restores the dump into a separate `flp_restore` database in the same
- * container and re-uploads every object into a new private bucket
+ * With SUPABASE_DB_URL set, it restores over that connection instead of
+ * into the local container (the hosted rehearsal, docs/backup-restore.md).
+ *
+ * Restores the dump into a separate `flp_restore` database on the same
+ * server and re-uploads every object into a new private bucket
  * (`flp-restore-<id>`); live tables and the live bucket are never written.
  * Then checks: (a) every head and version has its content and uploads,
  * (b) published render bytes match render_artifacts.sha256, (c) revoked
@@ -28,13 +31,15 @@ if (!url || !secretKey || !backupDir) {
 }
 
 const admin = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
-const container = await findDbContainer()
+const dbUrl = process.env.SUPABASE_DB_URL || undefined
+const container = dbUrl ? undefined : await findDbContainer()
 const keep = process.argv.includes('--keep')
 
-console.log(`Restoring ${backupDir} into ${container}/${RESTORE_DATABASE}`)
+console.log(`Restoring ${backupDir} into ${container ?? new URL(dbUrl).host}/${RESTORE_DATABASE}`)
 const result = await runRestoreCheck({
   admin,
   container,
+  dbUrl,
   backupDir,
   upload: !process.argv.includes('--verify-only'),
   keep,

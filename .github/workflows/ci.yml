@@ -48,7 +48,7 @@ jobs:
   database:
     name: Database and API integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/start-supabase
@@ -60,6 +60,27 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" \
           SUPABASE_SECRET_KEY="$SECRET_KEY" \
           pnpm test:integration
+      # The nightly backup's own script (backup.yml), run against this stack
+      # over a connection URL: dump, restore check, encrypt, then decrypt
+      # with the throwaway key and check the copy again (P1).
+      - uses: ./.github/actions/postgres-client
+      - name: Encrypted backup round trip
+        shell: bash
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|SECRET_KEY)=')"
+          db="postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres"
+          export SOURCE_SUPABASE_URL="$API_URL" SOURCE_SUPABASE_SECRET_KEY="$SECRET_KEY" SOURCE_SUPABASE_DB_URL="$db"
+          export CHECK_SUPABASE_URL="$API_URL" CHECK_SUPABASE_SECRET_KEY="$SECRET_KEY" CHECK_SUPABASE_DB_URL="$db"
+          age-keygen -o "$RUNNER_TEMP/backup.key" 2> /dev/null
+          export BACKUP_AGE_RECIPIENT="$(age-keygen -y "$RUNNER_TEMP/backup.key")"
+          scripts/backup-encrypted.sh "$RUNNER_TEMP/flp-ci"
+          # No plaintext is left behind, and the archive matches its checksum.
+          test ! -e "$RUNNER_TEMP/flp-ci"
+          (cd "$RUNNER_TEMP" && sha256sum --check flp-ci.tar.age.sha256)
+          age --decrypt --identity "$RUNNER_TEMP/backup.key" "$RUNNER_TEMP/flp-ci.tar.age" | tar -C "$RUNNER_TEMP" -xf -
+          SUPABASE_URL="$API_URL" SUPABASE_SECRET_KEY="$SECRET_KEY" SUPABASE_DB_URL="$db" \
+            node scripts/restore-check.mjs "$RUNNER_TEMP/flp-ci" --verify-only
+          rm -rf "$RUNNER_TEMP/flp-ci" "$RUNNER_TEMP/backup.key"
 
   # Browser journey (Q04 #189), in three parts so each stays well inside the
   # limit as tests are added. Each part has its own Supabase stack and tests

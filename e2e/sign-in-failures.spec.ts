@@ -1,6 +1,6 @@
 import { type Page, type Route, expect, test } from '@playwright/test'
 
-import { deleteAccounts, latestCode, newEmail } from './helpers'
+import { deleteAccounts, latestCode, newEmail, passTermsGate } from './helpers'
 
 /**
  * When the sign-in email can't go out (A01 #145): what the person sees, and
@@ -53,6 +53,7 @@ async function finishSignIn({ page, email, after }: { page: Page; email: string;
   await page.getByRole('textbox', { name: '6-digit code' }).fill(await latestCode({ email, after }))
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(/\/studio$/)
+  await passTermsGate({ page })
 }
 
 test('asking again too soon is refused by the server, says to wait, and works after the wait', async ({ page }) => {
@@ -149,4 +150,5 @@ test('a new code that fails to send leaves the first code usable', async ({ page
   await field.fill(first)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(/\/studio$/)
+  await passTermsGate({ page })
 })

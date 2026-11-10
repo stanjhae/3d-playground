@@ -4,8 +4,8 @@ import { type BrowserContext, type Page, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { loadEnv } from 'vite'
 
-// @ts-expect-error plain ESM script shared with scripts/delete-account.mjs
-import { listFilesUnder, removeFiles } from '../scripts/storage-tree.mjs'
+import { listFilesUnder, removeFiles } from '../src/lib/flp-api/storage-tree.mjs'
+import { TERMS_VERSION } from '../src/lib/terms'
 
 /** Shared steps for the journey suites (Q04 #189). */
 
@@ -94,21 +94,55 @@ export async function latestCode({ email, after }: { email: string; after: numbe
   throw new Error(`No sign-in code reached ${email}`)
 }
 
-/** Signs in with an email code; new accounts are created on first sign-in. */
+const acceptButton = (page: Page) => page.getByRole('button', { name: 'Accept and continue' })
+const termsGateHeading = (page: Page) => page.getByRole('heading', { name: 'Terms of use', level: 1 })
+
+/** Accepts the terms of use (P1) on the gate in front of the page, and waits for the page behind it. */
+async function acceptTermsGate({ page }: { page: Page }) {
+  await acceptButton(page).click()
+  await expect(termsGateHeading(page)).toHaveCount(0)
+  await expect(page.getByText('Checking your account…')).toHaveCount(0)
+}
+
 /**
+ * For a test that signs in by hand and lands on My Studio: accepts the
+ * terms of use if this account hasn't yet (each new account is asked once,
+ * P1), then waits for My Studio itself.
+ */
+export async function passTermsGate({ page }: { page: Page }) {
+  const studio = page.getByRole('heading', { name: 'Your designs', level: 1 })
+  await acceptButton(page).or(studio).first().waitFor({ timeout: 30_000 })
+
+  if (await acceptButton(page).isVisible()) {
+    await acceptTermsGate({ page })
+  }
+
+  await studio.waitFor()
+}
+
+/** Pages behind the terms gate (RequireSession). */
+const GATED = /^\/(studio|create)(?:[/?#]|$)/
+
+/**
+ * Signs in with an email code; new accounts are created on first sign-in.
  * Pro tools start on for the suite (playwright.config.ts). `pro: false` starts
  * this tab in Guided once; a later switch to Pro then survives reloads.
+ * A new account is then asked to accept the terms of use (P1); this accepts
+ * them and waits for the page behind, so the test starts where it did before
+ * the gate existed. `acceptTerms: false` leaves the gate for the test.
  */
 export async function signIn({
   page,
   email,
   returnTo = '/studio',
   pro = true,
+  acceptTerms = true,
 }: {
   page: Page
   email: string
   returnTo?: string
   pro?: boolean
+  acceptTerms?: boolean
 }) {
   if (!pro) {
     await page.addInitScript(() => {
@@ -124,8 +158,25 @@ export async function signIn({
   await page.getByRole('button', { name: 'Email me a code' }).click()
   const code = await latestCode({ email, after: requested })
   await page.getByRole('textbox', { name: '6-digit code' }).fill(code)
+  // The gate asks the API whether this account accepted the terms yet.
+  const profile =
+    acceptTerms && GATED.test(returnTo)
+      ? page.waitForResponse(
+          (response) => new URL(response.url()).pathname === '/api/flp/profile' && response.request().method() === 'GET',
+          { timeout: 60_000 },
+        )
+      : null
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(new RegExp(`${returnTo.replace(/[/?]/g, '\\$&')}$`))
+
+  if (profile) {
+    const read = await profile
+    const body = (await read.json().catch(() => null)) as { termsVersion?: string | null } | null
+
+    if (read.ok() && body?.termsVersion !== TERMS_VERSION) {
+      await acceptTermsGate({ page })
+    }
+  }
 }
 
 /** Picks a Design step tool from the rail. Picking the current one changes nothing. */
