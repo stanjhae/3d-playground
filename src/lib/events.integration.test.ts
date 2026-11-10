@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test } from 'vitest'
 
 import events from '../../api/events'
 import { TIMING_BUCKETS, TIMING_EVENTS } from './assumption-events'
-import { resetPublicWriteGuards } from './waitlist-handlers'
 import { listAssumptionCounts, resetWaitlistStore } from './waitlist-store'
 
 /**
@@ -24,7 +23,6 @@ function post(body: unknown, ip = '203.0.113.7') {
 describe('/api/events', () => {
   beforeEach(() => {
     resetWaitlistStore()
-    resetPublicWriteGuards()
   })
 
   test('accepts every timing in every bucket, counted by bucket', async () => {

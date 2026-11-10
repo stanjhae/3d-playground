@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 
 import { handleErrorsRequest, withErrorReporting } from './error-tunnel'
 import { handleHealthRequest } from './health'
-import { resetPublicWriteGuards } from './waitlist-handlers'
+import { countingLimiter, outageLimiter } from './rate-limit.fake'
 import packageJson from '../../package.json' with { type: 'json' }
 
 /** `/api/errors`, the API wrapper and `/api/health` (O1). */
@@ -23,10 +23,6 @@ function errorsRequest({ body, origin }: { body: unknown; origin?: string }) {
 }
 
 const browserReport = { source: 'browser', type: 'TypeError', message: 'x is undefined', mechanism: 'window-error' }
-
-beforeEach(() => {
-  resetPublicWriteGuards()
-})
 
 describe('POST /api/errors', () => {
   test('forwards a browser report to Sentry when a DSN is set', async () => {
@@ -70,14 +66,32 @@ describe('POST /api/errors', () => {
   })
 
   test('limits each client to 10 a minute', async () => {
+    const limiter = countingLimiter()
     const statuses = []
 
     for (let i = 0; i < 11; i++) {
-      statuses.push((await handleErrorsRequest({ request: errorsRequest({ body: browserReport }), env: {} })).status)
+      statuses.push((await handleErrorsRequest({ request: errorsRequest({ body: browserReport }), env: {}, limiter })).status)
     }
 
     expect(statuses.slice(0, 10).every((s) => s === 202)).toBe(true)
     expect(statuses[10]).toBe(429)
+  })
+
+  test('says when to retry, and refuses with a 503 if the limiter refuses', async () => {
+    const limited = await handleErrorsRequest({
+      request: errorsRequest({ body: browserReport }),
+      env: {},
+      limiter: outageLimiter({ allowed: false, reason: 'limited', retryAfter: 12 }),
+    })
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get('retry-after')).toBe('12')
+
+    const down = await handleErrorsRequest({
+      request: errorsRequest({ body: browserReport }),
+      env: {},
+      limiter: outageLimiter({ allowed: false, reason: 'unavailable' }),
+    })
+    expect(down.status).toBe(503)
   })
 
   test('a failing tracker still answers 202', async () => {
