@@ -131,13 +131,13 @@ Refreshed 10 November 2026 (P4) on the P4 branch, which is `master` at `34808bf`
 | GLB per garment template | 1.2 MiB | 1.10 MiB max (`coat.glb`, 1,127 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
 | Editor first load, all bytes over the wire | 2.0 MiB | 611 KiB (the tee editor, signed in, cold cache) | CI browser tests, `e2e/budgets.spec.ts` |
 | Editor frame time on a laptop-class GPU | p95 ≤ 16.7 ms (60 fps); uncapped p95 ≤ 8 ms | 16.8 / 3.8 ms (30 Oct) | Manual |
-| Editor frame cost on CI (software WebGL) | see `ciFrameCostP95Ms` | see below | CI browser tests, `e2e/budgets.spec.ts` |
+| Editor frame cost on CI (software WebGL), p95 of animation-frame callbacks | 8 ms | 1.1 ms (median 0.5 ms, 384 frames; first CI run of #344) | CI browser tests, `e2e/budgets.spec.ts` |
 
 All limits live in `scripts/budgets.json`. Raising one is a deliberate change: update that file and this table in the same commit. The all-JS limit now has only about 7% headroom, not 15%. Lazy chunks count toward it as well, so a new route or library has to fit.
 
 The browser budgets run in the CI browser shards against the production build:
 - **First load** reloads the editor of a new tee with the cache cleared and switched off. It then adds up every response's encoded size from the Chrome DevTools Protocol (`Network.loadingFinished`), headers included. That covers what the tee editor loads, including Supabase calls. It is lower than the 1.6 MiB above because the default gown is no longer preloaded on the editor.
-- **Frame cost** times each `requestAnimationFrame` callback while the camera is dragged back and forth on Preview & Publish. CI draws WebGL in software (SwiftShader) inside that callback, so the cost there is a CPU regression signal. It is not a frame rate, and it is limited only on CI. On a laptop GPU the same callbacks take well under 1 ms, because the GPU does the work after the callback.
+- **Frame cost** times each `requestAnimationFrame` callback while the camera is dragged back and forth on Preview & Publish. That is the CPU work three.js and React Three Fiber do per frame (scene traversal, uniforms, draw calls). The GPU work runs after the callback, even with CI's software WebGL, so this is not a frame rate. The CI limit is about 7× the measured p95, enough to ignore runner noise but still catch a per-frame CPU regression such as rebuilding geometry or redrawing the atlas on every frame. The laptop frame-time row stays a manual check.
 
 Cheap wins, not done here: drop the default-gown `useGLTF.preload` on the editor (saves ~900 KiB when another garment is chosen), and split `@supabase/supabase-js` out of the first paint.
 

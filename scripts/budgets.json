@@ -4,5 +4,5 @@
   "jsChunkGzipKiB": 310,
   "glbPerTemplateKiB": 1228.8,
   "editorFirstLoadKiB": 2048,
-  "ciFrameCostP95Ms": 0
+  "ciFrameCostP95Ms": 8
 }

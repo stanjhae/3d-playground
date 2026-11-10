@@ -96,7 +96,7 @@ test('the editor stays inside its byte and frame budgets', async ({ page, browse
   const p95 = percentile({ values: costs, p: 95 })
   const median = percentile({ values: costs, p: 50 })
 
-  const summary = `Editor first load ${firstLoadKiB.toFixed(0)} KiB (budget ${budgets.editorFirstLoadKiB}); frame cost over ${costs.length} frames: median ${median.toFixed(1)} ms, p95 ${p95.toFixed(1)} ms (CI budget ${budgets.ciFrameCostP95Ms || 'not set'})`
+  const summary = `Editor first load ${firstLoadKiB.toFixed(0)} KiB (budget ${budgets.editorFirstLoadKiB}); frame cost over ${costs.length} frames: median ${median.toFixed(1)} ms, p95 ${p95.toFixed(1)} ms (CI budget ${budgets.ciFrameCostP95Ms} ms)`
   console.log(summary)
   testInfo.annotations.push({ type: 'budgets', description: summary })
 
