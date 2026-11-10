@@ -14,7 +14,7 @@ The product owner gives final acceptance. #138 (asset rights) and #198 (product 
 
 - The landing (`src/routes/index.tsx`) is public, and nothing on it depends on `VITE_FLP_CONCEPT`. Concept sections carry a visible `ConceptPreviewBadge` instead. A visitor sees the same page whatever the flag is set to.
 - In the studio, `VITE_FLP_CONCEPT` (default `false`, `.env.example`, `docs/deploy.md`) hides the non-tee garments in the silhouette switch (`src/components/editor/SilhouetteSwitch.tsx` via `showsGarmentInStudio`). Other studio concept surfaces are visible but labelled: graphics "Suggestions", sample size, avatar fit note, publish attachments.
-- Sign-in is required for `/create` and `/studio` wherever Supabase is configured. `/vote` shows "not in the alpha" under the same rule (`src/routes/vote.tsx`, `AUTH_REQUIRED`). The server refuses new guest-board looks and votes (`guestBoardClosed`, `src/lib/designs-handlers.ts`). Reads of existing guest looks stay open.
+- Sign-in is required for `/create` and `/studio` wherever Supabase is configured. `/vote` shows "not in the alpha" under the same rule (`src/routes/vote.tsx`, `AUTH_REQUIRED`). The server refuses new guest-board looks (`guestBoardClosed`, `src/lib/designs-handlers.ts`), and guest votes are retired everywhere (410, V1); votes are now one per account on a shared design. Reads of existing guest looks stay open.
 - The studio contains no marketing copy (no counts, offers or waitlist). This audit added none.
 
 ## The 11 mockups

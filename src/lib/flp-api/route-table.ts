@@ -66,6 +66,9 @@ export function flpRoutes({ document, renders }: { document: unknown; renders: u
     { method: 'POST', path: () => 'profile', body: () => ({ displayName: 'Stranger' }), scope: 'account' },
     { method: 'GET', path: ({ slug }) => `public/${slug}`, scope: 'public' },
     { method: 'GET', path: ({ slug }) => `public/${slug}/image?kind=view_front`, scope: 'public' },
+    { method: 'GET', path: ({ slug }) => `public/${slug}/vote`, scope: 'public' },
+    { method: 'POST', path: ({ slug }) => `public/${slug}/vote`, scope: 'account' },
+    { method: 'DELETE', path: ({ slug }) => `public/${slug}/vote`, scope: 'account' },
   ]
 }
 
