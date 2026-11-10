@@ -209,8 +209,17 @@ test('publishing with a figure tried on photographs the tee alone', async ({ pag
   await openDesign({ page, label: 'tryonpub' })
   await goToStep({ page, step: 'share' })
   await tryOn({ page })
-  const worn = await statsOf({ page, picture: await sceneShot({ page }) })
-  expect(worn.skin).toBeGreaterThan(200)
+  // The figure loads after the click; wait until it is in the picture.
+  let worn = await statsOf({ page, picture: await sceneShot({ page }) })
+  await expect
+    .poll(
+      async () => {
+        worn = await statsOf({ page, picture: await sceneShot({ page }) })
+        return worn.skin
+      },
+      { timeout: 30_000 },
+    )
+    .toBeGreaterThan(200)
 
   const { seq } = await savedHead({ page })
   await page.getByRole('button', { name: 'Publish…' }).click()
