@@ -67,7 +67,10 @@ function Privacy() {
         <h2 className={headingClass}>Usage counts</h2>
         <p className={textClass}>
           To learn whether the alpha works, it counts a few steps in total, such as signing in, creating, saving and
-          publishing a design. The counts carry no email, account, design or device identifiers and no design content.
+          publishing a design. It also counts how fast pages load and respond: for each page visit, whether loading,
+          responding to a tap or click, and layout shifts were good, slow or poor, and for saving and drawing, a
+          rough time range. No exact times are sent. The counts carry no email, account, design or device identifiers
+          and no design content.
           There are no ads, and nothing is sold or shared for marketing.
         </p>
       </div>

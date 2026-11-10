@@ -668,6 +668,7 @@ await check({
       child.on('close', resolve)
     })
     // Strip colour codes for the record.
+    // eslint-disable-next-line no-control-regex -- matching ESC is the point
     const lines = output.join('').replace(/\x1b\[[0-9;]*m/g, '').trimEnd().split('\n')
     e2eTail = lines.slice(-40).join('\n')
     const summary = lines.filter((line) => /^\s+\d+ (passed|failed|skipped|flaky)/.test(line)).map((line) => line.trim())
