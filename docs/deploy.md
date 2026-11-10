@@ -118,6 +118,7 @@ Set these per environment (Preview = staging, Production = production). **Never 
 | `SUPABASE_URL` | Server only | Same as `VITE_SUPABASE_URL` |
 | `SUPABASE_PUBLISHABLE_KEY` | Server only | Same publishable key |
 | `SUPABASE_SECRET_KEY` | Server only | The project secret (service-role) key. Used only by `api/flp.ts` and `api/og-share.ts`. |
+| `SENTRY_DSN` | Server only | Optional. The Sentry project's DSN; with it, browser and API errors are reported ([alerts.md](alerts.md)). Without it reports are dropped. Not `VITE_`: the browser sends reports to `/api/errors`, never to Sentry. |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Server only | Optional. Used by the waitlist and the aggregate usage counts (`api/events.ts`); without them the counts aren't kept. How to read them and the proposed alerts: [operations.md](operations.md). |
 
 The functions in `vercel.json` (`api/flp.ts`, `api/og-share.ts`, …) include `src/lib/**`, so no extra build step is needed. Redeploy after changing any variable.
@@ -136,7 +137,7 @@ What the policy allows, and why:
 | `script-src` | `'self' 'wasm-unsafe-eval'` | The Draco decoder for the compressed garments is WebAssembly. No `'unsafe-eval'` (three.js and R3F don't need it) and no inline script |
 | `style-src` | `'self'` | Tailwind builds to a file. React `style` props are set through the DOM, which CSP doesn't block |
 | `img-src` | `'self' data: blob:` + Supabase | Data and blob URLs for uploads, captures and textures; signed render URLs from Supabase Storage |
-| `connect-src` | `'self' blob:` + Supabase | The API, Supabase Auth and Storage; three's GLTFLoader fetches embedded textures from blob URLs |
+| `connect-src` | `'self' blob:` + Supabase | The API, Supabase Auth and Storage; three's GLTFLoader fetches embedded textures from blob URLs. Error reports go to the site's own `/api/errors` ([alerts.md](alerts.md)), so the tracker needs no entry |
 | `worker-src` | `'self' blob:` | drei runs the Draco decoder in blob-URL workers |
 | `font-src` | `'self' data:` | Bundled fonts |
 | `object-src` / `frame-ancestors` | `'none'` | No plugins; the site can't be framed |

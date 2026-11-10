@@ -1,3 +1,4 @@
+import { withErrorReporting } from '../src/lib/error-tunnel.ts'
 import {
   getStoredDesign,
   hydrateDesignsStore,
@@ -5,7 +6,7 @@ import {
 import { lookRecipe, lookShareLine } from '../src/lib/look-recipe.ts'
 import { lookCardHtml, lookShareImage } from '../src/lib/og-card.ts'
 
-export async function GET(request?: Request) {
+async function render(request?: Request) {
   const url = new URL(request?.url ?? 'http://localhost/api/og-page')
   const lookId = url.searchParams.get('id') ?? ''
   const origin = url.origin
@@ -44,8 +45,15 @@ export async function GET(request?: Request) {
   )
 }
 
+const reported = withErrorReporting((request) => render(request))
+
+/** Without a request (unit tests) it renders the default card. */
+export function GET(request?: Request) {
+  return request ? reported(request) : render()
+}
+
 export default {
   fetch(request: Request) {
-    return GET(request)
+    return reported(request)
   },
 }
