@@ -40,10 +40,6 @@
       "destination": "/api/flp?path=:path*"
     },
     {
-      "source": "/api/designs/:id/vote",
-      "destination": "/api/designs?voteId=:id"
-    },
-    {
       "source": "/look/:id",
       "has": [
         {

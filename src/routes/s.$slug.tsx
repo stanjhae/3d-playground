@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
+import { VoteButton } from '../components/share/VoteButton'
 import { reportDesignHref } from '../lib/alpha-contact'
 import { useCopyStatus } from '../lib/copy-text'
 import { HOUSE_COPY } from '../lib/house-copy'
@@ -11,9 +12,10 @@ import type { PublicDesign } from '../lib/flp-api/publication'
 import { STATIC_SHARE_ELEMENT_ID, takeEmbeddedPublicDesign } from '../lib/public-embed'
 
 /**
- * Public, read-only page for a published design (P04 #182). No sign-in.
- * Shows only what the owner published: title, display name and the views
- * of the published version. No editing, source or history.
+ * Public, read-only page for a published design (P04 #182). No sign-in to
+ * view. Shows only what the owner published: title, display name and the
+ * views of the published version. No editing, source or history. Voting
+ * (V1) needs an account; signed out, the page offers sign-in.
  */
 
 export const Route = createFileRoute('/s/$slug')({
@@ -191,6 +193,9 @@ function SharedDesign() {
             {design.displayName ? `By ${design.displayName} · ` : ''}version {design.seq} · published{' '}
             {new Date(design.publishedAt).toLocaleDateString()}
           </p>
+          <div className="mt-2">
+            <VoteButton slug={design.slug} />
+          </div>
         </div>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <div className="flex flex-wrap gap-3">

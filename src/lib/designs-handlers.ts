@@ -8,14 +8,15 @@ import {
   parseDesignDraft,
   persistDesignsStore,
   removeStoredDesign,
-  restoreStoredVotes,
-  voteStoredDesign,
   listStoredDesigns,
   withDesignsLock,
 } from './designs-store.ts'
 import { isLinkVisibleLook } from './design-schema.ts'
-import { resolveVoteId } from './paths.ts'
 import { rankDesigns } from './rank-designs.ts'
+
+/** Guest voting is retired (V1): votes are by account, on shared designs. */
+export const GUEST_VOTE_RETIRED =
+  'Guest voting has ended. Sign in and vote on a shared design.'
 
 /**
  * The guest board takes no new looks or votes wherever the alpha requires
@@ -117,41 +118,6 @@ async function createDesignsResponse({ request }: { request: Request }) {
   return Response.json({ design }, { status: 201 })
 }
 
-async function voteDesignsResponse({ request }: { request: Request }) {
-  const id = await resolveVoteId({ request })
-  const before = getStoredDesign({ id })
-
-  if (!before || !isLinkVisibleLook({ design: before })) {
-    return Response.json({ error: 'That look is gone' }, { status: 404 })
-  }
-
-  const design = voteStoredDesign({ id })
-
-  if (!design) {
-    return Response.json({ error: 'That look is gone' }, { status: 404 })
-  }
-
-  try {
-    await persistDesignsStore()
-  } catch (error) {
-    restoreStoredVotes({ id, votes: before?.votes ?? design.votes - 1 })
-
-    if (error instanceof DesignsPersistError) {
-      return Response.json(
-        { error: HOUSE_COPY.boardPersistFailed },
-        { status: 503 },
-      )
-    }
-
-    throw error
-  }
-
-  return Response.json({
-    id: design.id,
-    votes: design.votes,
-  })
-}
-
 export async function handleDesignsRequest({
   request,
 }: {
@@ -170,15 +136,17 @@ export async function handleDesignsRequest({
           return listDesignsResponse({ request })
         }
 
+        // Retired everywhere, before the board-closed check, so no guest
+        // vote is ever counted again.
+        if (request.method === 'POST' && isVote) {
+          return Response.json({ error: GUEST_VOTE_RETIRED }, { status: 410 })
+        }
+
         if (request.method === 'POST' && guestBoardClosed()) {
           return Response.json(
             { error: 'Posting to the guest board is closed. Sign in and publish from My Studio.' },
             { status: 403 },
           )
-        }
-
-        if (request.method === 'POST' && isVote) {
-          return voteDesignsResponse({ request })
         }
 
         if (request.method === 'POST' && normalizedPath.endsWith('/api/designs')) {

@@ -81,10 +81,7 @@ async function dispatchApi({ request }: { request: Request }) {
     }
   }
 
-  if (
-    pathname === '/api/designs' ||
-    /^\/api\/designs\/[^/]+\/vote$/.test(pathname)
-  ) {
+  if (pathname === '/api/designs') {
     const { GET, POST } = await import('./api/designs.ts')
 
     if (request.method === 'GET') {

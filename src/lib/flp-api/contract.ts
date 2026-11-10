@@ -100,6 +100,12 @@ export type ProfileResponse = {
   displayName: string | null
 }
 
+/** Votes on a published design (V1): the count, and whether the caller voted. */
+export type VoteState = {
+  count: number
+  voted: boolean
+}
+
 export type VersionResponse = {
   designId: string
   seq: number

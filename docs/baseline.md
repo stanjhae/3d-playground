@@ -62,7 +62,7 @@ On that branch `tsc --noEmit` passes. Two tests in `src/lib/landing-handoff.test
 
 ## Paths to retire (F09 #144)
 
-Guest publishing (`POST /api/designs` with no account), the vote endpoint (`/api/designs/:id/vote` rewrite), `routes/vote.tsx`, the board ranking (`rank-designs.ts`, `vote-board.ts`) and challenges. These stay as historical references (#75, #96, #108) and are not alpha acceptance.
+Guest publishing (`POST /api/designs` with no account), the vote endpoint (`/api/designs/:id/vote`, retired in V1: it answers 410 and votes are by account on `/s/:slug`), `routes/vote.tsx`, the board ranking (`rank-designs.ts`, `vote-board.ts`) and challenges. These stay as historical references (#75, #96, #108) and are not alpha acceptance.
 
 ## Follow-ups
 
