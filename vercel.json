@@ -80,6 +80,12 @@
     },
     "api/og-share.ts": {
       "includeFiles": "src/lib/**"
+    },
+    "api/health.ts": {
+      "includeFiles": "{src/lib/**,package.json}"
+    },
+    "api/errors.ts": {
+      "includeFiles": "src/lib/**"
     }
   }
 }

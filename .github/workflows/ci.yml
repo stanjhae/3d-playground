@@ -1,4 +1,5 @@
-# Release gate for master (Q07 #192). Both jobs must pass before merging.
+# Release gate for master (Q07 #192). Every job must pass before merging,
+# except WebKit smoke, which reports but never blocks (Q2).
 name: CI
 
 on:
@@ -17,7 +18,7 @@ permissions:
 jobs:
   check:
     name: Typecheck, unit tests, build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +62,7 @@ jobs:
 
   database:
     name: Database and API integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -75,31 +76,89 @@ jobs:
           SUPABASE_SECRET_KEY="$SECRET_KEY" \
           pnpm test:integration
 
-  # Browser journey (Q04 #189), split in two so it stays well inside the
-  # limit as tests are added. Each part has its own Supabase stack.
+  # Browser journey (Q04 #189), in three parts so each stays well inside the
+  # limit as tests are added. Each part has its own Supabase stack and tests
+  # the production build (`pnpm build` + `pnpm preview`, Q2); see docs/e2e.md.
   browser:
-    name: Browser journey tests (${{ matrix.shard }}/2)
-    runs-on: ubuntu-latest
+    name: Browser journey tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-24.04
     # Setup alone can take 7 minutes when the runner's packages are slow.
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/start-supabase
-      - run: pnpm exec playwright install --with-deps chromium
+      - uses: ./.github/actions/playwright-browsers
+        with:
+          browser: chromium
       - name: Browser journey tests
+        env:
+          E2E_SERVER: preview
         run: |
           eval "$(supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY|SECRET_KEY|MAILPIT_URL)=')"
           export SUPABASE_URL="$API_URL" SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" SUPABASE_SECRET_KEY="$SECRET_KEY"
           export VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" MAILPIT_URL="$MAILPIT_URL"
-          pnpm e2e --shard=${{ matrix.shard }}/2
+          pnpm e2e --shard=${{ matrix.shard }}/3
+      # A missing baseline is written, not compared, so a retry would pass
+      # without one. Fail instead, and upload what was written to commit.
+      - name: Visual baselines are committed
+        if: always()
+        run: |
+          written=$(git status --porcelain --untracked-files=all e2e/__screenshots__)
+          if [ -n "$written" ]; then
+            echo "$written"
+            echo "::error::Visual baselines were missing and have been written. Commit them from the playwright-report artifact (docs/e2e.md)."
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+            e2e/__screenshots__/
+          retention-days: 7
+
+  # WebKit smoke (Q2): non-blocking until WebGL2 is proven in WebKit on
+  # Linux. A failure shows as a warning on a passing job.
+  webkit:
+    name: WebKit smoke (non-blocking)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/start-supabase
+      - uses: ./.github/actions/playwright-browsers
+        with:
+          browser: webkit
+      - name: WebKit smoke
+        id: smoke
+        continue-on-error: true
+        env:
+          E2E_SERVER: preview
+          E2E_WEBKIT: '1'
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY|SECRET_KEY|MAILPIT_URL)=')"
+          export SUPABASE_URL="$API_URL" SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" SUPABASE_SECRET_KEY="$SECRET_KEY"
+          export VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" MAILPIT_URL="$MAILPIT_URL"
+          pnpm e2e --project=webkit-smoke
+      - name: Report
+        if: always()
+        run: |
+          if [ "${{ steps.smoke.outcome }}" = "success" ]; then
+            echo "WebKit smoke passed: WebGL2 works in WebKit on Linux." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::WebKit smoke failed (non-blocking). See the webkit-report artifact."
+            echo "WebKit smoke failed (non-blocking until WebGL2 is proven on Linux)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: steps.smoke.outcome == 'failure'
+        with:
+          name: webkit-report
           path: |
             playwright-report/
             test-results/

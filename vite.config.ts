@@ -73,6 +73,16 @@ async function dispatchApi({ request }: { request: Request }) {
     }
   }
 
+  if (pathname === '/api/health') {
+    const { GET } = await import('./api/health.ts')
+    return GET(request)
+  }
+
+  if (pathname === '/api/errors' && request.method === 'POST') {
+    const { POST } = await import('./api/errors.ts')
+    return POST(request)
+  }
+
   if (pathname === '/api/events') {
     const { POST } = await import('./api/events.ts')
 

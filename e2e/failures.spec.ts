@@ -307,7 +307,8 @@ test('when the GPU drops the 3D view, it says so, editing and saving carry on, a
   const { designId } = await openNewDesign({ page, label: 'lostwebgl' })
   const loseContext = ({ restore }: { restore: boolean }) =>
     page.evaluate((restoring) => {
-      const scene = [...document.querySelectorAll('canvas')].find((canvas) => !canvas.getAttribute('aria-label')?.startsWith('Design panel'))!
+      // The watcher labels the scene canvas in the same effect that listens for loss.
+      const scene = document.querySelector<HTMLCanvasElement>('canvas[aria-label="3D preview"]')!
       const gl = scene.getContext('webgl2') ?? scene.getContext('webgl')
       const extension = (window as unknown as { __flpLose?: WEBGL_lose_context }).__flpLose ?? gl!.getExtension('WEBGL_lose_context')!
       ;(window as unknown as { __flpLose?: WEBGL_lose_context }).__flpLose = extension
@@ -315,7 +316,8 @@ test('when the GPU drops the 3D view, it says so, editing and saving carry on, a
       else extension.loseContext()
     }, restore)
 
-  await expect(page.locator('canvas').first()).toBeVisible()
+  // Losing the context before the 3D view listens for it would go unseen.
+  await expect(page.getByRole('img', { name: '3D preview', exact: true })).toBeVisible()
   await expect(page.getByText('3D preview paused')).toHaveCount(0)
   await loseContext({ restore: false })
   await expect(page.getByText('3D preview paused')).toBeVisible()

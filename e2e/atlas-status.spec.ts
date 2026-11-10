@@ -127,7 +127,8 @@ test('publishing waits for a slow image, then includes it', async ({ page }) => 
   expect(dark).toBeGreaterThan(20)
 })
 
-test('publishing never photographs an atlas that is still settling, and says why', async ({ page }) => {
+// Sets the atlas state through dev-server modules: `@dev-server` runs it there.
+test('publishing never photographs an atlas that is still settling, and says why', { tag: '@dev-server' }, async ({ page }) => {
   test.skip(Boolean(process.env.E2E_BASE_URL), 'sets the atlas state through dev-server modules')
   test.setTimeout(120_000)
   const url = await designWithGraphic({ page, label: 'atlasgate' })

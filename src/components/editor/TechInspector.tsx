@@ -10,12 +10,14 @@ import {
 import { cn } from '../../lib/cn'
 import type { LayerPatch } from '../../lib/design-commands'
 import { Swatch } from '../ui/Swatch'
+import { ProColour } from './ProColour'
 import { useEditorStore } from '../../lib/editor-store'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useStudioMode } from '../../lib/studio-mode'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { type PlaceableLayer, layerMostlyOffPanel } from '../../lib/layer-hit'
 import { INK_COLORS } from '../../lib/paint-colors'
+import { chestLineY } from '../../lib/panel-snap'
 import {
   chromeKickerClass,
   chromeTextClass,
@@ -203,6 +205,12 @@ export function TechInspector() {
 
   const selected = layer
   const pose = draft
+  // Only the tee's chest is measured.
+  const chest = isCanonicalGarment({ garmentId }) && selected.kind !== 'pattern' ? chestLineY({ panel: selected.panel }) : null
+  const alignButtonClass = cn(
+    'min-h-11 flex-1 border border-flv-line px-3 text-flv-muted hover:text-flv-accent disabled:opacity-50 disabled:hover:text-flv-muted',
+    chromeTextClass(),
+  )
 
   function commitDraft({ patch }: { patch: LayerPatch }) {
     updateLayer({
@@ -316,8 +324,40 @@ export function TechInspector() {
             />
           ))}
         </div>
+        {pro ? (
+          <ProColour
+            label={`${selected.kind === 'text' ? 'Word' : 'Item'} colour`}
+            value={color}
+            onChange={({ color: next }) => commitDraft({ patch: { color: next } })}
+          />
+        ) : null}
       </div>
       )}
+      {selected.kind !== 'pattern' ? (
+        <div role="group" aria-label="Align" className="flex flex-col gap-1">
+          <span className={cn('text-flv-muted', chromeTextClass())}>Align</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => commitDraft({ patch: { x: 0.5 } })}
+              disabled={pose.x === 0.5}
+              className={alignButtonClass}
+            >
+              Centre
+            </button>
+            {chest !== null ? (
+              <button
+                type="button"
+                onClick={() => commitDraft({ patch: { y: chest } })}
+                disabled={pose.y === chest}
+                className={alignButtonClass}
+              >
+                {selected.panel === 'back' ? 'On shoulder blades' : 'On chest'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       {pro ? (
         <div className="flex flex-col gap-3 border-t border-flv-line pt-3">
           <span className="font-body text-xs font-medium text-flv-ink">Exact placement</span>

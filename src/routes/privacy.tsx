@@ -71,6 +71,17 @@ function Privacy() {
       </div>
 
       <div className={sectionClass}>
+        <h2 className={headingClass}>Error reports</h2>
+        <p className={textClass}>
+          When a page breaks, the site sends a short report so it can be fixed: the kind of error, its message, where
+          in the code it happened, which page it was on (without any design or link ID) and which version of the site
+          was running. Email addresses, sign-in codes, tokens and IDs are removed from it first. It doesn’t include your
+          account, your designs or your device’s address. Reports go to this site, which passes them on to Sentry, our
+          error tracking service, where they are kept for up to 90 days.
+        </p>
+      </div>
+
+      <div className={sectionClass}>
         <h2 className={headingClass}>Removing your data</h2>
         <p className={textClass}>
           Delete any design from <Link to="/studio" className="underline">My Studio</Link>; its history, pictures and
