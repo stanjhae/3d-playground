@@ -103,6 +103,23 @@ All JS in `dist/assets` (every route) is 492 KiB gzip; the largest chunk is `Stu
 
 So the editor holds 60 fps with about 4× headroom on this machine. Headless Chrome; the uncapped figure is the useful regression signal.
 
+### Drawing a stroke (A2, 10 Nov 2026)
+
+The 2D panels and the tee each redraw the atlas for every point of a live stroke. Atlas work per frame, in Node on the development laptop (Apple silicon), for a tee with a stripe base and on each panel two images plus two paint layers of eight strokes, while a 40-point brush stroke grows on the front:
+
+| Atlas | Before A2 | Full redraw after A2 | Live stroke, cached | 
+| --- | --- | --- | --- |
+| 512 px, new layer | 4,178 ms | 87 ms | 2.5 ms |
+| 512 px, translucent top layer | 1,963 ms | 84 ms | 3.6 ms |
+| 1024 px, new layer | — | 340 ms | 10.0 ms |
+| 1024 px, translucent top layer | — | 341 ms | 14.8 ms |
+
+Two changes, both pixel-identical (`atlas-goldens`, `stroke-cover.test.ts`, `live-atlas.test.ts`):
+- **Each stroke covers each pixel once** instead of stamping a full disc every 0.7 px; opaque ink and erasers set a pixel outright, so the overdraw changed nothing but time.
+- **What lies under a live stroke is cached at pen-down** (`createLiveAtlas`), so each frame copies it and draws only the stroke. `VITE_FLP_LIVE_STROKE_CACHE=false` turns the cache off.
+
+The numbers are atlas work only, before the canvas upload and the WebGL frame. Still to record: the same stroke on a real iPad, and frame time in the browser, both for the 1024 px decision (X1).
+
 ### Budgets
 
 | Budget | Limit | Today | Enforced |
