@@ -618,15 +618,15 @@ function AtelierHome() {
           </div>
         ) : null}
         {drawInFlow && !cloudFailed ? (
-          <div className={studioPhoneDrawClass()}>
+          <div className={studioPhoneDrawClass()} data-hint-anchor="panels">
             <PaintCanvas layout="quad" />
           </div>
         ) : (
-          <div ref={stageRef} className={studioPhoneStageClass()} />
+          <div ref={stageRef} className={studioPhoneStageClass()} data-hint-keep-clear />
         )}
         {mode === 'design' && !cloudFailed ? (
           <div className={studioToolColumnClass({ side: showsDesignRails({ step: createStep }) ? 'left' : 'right' })}>
-            <div className={studioPhoneToolsClass({ drawInFlow })}>
+            <div className={studioPhoneToolsClass({ drawInFlow })} data-hint-keep-clear>
               <StepIntro />
               {cloudStatus === 'loaded' ? <StudioHint /> : null}
               {showsSilhouetteRail({ step: createStep }) ? (

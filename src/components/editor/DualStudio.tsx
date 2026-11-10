@@ -180,7 +180,7 @@ export function DualStudio({
   return (
     <div className={dual ? dualStudioGridClass() : studioSceneClass()}>
       {lgUp && paintPane ? (
-        <div className="h-full min-h-0">
+        <div className="h-full min-h-0" data-hint-anchor="panels">
           <PaintCanvas layout="quad" />
         </div>
       ) : null}

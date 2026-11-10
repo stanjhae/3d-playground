@@ -255,7 +255,7 @@ export function CloudPublish() {
     copyStatus === 'copied' || (copyStatus === 'idle' && saved && !message && (Boolean(notice) || webglStatus === 'checking'))
 
   return (
-    <section className="flv-panel flex w-full flex-col gap-3 p-3" aria-label="Publish">
+    <section className="flv-panel flex w-full flex-col gap-3 p-3" aria-label="Publish" data-hint-anchor="publishing">
       {live && publication ? (
         <div className="flex flex-col gap-2">
           <p className="flex items-center gap-2 font-body text-sm font-medium text-flv-ink">

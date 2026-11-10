@@ -17,7 +17,7 @@ export function StepActions() {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2" data-hint-keep-clear>
       {createStep === 'select' ? null : (
         <Button variant="quiet" onClick={() => go(previousCreateStep({ step: createStep }))}>
           {HOUSE_COPY.previous}
