@@ -112,20 +112,20 @@ share link.
    earlier restore.
    - Press **Save checkpoint**, name it "Live demo", press **Save**.
    - On **v3 · First pass** press **Restore**, then **Restore** in the
-     confirmation. The edits from step 4 disappear; a new "Restore · From v3"
-     version is on top and the status returns to **Saved to cloud**.
+     confirmation. The edits from step 4 disappear; a new version marked "Current · From v3"
+     is on top and the status returns to **Saved to cloud**.
    *Say:* "Nothing is lost: restoring adds a version, it never deletes one."
 6. **Publish (3:15–4:00).** Click step **4 Preview & Publish** at the top.
    Press **Publish…**, check the public name "Demo Studio", press **Confirm
    publish**. It renders the five views (front, three-quarter, back and
-   both sleeves; 6 s on a quiet laptop, up to about 25 s on a busy one), then shows "Published v… " and the link.
+   both sleeves; 6 s on a quiet laptop, 16 s in the 10 Nov dry run, up to about 25 s on a busy one), then says "Published version N. Anyone with the link can view it." and shows the link.
    Keep talking through the wait.
    *Say:* "Publishing takes a picture of exactly this saved version."
 7. **Open the link (4:00–4:30).** Press **Copy link**, paste it into a
-   private window. Signed out, you see the title, "By Demo Studio" and the
+   private window. If the browser refuses the clipboard, it says "The link could not be copied. Select it above and copy it yourself.": copy the link text instead. Signed out, you see the title, "By Demo Studio" and the
    five views, and nothing else: no history, no email.
 8. **Unpublish (4:30–5:00).** Back in the studio press **Unpublish**. Reload
-   the private window: **This design is not available**.
+   the private window: **This design is not available** ("It may have been unpublished, or the link is wrong.", with **Make your own**).
    *Say:* "Unpublish is instant. Nothing is cached."
 
 If there is time, open **Crest upload** to show an uploaded image, or the

@@ -70,7 +70,7 @@ test('demo fallback recording', async ({ page }) => {
   await history.getByRole('button', { name: 'Save checkpoint' }).click()
   await page.getByLabel('Checkpoint name').pressSequentially('Live demo', { delay: 80 })
   await history.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(history.getByText('Live demo')).toBeVisible()
+  await expect(history.getByRole('listitem').filter({ hasText: 'Live demo' })).toBeVisible()
   await beat({ page, ms: 2_000 })
   const firstPass = history.getByRole('listitem').filter({ hasText: 'First pass' })
   await firstPass.scrollIntoViewIfNeeded()
