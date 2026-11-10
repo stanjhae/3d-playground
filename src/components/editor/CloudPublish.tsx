@@ -179,6 +179,8 @@ export function CloudPublish() {
         return
       }
 
+      // What drew these views (C2): the stamp of the build checked above.
+      const drawn = build ? await atlasStamp({ build }) : null
       const uploaded = await uploadRenders({
         designId,
         seq: headSeq,
@@ -186,6 +188,7 @@ export function CloudPublish() {
           kind: KIND_BY_ANGLE[index]!,
           data: still.slice(still.indexOf(',') + 1),
         })),
+        stamp: drawn ? { templateVersion: drawn.template.version, compilerVersion: drawn.compilerVersion } : undefined,
       })
 
       if (!uploaded.ok) {
