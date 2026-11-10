@@ -7,7 +7,7 @@ import { loadEnv } from 'vite'
 
 /**
  * Demo reset (#201). Puts the demo account in a known state for the
- * 17 Nov walkthrough (docs/demo.md):
+ * 1 Dec walkthrough (docs/demo.md):
  *
  * - deletes `demo@example.test` with everything it owns, then recreates it;
  * - seeds three designs through the real API, so every document passes the

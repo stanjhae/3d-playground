@@ -1,4 +1,4 @@
-# Demo runbook — 17 Nov (#201)
+# Demo runbook — 1 Dec (#201)
 
 The demo runs on one laptop:
 local Supabase, the production build served by `pnpm preview`, and
