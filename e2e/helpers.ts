@@ -234,3 +234,94 @@ export async function watchCsp({ context, violations = [] }: { context: BrowserC
 export function expectNoCspViolations({ violations }: { violations: string[] }) {
   expect(violations, 'CSP violations').toEqual([])
 }
+
+type PanelName = 'Front' | 'Back' | 'Right sleeve' | 'Left sleeve'
+
+/** On a narrow or touch screen the studio shows one view at a time: picks the panels. */
+export async function showPanels({ page }: { page: Page }) {
+  const toggle = page.getByRole('radiogroup', { name: 'Draw or cloth' })
+  // Whichever the layout shows first: the toggle, or the panels themselves.
+  await expect(toggle.or(panelCanvas({ page, panel: 'Front' })).first()).toBeVisible()
+
+  if (await toggle.isVisible()) {
+    await toggle.getByRole('radio', { name: 'Draw' }).click()
+  }
+}
+
+/**
+ * A finger drag across the middle of a panel, sent as real touch input
+ * through CDP (`Input.dispatchTouchEvent`), so the browser itself makes the
+ * touch and pointer events, with `pointerType: 'touch'`. Chromium only, in
+ * a context with `hasTouch` (the `chromium-touch` and `ipad` projects).
+ */
+export async function touchStroke({ page, panel }: { page: Page; panel: PanelName }) {
+  const box = await panelCanvas({ page, panel }).boundingBox()
+
+  if (!box) {
+    throw new Error(`${panel} canvas is not visible`)
+  }
+
+  const cdp = await page.context().newCDPSession(page)
+  const at = (fx: number, fy: number) => [{ x: box.x + box.width * fx, y: box.y + box.height * fy, id: 1 }]
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0.3, 0.4) })
+  for (let step = 1; step <= 16; step += 1) {
+    const t = step / 16
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(0.3 + 0.4 * t, 0.4 + 0.1 * Math.sin(Math.PI * t)) })
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+}
+
+/** The point count of each saved paint stroke on a panel, read back from the API. */
+export async function savedStrokes({ page, panel = 'front' }: { page: Page; panel?: 'front' | 'back' | 'left' | 'right' }) {
+  await expectSaved({ page })
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+
+  return page.evaluate(
+    async ({ id, key }) => {
+      const token = JSON.parse(localStorage.getItem('flp-auth')!).access_token
+      const response = await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      const { head } = await response.json()
+      type Layer = { kind: string; strokes?: { points: number[] }[] }
+
+      return (head.content.panels[key].layers as Layer[])
+        .filter((layer) => layer.kind === 'paint')
+        .flatMap((layer) => layer.strokes ?? [])
+        .map((stroke) => stroke.points.length / 2)
+    },
+    { id: designId, key: panel },
+  )
+}
+
+/**
+ * Settles a page for `toHaveScreenshot`: fonts loaded, and every canvas
+ * (the 3D view and the paint panels) returned as a mask, since WebGL in
+ * software on a runner never draws the same pixels twice.
+ */
+export async function visualMasks({ page }: { page: Page }) {
+  await page.evaluate(() => document.fonts.ready)
+  return [page.locator('canvas')]
+}
+
+/**
+ * Publishes the open design's saved head through the API, with a tiny
+ * placeholder image for every view, so a share page exists without the
+ * minutes a real render takes on a runner. Returns the share slug.
+ */
+export async function publishWithPlaceholders({ page }: { page: Page }) {
+  const { TINY_JPEG } = await import('../src/lib/image-fixtures')
+  const { PUBLIC_RENDER_KINDS } = await import('../src/lib/flp-api/render-kinds.mjs')
+  await expectSaved({ page })
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+  const token = await page.evaluate(() => JSON.parse(localStorage.getItem('flp-auth')!).access_token as string)
+  const headers = { Authorization: `Bearer ${token}` }
+  const request = page.request
+  const { head } = (await (await request.get(`/api/flp/designs/${designId}`, { headers })).json()) as { head: { seq: number } }
+  const data = Buffer.from(TINY_JPEG).toString('base64')
+  const renders = (PUBLIC_RENDER_KINDS as string[]).map((kind) => ({ kind, data }))
+  const rendered = await request.post(`/api/flp/designs/${designId}/renders`, { headers, data: { seq: head.seq, renders } })
+  expect(rendered.status(), 'renders upload').toBe(201)
+  const published = await request.post(`/api/flp/designs/${designId}/publication`, { headers, data: { seq: head.seq } })
+  expect(published.status(), 'publish').toBe(200)
+  return ((await published.json()) as { slug: string }).slug
+}
