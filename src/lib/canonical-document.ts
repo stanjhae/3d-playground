@@ -93,6 +93,8 @@ export type BrushStroke = {
   opacity: number
   /** Flat [x0, y0, x1, y1, …] panel-normalized points. */
   points: number[]
+  /** Pen pressure per point, 0–1; left out when the stroke has none. */
+  pressures?: number[]
 }
 
 export type EraserStroke = {
@@ -100,6 +102,8 @@ export type EraserStroke = {
   tool: 'eraser'
   width: number
   points: number[]
+  /** Pen pressure per point, 0–1; left out when the stroke has none. */
+  pressures?: number[]
 }
 
 export type CanonicalStroke = BrushStroke | EraserStroke
@@ -109,6 +113,14 @@ type LayerCommon = {
   visible: boolean
   opacity: number
   name?: string
+  /** Can't be selected or moved on the panel; left out when unlocked. */
+  locked?: true
+}
+
+/** Mirrored about the object's own axes; each is left out when off. */
+type Flips = {
+  flipX?: true
+  flipY?: true
 }
 
 export type Placement = {
@@ -124,7 +136,8 @@ export type CanonicalPaintLayer = LayerCommon & {
 }
 
 export type CanonicalImageLayer = LayerCommon &
-  Placement & {
+  Placement &
+  Flips & {
     kind: 'image'
     /** Immutable uploaded asset; bytes never live in the document. */
     assetId: string
@@ -136,7 +149,8 @@ export type CanonicalImageLayer = LayerCommon &
   }
 
 export type CanonicalTextLayer = LayerCommon &
-  Placement & {
+  Placement &
+  Flips & {
     kind: 'text'
     content: string
     face: CanonicalTextFace
@@ -544,7 +558,7 @@ function checkStroke({
       ? ['id', 'tool', 'color', 'width', 'opacity', 'points']
       : ['id', 'tool', 'width', 'points']
 
-  if (!checkRecord({ context, value, path, required })) {
+  if (!checkRecord({ context, value, path, required, optional: ['pressures'] })) {
     return
   }
 
@@ -558,9 +572,45 @@ function checkStroke({
   })
   checkPoints({ context, value: value.points, path: `${path}.points` })
 
+  if ('pressures' in value) {
+    checkPressures({ context, value: value.pressures, points: value.points, path: `${path}.pressures` })
+  }
+
   if (value.tool === 'brush') {
     checkColor({ context, value: value.color, path: `${path}.color` })
     checkNumber({ context, value: value.opacity, path: `${path}.opacity`, min: 0, max: 1 })
+  }
+}
+
+/** One pressure per point, each in [0, 1]. */
+function checkPressures({
+  context,
+  value,
+  points,
+  path,
+}: {
+  context: Context
+  value: unknown
+  points: unknown
+  path: string
+}) {
+  const pressures = checkArray({ context, value, path, max: CANONICAL_LIMITS.pointsPerStroke })
+
+  if (!pressures) {
+    return
+  }
+
+  if (!Array.isArray(points) || pressures.length * 2 !== points.length) {
+    report({ context, path, message: 'expected one pressure per point' })
+    return
+  }
+
+  const bad = pressures.findIndex(
+    (pressure) => typeof pressure !== 'number' || !Number.isFinite(pressure) || pressure < 0 || pressure > 1,
+  )
+
+  if (bad !== -1) {
+    report({ context, path: `${path}[${bad}]`, message: 'expected a finite number in [0, 1]' })
   }
 }
 
@@ -634,10 +684,17 @@ function checkLayer({
       value,
       path,
       required: LAYER_FIELDS[kind],
-      optional: ['name'],
+      optional: kind === 'paint' ? ['name', 'locked'] : ['name', 'locked', 'flipX', 'flipY'],
     })
   ) {
     return
+  }
+
+  // Flags are written only when on, so a document has one form per look.
+  for (const flag of ['locked', 'flipX', 'flipY'] as const) {
+    if (flag in value && value[flag] !== true) {
+      report({ context, path: `${path}.${flag}`, message: 'expected true, or left out' })
+    }
   }
 
   checkId({ context, value: value.id, path: `${path}.id` })

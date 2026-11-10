@@ -387,6 +387,8 @@ function blitBuffer({
   opacity = 1,
   tint,
   stretchY = 1,
+  flipX = false,
+  flipY = false,
 }: {
   dest: AtlasBuffer
   source: AtlasBuffer
@@ -399,7 +401,12 @@ function blitBuffer({
   opacity?: number
   tint?: { r: number; g: number; b: number }
   stretchY?: number
+  /** Mirror the source about its own axes, before the turn. */
+  flipX?: boolean
+  flipY?: boolean
 }) {
+  const sourceColumn = (column: number) => (flipX ? source.width - 1 - column : column)
+  const sourceRow = (row: number) => (flipY ? source.height - 1 - row : row)
   const width = Math.max(1, Math.round(destWidth))
   const height = Math.max(1, Math.round(destHeight))
   const shownHeight = Math.max(1, Math.round(destHeight * stretchY))
@@ -413,14 +420,14 @@ function blitBuffer({
           source,
           column: Math.round(destX) + x,
           row: Math.round(destY) + y,
-          srcX: Math.min(
+          srcX: sourceColumn(Math.min(
             source.width - 1,
             Math.floor((x / width) * source.width),
-          ),
-          srcY: Math.min(
+          )),
+          srcY: sourceRow(Math.min(
             source.height - 1,
             Math.floor((y / shownHeight) * source.height),
-          ),
+          )),
           opacity: clampedOpacity,
           tint,
         })
@@ -451,14 +458,14 @@ function blitBuffer({
         source,
         column,
         row,
-        srcX: Math.min(
+        srcX: sourceColumn(Math.min(
           source.width - 1,
           Math.floor((sourceX / width) * source.width),
-        ),
-        srcY: Math.min(
+        )),
+        srcY: sourceRow(Math.min(
           source.height - 1,
           Math.floor((sourceY / height) * source.height),
-        ),
+        )),
         opacity: clampedOpacity,
         tint,
       })
@@ -539,6 +546,11 @@ function drawTextMark({
       }
 
       context.rotate(layer.rotation)
+
+      if (layer.flipX || layer.flipY) {
+        context.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1)
+      }
+
       context.fillText(shown, 0, 0)
       context.restore()
       const pixels = context.getImageData(0, 0, buffer.width, buffer.height)
@@ -785,6 +797,8 @@ function drawGraphicMark({
       destHeight: height,
       rotation: layer.rotation,
       stretchY,
+      flipX: layer.flipX,
+      flipY: layer.flipY,
     })
     return
   }
@@ -798,6 +812,8 @@ function drawGraphicMark({
     destHeight: height,
     rotation: layer.rotation,
     stretchY,
+    flipX: layer.flipX,
+    flipY: layer.flipY,
     opacity: layer.opacity ?? 1,
     ...(tint ? { tint: { r: tint.r, g: tint.g, b: tint.b } } : {}),
   })
