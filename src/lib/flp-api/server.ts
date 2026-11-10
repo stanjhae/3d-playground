@@ -46,6 +46,14 @@ import {
   unpublish,
   uploadRenders,
 } from './publication.ts'
+import {
+  type OutagePolicy,
+  type PublicLimiter,
+  decisionFromWait,
+  outageDecision,
+  refusal,
+  sharedLimiter,
+} from '../rate-limit.ts'
 import { TERMS_VERSION } from '../terms.ts'
 import { deleteAccountAndFiles } from './account-deletion.mjs'
 
@@ -82,7 +90,28 @@ export const RATE_LIMITS = {
 
 export type RateBucket = keyof typeof RATE_LIMITS
 
+/**
+ * What each account bucket does when its count can't be taken (P2; see
+ * `src/lib/rate-limit.ts` and docs/abuse.md). Every bucket must choose.
+ * - save, details: allow. Blocking a save or rename loses someone's work,
+ *   and the account's quotas still cap what is stored.
+ * - upload: allow. The per-account storage quota is enforced in the
+ *   database whatever the limiter says.
+ * - vote: allow. A missed limit on votes is a small, reversible cost.
+ * - publish: refuse. Publishing is what puts content in front of the
+ *   public; a refused publish loses nothing and the studio retries.
+ */
+export const RATE_OUTAGE_POLICY: Record<RateBucket, OutagePolicy> = {
+  save: 'allow',
+  upload: 'allow',
+  publish: 'refuse',
+  details: 'allow',
+  vote: 'allow',
+}
+
 const RATE_WINDOW_SECONDS = 60
+/** A slow limiter is an outage: its bucket's policy decides. */
+const RATE_TIMEOUT_MS = 1500
 const SLUG = /^[a-f0-9]{16}$/
 
 type DesignVersionRow = {
@@ -1054,23 +1083,32 @@ async function rateLimited({
   bucket: RateBucket
   env: FlpServerEnv
 }) {
-  const { data, error } = await admin.rpc('flp_take_token', {
-    p_owner_id: userId,
-    p_bucket: bucket,
-    p_limit: env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
-    p_window_seconds: RATE_WINDOW_SECONDS,
-  })
+  const { data, error } = await admin
+    .rpc('flp_take_token', {
+      p_owner_id: userId,
+      p_bucket: bucket,
+      p_limit: env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
+      p_window_seconds: RATE_WINDOW_SECONDS,
+    })
+    .abortSignal(AbortSignal.timeout(RATE_TIMEOUT_MS))
 
-  // A limiter outage must not block saving.
+  const decision = error
+    ? outageDecision({ rule: { onOutage: RATE_OUTAGE_POLICY[bucket] } })
+    : decisionFromWait({ wait: data })
+
   if (error) {
-    console.error('flp rate limit check failed', { code: error.code })
+    console.error('flp rate limit check failed', { bucket, code: error.code })
+  }
+
+  if (decision.allowed) {
     return null
   }
 
-  const wait = Number(data ?? 0)
-
-  if (wait <= 0) {
-    return null
+  if (decision.reason === 'unavailable') {
+    return json({
+      status: 503,
+      body: { error: { code: 'unavailable', message: 'This isn’t available right now. Try again later.' } },
+    })
   }
 
   const limited = apiError({
@@ -1079,16 +1117,19 @@ async function rateLimited({
   })
   return Response.json(limited.body, {
     status: limited.status,
-    headers: { 'Cache-Control': 'no-store', 'Retry-After': String(wait) },
+    headers: { 'Cache-Control': 'no-store', 'Retry-After': String(decision.retryAfter) },
   })
 }
 
 export async function handleFlpRequest({
   request,
   env = flpServerEnv(),
+  limiter = sharedLimiter,
 }: {
   request: Request
   env?: FlpServerEnv | null
+  /** Limits signed-out reads (P2); the shared Postgres one unless a test passes its own. */
+  limiter?: PublicLimiter
 }): Promise<Response> {
   if (crossOriginMutation({ request })) {
     return json({
@@ -1110,6 +1151,18 @@ export async function handleFlpRequest({
   // GET /public/:slug/image — its published views, also for link previews (#184);
   // /public/:slug/vote — its votes (V1).
   if (collection === 'public') {
+    // Every signed-out read counts, found or not, so guessing links costs
+    // the same as reading them (P2).
+    const decision = await limiter({ request, bucket: 'public_read' })
+
+    if (!decision.allowed) {
+      return refusal({
+        decision,
+        limitedBody: apiError({ code: 'rate_limited', message: 'Too many requests. Try again shortly.' }).body,
+        unavailableBody: { error: { code: 'unavailable', message: 'This isn’t available right now. Try again later.' } },
+      })
+    }
+
     if (action === 'vote' && rest.length === 0) {
       return handleVote({ request, env, slug: designId })
     }

@@ -4,7 +4,7 @@ What the deployed studio reports about itself, how to read it, and when someone 
 
 ## What is collected
 
-Every report is a `POST /api/events` with a JSON body of a known **name**, plus a **bucket** for timings and Web Vitals. The handler (`src/lib/waitlist-handlers.ts` → `parseEventBody` in `src/lib/assumption-events.ts`) refuses anything else with a 400: unknown names, unknown buckets, a bucket on a count, or any extra field. So no ID, email, design content or exact duration can be stored. The endpoint is also limited to 40 requests a minute per client address.
+Every report is a `POST /api/events` with a JSON body of a known **name**, plus a **bucket** for timings and Web Vitals. The handler (`src/lib/waitlist-handlers.ts` → `parseEventBody` in `src/lib/assumption-events.ts`) refuses anything else with a 400: unknown names, unknown buckets, a bucket on a count, or any extra field. So no ID, email, design content or exact duration can be stored. The endpoint is also limited to 40 requests a minute per client address, counted in Postgres across all instances ([abuse.md](abuse.md)).
 
 Counts are kept as one JSON object of totals under the KV key `flv:assumptions` (with `KV_REST_API_URL` / `KV_REST_API_TOKEN` set, see [deploy.md](deploy.md) §3). Without KV they live in the function's memory only and are lost on each cold start.
 

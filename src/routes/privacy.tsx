@@ -47,6 +47,10 @@ function Privacy() {
             entered.
           </li>
           <li>Your votes on shared designs, one per design, linked to your account.</li>
+          <li>
+            To stop any one visitor flooding the site: a scrambled form of your device’s network address, never the
+            address itself, with a count of recent requests. It is deleted within a day.
+          </li>
         </ul>
       </div>
 
@@ -99,7 +103,8 @@ function Privacy() {
         <h2 className={headingClass}>Reporting a design</h2>
         <p className={textClass}>
           Every shared design page has a “Report this design” link. Reports go to {contact}, and a design that breaks
-          the rules is unpublished.
+          the rules is unpublished and can’t be published again unless the decision is reversed. Its owner keeps the
+          design itself.
         </p>
       </div>
 

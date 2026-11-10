@@ -34,6 +34,8 @@ export const API_ERROR_STATUS = {
   /** An account or design limit is full (S09 #178); nothing was evicted. */
   quota_exceeded: 409,
   rate_limited: 429,
+  /** An operator took the design down after a report (P2); publishing waits until they clear it. */
+  taken_down: 403,
 } as const
 
 export type ApiErrorCode = keyof typeof API_ERROR_STATUS
@@ -243,6 +245,7 @@ const SQLSTATE_CODES: Record<string, ApiErrorCode> = {
   FL413: 'too_large',
   FL422: 'invalid',
   FL429: 'quota_exceeded',
+  FL451: 'taken_down',
 }
 
 /**
@@ -266,6 +269,10 @@ export function apiErrorFromDatabase({
 
   if (mapped === 'not_found') {
     return apiError({ code: mapped, message: 'Design not found' })
+  }
+
+  if (mapped === 'taken_down') {
+    return apiError({ code: mapped, message: PLAIN_ERROR_MESSAGES.taken_down! })
   }
 
   if (mapped === 'conflict' && details) {
