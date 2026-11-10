@@ -11,6 +11,7 @@ import { cn } from '../../lib/cn'
 import type { LayerPatch } from '../../lib/design-commands'
 import { Swatch } from '../ui/Swatch'
 import { useEditorStore } from '../../lib/editor-store'
+import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useStudioMode } from '../../lib/studio-mode'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { type PlaceableLayer, layerMostlyOffPanel } from '../../lib/layer-hit'
@@ -153,6 +154,7 @@ function TransformNumber({
 
 export function TechInspector() {
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
+  const garmentId = useEditorStore((state) => state.garmentId)
   const layers = useEditorStore((state) => state.document.layers)
   const updateLayer = useEditorStore((state) => state.updateLayer)
   const copyLayerToOpposite = useEditorStore(
@@ -297,6 +299,8 @@ export function TechInspector() {
           {pro ? numberField({ key: 'rotation' }) : null}
         </div>
       </div>
+      {/* An image on the tee keeps its own colours: swatches there did nothing. */}
+      {selected.kind === 'graphic' && isCanonicalGarment({ garmentId }) ? null : (
       <div className="flex flex-col gap-2 border-t border-flv-line pt-3">
         <span className="font-body text-xs font-medium text-flv-ink">Colour</span>
         <div className="flex flex-wrap gap-2">
@@ -313,6 +317,7 @@ export function TechInspector() {
           ))}
         </div>
       </div>
+      )}
       {pro ? (
         <div className="flex flex-col gap-3 border-t border-flv-line pt-3">
           <span className="font-body text-xs font-medium text-flv-ink">Exact placement</span>

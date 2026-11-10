@@ -21,6 +21,7 @@ import {
   documentFromDesign,
   oppositePanel,
   type DesignDocument,
+  type DesignLayer,
   type NeckId,
   type PanelId,
   type PatternId,
@@ -215,6 +216,12 @@ type EditorState = {
   setBaseFinish: ({ finishId }: { finishId: BaseFinishId }) => void
   copyLayerToOpposite: ({ layerId }: { layerId: string }) => void
   duplicateLayer: ({ layerId }: { layerId: string }) => void
+  /** Remembers the selected mark or word for `pasteLayer`, this session only. */
+  copyLayer: ({ layerId }: { layerId: string }) => void
+  /** Adds the copied mark or word to the panel being worked on. */
+  pasteLayer: () => void
+  /** Drops the stroke being drawn, whatever drew it (Esc). */
+  discardStroke: () => void
   startStroke: ({
     panel,
     point,
@@ -464,6 +471,47 @@ function syncFromStack({
     limitNotice: null,
     ...extra,
   }
+}
+
+type PlaceableLayer = Extract<DesignLayer, { kind: 'graphic' | 'text' | 'pattern' }>
+
+/** What ⌘C copied: a snapshot, so later edits to the original don't follow. */
+let clipboardLayer: PlaceableLayer | null = null
+
+export function hasCopiedLayer() {
+  return clipboardLayer !== null
+}
+
+/** A duplicate or paste lands this share of the panel away, down and right. */
+export const COPY_OFFSET = 0.03
+
+function placeableLayer({ document, layerId }: { document: DesignDocument; layerId: string }) {
+  const layer = document.layers.find((entry) => entry.id === layerId)
+  return layer && (layer.kind === 'graphic' || layer.kind === 'text' || layer.kind === 'pattern') ? layer : null
+}
+
+/** Steps a copy aside so it doesn't hide its original, away from an edge. */
+function offsetCopy({ layer }: { layer: PlaceableLayer }): PlaceableLayer {
+  const step = ({ value, by }: { value: number; by: number }) =>
+    value + by > 1 - COPY_OFFSET || value + by < COPY_OFFSET ? value - by : value + by
+
+  // Panel y runs bottom-up, so down is a smaller y.
+  return { ...layer, x: step({ value: layer.x, by: COPY_OFFSET }), y: step({ value: layer.y, by: -COPY_OFFSET }) }
+}
+
+function addCopy({ layer }: { layer: PlaceableLayer }) {
+  const id = createObjectId({
+    prefix: layer.kind === 'text' ? 'word' : layer.kind === 'pattern' ? 'print' : 'mark',
+  })
+  const copy = { ...layer, id }
+  const command =
+    copy.kind === 'graphic'
+      ? { type: 'addGraphic' as const, layer: copy }
+      : copy.kind === 'text'
+        ? { type: 'addText' as const, layer: copy }
+        : { type: 'addPattern' as const, layer: copy }
+
+  return runCommand({ command, extra: { selectedLayerId: id } })
 }
 
 function runCommand({
@@ -1134,54 +1182,40 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   duplicateLayer: ({ layerId }) => {
     set((state) => {
-      const layer = state.document.layers.find((entry) => entry.id === layerId)
+      const layer = placeableLayer({ document: state.document, layerId })
+      return layer ? addCopy({ layer: offsetCopy({ layer }) }) : state
+    })
+  },
+  copyLayer: ({ layerId }) => {
+    const layer = placeableLayer({ document: get().document, layerId })
 
-      if (
-        !layer ||
-        (layer.kind !== 'graphic' &&
-          layer.kind !== 'text' &&
-          layer.kind !== 'pattern')
-      ) {
+    if (layer) {
+      clipboardLayer = layer
+    }
+  },
+  pasteLayer: () => {
+    set((state) => {
+      if (!clipboardLayer) {
         return state
       }
 
-      const nextId = createObjectId({
-        prefix:
-          layer.kind === 'text'
-            ? 'word'
-            : layer.kind === 'pattern'
-              ? 'print'
-              : 'mark',
-      })
+      // On its own panel a paste steps aside, as a duplicate does, and the
+      // next paste steps from there. On another panel it keeps its place.
+      const layer =
+        clipboardLayer.panel === state.paintPanel
+          ? offsetCopy({ layer: clipboardLayer })
+          : { ...clipboardLayer, panel: state.paintPanel }
+      const next = addCopy({ layer })
 
-      if (layer.kind === 'graphic') {
-        return runCommand({
-          command: {
-            type: 'addGraphic',
-            layer: { ...layer, id: nextId },
-          },
-          extra: { selectedLayerId: nextId },
-        })
+      if (next.selectedLayerId !== state.selectedLayerId) {
+        clipboardLayer = layer
       }
 
-      if (layer.kind === 'text') {
-        return runCommand({
-          command: {
-            type: 'addText',
-            layer: { ...layer, id: nextId },
-          },
-          extra: { selectedLayerId: nextId },
-        })
-      }
-
-      return runCommand({
-        command: {
-          type: 'addPattern',
-          layer: { ...layer, id: nextId },
-        },
-        extra: { selectedLayerId: nextId },
-      })
+      return next
     })
+  },
+  discardStroke: () => {
+    set({ activeStroke: null })
   },
   startStroke: ({ panel, point, pressure }) => {
     set((state) => {
@@ -1281,7 +1315,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   cancelStroke: ({ pointerType }) => {
     if (pointerType === 'touch') {
-      set({ activeStroke: null })
+      get().discardStroke()
       return
     }
 

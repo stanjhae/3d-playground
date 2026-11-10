@@ -89,10 +89,53 @@ describe('studioKeyAction (#163)', () => {
   })
 
   test('other modifier combinations and plain keys are left alone', () => {
-    expect(studioKeyAction({ key: 'c', metaKey: true, hasSelection: true })).toBeNull()
+    expect(studioKeyAction({ key: 'k', metaKey: true, hasSelection: true })).toBeNull()
     expect(studioKeyAction({ key: 'z', metaKey: true, altKey: true, hasSelection: true })).toBeNull()
     expect(studioKeyAction({ key: 'ArrowLeft', altKey: true, hasSelection: true })).toBeNull()
     expect(studioKeyAction({ key: 'a', hasSelection: true })).toBeNull()
+  })
+})
+
+describe('studioKeyAction, A3 keys', () => {
+  test('Cmd/Ctrl+D duplicates and Cmd/Ctrl+C copies the selection', () => {
+    expect(studioKeyAction({ key: 'd', metaKey: true, hasSelection: true })).toEqual({ type: 'duplicate' })
+    expect(studioKeyAction({ key: 'D', ctrlKey: true, hasSelection: true })).toEqual({ type: 'duplicate' })
+    expect(studioKeyAction({ key: 'c', metaKey: true, hasSelection: true })).toEqual({ type: 'copy' })
+  })
+
+  test('without a selection, D and C keep their browser meaning', () => {
+    expect(studioKeyAction({ key: 'd', metaKey: true, hasSelection: false })).toBeNull()
+    expect(studioKeyAction({ key: 'c', metaKey: true, hasSelection: false })).toBeNull()
+  })
+
+  test('Cmd/Ctrl+C copies selected page text, not the design', () => {
+    const withText = { tagName: 'BODY', ownerDocument: { defaultView: { getSelection: () => ({ toString: () => 'hello' }) } } }
+    expect(studioKeyAction({ key: 'c', metaKey: true, target: withText, hasSelection: true })).toBeNull()
+  })
+
+  test('Cmd/Ctrl+V pastes only once something was copied, on the design step', () => {
+    expect(studioKeyAction({ key: 'v', metaKey: true, hasSelection: false, canPaste: true })).toEqual({ type: 'paste' })
+    expect(studioKeyAction({ key: 'v', metaKey: true, hasSelection: false, canPaste: false })).toBeNull()
+    expect(studioKeyAction({ key: 'v', metaKey: true, hasSelection: false, canPaste: true, inDesign: false })).toBeNull()
+  })
+
+  test('B, E, T and G pick a tool, selection or not, but not mid-stroke or off the design step', () => {
+    expect(studioKeyAction({ key: 'b', hasSelection: false })).toEqual({ type: 'tool', tool: 'brush' })
+    expect(studioKeyAction({ key: 'e', hasSelection: true })).toEqual({ type: 'tool', tool: 'eraser' })
+    expect(studioKeyAction({ key: 't', hasSelection: false })).toEqual({ type: 'tool', tool: 'text' })
+    expect(studioKeyAction({ key: 'g', hasSelection: false })).toEqual({ type: 'tool', tool: 'graphics' })
+    expect(studioKeyAction({ key: 'b', hasSelection: false, drawing: true })).toBeNull()
+    expect(studioKeyAction({ key: 'b', hasSelection: false, inDesign: false })).toBeNull()
+    expect(studioKeyAction({ key: 'B', shiftKey: true, hasSelection: false })).toBeNull()
+    expect(studioKeyAction({ key: 'b', target: { tagName: 'INPUT' }, hasSelection: false })).toBeNull()
+  })
+
+  test('Esc cancels a stroke mid-draw before it deselects, even from an input', () => {
+    expect(studioKeyAction({ key: 'Escape', hasSelection: true, drawing: true })).toEqual({ type: 'cancelStroke' })
+    expect(studioKeyAction({ key: 'Escape', target: { tagName: 'INPUT' }, hasSelection: false, drawing: true })).toEqual({
+      type: 'cancelStroke',
+    })
+    expect(studioKeyAction({ key: 'Escape', hasSelection: true, drawing: false })).toEqual({ type: 'deselect' })
   })
 })
 
@@ -100,7 +143,7 @@ describe('studioKeyList', () => {
   test('names every key the studio handles', () => {
     const keys = studioKeyList({ mod: 'Ctrl' }).map((entry) => entry.keys)
     expect(keys).toEqual(
-      expect.arrayContaining(['Arrow keys', 'Shift + arrow keys', 'Delete or Backspace', 'Esc', 'Ctrl + Z', 'Shift + Ctrl + Z']),
+      expect.arrayContaining(['Arrow keys', 'Shift + arrow keys', 'Delete or Backspace', 'Esc', 'Ctrl + D', 'Ctrl + C, then Ctrl + V', 'B, E, T, G', 'Ctrl + Z', 'Shift + Ctrl + Z']),
     )
   })
 })
