@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { type Locator, type Page, expect, test } from '@playwright/test'
 
-import { deleteAccounts, expectSaved, latestCode, newEmail, signIn } from './helpers'
+import { deleteAccounts, expectSaved, latestCode, newEmail, passTermsGate, signIn } from './helpers'
 
 /**
  * Automated accessibility scan of the alpha's pages (Q06 #191). Fails on
@@ -156,6 +156,7 @@ test('the code step, history, publish review and published state have no serious
   await page.getByRole('textbox', { name: '6-digit code' }).fill(code)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(/\/studio$/)
+  await passTermsGate({ page })
 
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
@@ -265,6 +266,7 @@ test('whatever the keyboard reaches shows where focus is, and is not hidden', as
   await page.getByRole('textbox', { name: '6-digit code' }).fill(code)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(/\/studio$/)
+  await passTermsGate({ page })
   await walkFocus({ page, name: 'studio list', problems })
 
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()

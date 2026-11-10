@@ -8,7 +8,15 @@ export const RESTORE_DATABASE: string
 export function sha256Hex(bytes: string | Uint8Array): string
 export function canonicalContentHash(content: unknown): string
 export function findDbContainer(): Promise<string>
-export function psql(options: { container: string; database?: string; sql: string }): Promise<string>
+export function psql(options: { container?: string; url?: string; database?: string; sql: string }): Promise<string>
+export function urlForDatabase(options: { url: string; database: string }): string
+export function pgCommand(options: {
+  container?: string
+  url?: string
+  tool: 'psql' | 'pg_dump' | 'pg_restore'
+  database?: string
+  args?: string[]
+}): [string, string[]]
 
 export type Phase = { name: string; ms: number }
 
@@ -48,16 +56,19 @@ export type RestoreResult = {
   totalMs: number
 }
 
+/** Pass `container` (local stack) or `dbUrl` (a connection URL, e.g. hosted). */
 export function runBackup(options: {
   admin: SupabaseClient
-  container: string
+  container?: string
+  dbUrl?: string
   outDir: string
   log?: (line: string) => void
 }): Promise<BackupManifest>
 
 export function runRestoreCheck(options: {
   admin: SupabaseClient
-  container: string
+  container?: string
+  dbUrl?: string
   backupDir: string
   upload?: boolean
   keep?: boolean

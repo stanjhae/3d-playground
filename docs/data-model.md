@@ -27,7 +27,7 @@ browser ──(session JWT)──▶ API (Vercel function)
 | `design_versions` | Immutable revisions | PK `(design_id, seq)`, unique `(owner_id, mutation_key)`. UPDATE and DELETE are rejected by a trigger. `kind` is `autosave`, `checkpoint`, `restore` or `import`. `restored_from_seq` must point at an earlier version of the same design. |
 | `assets` | Uploaded images (S01 #170, S02 #171) | IDs match the canonical `asset_…` pattern but never `asset_lib_…`. `ready` requires the type, size, dimensions, hash and storage path. `rejected` requires a `rejection_reason`. Once ready or rejected a row never changes (trigger). See [Image uploads](#image-uploads). |
 | `render_artifacts` | Derivatives of one version (P02 #180) | Composite FK to `(design_id, version_seq)`. One row per kind. |
-| `profiles` | One per account (A06 #150) | The optional public `display_name` (1–40 characters) the publish panel pre-fills. Owner-read RLS; written only by `flp_set_display_name`. |
+| `profiles` | One per account (A06 #150) | The optional public `display_name` (1–40 characters) the publish panel pre-fills, and the terms of use the account accepted (P1): `terms_version` and `terms_accepted_at`, both null until it accepts, set together. Owner-read RLS; written only by `flp_set_display_name` and `flp_accept_terms`. Removed with the account. |
 | `publications` | One per design for its lifetime | Stable 16-hex `slug`. `published` ⇔ `version_seq` is set. When the design is deleted, a revoked tombstone keeps the slug so it is never reused. |
 
 Owner consistency uses composite foreign keys to `designs (id, owner_id)`, so every child row has the same owner as its design. A reference to another design's version fails with a foreign-key error.

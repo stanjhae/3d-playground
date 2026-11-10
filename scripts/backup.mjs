@@ -5,9 +5,15 @@ import { createClient } from '@supabase/supabase-js'
 import { findDbContainer, formatPhases, runBackup } from './backup-lib.mjs'
 
 /**
- * Backs up the local database and private storage (Q09 #194).
+ * Backs up the database and private storage (Q09 #194, P1).
  *
  *   SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/backup.mjs [out-dir]
+ *   … SUPABASE_DB_URL=postgresql://… node scripts/backup.mjs [out-dir]   (hosted)
+ *
+ * Without SUPABASE_DB_URL it dumps the local stack's container. With it,
+ * the local `pg_dump` (same major version as the server, or newer) dumps
+ * the FLP schemas over that connection; the scheduled backup workflow
+ * (`.github/workflows/backup.yml`) runs it this way.
  *
  * Writes `database.dump` (pg_dump custom format, taken inside the running
  * supabase_db_* container), every storage object under `storage/<bucket>/`
@@ -27,10 +33,11 @@ if (!url || !secretKey) {
 
 const outDir = process.argv[2] ?? path.join('backups', `flp-${new Date().toISOString().replace(/[:.]/g, '-')}`)
 const admin = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
-const container = await findDbContainer()
+const dbUrl = process.env.SUPABASE_DB_URL || undefined
+const container = dbUrl ? undefined : await findDbContainer()
 
-console.log(`Backing up ${container} and ${url} storage to ${outDir}`)
-const manifest = await runBackup({ admin, container, outDir, log: (line) => console.log(`  ${line}`) })
+console.log(`Backing up ${container ?? `the database at ${new URL(dbUrl).host}`} and ${url} storage to ${outDir}`)
+const manifest = await runBackup({ admin, container, dbUrl, outDir, log: (line) => console.log(`  ${line}`) })
 
 console.log(`\nPhases:\n${formatPhases({ phases: manifest.phases, total: [{ name: 'total', ms: manifest.totalMs }] })}`)
 

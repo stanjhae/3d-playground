@@ -8,12 +8,20 @@ import path from 'node:path'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
 
 /**
- * Backup and restore rehearsal for the local Supabase stack (Q09 #194).
- * Shared by `backup.mjs`, `restore-check.mjs` and the integration test.
+ * Backup and restore rehearsal (Q09 #194, P1). Shared by `backup.mjs`,
+ * `restore-check.mjs`, the integration test and the scheduled backup
+ * workflow (`.github/workflows/backup.yml`).
  *
- * The database is dumped with `pg_dump` inside the running Postgres
- * container. Storage is backed up separately, object by object: the dump
- * holds `storage.objects` rows, never the bytes.
+ * Postgres is reached one of two ways:
+ * - `container`: the local stack. `psql`, `pg_dump` and `pg_restore` run
+ *   inside the `supabase_db_*` container (`docker exec`).
+ * - `dbUrl`: a connection URL, for a hosted project. The same tools run on
+ *   this machine (they must be the server's major version or newer). Only
+ *   the `public`, `auth` and `storage` schemas are dumped, which is all the
+ *   FLP data; `FLP_DUMP_SCHEMAS` (comma-separated) overrides that.
+ *
+ * Storage is backed up separately, object by object: the dump holds
+ * `storage.objects` rows, never the bytes.
  */
 
 export const MANIFEST_FORMAT = 'flp-backup/1'
@@ -119,23 +127,46 @@ export async function findDbContainer() {
   return names[0]
 }
 
-const psqlArgs = ({ container, database }) => [
-  'exec', '-i', container, 'psql', '-U', DB_USER, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-d', database,
-]
+/** `url` with its database name replaced; the rest (user, host, options) is kept. */
+export function urlForDatabase({ url, database }) {
+  const next = new URL(url)
+  next.pathname = `/${database}`
+  return next.toString()
+}
 
-export async function psql({ container, database = 'postgres', sql }) {
-  return (await mustRun('docker', psqlArgs({ container, database }), { input: sql })).stdout
+/**
+ * The command and arguments that run a Postgres client tool against
+ * `database`: inside the local container, or on this machine with a URL.
+ */
+export function pgCommand({ container, url, tool, database = 'postgres', args = [] }) {
+  if (url) {
+    return [tool, [`--dbname=${urlForDatabase({ url, database })}`, ...args]]
+  }
+
+  if (!container) throw new Error('no database: pass a container or a connection URL')
+  return ['docker', ['exec', '-i', container, tool, '-U', DB_USER, '-d', database, ...args]]
+}
+
+const PSQL_FLAGS = ['-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1']
+
+/** Schemas dumped over a URL: the FLP data, without the provider's own. */
+const DUMP_SCHEMAS = (process.env.FLP_DUMP_SCHEMAS ?? 'public,auth,storage').split(',').map((name) => name.trim()).filter(Boolean)
+
+export async function psql({ container, url, database = 'postgres', sql }) {
+  const [command, args] = pgCommand({ container, url, tool: 'psql', database, args: PSQL_FLAGS })
+  return (await mustRun(command, args, { input: sql })).stdout
 }
 
 /** Rows of `select row_to_json(…)`, one JSON object per line. */
-async function jsonRows({ container, database, sql }) {
-  const out = await psql({ container, database, sql })
+async function jsonRows({ container, url, database, sql }) {
+  const out = await psql({ container, url, database, sql })
   return out.split('\n').filter(Boolean).map((line) => JSON.parse(line))
 }
 
 /** A psql session kept open, so a snapshot can be exported and reused. */
-function openSession({ container, database }) {
-  const child = spawn('docker', psqlArgs({ container, database }), { stdio: ['pipe', 'pipe', 'pipe'] })
+function openSession({ container, url, database }) {
+  const [command, args] = pgCommand({ container, url, tool: 'psql', database, args: PSQL_FLAGS })
+  const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] })
   let buffer = ''
   let stderr = ''
   let pending = null
@@ -268,21 +299,27 @@ select json_build_object(
  * manifest says exactly what the dump contains; objects are then fetched
  * through the Storage API with the secret key.
  */
-export async function runBackup({ admin, container, outDir, log = () => {} }) {
+export async function runBackup({ admin, container, dbUrl, outDir, log = () => {} }) {
   const time = timer()
   await mkdir(outDir, { recursive: true })
   const dumpFile = path.join(outDir, 'database.dump')
 
   const expected = await time.phase('database dump', async () => {
-    const session = openSession({ container, database: 'postgres' })
+    const session = openSession({ container, url: dbUrl, database: 'postgres' })
     try {
       await session.query('begin isolation level repeatable read read only;')
       const snapshot = (await session.query('select pg_export_snapshot();')).trim()
-      await mustRun(
-        'docker',
-        ['exec', container, 'pg_dump', '-U', DB_USER, '-d', 'postgres', '--format=custom', `--snapshot=${snapshot}`],
-        { stdoutFile: dumpFile },
-      )
+      const [command, args] = pgCommand({
+        container,
+        url: dbUrl,
+        tool: 'pg_dump',
+        args: [
+          '--format=custom',
+          `--snapshot=${snapshot}`,
+          ...(dbUrl ? DUMP_SCHEMAS.map((schema) => `--schema=${schema}`) : []),
+        ],
+      })
+      await mustRun(command, args, { stdoutFile: dumpFile })
       const state = JSON.parse(await session.query(EXPECTATIONS_SQL))
       await session.query('commit;')
       return state
@@ -359,7 +396,7 @@ function collectAssetIds(value, into) {
  * private bucket (never the live one) and read back, unless `upload` is
  * false, in which case the backup folder's bytes are verified instead.
  */
-export async function runRestoreCheck({ admin, container, backupDir, upload = true, keep = false, log = () => {} }) {
+export async function runRestoreCheck({ admin, container, dbUrl, backupDir, upload = true, keep = false, log = () => {} }) {
   const time = timer()
   const issues = []
   const warnings = []
@@ -391,15 +428,12 @@ export async function runRestoreCheck({ admin, container, backupDir, upload = tr
 
   try {
     await time.phase('create database', () =>
-      psql({ container, sql: `drop database if exists ${RESTORE_DATABASE} with (force);\ncreate database ${RESTORE_DATABASE};` }),
+      psql({ container, url: dbUrl, sql: `drop database if exists ${RESTORE_DATABASE} with (force);\ncreate database ${RESTORE_DATABASE};` }),
     )
 
     await time.phase('restore database', async () => {
-      const result = await run(
-        'docker',
-        ['exec', '-i', container, 'pg_restore', '-U', DB_USER, '-d', RESTORE_DATABASE, '--no-owner'],
-        { inputFile: path.join(backupDir, manifest.database.file) },
-      )
+      const [command, args] = pgCommand({ container, url: dbUrl, tool: 'pg_restore', database: RESTORE_DATABASE, args: ['--no-owner'] })
+      const result = await run(command, args, { inputFile: path.join(backupDir, manifest.database.file) })
       // Supabase's platform extensions (pg_net, vault, …) are per-cluster
       // and refuse a second database. They hold no FLP data; anything that
       // does is caught by the row counts below.
@@ -428,7 +462,7 @@ export async function runRestoreCheck({ admin, container, backupDir, upload = tr
     }
 
     restored = await time.phase('verify', async () => {
-      const db = { container, database: RESTORE_DATABASE }
+      const db = { container, url: dbUrl, database: RESTORE_DATABASE }
 
       // Row counts: the restore lost nothing the snapshot had.
       const [counts] = await jsonRows({ ...db, sql: `select ${COUNTS_SQL};` })
@@ -554,7 +588,7 @@ export async function runRestoreCheck({ admin, container, backupDir, upload = tr
   } finally {
     if (!keep) {
       await time.phase('cleanup', async () => {
-        await psql({ container, sql: `drop database if exists ${RESTORE_DATABASE} with (force);` })
+        await psql({ container, url: dbUrl, sql: `drop database if exists ${RESTORE_DATABASE} with (force);` })
         if (bucketCreated) {
           const keys = manifest.storage.objects.map((object) => `${object.bucket}/${object.path}`)
           for (let start = 0; start < keys.length; start += 1000) {
