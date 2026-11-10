@@ -13,6 +13,7 @@ import {
 import {
   type CanonicalDocument,
   type CanonicalPanelId,
+  type CanonicalStroke,
   type Color,
   type ValidationIssue,
   CANONICAL_LIMITS,
@@ -171,17 +172,25 @@ function paintLayerFor({
   document,
   panel,
   strokeId,
+  tool,
 }: {
   document: CanonicalDocument
   panel: CanonicalPanelId
   strokeId: string
+  tool: CanonicalStroke['tool']
 }) {
   const layers = document.panels[panel].layers
-  const top = [...layers].reverse().find((layer) => layer.kind === 'paint' && layer.visible)
+  // A brush stroke stays on top of everything, as it was drawn: it joins the
+  // panel's top layer only when that is visible paint. An eraser works on the
+  // highest visible paint layer, wherever it sits.
+  const top =
+    tool === 'brush'
+      ? layers.at(-1)
+      : [...layers].reverse().find((layer) => layer.kind === 'paint' && layer.visible)
 
   // A full paint layer overflows into a new one; the panel's layer limit
   // then decides whether the stroke fits (#162).
-  if (top?.kind === 'paint' && top.strokes.length < CANONICAL_LIMITS.strokesPerLayer) {
+  if (top?.kind === 'paint' && top.visible && top.strokes.length < CANONICAL_LIMITS.strokesPerLayer) {
     return top.id
   }
 
@@ -280,7 +289,12 @@ export function translateCommand({
       command: {
         type: 'addStroke',
         panel: converted.panel,
-        layerId: paintLayerFor({ document, panel: converted.panel, strokeId: converted.stroke.id }),
+        layerId: paintLayerFor({
+          document,
+          panel: converted.panel,
+          strokeId: converted.stroke.id,
+          tool: converted.stroke.tool,
+        }),
         stroke: converted.stroke,
       },
     }
@@ -524,6 +538,22 @@ export function runTranslated({
 export function strokeLayerId({ engine, stroke }: { engine: TeeEngine; stroke: Stroke }) {
   const translated = translateCommand({ engine, command: { type: 'addStroke', stroke } })
   return translated?.command.type === 'addStroke' ? translated.command.layerId : null
+}
+
+/**
+ * The message for a stroke that could never be kept, such as one that would
+ * need a new layer on a full panel, so it is refused as the pen goes down
+ * instead of vanishing when it lifts. Null when it fits.
+ */
+export function strokeRefusal({ engine, stroke }: { engine: TeeEngine; stroke: Stroke }) {
+  const translated = translateCommand({ engine, command: { type: 'addStroke', stroke } })
+
+  if (!translated) {
+    return null
+  }
+
+  const counter = limitRefusal({ document: engine.stack.document, command: translated.command })
+  return counter ? limitMessage({ counter, refused: true }) : null
 }
 
 export function undoTee({ engine }: { engine: TeeEngine }): TeeEngine {

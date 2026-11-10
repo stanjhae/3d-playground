@@ -167,6 +167,52 @@ describe('canonical limits in the editor (E09 #162)', () => {
     expectValid()
   })
 
+  test('a brush stroke stays on top of words; an eraser still works on the paint below', () => {
+    const paint: CanonicalLayer = {
+      id: 'paint-front',
+      kind: 'paint',
+      visible: true,
+      opacity: 1,
+      strokes: [{ id: 'old', tool: 'brush', color: '#1a1c22', width: 0.02, opacity: 1, points: [0.1, 0.1, 0.2, 0.2] }],
+    }
+    store().loadCanonical({ document: documentWith({ front: [paint, textLayer('word')] }), cloud: cloud() })
+    const ids = () => getCanonicalDocument().panels.front.layers.map((layer) => layer.id)
+    const draw = () => {
+      store().startStroke({ panel: 'front', point: { x: 0.3, y: 0.3 } })
+      store().appendStroke({ point: { x: 0.4, y: 0.4 } })
+      store().endStroke()
+    }
+
+    draw()
+    const [, , top] = ids()
+    expect(ids().slice(0, 2)).toEqual(['paint-front', 'word'])
+    expect(top).toMatch(/^paint-front-ink/)
+
+    // The next stroke joins the new top paint layer instead of making another.
+    draw()
+    expect(ids()).toHaveLength(3)
+    const topLayer = getCanonicalDocument().panels.front.layers[2]
+    expect(topLayer?.kind === 'paint' ? topLayer.strokes.length : 0).toBe(2)
+
+    // An eraser works on the highest visible paint, which is now the top layer.
+    store().setPaintTool({ paintTool: 'eraser' })
+    draw()
+    expect(ids()).toHaveLength(3)
+    expectValid()
+  })
+
+  test('a brush over a word on a full panel is refused as the pen goes down', () => {
+    store().loadCanonical({
+      document: documentWith({ front: Array.from({ length: MAX_LAYERS }, (_, index) => textLayer(`t${index}`)) }),
+      cloud: cloud(),
+    })
+    store().startStroke({ panel: 'front', point: { x: 0.3, y: 0.3 } })
+
+    expect(store().activeStroke).toBeNull()
+    expect(store().limitNotice).toContain(`${MAX_LAYERS}`)
+    expect(frontLayerCount()).toBe(MAX_LAYERS)
+  })
+
   test('a full paint layer overflows into a new one; a full panel refuses the stroke', () => {
     const strokes = Array.from({ length: CANONICAL_LIMITS.strokesPerLayer }, (_, index) => ({
       id: `s${index}`,

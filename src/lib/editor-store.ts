@@ -63,6 +63,7 @@ import {
   runTeeCommand,
   runTranslated,
   strokeLayerId,
+  strokeRefusal,
   teeRenderDocument,
   undoTee,
 } from './editor-canonical'
@@ -1200,17 +1201,22 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
           : 0.35 + state.paintHardness * 0.65
       const color =
         state.paintOpacity >= 0.999 ? `#${base}` : `#${base}${alpha}`
-
-      return {
-        activeStroke: {
-          id: createObjectId({ prefix: 'ink' }),
-          panel,
-          points: [{ ...point, p: hardnessPressure }],
-          color,
-          width: state.paintWidth,
-          tool,
-        },
+      const stroke: Stroke = {
+        id: createObjectId({ prefix: 'ink' }),
+        panel,
+        points: [{ ...point, p: hardnessPressure }],
+        color,
+        width: state.paintWidth,
+        tool,
       }
+      // Refused as the pen goes down, so ink never appears and then vanishes.
+      const refused = teeActive() ? strokeRefusal({ engine: tee, stroke }) : null
+
+      if (refused) {
+        return { activeStroke: null, limitNotice: refused }
+      }
+
+      return { activeStroke: stroke }
     })
   },
   appendStroke: ({ point, pressure }) => {
