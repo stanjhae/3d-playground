@@ -283,8 +283,8 @@ export async function frameStill({
 
       const sourceRatio = image.width / Math.max(1, image.height)
       const targetRatio = width / height
-      let drawWidth = width
-      let drawHeight = height
+      let drawWidth: number
+      let drawHeight: number
       let drawX = 0
       let drawY = 0
 
