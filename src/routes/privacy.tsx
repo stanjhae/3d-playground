@@ -46,6 +46,7 @@ function Privacy() {
             If you publish a design: the version you chose, five pictures of it, its name and the public name you
             entered.
           </li>
+          <li>Your votes on shared designs, one per design, linked to your account.</li>
           <li>
             To stop any one visitor flooding the site: a scrambled form of your device’s network address, never the
             address itself, with a count of recent requests. It is deleted within a day.
@@ -56,7 +57,8 @@ function Privacy() {
       <div className={sectionClass}>
         <h2 className={headingClass}>Who can see it</h2>
         <p className={textClass}>
-          Only you can see your designs, history and uploads. A published design can be viewed, and its pictures
+          Only you can see your designs, history, uploads and votes. Others see only how many votes a shared design
+          has, never who voted. A published design can be viewed, and its pictures
           copied, by anyone with its link. Unpublishing or deleting it stops the link and its pictures working straight
           away. A page someone already has open may keep showing its pictures, and pictures someone already saved can't
           be taken back.

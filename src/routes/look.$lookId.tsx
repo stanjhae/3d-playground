@@ -2,12 +2,12 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { NotInAlpha } from '../components/ui/NotInAlpha'
 import { AUTH_REQUIRED } from '../lib/auth/supabase-client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
 import { LookStage } from '../components/scene/LookStage'
 import { documentFromDesign } from '../lib/design-document'
-import { getDesign, voteOnDesign } from '../lib/designs-api'
+import { getDesign } from '../lib/designs-api'
 import { type Design } from '../lib/design-schema'
 import { useEditorStore } from '../lib/editor-store'
 import { resolveFetchedLook } from '../lib/fetched-look'
@@ -29,16 +29,12 @@ function LookPage() {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>(
     'idle',
   )
-  const [voteError, setVoteError] = useState<string | null>(null)
-  const [voting, setVoting] = useState(false)
-  const votingRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
 
     setStatus('loading')
     setCopyStatus('idle')
-    setVoteError(null)
 
     void getDesign({ id: lookId })
       .then((design) => {
@@ -73,26 +69,6 @@ function LookPage() {
       document.title = 'Fashion Leader Vote'
     }
   }, [lookId])
-
-  async function handleVote() {
-    if (!look || voting || votingRef.current) {
-      return
-    }
-
-    votingRef.current = true
-    setVoteError(null)
-    setVoting(true)
-
-    try {
-      const result = await voteOnDesign({ id: look.id })
-      setLook({ ...look, votes: result.votes })
-    } catch {
-      setVoteError(HOUSE_COPY.voteFailed)
-    } finally {
-      votingRef.current = false
-      setVoting(false)
-    }
-  }
 
   async function handleCopy() {
     try {
@@ -183,25 +159,12 @@ function LookPage() {
               </div>
             ) : null}
             <GownCredit garmentId={look.garmentId} />
-            {voteError ? (
-              <p className="font-body text-sm text-flv-muted">{voteError}</p>
-            ) : null}
             {copyStatus === 'error' ? (
               <p className="font-body text-sm text-flv-muted">
                 {HOUSE_COPY.copyFailed}
               </p>
             ) : null}
             <div className="flex flex-row flex-wrap gap-3">
-              <button
-                type="button"
-                disabled={voting}
-                onClick={() => {
-                  void handleVote()
-                }}
-                className="flv-cta inline-flex items-center justify-center gap-2 min-h-11 min-w-[10rem] flex-1 px-5 py-2 font-body text-sm font-medium disabled:opacity-50"
-              >
-                {voting ? HOUSE_COPY.voting : HOUSE_COPY.voteThisLook}
-              </button>
               <Link
                 to="/create"
                 search={{ design: look.id }}

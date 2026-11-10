@@ -45,6 +45,8 @@ test('studio chrome and share page match their baselines', async ({ page, browse
   await share.goto(`/s/${slug}`)
   await expect(share.getByRole('heading', { name: 'Visual tee' })).toBeVisible()
   await expect(share.getByRole('img')).toHaveCount(5)
+  // The vote count loads after the page (V1); wait so the picture is stable.
+  await expect(share.getByTestId('vote-count')).toHaveText('0 votes')
   // The publish date changes every day.
   const published = share.getByText(/published \d/)
   await expect(share).toHaveScreenshot('share-page.png', { ...shot, fullPage: true, mask: [...(await visualMasks({ page: share })), published] })

@@ -21,11 +21,12 @@ Signed-out limits apply on Vercel deployments (`VERCEL_ENV` set) or where `FLP_R
 | `events` | 40 per min per address | `POST /api/events` | **Refuse** (503). Inflating a count is the only gain, and a lost count costs nothing. |
 | `errors` | 10 per min per address | `POST /api/errors` | **Allow**. An outage is when error reports matter most, and Sentry limits what it accepts on its side. |
 | `share_page` | 60 per min per address | `/s/:slug` (`api/og-share.ts`) | **Allow**. A shared link must keep working through a limiter outage. |
-| `public_read` | 360 per min per address | `GET /api/flp/public/:slug` and `/image` | **Allow**, for the same reason. One page is the design plus up to five views. Unknown links count too, so guessing costs the same as reading. |
+| `public_read` | 360 per min per address | `/api/flp/public/:slug`, `/image` and `/vote` | **Allow**, for the same reason. One page is the design plus up to five views. Unknown links count too, so guessing costs the same as reading. |
 | `save` | 120 per min per account | create, save, restore | **Allow**. Blocking a save loses work; the account quotas still cap storage. |
 | `upload` | 20 per min per account | uploads | **Allow**. The 100 MB per-account quota is enforced in the database regardless. |
 | `publish` | 10 per min per account | renders, publish, unpublish | **Refuse** (503). Publishing puts content in front of the public; a refused publish loses nothing and can be retried. |
 | `details` | 30 per min per account | rename, delete, public name | **Allow**. Cheap, and blocking a rename or delete helps no one. |
+| `vote` | 30 per min per account | cast or retract a vote (V1) | **Allow**. A vote is one per account and can be taken back, so a missed limit costs little. |
 
 "Fails" means the database returned an error, took longer than 1.5 s, or (signed out, on a deployment) the server has no Supabase settings. Each failure is logged as `flp request limit check failed` or `flp rate limit check failed`.
 
