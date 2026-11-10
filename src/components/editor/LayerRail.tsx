@@ -1,4 +1,5 @@
-import { useId, useRef } from 'react'
+import { GripVertical } from 'lucide-react'
+import { type PointerEvent as ReactPointerEvent, useId, useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
 import { garmentPanels } from '../../lib/garments'
@@ -9,6 +10,7 @@ import {
   focusAfterDelete,
   layerDeletedMessage,
   layerEdgeMessage,
+  type LayerMove,
   layerListGroups,
   layerMovedMessage,
   layerVisibilityMessage,
@@ -40,6 +42,9 @@ export function LayerRail() {
   const removeLayer = useEditorStore((state) => state.removeLayer)
   const duplicateLayer = useEditorStore((state) => state.duplicateLayer)
   const moveLayer = useEditorStore((state) => state.moveLayer)
+  const moveLayerTo = useEditorStore((state) => state.moveLayerTo)
+  /** A row being dragged by its grip, and the row it would land on. */
+  const [drag, setDrag] = useState<{ layerId: string; panel: string | null; overId: string | null } | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
   const headingId = useId()
   const panels = garmentPanels({ garmentId })
@@ -70,6 +75,33 @@ export function LayerRail() {
     })
   }
 
+  /** The row under the pointer, if it is in the same panel as the dragged one. */
+  function rowUnder({ event }: { event: ReactPointerEvent }) {
+    const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-layer-row]')
+    return row && row.dataset.layerPanel === drag?.panel ? (row.dataset.layerRow ?? null) : null
+  }
+
+  function dropDrag() {
+    if (!drag) {
+      return
+    }
+
+    const { layerId, overId } = drag
+    setDrag(null)
+    const target = overId ? layerPlacement({ layerId: overId }) : null
+
+    if (!overId || overId === layerId || !target) {
+      return
+    }
+
+    moveLayerTo({ layerId, toIndex: target.index })
+    const name = groups.flatMap((group) => group.rows).find((row) => row.layer.id === layerId)?.name ?? 'Item'
+    const label = groups.find((group) => group.rows.some((row) => row.layer.id === layerId))?.label ?? ''
+    announce({
+      message: layerMovedMessage({ name, direction: 'drag', placement: layerPlacement({ layerId }), panelLabel: label }),
+    })
+  }
+
   return (
     <aside className={railFrameClass()} aria-labelledby={headingId}>
       <h2 id={headingId} className={chromeKickerClass()}>
@@ -95,8 +127,8 @@ export function LayerRail() {
                     layer.kind === 'pattern'
                   const movable = row.index !== null
 
-                  function move(direction: 'up' | 'down') {
-                    const allowed = direction === 'up' ? row.canMoveUp : row.canMoveDown
+                  function move(direction: Exclude<LayerMove, 'drag'>) {
+                    const allowed = direction === 'up' || direction === 'front' ? row.canMoveUp : row.canMoveDown
 
                     if (!allowed) {
                       announce({ message: layerEdgeMessage({ name, direction }) })
@@ -112,18 +144,48 @@ export function LayerRail() {
                         panelLabel: group.label,
                       }),
                     })
-                    focusRow({ layerId: layer.id, control: direction })
+                    focusRow({ layerId: layer.id, control: direction === 'front' ? 'up' : direction === 'back' ? 'down' : direction })
                   }
 
                   return (
                     <li
                       key={layer.id}
                       data-layer-row={layer.id}
-                      className={cn('flex flex-wrap items-center gap-x-2 border-l-2 pl-2', {
-                        'border-flv-accent': selected,
-                        'border-transparent': !selected,
+                      data-layer-panel={group.panel ?? undefined}
+                      className={cn('flex flex-wrap items-center gap-x-2 border-l-2 border-t-2 pl-2', {
+                        'border-l-flv-accent': selected,
+                        'border-l-transparent': !selected,
+                        'border-t-flv-accent': drag !== null && drag.overId === layer.id && drag.layerId !== layer.id,
+                        'border-t-transparent': !(drag !== null && drag.overId === layer.id && drag.layerId !== layer.id),
+                        'opacity-50': drag?.layerId === layer.id,
                       })}
                     >
+                      {movable ? (
+                        // Pointer only: the arrow buttons and To front / To back do the same from the keyboard.
+                        <span
+                          aria-hidden
+                          data-layer-control="grip"
+                          title={`Drag to reorder ${name}`}
+                          onPointerDown={(event) => {
+                            event.preventDefault()
+                            event.currentTarget.setPointerCapture(event.pointerId)
+                            setDrag({ layerId: layer.id, panel: group.panel, overId: layer.id })
+                          }}
+                          onPointerMove={(event) => {
+                            if (drag?.layerId === layer.id) {
+                              const overId = rowUnder({ event })
+                              if (overId !== drag.overId) {
+                                setDrag({ ...drag, overId })
+                              }
+                            }
+                          }}
+                          onPointerUp={dropDrag}
+                          onPointerCancel={() => setDrag(null)}
+                          className="grid min-h-11 w-6 cursor-grab touch-none place-items-center text-flv-muted active:cursor-grabbing"
+                        >
+                          <GripVertical className="size-4" />
+                        </span>
+                      ) : null}
                       <button
                         type="button"
                         data-layer-control="select"
@@ -194,6 +256,28 @@ export function LayerRail() {
                         >
                           {layer.visible ? HOUSE_COPY.hideLayer : HOUSE_COPY.showLayer}
                         </button>
+                        {pro && movable ? (
+                          <>
+                            <button
+                              type="button"
+                              aria-label={`Move ${name} to the front`}
+                              aria-disabled={row.canMoveUp ? undefined : true}
+                              onClick={() => move('front')}
+                              className={cn(actionClass, 'aria-disabled:opacity-35')}
+                            >
+                              To front
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Move ${name} to the back`}
+                              aria-disabled={row.canMoveDown ? undefined : true}
+                              onClick={() => move('back')}
+                              className={cn(actionClass, 'aria-disabled:opacity-35')}
+                            >
+                              To back
+                            </button>
+                          </>
+                        ) : null}
                         {pro ? (
                           <>
                         <button

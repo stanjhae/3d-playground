@@ -79,6 +79,17 @@ export function layerListGroups({
     })
 }
 
+/** How a layer was moved: one place, all the way, or dragged (A5). */
+export type LayerMove = 'up' | 'down' | 'front' | 'back' | 'drag'
+
+function movedPhrase({ direction }: { direction: LayerMove }) {
+  return direction === 'front' || direction === 'back'
+    ? `moved to the ${direction}`
+    : direction === 'drag'
+      ? 'moved'
+      : `moved ${direction}`
+}
+
 export function layerMovedMessage({
   name,
   direction,
@@ -86,17 +97,19 @@ export function layerMovedMessage({
   panelLabel,
 }: {
   name: string
-  direction: 'up' | 'down'
+  direction: LayerMove
   placement: LayerPlacement | null
   panelLabel: string
 }) {
+  const moved = movedPhrase({ direction })
+
   if (!placement) {
-    return `${name} moved ${direction}.`
+    return `${name} ${moved}.`
   }
 
   // Position counted from the top, as the list reads.
   const position = placement.count - placement.index
-  return `${name} moved ${direction}, ${position} of ${placement.count} on the ${panelLabel.toLowerCase()}.`
+  return `${name} ${moved}, ${position} of ${placement.count} on the ${panelLabel.toLowerCase()}.`
 }
 
 export function layerEdgeMessage({
@@ -104,9 +117,9 @@ export function layerEdgeMessage({
   direction,
 }: {
   name: string
-  direction: 'up' | 'down'
+  direction: Exclude<LayerMove, 'drag'>
 }) {
-  return direction === 'up' ? `${name} is already on top.` : `${name} is already at the bottom.`
+  return direction === 'up' || direction === 'front' ? `${name} is already on top.` : `${name} is already at the bottom.`
 }
 
 export function layerDeletedMessage({ name }: { name: string }) {

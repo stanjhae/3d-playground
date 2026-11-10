@@ -45,6 +45,8 @@ export function contentSecurityPolicy({ supabase, devNonce }: { supabase: string
     ['img-src', ["'self'", 'data:', 'blob:', ...remote]],
     ['font-src', ["'self'", 'data:']],
     // GLTFLoader fetches a model's embedded textures from blob: URLs.
+    // Error reports go to this site's /api/errors, which forwards them
+    // server-side (src/lib/error-tunnel.ts), so the tracker needs no host here.
     ['connect-src', ["'self'", 'blob:', ...remote]],
     // drei runs the Draco decoder in workers built from blob: URLs.
     ['worker-src', ["'self'", 'blob:']],

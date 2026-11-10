@@ -51,6 +51,10 @@ describe('contentSecurityPolicy', () => {
     expect(deployed['connect-src']).toContain(DEPLOYED_SUPABASE_SOURCE)
   })
 
+  test('sends error reports only to this site (O1, docs/alerts.md)', () => {
+    expect(deployed['connect-src']).toEqual(["'self'", 'blob:', DEPLOYED_SUPABASE_SOURCE])
+  })
+
   test('the dev nonce only adds to script and style', () => {
     const dev = directives({ policy: contentSecurityPolicy({ supabase: 'http://127.0.0.1:54321', devNonce: 'abc' }) })
     expect(dev['script-src']).toContain("'nonce-abc'")

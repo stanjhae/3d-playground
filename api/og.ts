@@ -1,3 +1,4 @@
+import { withErrorReporting } from '../src/lib/error-tunnel.ts'
 import {
   getStoredDesign,
   hydrateDesignsStore,
@@ -24,7 +25,7 @@ async function readFileBytes({ relativePath }: { relativePath: string }) {
   return readFile(join(processCwd(), relativePath))
 }
 
-export async function GET(request?: Request) {
+async function render(request?: Request) {
   const url = new URL(request?.url ?? 'http://localhost/api/og')
   const lookId = url.searchParams.get('lookId')
   const stillPath = ogStillRelativePath({ lookId })
@@ -78,8 +79,15 @@ export async function GET(request?: Request) {
   })
 }
 
+const reported = withErrorReporting((request) => render(request))
+
+/** Without a request (unit tests) it renders the default card. */
+export function GET(request?: Request) {
+  return request ? reported(request) : render()
+}
+
 export default {
   fetch(request: Request) {
-    return GET(request)
+    return reported(request)
   },
 }
