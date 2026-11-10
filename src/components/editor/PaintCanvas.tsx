@@ -14,6 +14,7 @@ import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { acceptsPointer } from '../../lib/palm-rejection'
+import { claimDrawingPointer, isOtherPointer } from '../../lib/pointer-owner'
 import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { useLayerImages } from '../../lib/layer-images'
@@ -334,6 +335,7 @@ function PaintSurface({
   const startStroke = useEditorStore((state) => state.startStroke)
   const appendStroke = useEditorStore((state) => state.appendStroke)
   const endStroke = useEditorStore((state) => state.endStroke)
+  const cancelStroke = useEditorStore((state) => state.cancelStroke)
   const addText = useEditorStore((state) => state.addText)
   const selectLayer = useEditorStore((state) => state.selectLayer)
   const startLayerEdit = useEditorStore((state) => state.startLayerEdit)
@@ -365,7 +367,11 @@ function PaintSurface({
   }) {
     const node = canvasRef.current
 
-    if (!node || !acceptsPointer({ pointerType: event.pointerType })) {
+    if (
+      !node ||
+      !acceptsPointer({ pointerType: event.pointerType }) ||
+      !claimDrawingPointer({ pointerId: event.pointerId, pointerType: event.pointerType })
+    ) {
       return
     }
 
@@ -486,7 +492,11 @@ function PaintSurface({
     const drag = dragRef.current
 
     // A resting palm moving while the pen draws must not add to the stroke.
-    if (!node || !acceptsPointer({ pointerType: event.pointerType })) {
+    if (
+      !node ||
+      !acceptsPointer({ pointerType: event.pointerType }) ||
+      isOtherPointer({ pointerId: event.pointerId })
+    ) {
       return
     }
 
@@ -572,7 +582,15 @@ function PaintSurface({
     })
   }
 
-  function handlePointerUp() {
+  function handlePointerUp({
+    event,
+  }: {
+    event: ReactPointerEvent<HTMLCanvasElement>
+  }) {
+    if (isOtherPointer({ pointerId: event.pointerId })) {
+      return
+    }
+
     const drag = dragRef.current
 
     if (drag && drag.panel === panel) {
@@ -629,15 +647,19 @@ function PaintSurface({
         onPointerMove={(event) => {
           handlePointerMove({ event })
         }}
-        onPointerUp={() => {
-          handlePointerUp()
+        onPointerUp={(event) => {
+          handlePointerUp({ event })
         }}
-        onPointerCancel={() => {
+        onPointerCancel={(event) => {
+          if (isOtherPointer({ pointerId: event.pointerId })) {
+            return
+          }
+
           if (dragRef.current?.panel === panel) {
             dragRef.current = null
           }
           endLayerEdit()
-          endStroke()
+          cancelStroke({ pointerType: event.pointerType })
         }}
       />
       {guides ? <PanelGuideOverlay guides={guides} /> : null}

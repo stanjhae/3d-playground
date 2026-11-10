@@ -27,6 +27,7 @@ import {
   documentHasInk,
   type DesignDocument,
 } from '../../lib/design-document'
+import { CONCEPT_FEATURES } from '../../lib/concept-flags'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { getCanonicalDocument, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
@@ -53,7 +54,11 @@ const FABRIC_MAP_SRC = {
 } as const
 
 useGLTF.setDecoderPath(DRACO_DECODER_PATH)
-useGLTF.preload(DEFAULT_GARMENT_SRC)
+
+// The alpha's only garment is the tee, so the gown's 900 KB waits until asked for.
+if (CONCEPT_FEATURES) {
+  useGLTF.preload(DEFAULT_GARMENT_SRC)
+}
 
 type DetachedNode = {
   object: Object3D
@@ -436,6 +441,21 @@ function SeatedForm({
 
   // Nothing is on screen to be current once this form goes.
   useEffect(() => () => useAtlasBuild.setState({ build: null }), [])
+
+  // Switching garments otherwise leaves these on the GPU.
+  useEffect(
+    () => () => {
+      atlasRef.current?.dispose()
+      atlasRef.current = null
+
+      for (const mesh of meshes) {
+        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+          material.dispose()
+        }
+      }
+    },
+    [meshes],
+  )
 
   useFrame((_, delta) => {
     if (!picking || lerpClock.current >= 1) {
