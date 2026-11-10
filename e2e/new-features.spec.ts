@@ -79,10 +79,25 @@ test('hints come one at a time, stay out of the way, and stay dismissed', async 
     expect(overlaps).toBe(false)
   }
 
+  // The control it is about is outlined: the panels, then the Draw tool (P3).
+  // The ring follows on the next frame after the layout settles.
+  const ringAround = async (anchor: ReturnType<typeof page.locator>) => {
+    await expect(async () => {
+      const ring = (await page.locator('[data-hint-ring]').boundingBox())!
+      const target = (await anchor.boundingBox())!
+      expect(ring.x).toBeLessThanOrEqual(target.x)
+      expect(ring.y).toBeLessThanOrEqual(target.y)
+      expect(ring.x + ring.width).toBeGreaterThanOrEqual(target.x + target.width)
+      expect(ring.y + ring.height).toBeGreaterThanOrEqual(target.y + target.height)
+    }).toPass({ timeout: 5_000 })
+  }
+  await ringAround(page.locator('[data-hint-anchor~="panels"]').last())
+
   // By keyboard.
   await hint.getByRole('button', { name: 'Got it' }).focus()
   await page.keyboard.press('Enter')
   await expect(hint).toContainText('Draw')
+  await ringAround(page.getByRole('radiogroup', { name: 'Tools' }).getByRole('radio', { name: 'Draw', exact: true }))
   await page.reload()
   await expectSaved({ page })
   await expect(hint).toContainText('Draw')

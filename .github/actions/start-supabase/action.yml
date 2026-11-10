@@ -9,16 +9,15 @@ runs:
     - name: Keep Supabase's ports free
       shell: bash
       run: sudo sysctl -w net.ipv4.ip_local_port_range="60000 65000"
-    - uses: pnpm/action-setup@v4
-      with:
-        version: 12.15.0
-    - uses: actions/setup-node@v4
+    - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      # The version comes from package.json `packageManager`.
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 22
         cache: pnpm
     # A pinned version: "latest" asks GitHub's API every run, and a run
     # failed on its rate limit before any test ran.
-    - uses: supabase/setup-cli@v1
+    - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
       with:
         version: 2.117.0
     - run: pnpm install --frozen-lockfile

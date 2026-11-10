@@ -93,9 +93,19 @@ describe('reading the optional fields', () => {
   })
 })
 
+/**
+ * Byte equality for two atlases. `toEqual` walks a 1 MB array element by
+ * element, which took over 5 s on CI runners.
+ */
+function expectSamePixels(actual: Uint8ClampedArray, expected: Uint8ClampedArray) {
+  expect(actual.length).toBe(expected.length)
+  const first = actual.findIndex((value, index) => value !== expected[index])
+  expect(first, `first differing byte at ${first}`).toBe(-1)
+}
+
 describe('drawing the optional fields', () => {
   test('a stroke at the default pressure draws exactly like one with none', () => {
-    expect(draw(withFront([stroke({ pressures: [0.7, 0.7, 0.7] })])).pixels).toEqual(draw(withFront([stroke()])).pixels)
+    expectSamePixels(draw(withFront([stroke({ pressures: [0.7, 0.7, 0.7] })])).pixels, draw(withFront([stroke()])).pixels)
   })
 
   test('pressure changes the width along the stroke', () => {
@@ -114,6 +124,6 @@ describe('drawing the optional fields', () => {
   })
 
   test('a lock changes nothing that is drawn', () => {
-    expect(draw(withFront([{ ...image(), locked: true }])).pixels).toEqual(draw(withFront([image()])).pixels)
+    expectSamePixels(draw(withFront([{ ...image(), locked: true }])).pixels, draw(withFront([image()])).pixels)
   })
 })
