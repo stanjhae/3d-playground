@@ -17,6 +17,7 @@ import {
   LIBRARY_ASSET_PREFIX,
   MAX_CONTENT_BYTES,
   type ProfileResponse,
+  type VoteState,
   type VersionDetail,
   type VersionPage,
   type VersionResponse,
@@ -76,11 +77,13 @@ export const RATE_LIMITS = {
   upload: 20,
   publish: 10,
   details: 30,
+  vote: 30,
 } as const
 
 export type RateBucket = keyof typeof RATE_LIMITS
 
 const RATE_WINDOW_SECONDS = 60
+const SLUG = /^[a-f0-9]{16}$/
 
 type DesignVersionRow = {
   design_id: string
@@ -949,6 +952,65 @@ async function deleteOwnAccount({
   return respond({ status: 204 })
 }
 
+function designUnavailable() {
+  return fromError({ error: apiError({ code: 'not_found', message: 'This design is not available' }) })
+}
+
+/**
+ * GET /public/:slug/vote — the count, and whether the caller voted (false
+ * signed out). POST casts the caller's vote and DELETE retracts it; both
+ * need a session and are idempotent (V1). Never cached: the share page
+ * itself is, so the count is read here.
+ */
+async function handleVote({
+  request,
+  env,
+  slug,
+}: {
+  request: Request
+  env: FlpServerEnv
+  slug: string | undefined
+}) {
+  const admin = createClient(env.url, env.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const write = request.method === 'POST' || request.method === 'DELETE'
+
+  if (!write && request.method !== 'GET') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  // Signed out may read the count; a stale token reads as signed out.
+  const user = await verifiedUser({ request, admin })
+
+  if (write && !user) {
+    return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  if (!slug || !SLUG.test(slug)) {
+    return designUnavailable()
+  }
+
+  if (write && user) {
+    const limited = await rateLimited({ admin, userId: user.userId, bucket: 'vote', env })
+
+    if (limited) {
+      return limited
+    }
+  }
+
+  const fn = request.method === 'POST' ? 'flp_cast_vote' : request.method === 'DELETE' ? 'flp_retract_vote' : 'flp_vote_state'
+  const args = write ? { p_voter_id: user!.userId, p_slug: slug } : { p_slug: slug, p_voter_id: user?.userId ?? null }
+  const { data, error } = await admin.rpc(fn, args).single<{ vote_count: number; voted: boolean }>()
+
+  if (error) {
+    return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn, error })
+  }
+
+  const state: VoteState = { count: data.vote_count, voted: data.voted }
+  return json({ status: 200, body: state })
+}
+
 /** Which limit a mutation counts against; reads are not limited. */
 function rateBucket({
   method,
@@ -1045,8 +1107,13 @@ export async function handleFlpRequest({
   const [collection, designId, action, ...rest] = flpRoute({ request })
 
   // GET /public/:slug — anonymous read of a published design (P04 #182);
-  // GET /public/:slug/image — its published views, also for link previews (#184).
+  // GET /public/:slug/image — its published views, also for link previews (#184);
+  // /public/:slug/vote — its votes (V1).
   if (collection === 'public') {
+    if (action === 'vote' && rest.length === 0) {
+      return handleVote({ request, env, slug: designId })
+    }
+
     if (request.method !== 'GET' || (action && action !== 'image') || rest.length > 0) {
       return fromError({ error: apiError({ code: 'not_found', message: 'This design is not available' }) })
     }

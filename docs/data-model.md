@@ -29,6 +29,7 @@ browser ──(session JWT)──▶ API (Vercel function)
 | `render_artifacts` | Derivatives of one version (P02 #180) | Composite FK to `(design_id, version_seq)`. One row per kind. `template_version` and `compiler_version` (nullable, C2) record what drew the view; rows stored before C2 have neither. |
 | `profiles` | One per account (A06 #150) | The optional public `display_name` (1–40 characters) the publish panel pre-fills, and the terms of use the account accepted (P1): `terms_version` and `terms_accepted_at`, both null until it accepts, set together. Owner-read RLS; written only by `flp_set_display_name` and `flp_accept_terms`. Removed with the account. |
 | `publications` | One per design for its lifetime | Stable 16-hex `slug`. `published` ⇔ `version_seq` is set. When the design is deleted, a revoked tombstone keeps the slug so it is never reused. |
+| `publication_votes` | One vote per account per publication (V1) | PK `(slug, voter_id)`. Keyed by the slug, so votes carry over a republish. Kept while unpublished, removed when the design is deleted (tombstone trigger) or the voter's account is deleted. Voter-read RLS: nobody can list who else voted. Written only by `flp_cast_vote` and `flp_retract_vote`. |
 
 Owner consistency uses composite foreign keys to `designs (id, owner_id)`, so every child row has the same owner as its design. A reference to another design's version fails with a foreign-key error.
 
@@ -44,6 +45,8 @@ Owner consistency uses composite foreign keys to `designs (id, owner_id)`, so ev
 | `flp_delete_design(owner, design)` | Revokes, then deletes the design, its versions and artifacts. The publication tombstone remains. The API then removes the design's render files from storage. Uploaded originals are account assets and stay. |
 | `flp_update_design(owner, design, title?, description?)` | Renames (1–80 characters, trimmed) or describes (up to 500) a design. Metadata only: no version is added and the publication is unchanged. |
 | `flp_set_display_name(owner, name)` | Sets or clears (`null` or empty) the account's public name. Clearing also takes it off the account's live publications; a new name reaches them only at the next publish. |
+| `flp_cast_vote(voter, slug)` / `flp_retract_vote(voter, slug)` | Adds or removes the account's one vote on a live publication; both are idempotent and return `(vote_count, voted)`. An unpublished or unknown slug raises `FL404`. |
+| `flp_vote_state(slug, voter?)` | The count for a live publication, and whether `voter` voted (false when null). |
 
 A design that is missing and one owned by someone else raise the same `FL404`, so a response never reveals whether a design exists.
 
@@ -200,6 +203,8 @@ Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/
 | `GET /api/flp/designs/:id/publication` | Owner | `{ publication: { slug, status, seq, displayName, rendersReadyForHead } \| null }` |
 | `POST /api/flp/designs/:id/publication` | Owner | `{ seq, displayName? }`. Refused (`422`, one issue per missing view) unless all five views of that exact version are ready. Then `flp_publish_version` moves the pointer in one step. Republishing keeps the slug. |
 | `DELETE /api/flp/designs/:id/publication` | Owner | `204`. The public page returns 404 immediately. |
+| `GET /api/flp/public/:slug/vote` | Anyone | `{ count, voted }`; `voted` is false signed out (or with a stale token). `no-store`, read apart from the cached share page. `404` when unpublished, unknown or malformed. |
+| `POST` / `DELETE /api/flp/public/:slug/vote` | Any account | Casts or retracts the caller's one vote (V1); idempotent; returns `{ count, voted }`. `401` signed out, `404` when unpublished. Counts against the `vote` rate limit. The guest board's `POST /api/designs/:id/vote` is retired and answers `410`. |
 | `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where each render URL is our own seq-pinned image route (`/api/flp/public/:slug/image…`), which checks the publication on every request. A version published before the sleeve views (#179) has only the front, three-quarter and back; it stays public, and `renders` lists only the views that exist. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
 
 **Studio flow:**
@@ -248,7 +253,7 @@ Migration `20261104090000_flp_quotas`. Every check runs inside the write functio
 | 100 most recent autosaves per design | `flp_prune_autosaves`, after each autosave | Older autosaves are deleted in the same transaction, **except** the head, a published version, a version with renders, and the source of a restore. Named checkpoints and restores are never pruned. History tells the owner (`docs/decisions.md`, 2 Nov). |
 | 100 MB of ready uploads per account | `assets_guard_quota` trigger on finalize | `quota_exceeded`; the normalized copy is removed and the row stays `staged`. |
 
-**Rate limits** (`flp_take_token`, fixed one-minute windows per account, table `rate_limits`): `save` 120 (create, save, restore), `upload` 20, `publish` 10 (renders, publish, unpublish), `details` 30 (rename, delete, public name). Reads are not limited. A refused request returns 429 with `Retry-After`. Autosave shows "Saving paused, retrying", keeps the work locally, and retries the same revision with the same mutation key after the wait. If the limiter itself fails, the request proceeds and the failure is logged.
+**Rate limits** (`flp_take_token`, fixed one-minute windows per account, table `rate_limits`): `save` 120 (create, save, restore), `upload` 20, `publish` 10 (renders, publish, unpublish), `details` 30 (rename, delete, public name), `vote` 30 (cast or retract a vote, V1). Reads are not limited. A refused request returns 429 with `Retry-After`. Autosave shows "Saving paused, retrying", keeps the work locally, and retries the same revision with the same mutation key after the wait. If the limiter itself fails, the request proceeds and the failure is logged.
 
 **Retention windows (A07 #151).**
 
