@@ -7,7 +7,7 @@ import {
   showsPaintPane,
 } from '../../lib/create-steps'
 import { garmentCanPaint } from '../../lib/garments'
-import { useEditorStore } from '../../lib/editor-store'
+import { hasCopiedLayer, useEditorStore } from '../../lib/editor-store'
 import { layerVoice } from '../../lib/layer-hit'
 import { layerDeletedMessage } from '../../lib/layer-list'
 import { isOtherPointer } from '../../lib/pointer-owner'
@@ -17,6 +17,8 @@ import { dualStudioGridClass, studioSceneClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
 import { CameraPresetBar } from './CameraPresetBar'
 import { PaintCanvas } from './PaintCanvas'
+
+const TOOL_NAMES = { brush: 'Brush', eraser: 'Eraser', text: 'Text', graphics: 'Graphics' } as const
 
 export function DualStudio({
   children,
@@ -56,6 +58,9 @@ export function DualStudio({
         altKey: event.altKey,
         target: event.target,
         hasSelection: placeable !== null,
+        drawing: state.activeStroke !== null,
+        canPaste: hasCopiedLayer(),
+        inDesign: showsDesignRails({ step: state.createStep }),
       })
 
       if (!action) {
@@ -74,7 +79,51 @@ export function DualStudio({
         return
       }
 
+      if (action.type === 'cancelStroke') {
+        state.discardStroke()
+        announce({ message: 'Stroke cancelled.' })
+        return
+      }
+
+      if (action.type === 'tool') {
+        state.setDesignTool({ designTool: action.tool === 'brush' || action.tool === 'eraser' ? 'draw' : action.tool })
+
+        if (action.tool === 'brush' || action.tool === 'eraser') {
+          state.setPaintTool({ paintTool: action.tool })
+        }
+
+        announce({ message: `${TOOL_NAMES[action.tool]} selected.` })
+        return
+      }
+
+      if (action.type === 'paste') {
+        const before = state.selectedLayerId
+        state.pasteLayer()
+        const after = useEditorStore.getState()
+
+        if (after.selectedLayerId !== before) {
+          const pasted = after.document.layers.find((entry) => entry.id === after.selectedLayerId)
+          announce({ message: pasted ? `${layerVoice({ layer: pasted })} pasted.` : 'Pasted.' })
+        }
+        return
+      }
+
       if (!placeable) {
+        return
+      }
+
+      if (action.type === 'duplicate') {
+        state.duplicateLayer({ layerId: placeable.id })
+
+        if (useEditorStore.getState().selectedLayerId !== placeable.id) {
+          announce({ message: `${layerVoice({ layer: placeable })} duplicated.` })
+        }
+        return
+      }
+
+      if (action.type === 'copy') {
+        state.copyLayer({ layerId: placeable.id })
+        announce({ message: `${layerVoice({ layer: placeable })} copied.` })
         return
       }
 

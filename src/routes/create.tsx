@@ -649,7 +649,7 @@ function AtelierHome() {
                   {designTool === 'draw' ? null : <TechInspector />}
                   <LayerRail />
                   <HistoryPanel />
-                  {pro ? <KeyboardHelp /> : null}
+                  <KeyboardHelp />
                   {pro ? <VersionRail /> : null}
                 </>
               ) : null}

@@ -17,6 +17,21 @@ export type StudioKeyAction =
   | { type: 'nudge'; dx: number; dy: number }
   | { type: 'delete' }
   | { type: 'deselect' }
+  | { type: 'duplicate' }
+  | { type: 'copy' }
+  | { type: 'paste' }
+  | { type: 'cancelStroke' }
+  | { type: 'tool'; tool: StudioToolKey }
+
+/** Single-letter tools, as in most drawing apps. */
+export type StudioToolKey = 'brush' | 'eraser' | 'text' | 'graphics'
+
+const TOOL_KEYS: Record<string, StudioToolKey> = {
+  b: 'brush',
+  e: 'eraser',
+  t: 'text',
+  g: 'graphics',
+}
 
 type KeyTarget = {
   tagName?: string
@@ -44,6 +59,13 @@ export function isTypingTarget({ target }: { target: unknown }) {
   )
 }
 
+/** Text selected on the page: ⌘C should copy that, not the design. */
+function hasTextSelection({ target }: { target: unknown }) {
+  const view = (target as { ownerDocument?: { defaultView?: { getSelection?: () => { toString: () => string } | null } } } | null)
+    ?.ownerDocument?.defaultView
+  return Boolean(view?.getSelection?.()?.toString())
+}
+
 function ownsArrows({ target }: { target: unknown }) {
   if (!target || typeof target !== 'object') {
     return false
@@ -69,6 +91,9 @@ export function studioKeyAction({
   altKey = false,
   target = null,
   hasSelection,
+  drawing = false,
+  canPaste = false,
+  inDesign = true,
 }: {
   key: string
   shiftKey?: boolean
@@ -78,7 +103,18 @@ export function studioKeyAction({
   target?: unknown
   /** A placeable object (mark, word) is selected in the design step. */
   hasSelection: boolean
+  /** A stroke is being drawn right now. */
+  drawing?: boolean
+  /** Something was copied this session. */
+  canPaste?: boolean
+  /** On the design step, where the drawing tools are. */
+  inDesign?: boolean
 }): StudioKeyAction | null {
+  // Esc drops a stroke mid-draw, wherever focus is.
+  if (key === 'Escape' && drawing) {
+    return { type: 'cancelStroke' }
+  }
+
   if (isTypingTarget({ target })) {
     return null
   }
@@ -98,10 +134,38 @@ export function studioKeyAction({
       return { type: 'redo' }
     }
 
+    if (shiftKey) {
+      return null
+    }
+
+    // Without a selection these keep their browser meaning (bookmark, copy
+    // page text), so they are only taken when they act on the design.
+    if (lower === 'd' && hasSelection) {
+      return { type: 'duplicate' }
+    }
+
+    if (lower === 'c' && hasSelection && !hasTextSelection({ target })) {
+      return { type: 'copy' }
+    }
+
+    if (lower === 'v' && canPaste && inDesign) {
+      return { type: 'paste' }
+    }
+
     return null
   }
 
-  if (!hasSelection || altKey) {
+  if (altKey) {
+    return null
+  }
+
+  const tool = TOOL_KEYS[key]
+
+  if (tool && !shiftKey && inDesign && !drawing) {
+    return { type: 'tool', tool }
+  }
+
+  if (!hasSelection) {
     return null
   }
 
@@ -140,7 +204,10 @@ export function studioKeyList({ mod = MOD }: { mod?: string } = {}) {
     { keys: 'Arrow keys', does: 'Nudge the selected mark or word' },
     { keys: 'Shift + arrow keys', does: 'Nudge further' },
     { keys: 'Delete or Backspace', does: 'Remove the selected mark or word' },
-    { keys: 'Esc', does: 'Deselect' },
+    { keys: 'Esc', does: 'Cancel the stroke you are drawing, or deselect' },
+    { keys: `${mod} + D`, does: 'Duplicate the selected mark or word' },
+    { keys: `${mod} + C, then ${mod} + V`, does: 'Copy it, then paste onto the side you are working on' },
+    { keys: 'B, E, T, G', does: 'Brush, eraser, text, graphics' },
     { keys: `${mod} + Z`, does: 'Undo' },
     { keys: `Shift + ${mod} + Z`, does: 'Redo' },
     { keys: 'Enter in the type field', does: 'Place the word on the active panel' },
