@@ -15,7 +15,9 @@ import { useEditorStore } from '../../lib/editor-store'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useStudioMode } from '../../lib/studio-mode'
 import { HOUSE_COPY } from '../../lib/house-copy'
-import { type PlaceableLayer, layerMostlyOffPanel } from '../../lib/layer-hit'
+import { type PlaceableLayer, layerMostlyOffPanel, layerVoice } from '../../lib/layer-hit'
+import { LOCKED_REASON, layerLockMessage } from '../../lib/layer-list'
+import { announce } from '../../lib/studio-announcer'
 import { INK_COLORS } from '../../lib/paint-colors'
 import { chestLineY } from '../../lib/panel-snap'
 import {
@@ -165,6 +167,7 @@ export function TechInspector() {
   const layer = layers.find((entry) => entry.id === selectedLayerId)
   const [draft, setDraft] = useState<DraftPose | null>(null)
   const pro = useStudioMode((state) => state.pro)
+  const lockReasonId = useId()
 
   useEffect(() => {
     if (
@@ -205,6 +208,8 @@ export function TechInspector() {
 
   const selected = layer
   const pose = draft
+  // A locked item shows its settings but takes no change but unlocking (W3).
+  const locked = selected.kind !== 'pattern' && selected.locked === true
   // Only the tee's chest is measured.
   const chest = isCanonicalGarment({ garmentId }) && selected.kind !== 'pattern' ? chestLineY({ panel: selected.panel }) : null
   const alignButtonClass = cn(
@@ -267,6 +272,28 @@ export function TechInspector() {
   return (
     <aside className={railFrameClass()}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.inspector}</p>
+      {selected.kind !== 'pattern' ? (
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            aria-pressed={locked}
+            onClick={() => {
+              commitDraft({ patch: { locked: !locked } })
+              announce({ message: layerLockMessage({ name: layerVoice({ layer: selected }), locked: !locked }) })
+            }}
+            className={cn(alignButtonClass, { 'border-flv-accent text-flv-accent': locked })}
+          >
+            Lock
+          </button>
+          {locked ? (
+            <p id={lockReasonId} className="font-body text-xs text-flv-muted">
+              Locked. {LOCKED_REASON}.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {/* `disabled` reaches every control inside; `contents` keeps the layout. */}
+      <fieldset disabled={locked} aria-describedby={locked ? lockReasonId : undefined} className="contents">
       {layerMostlyOffPanel({ layer: { ...selected, ...pose } as PlaceableLayer }) ? (
         <p role="status" className="font-body text-xs text-flv-accent">
           Most of this is outside its panel, so most of it won’t show. Move it towards the middle.
@@ -445,6 +472,7 @@ export function TechInspector() {
       </button>
         </div>
       ) : null}
+      </fieldset>
     </aside>
   )
 }

@@ -25,6 +25,14 @@ An image layer stores `aspect = natural width / natural height`. The image is **
 
 `aspect = 1` reproduces the legacy renderer, which drew every graphic as a `scale × atlas width` square. So old square images look the same, and a non-square image never grows past the box a square one would occupy.
 
+### Optional layer flags: flips and locks
+
+Image and text layers may carry `flipX` and `flipY`, and paint, image and text layers may carry `locked`. Each flag is `true` or left out; the validator refuses `false`, so a document has one form per look. Every build since the R1 reader (#326) reads them; older builds refuse a document that has them (see the rollback floor in `docs/release.md`).
+
+- **Flips** are written since W1 (#338). They mirror the object about its own axes, so a mirrored render panel (the back) keeps them as chosen. Turning a flip off deletes the key.
+- **Locks** are written since W3. The layer rail, the inspector and ⌘L / Ctrl+L toggle them through `updateLayer` with `locked: true`; unlocking sends `locked: false`, which deletes the key, so a design that was never locked, or was locked and unlocked, serializes and hashes as it did before. Locking and unlocking are one undo step each.
+- A locked layer draws exactly as an unlocked one in 2D, 3D and the atlas (no `ATLAS_COMPILER_VERSION` change). What it changes is editing: `lockedIssues` in `src/lib/canonical-commands.ts` refuses any command that would change a locked layer (move, restyle, rename, hide, restack, remove, or draw into, erase or clear its ink) except an `updateLayer` whose only change is `locked: false`. The editor store and the v1 command stack refuse the same commands (`editsLockedLayer` in `src/lib/design-commands.ts`). Copies of a locked layer start unlocked. A locked item can't be picked on the 2D panel or the 3D garment; clicks pass to what is under it, and it stays selectable from the layer rail so it can be unlocked.
+
 ## Content hashing
 
 `hashCanonicalDocument` returns `sha256:<hex>` over the UTF-8 bytes of `serializeCanonicalDocument`. The serialization:

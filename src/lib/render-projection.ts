@@ -161,6 +161,8 @@ export function toRenderDocument({
 
     for (const layer of document.panels[panel].layers) {
       const label = layer.name ? { label: layer.name } : {}
+      // The editor reads the lock from here; it draws nothing differently.
+      const locked = layer.locked ? { locked: true as const } : {}
 
       if (layer.kind === 'paint') {
         layers.push({
@@ -169,6 +171,7 @@ export function toRenderDocument({
           visible: layer.visible,
           ...(layer.opacity < 1 ? { opacity: layer.opacity } : {}),
           ...label,
+          ...locked,
           strokes: layer.strokes.map((stroke) => {
             const points = []
 
@@ -213,6 +216,7 @@ export function toRenderDocument({
           ...flipsOf(layer),
           ...surface,
           ...label,
+          ...locked,
         })
         continue
       }
@@ -232,6 +236,7 @@ export function toRenderDocument({
         ...flipsOf(layer),
         ...surface,
         ...label,
+        ...locked,
       })
     }
   }

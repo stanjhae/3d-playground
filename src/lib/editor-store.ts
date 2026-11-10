@@ -7,6 +7,7 @@ import {
   canRedo,
   canUndo,
   createCommandStack,
+  editsLockedLayer,
   redoCommand,
   undoCommand,
   type CommandStack,
@@ -19,6 +20,7 @@ import {
   createEmptyDocument,
   createObjectId,
   documentFromDesign,
+  isLockedLayer,
   oppositePanel,
   type DesignDocument,
   type DesignLayer,
@@ -504,11 +506,21 @@ function offsetCopy({ layer }: { layer: PlaceableLayer }): PlaceableLayer {
   return { ...layer, x: step({ value: layer.x, by: COPY_OFFSET }), y: step({ value: layer.y, by: -COPY_OFFSET }) }
 }
 
+/** A copy is a new item to place, so it starts unlocked (W3). */
+function unlocked<T extends PlaceableLayer>({ layer }: { layer: T }): T {
+  if (layer.kind === 'pattern' || !layer.locked) {
+    return layer
+  }
+
+  const { locked: _locked, ...rest } = layer
+  return rest as T
+}
+
 function addCopy({ layer }: { layer: PlaceableLayer }) {
   const id = createObjectId({
     prefix: layer.kind === 'text' ? 'word' : layer.kind === 'pattern' ? 'print' : 'mark',
   })
-  const copy = { ...layer, id }
+  const copy = { ...unlocked({ layer }), id }
   const command =
     copy.kind === 'graphic'
       ? { type: 'addGraphic' as const, layer: copy }
@@ -526,6 +538,12 @@ function runCommand({
   command: DesignCommand
   extra?: Partial<EditorState>
 }) {
+  // A locked item takes no change but being unlocked (W3); the canonical
+  // and v1 command layers refuse too, so no path gets round this.
+  if (editsLockedLayer({ document: teeActive() ? teeRenderDocument({ engine: tee }) : commandStack.document, command })) {
+    return syncFromStack()
+  }
+
   if (teeActive()) {
     const step = runTranslated({ engine: tee, command })
     tee = step.engine
@@ -550,7 +568,10 @@ function layerPatchChanges({
   patch: LayerPatch
 }) {
   if (layer.kind === 'paint') {
-    return patch.visible !== undefined && patch.visible !== layer.visible
+    return (
+      (patch.visible !== undefined && patch.visible !== layer.visible) ||
+      (patch.locked !== undefined && patch.locked !== Boolean(layer.locked))
+    )
   }
 
   if (layer.kind !== 'graphic' && layer.kind !== 'text' && layer.kind !== 'pattern') {
@@ -594,7 +615,7 @@ function layerPatchChanges({
   }
 
   if (layer.kind === 'graphic' || layer.kind === 'text') {
-    for (const flag of ['flipX', 'flipY'] as const) {
+    for (const flag of ['flipX', 'flipY', 'locked'] as const) {
       if (patch[flag] !== undefined && patch[flag] !== Boolean(layer[flag])) {
         return true
       }
@@ -1168,7 +1189,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         return runCommand({
           command: {
             type: 'addGraphic',
-            layer: { ...layer, id: nextId, panel },
+            layer: { ...unlocked({ layer }), id: nextId, panel },
           },
           extra: { selectedLayerId: nextId },
         })
@@ -1178,7 +1199,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         return runCommand({
           command: {
             type: 'addText',
-            layer: { ...layer, id: nextId, panel },
+            layer: { ...unlocked({ layer }), id: nextId, panel },
           },
           extra: { selectedLayerId: nextId },
         })
@@ -1416,7 +1437,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     })
   },
   startLayerEdit: ({ edit }) => {
-    set({ selectedLayerId: edit.layerId, activeLayerEdit: edit })
+    set((state) =>
+      // A locked item has no handles to drag (W3).
+      isLockedLayer({ layer: state.document.layers.find((entry) => entry.id === edit.layerId) })
+        ? state
+        : { selectedLayerId: edit.layerId, activeLayerEdit: edit },
+    )
   },
   moveLayerEdit: ({ edit }) => {
     set({ activeLayerEdit: edit })
@@ -1507,7 +1533,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
       if (
         !layer ||
-        (layer.kind !== 'graphic' && layer.kind !== 'text' && layer.kind !== 'pattern')
+        (layer.kind !== 'graphic' && layer.kind !== 'text' && layer.kind !== 'pattern') ||
+        isLockedLayer({ layer })
       ) {
         return state
       }
@@ -1572,7 +1599,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set((state) => {
       const placement = layerPlacement({ layerId })
 
-      if (!placement || toIndex === placement.index || toIndex < 0 || toIndex >= placement.count) {
+      if (
+        !placement ||
+        toIndex === placement.index ||
+        toIndex < 0 ||
+        toIndex >= placement.count ||
+        isLockedLayer({ layer: state.document.layers.find((entry) => entry.id === layerId) })
+      ) {
         return state
       }
 

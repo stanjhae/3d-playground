@@ -77,6 +77,8 @@ export type PaintLayer = {
   label?: string
   /** Whole-layer opacity; absent means 1 (#158). */
   opacity?: number
+  /** Can't be drawn into, erased or cleared until unlocked; absent when unlocked. */
+  locked?: true
 }
 
 /**
@@ -111,6 +113,8 @@ export type GraphicLayer = {
   /** Mirrored about the object's own axes. */
   flipX?: boolean
   flipY?: boolean
+  /** Can't be selected on the panel or changed until unlocked; absent when unlocked. */
+  locked?: true
 }
 
 export type TextLayer = {
@@ -132,6 +136,8 @@ export type TextLayer = {
   /** Mirrored about the object's own axes. */
   flipX?: boolean
   flipY?: boolean
+  /** Can't be selected on the panel or changed until unlocked; absent when unlocked. */
+  locked?: true
 }
 
 export type ArtLayer = {
@@ -256,6 +262,11 @@ function parseLabel({ value }: { value: unknown }): string | undefined {
   return label.length > 0 ? label : undefined
 }
 
+/** Locks are kept only when on, so an unlocked layer reads as it always did. */
+function parseLocked({ value }: { value: unknown }): { locked?: true } {
+  return value === true ? { locked: true } : {}
+}
+
 function parseStrokePoint({ value }: { value: unknown }): StrokePoint | null {
   if (!isRecord(value)) {
     return null
@@ -329,6 +340,7 @@ function parsePaintLayer({
     ...(record.opacity !== undefined && parseOpacity({ value: record.opacity }) < 1
       ? { opacity: parseOpacity({ value: record.opacity }) }
       : {}),
+    ...parseLocked({ value: record.locked }),
   }
 }
 
@@ -362,6 +374,7 @@ function parseGraphicLayer({
     ...(parseLabel({ value: record.label })
       ? { label: parseLabel({ value: record.label }) }
       : {}),
+    ...parseLocked({ value: record.locked }),
   }
 }
 
@@ -391,6 +404,7 @@ function parseTextLayer({
     ...(parseLabel({ value: record.label })
       ? { label: parseLabel({ value: record.label }) }
       : {}),
+    ...parseLocked({ value: record.locked }),
   }
 }
 
@@ -697,13 +711,24 @@ export function documentHasInk({
   })
 }
 
+/** A lockable layer that is locked: paint, a mark or a word (W3). */
+export function isLockedLayer({ layer }: { layer: DesignLayer | undefined | null }) {
+  return Boolean(layer && (layer.kind === 'paint' || layer.kind === 'graphic' || layer.kind === 'text') && layer.locked)
+}
+
+/** Layers that take a lock: the v2 paint, image and text kinds. */
+export function isLockableLayer({ layer }: { layer: DesignLayer | undefined | null }) {
+  return Boolean(layer && (layer.kind === 'paint' || layer.kind === 'graphic' || layer.kind === 'text'))
+}
+
 export function activePaintLayer({
   document,
 }: {
   document: DesignDocument
 }): PaintLayer {
+  // Locked ink is left alone (W3); new strokes go on a layer of their own.
   const found = document.layers.find(
-    (layer): layer is PaintLayer => layer.kind === 'paint' && layer.visible,
+    (layer): layer is PaintLayer => layer.kind === 'paint' && layer.visible && !layer.locked,
   )
 
   if (found) {
