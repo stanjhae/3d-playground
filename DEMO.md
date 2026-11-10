@@ -1,6 +1,6 @@
 # Fashion Leader Vote — send package
 
-Live URL: https://3d-playground-vert.vercel.app/
+Live URL: https://beta.fashionleadervote.com/
 
 Local: `pnpm dev` → http://127.0.0.1:5173/
 
@@ -39,7 +39,7 @@ Would you stay in the room? Same bar as #60 / #92 / #106. Blocked by W19–W23 a
 
 ## Cover note
 
-Subject: https://3d-playground-vert.vercel.app/
+Subject: https://beta.fashionleadervote.com/
 
 This is Create / Publish / Vote as a URL.
 
