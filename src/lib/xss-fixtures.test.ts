@@ -78,6 +78,7 @@ describe('My Studio card', () => {
         ownerId: crypto.randomUUID(),
         onRenamed: () => {},
         onDeleted: () => {},
+        onDuplicate: () => {},
       }),
     )
 
