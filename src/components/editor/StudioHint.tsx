@@ -210,11 +210,29 @@ export function StudioHint() {
     tick()
     window.addEventListener('scroll', schedule, { capture: true, passive: true })
     window.addEventListener('resize', schedule)
+    // Text, fonts and the card itself change size without a DOM change; the
+    // controls around them then move. Watch the sizes that move them.
     const resized = new ResizeObserver(schedule)
     resized.observe(document.documentElement)
+    const watched = new Set<Element>()
+    const watchSizes = () => {
+      for (const element of [
+        card.current,
+        ...document.querySelectorAll(`[${HINT_ANCHOR_ATTRIBUTE}~="${hintId}"], ${HINT_KEEP_CLEAR_SELECTOR}`),
+      ]) {
+        if (element && !watched.has(element)) {
+          watched.add(element)
+          resized.observe(element)
+        }
+      }
+    }
+    watchSizes()
     // Controls come and go, and move, as the studio changes. The card's and
     // ring's own position writes are `style`, which is not watched.
-    const changed = new MutationObserver(schedule)
+    const changed = new MutationObserver(() => {
+      watchSizes()
+      schedule()
+    })
     changed.observe(document.body, {
       subtree: true,
       childList: true,
