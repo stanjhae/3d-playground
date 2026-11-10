@@ -11,6 +11,7 @@ import { createEmptyDesign } from './design-schema'
 import {
   createTeeEngine,
   limitOverages,
+  limitRefusal,
   nearLimit,
   panelLimitCounters,
   runTeeCommand,
@@ -132,6 +133,18 @@ describe('canonical limits in the editor (E09 #162)', () => {
     const layer = getCanonicalDocument().panels.front.layers[0]
     expect(layer?.kind === 'text' ? layer.content : null).toBe('SHORT')
     expect(store().limitNotice).toContain(`up to ${CANONICAL_LIMITS.textLength} characters`)
+  })
+
+  test('a batch that only goes over the limit part way through is refused by the limit', () => {
+    const document = documentWith({
+      front: Array.from({ length: MAX_LAYERS - 1 }, (_, index) => textLayer(`t${index}`)),
+    })
+    const add = (id: string) => ({ type: 'addLayer' as const, panel: 'front' as const, layer: textLayer(id) })
+
+    expect(limitRefusal({ document, command: add('one') })).toBeNull()
+    expect(
+      limitRefusal({ document, command: { type: 'batch', commands: [add('one'), add('two')] } }),
+    ).toMatchObject({ kind: 'layers', panel: 'front', used: MAX_LAYERS, max: MAX_LAYERS })
   })
 
   test('a stroke stops inking at the point limit instead of being lost', () => {

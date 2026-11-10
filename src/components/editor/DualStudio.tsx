@@ -10,6 +10,7 @@ import { garmentCanPaint } from '../../lib/garments'
 import { useEditorStore } from '../../lib/editor-store'
 import { layerVoice } from '../../lib/layer-hit'
 import { layerDeletedMessage } from '../../lib/layer-list'
+import { isOtherPointer } from '../../lib/pointer-owner'
 import { announce } from '../../lib/studio-announcer'
 import { studioKeyAction } from '../../lib/studio-keys'
 import { dualStudioGridClass, studioSceneClass } from '../../lib/studio-chrome'
@@ -98,9 +99,19 @@ export function DualStudio({
       announce({ message: `${layerVoice({ layer: placeable })} deselected.` })
     }
 
-    function endPaintStroke() {
+    function endPaintStroke(event: PointerEvent) {
+      if (isOtherPointer({ pointerId: event.pointerId })) {
+        return
+      }
+
       const state = useEditorStore.getState()
-      state.endStroke()
+
+      if (event.type === 'pointercancel') {
+        state.cancelStroke({ pointerType: event.pointerType })
+      } else {
+        state.endStroke()
+      }
+
       state.endLayerEdit()
     }
 

@@ -776,12 +776,27 @@ export function limitRefusal({
       : null
 
   if (command.type === 'batch') {
+    // Each command counts what the ones before it added, so a batch that
+    // goes over a limit gets the limit's message, not a validation failure.
+    let running = document
+
     for (const inner of command.commands) {
-      const refused = limitRefusal({ document, command: inner })
+      const refused = limitRefusal({ document: running, command: inner })
 
       if (refused) {
         return refused
       }
+
+      const applied = applyCanonicalCommand({
+        stack: createCanonicalStack({ document: running }),
+        command: inner,
+      })
+
+      if (!applied.ok) {
+        return null
+      }
+
+      running = applied.stack.document
     }
 
     return null
