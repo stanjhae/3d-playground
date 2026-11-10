@@ -2,11 +2,12 @@ import { Globe, Lock } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { buttonClass } from '../ui/Button'
-import { useAtlasBuild, waitForCurrentAtlas } from '../../lib/atlas-status'
+import { atlasStamp, useAtlasBuild, waitForCurrentAtlas } from '../../lib/atlas-status'
+import { hashCanonicalDocument } from '../../lib/canonical-hash'
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
 import { cn } from '../../lib/cn'
 import { useCopyStatus } from '../../lib/copy-text'
-import { useEditorStore } from '../../lib/editor-store'
+import { getCanonicalDocument, useEditorStore } from '../../lib/editor-store'
 import { countUnavailableImages } from '../../lib/layer-images'
 import {
   getProfile,
@@ -135,24 +136,27 @@ export function CloudPublish() {
       const atlas = await waitForCurrentAtlas({
         current: () => {
           const { document, revision } = useEditorStore.getState()
-          return { document, revision }
+          return { document, revision, canonical: getCanonicalDocument() }
         },
       })
+      const build = useAtlasBuild.getState().build
+      // The drawing must be of exactly the saved content, not merely the same revision.
+      const drawnCurrent =
+        atlas !== 'loading' &&
+        build !== null &&
+        (await atlasStamp({ build })).contentHash ===
+          (await hashCanonicalDocument({ document: getCanonicalDocument() }))
 
       // A word in a stand-in font still publishes, as the preview shows it.
-      if (atlas === 'loading' || atlas === 'error') {
+      if (!drawnCurrent || atlas === 'error') {
         setBusy(null)
         setMessage(
-          atlas === 'loading'
+          !drawnCurrent
             ? 'Artwork on this design is still loading. Wait a moment, then publish again.'
             : 'Some artwork on this design could not load, so it wouldn’t publish correctly. Reload the page, then publish again.',
         )
         return
       }
-
-      // What drew these views (C2), read while the atlas is known current.
-      const build = useAtlasBuild.getState().build
-      const stamp = build ? { templateVersion: build.templateVersion, compilerVersion: build.compilerVersion } : undefined
 
       const stills = await captureAngleStills({
         canvas: getStudioCanvas(),
@@ -175,6 +179,8 @@ export function CloudPublish() {
         return
       }
 
+      // What drew these views (C2): the stamp of the build checked above.
+      const drawn = build ? await atlasStamp({ build }) : null
       const uploaded = await uploadRenders({
         designId,
         seq: headSeq,
@@ -182,7 +188,7 @@ export function CloudPublish() {
           kind: KIND_BY_ANGLE[index]!,
           data: still.slice(still.indexOf(',') + 1),
         })),
-        stamp,
+        stamp: drawn ? { templateVersion: drawn.template.version, compilerVersion: drawn.compilerVersion } : undefined,
       })
 
       if (!uploaded.ok) {

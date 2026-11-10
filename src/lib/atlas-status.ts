@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+import type { CanonicalDocument } from './canonical-document.ts'
+import { type ContentHash, hashCanonicalDocument } from './canonical-hash.ts'
 import type { DesignDocument } from './design-document.ts'
 import { listLayerSrcs } from './layer-images.ts'
 import { textFaceState } from './text-faces.ts'
@@ -15,7 +17,11 @@ import { textFaceState } from './text-faces.ts'
  * after a newer one. The tag is what lets a reader check this one is current.
  */
 
-/** Bump when the same document would draw differently. */
+/**
+ * Bump when the same document would draw differently. The golden atlas test
+ * (`atlas-goldens.test.ts`) fails until it is bumped, and stored renders
+ * carry it so an older drawing can be told apart (C2).
+ */
 export const ATLAS_COMPILER_VERSION = 1
 
 /**
@@ -62,10 +68,18 @@ export function artworkState({
 export type AtlasBuild = {
   /** The document this atlas was drawn from. */
   document: DesignDocument
+  /** The saved form of that document, which names its template. */
+  canonical: CanonicalDocument
   revision: number
-  templateVersion: number
   compilerVersion: number
   state: ArtworkState
+}
+
+/** What an atlas was drawn from, in the terms a saved version uses. */
+export type AtlasStamp = {
+  contentHash: ContentHash
+  template: CanonicalDocument['template']
+  compilerVersion: number
 }
 
 export const useAtlasBuild = create<{ build: AtlasBuild | null }>(() => ({ build: null }))
@@ -75,17 +89,32 @@ export function atlasBuildState({
   build,
   document,
   revision,
+  canonical,
 }: {
   build: AtlasBuild | null
   document: DesignDocument
   revision: number
+  /** When given, the build must be drawn for this document's template. Publish also compares content hashes (`atlasStamp`). */
+  canonical?: CanonicalDocument
 }): ArtworkState {
   return !build ||
     build.document !== document ||
     build.revision !== revision ||
-    build.compilerVersion !== ATLAS_COMPILER_VERSION
+    build.compilerVersion !== ATLAS_COMPILER_VERSION ||
+    (canonical !== undefined &&
+      (build.canonical.template.id !== canonical.template.id ||
+        build.canonical.template.version !== canonical.template.version))
     ? 'loading'
     : build.state
+}
+
+/** The stamp for a build: its content hash, template and compiler. */
+export async function atlasStamp({ build }: { build: AtlasBuild }): Promise<AtlasStamp> {
+  return {
+    contentHash: await hashCanonicalDocument({ document: build.canonical }),
+    template: { id: build.canonical.template.id, version: build.canonical.template.version },
+    compilerVersion: build.compilerVersion,
+  }
 }
 
 /** Resolves when the atlas is settled for the document `current` returns, or on `timeoutMs`. */
@@ -93,7 +122,7 @@ export function waitForCurrentAtlas({
   current,
   timeoutMs = 15_000,
 }: {
-  current: () => { document: DesignDocument; revision: number }
+  current: () => { document: DesignDocument; revision: number; canonical?: CanonicalDocument }
   timeoutMs?: number
 }): Promise<ArtworkState> {
   const state = () => atlasBuildState({ build: useAtlasBuild.getState().build, ...current() })

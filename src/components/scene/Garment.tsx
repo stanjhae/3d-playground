@@ -434,8 +434,8 @@ function SeatedForm({
       useAtlasBuild.setState({
         build: {
           document: inkDocument,
+          canonical: getCanonicalDocument(),
           revision: editor.revision,
-          templateVersion: getCanonicalDocument().template.version,
           compilerVersion: ATLAS_COMPILER_VERSION,
           state: artworkState({ document: inkDocument, images: layerImages, imagesSettled }),
         },
