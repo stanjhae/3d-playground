@@ -4,20 +4,24 @@ import {
   createRootRoute,
   useLocation,
   useMatch,
+  useRouterState,
 } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { AccountControl } from '../components/auth/AccountControl'
+import { SiteFooter } from '../components/site/SiteFooter'
+import { SiteMenu } from '../components/site/SiteMenu'
 import { buttonClass } from '../components/ui/Button'
 import { CONCEPT_FEATURES } from '../lib/concept-flags'
-import { onAccountChange, startSession } from '../lib/auth/session-store'
+import { onAccountChange, startSession, useSessionStore } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
 import { useEditorStore } from '../lib/editor-store'
 import { listDesigns } from '../lib/designs-api'
 import { listSnapshots } from '../lib/design-snapshots'
 import { FLV_COPY } from '../lib/flv-copy'
+import { ownsPageTitle, pageTitle, routeLabel } from '../lib/page-title'
 import { HOUSE_LOOK_FALLBACK_ID, lookIdFromPathname } from '../lib/paths'
 import { rankDesigns } from '../lib/rank-designs'
 
@@ -50,6 +54,35 @@ const MARKETING_LINKS = [
   { href: '#waitlist', label: FLV_COPY.navAbout },
 ] as const
 
+/**
+ * The studio fills the window, and a shared design carries its own footer
+ * with these links.
+ */
+function showsSiteFooter({ pathname }: { pathname: string }) {
+  return pathname !== '/create' && !pathname.startsWith('/s/')
+}
+
+/** Back to your designs when signed in; otherwise a way to sign in. */
+function LandingAccountLink({ className }: { className: string }) {
+  const signedIn = useSessionStore((state) => state.status === 'signed-in')
+
+  if (signedIn) {
+    return (
+      <Link to="/studio" className={className}>
+        {FLV_COPY.myStudio}
+      </Link>
+    )
+  }
+
+  return authConfigured() ? (
+    <Link to="/sign-in" search={{ returnTo: '/studio' }} className={className}>
+      {FLV_COPY.login}
+    </Link>
+  ) : null
+}
+
+const MENU_LINK_CLASS = 'flex min-h-11 items-center rounded-lg px-3 text-flv-ink hover:bg-flv-soft'
+
 function RootShell() {
   const lookMatch = useMatch({
     from: '/look/$lookId',
@@ -62,6 +95,32 @@ function RootShell() {
     lookIdFromPathname({ pathname: location.pathname }) ??
     leaderId
   const isLanding = location.pathname === '/'
+  const main = useRef<HTMLElement | null>(null)
+  // The page actually on screen, unlike `location`, which moves first.
+  const shownPath = useRouterState({ select: (state) => state.resolvedLocation?.pathname })
+  const previousPath = useRef(shownPath)
+
+  useEffect(() => {
+    if (shownPath && !ownsPageTitle({ pathname: shownPath })) {
+      document.title = pageTitle({ label: routeLabel({ pathname: shownPath }) })
+    }
+
+    const firstPage = previousPath.current === undefined
+    const changed = previousPath.current !== shownPath
+    previousPath.current = shownPath
+
+    if (firstPage || !changed) {
+      return
+    }
+
+    // A new page starts reading at its content, unless it already chose
+    // where to put focus, as sign-in does with its first field.
+    const active = document.activeElement
+
+    if (!main.current?.contains(active) || active === main.current) {
+      main.current?.focus({ preventScroll: true })
+    }
+  }, [shownPath])
 
   useEffect(() => {
     void startSession({ client: getSupabaseClient() })
@@ -94,6 +153,17 @@ function RootShell() {
 
   return (
     <div className="flv flex min-h-dvh flex-col">
+      <a
+        href="#main-content"
+        className="flv-cta sr-only rounded-full px-4 py-2 font-body text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+        // Without changing the URL, which the router would treat as a move.
+        onClick={(event) => {
+          event.preventDefault()
+          main.current?.focus()
+        }}
+      >
+        Skip to content
+      </a>
       <header
         className={cn(
           'z-30 flex items-center justify-between gap-3 border-b border-flv-line bg-flv-paper/95 text-flv-ink backdrop-blur-sm',
@@ -120,7 +190,7 @@ function RootShell() {
           </span>
         </Link>
         {isLanding ? (
-          <nav className="hidden items-center gap-8 font-body text-sm md:flex">
+          <nav aria-label="Site" className="hidden items-center gap-8 font-body text-sm md:flex">
             {MARKETING_LINKS.map((link) => (
               <a
                 key={link.href}
@@ -132,7 +202,7 @@ function RootShell() {
             ))}
           </nav>
         ) : (
-          <nav className="flex items-center gap-2 font-body text-sm sm:gap-4">
+          <nav aria-label="Site" className="flex items-center gap-2 font-body text-sm sm:gap-4">
             <NavLink
               to="/"
               label="Home"
@@ -168,15 +238,7 @@ function RootShell() {
         )}
         {isLanding ? (
           <div className="flex items-center gap-2 sm:gap-3">
-            {authConfigured() ? (
-              <Link
-                to="/sign-in"
-                search={{ returnTo: '/studio' }}
-                className="hidden min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-ink sm:inline-flex"
-              >
-                {FLV_COPY.login}
-              </Link>
-            ) : null}
+            <LandingAccountLink className="hidden min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-ink md:inline-flex" />
             <a
               href="#waitlist"
               className={buttonClass()}
@@ -184,12 +246,27 @@ function RootShell() {
               {FLV_COPY.joinWaitlist}
               <ArrowRight aria-hidden className="size-4" />
             </a>
+            <SiteMenu>
+              {MARKETING_LINKS.map((link) => (
+                <a key={link.href} href={link.href} className={MENU_LINK_CLASS}>
+                  {link.label}
+                </a>
+              ))}
+              <LandingAccountLink className={MENU_LINK_CLASS} />
+            </SiteMenu>
           </div>
         ) : null}
       </header>
-      <main className="relative flex-1 bg-flv-paper text-flv-ink">
+      <main
+        ref={main}
+        id="main-content"
+        tabIndex={-1}
+        data-focus-target
+        className="relative flex-1 bg-flv-paper text-flv-ink"
+      >
         <Outlet />
       </main>
+      {showsSiteFooter({ pathname: location.pathname }) ? <SiteFooter /> : null}
     </div>
   )
 }

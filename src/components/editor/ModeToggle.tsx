@@ -2,6 +2,7 @@ import { cn } from '../../lib/cn'
 import { useEditorStore, type EditorMode } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { chromeTextClass } from '../../lib/studio-chrome'
+import { RadioGroup } from '../ui/RadioGroup'
 
 export function ModeToggle({
   mode,
@@ -13,10 +14,10 @@ export function ModeToggle({
   const current = mode ?? storeMode
 
   return (
-    <nav
+    <RadioGroup
+      as="nav"
       aria-label={HOUSE_COPY.design}
       className="flex flex-wrap gap-3"
-      role="radiogroup"
     >
       <button
         type="button"
@@ -46,6 +47,6 @@ export function ModeToggle({
       >
         {HOUSE_COPY.theHouse}
       </button>
-    </nav>
+    </RadioGroup>
   )
 }

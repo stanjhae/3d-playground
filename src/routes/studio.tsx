@@ -14,6 +14,7 @@ import {
   createOwnedDesign,
   listOwnedDesigns,
 } from '../lib/flp-api/client'
+import { failureSentence } from '../lib/flp-api/plain-messages'
 import { consumeLandingHandoff, peekLandingHandoff } from '../lib/landing-handoff'
 import type { CanonicalDocument } from '../lib/canonical-document'
 import type { PendingAsset } from '../lib/legacy-import'
@@ -72,6 +73,8 @@ function MyStudio() {
   const [list, setList] = useState<ListState>({ status: 'loading' })
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [listNotice, setListNotice] = useState('')
+  const designsHeading = useRef<HTMLHeadingElement | null>(null)
   const [landing] = useState(() => peekLandingHandoff())
   // A landing design is shown before and after conversion, then created
   // only when the person chooses (F06 #141).
@@ -158,7 +161,7 @@ function MyStudio() {
         setCreateError(result.message)
       } else if (result.code !== 'account-changed') {
         setCreateError(
-          `Your design was not created (${result.message}). Nothing was saved to the cloud; try again.`,
+          `${failureSentence({ lead: 'Your design was not created', reason: result.message })} Nothing was saved to the cloud; try again.`,
         )
       }
       return
@@ -193,7 +196,7 @@ function MyStudio() {
       void trackAssumption({ name: 'design_created' })
       void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
     } else if (result.code !== 'account-changed') {
-      setCreateError(result.code === 'quota_exceeded' ? result.message : `The example could not open (${result.message}). Try again.`)
+      setCreateError(result.code === 'quota_exceeded' ? result.message : failureSentence({ lead: 'The example could not open', reason: result.message }))
     }
   }
 
@@ -202,7 +205,9 @@ function MyStudio() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <p className="font-body text-xs font-medium tracking-[0.08em] text-flv-accent uppercase">My Studio</p>
-          <h1 className="font-display text-4xl leading-none uppercase">Your designs</h1>
+          <h1 ref={designsHeading} tabIndex={-1} data-focus-target className="font-display text-4xl leading-none uppercase">
+            Your designs
+          </h1>
           <p className="font-body text-sm text-flv-muted">
             Private to you. New designs save to your account as you work.
           </p>
@@ -248,6 +253,10 @@ function MyStudio() {
 
       <PublicName />
 
+      <p role="status" className="sr-only">
+        {listNotice}
+      </p>
+
       <p role="status" aria-live="polite" className="min-h-5 font-body text-sm text-flv-accent">
         {createError}
       </p>
@@ -257,7 +266,7 @@ function MyStudio() {
       ) : list.status === 'failed' ? (
         <div className="flex flex-col items-start gap-3">
           <p role="alert" className="font-body text-sm text-flv-accent">
-            Your designs could not load ({list.message}).
+            {failureSentence({ lead: 'Your designs could not load', reason: list.message })}
           </p>
           <button type="button" className={buttonClass} onClick={() => void load()}>
             Try again
@@ -274,7 +283,8 @@ function MyStudio() {
               <DesignCard
                 design={design}
                 ownerId={ownerId ?? ''}
-                onRenamed={(title) =>
+                onRenamed={(title) => {
+                  setListNotice(`Renamed to ${title}.`)
                   setList((current) =>
                     current.status === 'ready'
                       ? {
@@ -285,14 +295,17 @@ function MyStudio() {
                         }
                       : current,
                   )
-                }
-                onDeleted={() =>
+                }}
+                onDeleted={() => {
+                  setListNotice(`Deleted ${design.title}.`)
                   setList((current) =>
                     current.status === 'ready'
                       ? { status: 'ready', designs: current.designs.filter((each) => each.id !== design.id) }
                       : current,
                   )
-                }
+                  // The card and everything in it are gone.
+                  designsHeading.current?.focus()
+                }}
               />
             </li>
           ))}

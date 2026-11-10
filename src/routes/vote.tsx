@@ -31,6 +31,7 @@ import {
   nextBoardLoadId,
   revertOptimisticVote,
 } from '../lib/vote-board'
+import { RadioGroup } from '../components/ui/RadioGroup'
 
 export const Route = createFileRoute('/vote')({
   validateSearch: (
@@ -172,9 +173,8 @@ function VotePage() {
       </div>
       <div className="flv-panel flex flex-col gap-3 p-4">
         <p className={chromeKickerClass()}>{HOUSE_COPY.filters}</p>
-        <div
+        <RadioGroup
           className="flex flex-wrap gap-2"
-          role="radiogroup"
           aria-label="Garment filter"
         >
           <button
@@ -226,10 +226,9 @@ function VotePage() {
               {garment.label}
             </button>
           ))}
-        </div>
-        <div
+        </RadioGroup>
+        <RadioGroup
           className="flex flex-wrap gap-2"
-          role="radiogroup"
           aria-label="Challenge filter"
         >
           <button
@@ -278,10 +277,9 @@ function VotePage() {
               {challenge.title}
             </button>
           ))}
-        </div>
-        <div
+        </RadioGroup>
+        <RadioGroup
           className="flex flex-wrap gap-2"
-          role="radiogroup"
           aria-label="Timeframe filter"
         >
           {(['week', 'all'] as BoardTimeframe[]).map((timeframe) => (
@@ -307,7 +305,7 @@ function VotePage() {
               {timeframe === 'week' ? HOUSE_COPY.thisWeek : HOUSE_COPY.allTime}
             </button>
           ))}
-        </div>
+        </RadioGroup>
       </div>
       {voteError ? (
         <p className="font-body text-sm text-flv-muted">{voteError}</p>

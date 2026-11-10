@@ -24,6 +24,8 @@ type SessionState = {
   account: SessionAccount | null
   accessToken: string | null
   accountEpoch: number
+  /** The last session ended without the person signing out. */
+  sessionExpired: boolean
 }
 
 export const useSessionStore = create<SessionState>(() => ({
@@ -31,7 +33,10 @@ export const useSessionStore = create<SessionState>(() => ({
   account: null,
   accessToken: null,
   accountEpoch: 0,
+  sessionExpired: false,
 }))
+
+let signingOutByChoice = false
 
 type AccountChangeListener = (next: SessionAccount | null) => void
 
@@ -58,6 +63,11 @@ export function applySession({ session }: { session: Session | null }) {
     account,
     accessToken: session?.access_token ?? null,
     accountEpoch: changed ? previous.accountEpoch + 1 : previous.accountEpoch,
+    sessionExpired: account
+      ? false
+      : previous.account
+        ? !signingOutByChoice
+        : previous.sessionExpired,
   })
 
   if (changed) {
@@ -124,10 +134,17 @@ export async function waitForSession({
   return useSessionStore.getState()
 }
 
-export async function signOut({ client }: { client: SupabaseClient | null }) {
-  if (client) {
-    await client.auth.signOut({ scope: 'local' })
-  }
+/** `expired`: the server ended the session; the person didn't choose this. */
+export async function signOut({ client, expired = false }: { client: SupabaseClient | null; expired?: boolean }) {
+  signingOutByChoice = !expired
 
-  applySession({ session: null })
+  try {
+    if (client) {
+      await client.auth.signOut({ scope: 'local' })
+    }
+
+    applySession({ session: null })
+  } finally {
+    signingOutByChoice = false
+  }
 }

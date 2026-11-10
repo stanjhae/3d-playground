@@ -4,13 +4,16 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import {
   CODE_FLOW_MESSAGES,
   CODE_LENGTH,
-  INITIAL_CODE_FLOW,
+  SESSION_ENDED_MESSAGE,
   codeFlowErrorFromAuth,
   codeFlowReducer,
+  forgetCodeStep,
   isValidEmail,
   normalizeCode,
   normalizeEmail,
+  rememberCodeStep,
   resendSecondsLeft,
+  restoreCodeFlow,
   sendErrorFromAuth,
 } from '../lib/auth/code-flow'
 import { safeReturnPath } from '../lib/auth/return-path'
@@ -34,11 +37,23 @@ const buttonClass =
 const quietButtonClass =
   'inline-flex min-h-11 items-center px-1 font-body text-xs tracking-[0.08em] text-flv-muted uppercase underline-offset-4 hover:text-flv-accent hover:underline disabled:no-underline disabled:opacity-60'
 
+/** Null where the browser refuses storage, as some private modes do. */
+function tabStorage() {
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
+}
+
 function SignIn() {
   const router = useRouter()
   const { returnTo } = Route.useSearch()
   const status = useSessionStore((state) => state.status)
-  const [state, dispatch] = useReducer(codeFlowReducer, INITIAL_CODE_FLOW)
+  const sessionExpired = useSessionStore((state) => state.sessionExpired)
+  const [state, dispatch] = useReducer(codeFlowReducer, null, () =>
+    restoreCodeFlow({ storage: tabStorage(), now: Date.now() }),
+  )
   const [emailDraft, setEmailDraft] = useState('')
   const [codeDraft, setCodeDraft] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -90,6 +105,7 @@ function SignIn() {
 
     setCodeDraft('')
     setNow(Date.now())
+    rememberCodeStep({ storage: tabStorage(), email, sentAt: Date.now() })
     dispatch({ type: 'requested', now: Date.now() })
   }
 
@@ -111,6 +127,7 @@ function SignIn() {
       return
     }
 
+    forgetCodeStep({ storage: tabStorage() })
     dispatch({ type: 'verified' })
     void trackAssumption({ name: 'signed_in' })
   }
@@ -135,6 +152,12 @@ function SignIn() {
           What we store and how to delete it
         </Link>
       </header>
+
+      {sessionExpired ? (
+        <p id="sign-in-session" className="border-l-2 border-flv-accent pl-3 font-body text-sm text-flv-ink">
+          {SESSION_ENDED_MESSAGE}
+        </p>
+      ) : null}
 
       {!client ? (
         <p role="alert" className="font-body text-sm text-flv-accent">
@@ -192,6 +215,7 @@ function SignIn() {
               disabled={state.busy}
               onClick={() => {
                 setEmailDraft(state.email)
+                forgetCodeStep({ storage: tabStorage() })
                 dispatch({ type: 'change-email' })
               }}
             >
@@ -227,7 +251,7 @@ function SignIn() {
             value={emailDraft}
             onChange={(event) => setEmailDraft(event.target.value)}
             aria-invalid={state.error ? true : undefined}
-            aria-describedby={errorMessage ? 'sign-in-error' : undefined}
+            aria-describedby={[errorMessage ? 'sign-in-error' : null, sessionExpired ? 'sign-in-session' : null].filter(Boolean).join(' ') || undefined}
             className={cn(fieldClass, { [errorFieldClass]: Boolean(state.error) })}
           />
           <button

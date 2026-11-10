@@ -52,6 +52,72 @@ export const CODE_FLOW_MESSAGES: Record<CodeFlowError, string> = {
   unknown: 'Sign-in did not work. Try again.',
 }
 
+/** Shown on sign-in when a session ended without the person signing out. */
+export const SESSION_ENDED_MESSAGE = 'Your session ended. Sign in again to carry on; your work is still here.'
+
+/** Matches the expiry the sign-in email states. */
+export const CODE_LIFETIME_MS = 10 * 60 * 1000
+
+const CODE_STEP_KEY = 'flp-sign-in-code-step'
+
+type CodeStepStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+/**
+ * Remembers, for this tab only, that a code was sent to `email`, so a
+ * reload stays on the code step. The code itself is never stored.
+ */
+export function rememberCodeStep({
+  storage,
+  email,
+  sentAt,
+}: {
+  storage: CodeStepStorage | null
+  email: string
+  sentAt: number
+}) {
+  try {
+    storage?.setItem(CODE_STEP_KEY, JSON.stringify({ email, sentAt }))
+  } catch {
+    // Without storage a reload just asks for the email again.
+  }
+}
+
+export function forgetCodeStep({ storage }: { storage: CodeStepStorage | null }) {
+  try {
+    storage?.removeItem(CODE_STEP_KEY)
+  } catch {
+    // Nothing was kept.
+  }
+}
+
+/** Back on the code step if a code sent to this tab can still work. */
+export function restoreCodeFlow({
+  storage,
+  now,
+}: {
+  storage: CodeStepStorage | null
+  now: number
+}): CodeFlowState {
+  try {
+    const saved = JSON.parse(storage?.getItem(CODE_STEP_KEY) ?? 'null') as { email?: unknown; sentAt?: unknown } | null
+
+    if (
+      saved &&
+      typeof saved.email === 'string' &&
+      isValidEmail({ value: saved.email }) &&
+      typeof saved.sentAt === 'number' &&
+      saved.sentAt <= now &&
+      now - saved.sentAt < CODE_LIFETIME_MS
+    ) {
+      return { ...INITIAL_CODE_FLOW, step: 'code', email: saved.email, resendAt: saved.sentAt + RESEND_SECONDS * 1000 }
+    }
+  } catch {
+    // Unreadable means start over.
+  }
+
+  return INITIAL_CODE_FLOW
+}
+
 export function normalizeEmail({ value }: { value: string }) {
   return value.trim().toLowerCase()
 }

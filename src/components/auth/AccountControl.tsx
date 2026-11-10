@@ -3,6 +3,7 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { signOut, useSessionStore } from '../../lib/auth/session-store'
 import { getSupabaseClient } from '../../lib/auth/supabase-client'
 import { useEditorStore } from '../../lib/editor-store'
+import { FLV_COPY } from '../../lib/flv-copy'
 
 export function AccountControl() {
   const status = useSessionStore((state) => state.status)
@@ -31,7 +32,7 @@ export function AccountControl() {
         to="/studio"
         className="inline-flex min-h-11 items-center px-1 text-flv-muted hover:text-flv-accent"
       >
-        My Studio
+        {FLV_COPY.myStudio}
       </Link>
       <span className="hidden max-w-40 truncate text-xs text-flv-muted sm:inline" title={email ?? undefined}>
         {email}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
 import { type DesignSummary, deleteDesign, updateDesign } from '../../lib/flp-api/client'
+import { failureSentence } from '../../lib/flp-api/plain-messages'
 
 /**
  * One owned design in My Studio: open, rename in place, or delete after a
@@ -29,6 +30,9 @@ export function DesignCard({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const dialog = useRef<HTMLDialogElement>(null)
+  const renameButton = useRef<HTMLButtonElement>(null)
+  const deleteButton = useRef<HTMLButtonElement>(null)
+  const previousMode = useRef(mode)
 
   useEffect(() => {
     if (mode === 'confirm-delete') {
@@ -36,6 +40,13 @@ export function DesignCard({
     } else {
       dialog.current?.close()
     }
+
+    // The buttons come back with view mode: put focus back on the one used.
+    if (mode === 'view' && previousMode.current !== 'view') {
+      ;(previousMode.current === 'rename' ? renameButton : deleteButton).current?.focus()
+    }
+
+    previousMode.current = mode
   }, [mode])
 
   async function rename() {
@@ -56,7 +67,7 @@ export function DesignCard({
       onRenamed(result.data.title)
       setMode('view')
     } else if (result.code !== 'account-changed') {
-      setError(`Not renamed (${result.message}).`)
+      setError(failureSentence({ lead: 'Not renamed', reason: result.message }))
     }
   }
 
@@ -70,10 +81,13 @@ export function DesignCard({
       // Local recovery for a deleted design would only offer a dead end.
       void clearRecovery({ storage: indexedDbRecoveryStorage, ownerId, designId: design.id })
       setMode('view')
+      // Now, not on the next render: the open dialog makes the page inert,
+      // and the list moves focus as soon as it hears.
+      dialog.current?.close()
       onDeleted()
     } else if (result.code !== 'account-changed') {
       setMode('view')
-      setError(`Not deleted (${result.message}).`)
+      setError(failureSentence({ lead: 'Not deleted', reason: result.message }))
     }
   }
 
@@ -144,10 +158,10 @@ export function DesignCard({
         </span>
         {mode === 'view' ? (
           <span className="flex gap-2">
-            <button type="button" className={smallButton} onClick={() => setMode('rename')}>
+            <button ref={renameButton} type="button" className={smallButton} onClick={() => setMode('rename')}>
               Rename
             </button>
-            <button type="button" className={smallButton} onClick={() => setMode('confirm-delete')}>
+            <button ref={deleteButton} type="button" className={smallButton} onClick={() => setMode('confirm-delete')}>
               Delete
             </button>
           </span>

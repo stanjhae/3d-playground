@@ -5,6 +5,7 @@ import { buttonClass } from '../ui/Button'
 import { waitForCurrentAtlas } from '../../lib/atlas-status'
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
 import { cn } from '../../lib/cn'
+import { useCopyStatus } from '../../lib/copy-text'
 import { useEditorStore } from '../../lib/editor-store'
 import { countUnavailableImages } from '../../lib/layer-images'
 import {
@@ -14,6 +15,7 @@ import {
   unpublishDesign,
   uploadRenders,
 } from '../../lib/flp-api/client'
+import { failureSentence } from '../../lib/flp-api/plain-messages'
 import type { OwnerPublication, PublicRenderKind } from '../../lib/flp-api/publication'
 import { publishBlockedReason, useWebglStore } from '../scene/webgl-status'
 import { useCloudSaveStore } from './CloudSave'
@@ -60,6 +62,9 @@ export function CloudPublish() {
   const [displayName, setDisplayName] = useState('')
   const [busy, setBusy] = useState<'publishing' | 'unpublishing' | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  // Good news goes through the same status line, without the warning colour.
+  const [notice, setNotice] = useState<string | null>(null)
+  const { status: copyStatus, copy } = useCopyStatus()
   const designId = cloud?.designId ?? null
   const headSeq = cloud?.headSeq ?? null
   const saved = saveStatus === 'saved'
@@ -106,6 +111,7 @@ export function CloudPublish() {
 
     setBusy('publishing')
     setMessage(null)
+    setNotice(null)
     const editor = useEditorStore.getState()
 
     // Published views show the tee alone, never the try-on mannequin. This
@@ -176,7 +182,7 @@ export function CloudPublish() {
 
       if (!uploaded.ok) {
         setBusy(null)
-        setMessage(`The views could not be saved (${uploaded.message}).`)
+        setMessage(failureSentence({ lead: 'The views could not be saved', reason: uploaded.message }))
         return
       }
 
@@ -190,12 +196,15 @@ export function CloudPublish() {
 
       if (!result.ok) {
         void trackAssumption({ name: 'publish_failed' })
-        setMessage(`Not published (${result.message}).`)
+        setMessage(failureSentence({ lead: 'Not published', reason: result.message }))
         return
       }
 
       published = true
       void trackAssumption({ name: 'publish_succeeded' })
+      setNotice(`Published version ${headSeq}. Anyone with the link can view it.`)
+      // The button that was pressed goes with the review (see the effect above).
+      reviewToggled.current = true
       setReviewing(false)
       await refresh()
     } finally {
@@ -212,16 +221,30 @@ export function CloudPublish() {
 
     setBusy('unpublishing')
     setMessage(null)
+    setNotice(null)
     const result = await unpublishDesign({ designId })
     setBusy(null)
 
     if (!result.ok) {
-      setMessage(`Still published (${result.message}).`)
+      setMessage(failureSentence({ lead: 'Still published', reason: result.message }))
       return
     }
 
+    setNotice('Unpublished. The public link has stopped working.')
     await refresh()
+    // The Unpublish button is gone now; don't drop keyboard users on the page.
+    ;(reviewRef.current ?? openRef.current)?.focus()
   }
+
+  const copyFeedback =
+    copyStatus === 'copied'
+      ? 'Link copied.'
+      : copyStatus === 'failed'
+        ? 'The link could not be copied. Select it above and copy it yourself.'
+        : null
+  // The preview starting is a normal wait, not a problem.
+  const quietStatus =
+    copyStatus === 'copied' || (copyStatus === 'idle' && saved && !message && (Boolean(notice) || webglStatus === 'checking'))
 
   return (
     <section className="flv-panel flex w-full flex-col gap-3 p-3" aria-label="Publish">
@@ -243,9 +266,9 @@ export function CloudPublish() {
             <button
               type="button"
               className={quietClass}
-              onClick={() => void navigator.clipboard?.writeText(shareUrl({ slug: publication.slug }))}
+              onClick={() => void copy(shareUrl({ slug: publication.slug }))}
             >
-              Copy link
+              {copyStatus === 'copied' ? 'Link copied' : 'Copy link'}
             </button>
             <button
               type="button"
@@ -272,15 +295,12 @@ export function CloudPublish() {
       <p
         role="status"
         aria-live="polite"
-        className={cn('min-h-5 font-body text-xs', {
-          // The preview starting is a normal wait, not a problem.
-          'text-flv-muted': saved && !message && webglStatus === 'checking',
-          'text-flv-accent': !saved || Boolean(message) || webglStatus !== 'checking',
-        })}
+        className={cn('min-h-5 font-body text-xs', quietStatus ? 'text-flv-muted' : 'text-flv-accent')}
       >
-        {!saved
-          ? 'Publishing is available once the design shows Saved to cloud.'
-          : (message ?? renderBlocked)}
+        {copyFeedback ??
+          (!saved
+            ? 'Publishing is available once the design shows Saved to cloud.'
+            : (message ?? notice ?? renderBlocked))}
       </p>
 
       {reviewing ? (

@@ -7,10 +7,10 @@ describe('reportDesignHref', () => {
     const href = reportDesignHref({ slug: '3f9a1c22b7e04d11', email: 'alpha@example.test' })
 
     expect(href).toMatch(/^mailto:alpha@example\.test\?subject=Report%20shared%20design%203f9a1c22b7e04d11&body=/)
-    expect(decodeURIComponent(href!.split('body=')[1]!)).toContain('/s/3f9a1c22b7e04d11')
+    expect(decodeURIComponent(href.split('body=')[1]!)).toContain('/s/3f9a1c22b7e04d11')
   })
 
-  test('without a contact address there is no link', () => {
-    expect(reportDesignHref({ slug: '3f9a1c22b7e04d11', email: null })).toBeNull()
+  test('without a contact address the link still goes somewhere useful', () => {
+    expect(reportDesignHref({ slug: '3f9a1c22b7e04d11', email: null })).toBe('/privacy#report')
   })
 })

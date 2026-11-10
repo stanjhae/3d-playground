@@ -46,7 +46,8 @@ const report = await runDemoPreflight({
     envReady: () =>
       Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_PUBLISHABLE_KEY && env.SUPABASE_URL && env.SUPABASE_SECRET_KEY) &&
       /127\.0\.0\.1|localhost/.test(env.SUPABASE_URL) &&
-      !env.VITE_FLP_REQUIRE_AUTH,
+      !env.VITE_FLP_REQUIRE_AUTH &&
+      Boolean(env.VITE_FLP_CONTACT_EMAIL?.trim()),
     demoDesigns: async () => {
       const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
         auth: { persistSession: false, autoRefreshToken: false },

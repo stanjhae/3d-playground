@@ -139,12 +139,16 @@ async function readyRenderKinds({
   designId: string
   seq: number
 }) {
-  const { data } = await client
+  const { data, error } = await client
     .from('render_artifacts')
     .select('kind, storage_path')
     .eq('design_id', designId)
     .eq('version_seq', seq)
     .eq('status', 'ready')
+
+  if (error) {
+    throw new Error('render read failed', { cause: error })
+  }
 
   return new Map((data ?? []).map((row) => [row.kind as string, row.storage_path as string]))
 }
@@ -272,7 +276,7 @@ export async function readOwnerPublication({
     .eq('design_id', designId)
     .maybeSingle()
   const ready = design.head_seq
-    ? await readyRenderKinds({ client: asUser, designId, seq: design.head_seq })
+    ? await readyRenderKinds({ client: asUser, designId, seq: design.head_seq }).catch(() => new Map<string, string>())
     : new Map()
 
   const body: OwnerPublication | null = data
@@ -391,6 +395,7 @@ export type PublishedDesign = {
  * or missing a base view. The one place public reads decide what is
  * published. Sleeve views are optional here, so a version published with
  * three views stays public (#179); `renderPaths` holds whichever exist.
+ * Throws when the database can't answer: that isn't "not published".
  */
 export async function findPublishedDesign({
   admin,
@@ -403,11 +408,15 @@ export async function findPublishedDesign({
     return null
   }
 
-  const { data: publication } = await admin
+  const { data: publication, error } = await admin
     .from('publications')
     .select('slug, design_id, version_seq, display_name, title, published_at, status')
     .eq('slug', slug)
     .maybeSingle()
+
+  if (error) {
+    throw new Error('publication read failed', { cause: error })
+  }
 
   if (!publication || publication.status !== 'published' || !publication.design_id || !publication.version_seq) {
     return null
@@ -469,7 +478,14 @@ export async function readPublicDesign({
   slug: string | undefined
   respond: Respond
 }) {
-  const published = await findPublishedDesign({ admin, slug })
+  let published: PublishedDesign | null
+
+  try {
+    published = await findPublishedDesign({ admin, slug })
+  } catch (error) {
+    console.error('flp public read failed', { error })
+    return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+  }
 
   if (!published) {
     return respond({ status: 404, body: { error: { code: 'not_found', message: 'This design is not available' } } })
@@ -523,7 +539,17 @@ export async function readPublicImage({
     return gone()
   }
 
-  const published = await findPublishedDesign({ admin, slug })
+  let published: PublishedDesign | null
+
+  try {
+    published = await findPublishedDesign({ admin, slug })
+  } catch (error) {
+    console.error('flp public image read failed', { error })
+    return Response.json(
+      { error: { code: 'internal', message: 'Something went wrong' } },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
 
   // A sleeve view of a version published before #179 does not exist.
   const path = published?.renderPaths.get(view)

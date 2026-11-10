@@ -11,6 +11,7 @@ import {
 } from '../canonical-hash.ts'
 import type { ImageMimeType, ImageRejectReason } from '../image-validate.ts'
 import { isLibraryAssetId } from '../library-assets.ts'
+import { PLAIN_ERROR_MESSAGES } from './plain-messages.ts'
 import { resolveTemplate } from '../template-manifest.ts'
 
 /**
@@ -256,7 +257,7 @@ export function apiErrorFromDatabase({
     }
   }
 
-  return apiError({ code: mapped, message: message ?? mapped })
+  return apiError({ code: mapped, message: message ?? PLAIN_ERROR_MESSAGES[mapped]! })
 }
 
 export async function prepareContent({

@@ -23,6 +23,7 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+import { RadioGroup } from '../ui/RadioGroup'
 
 const SAMPLE_COLORS = [
   { name: 'White', value: '#ffffff' },
@@ -202,7 +203,7 @@ export function SilhouetteSwitch({
           </p>
           <div className="flex flex-col gap-2">
             <p className={chromeTextClass()}>{FLV_COPY.selectAvailableColors}</p>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={FLV_COPY.selectAvailableColors}>
+            <RadioGroup className="flex flex-wrap gap-2" aria-label={FLV_COPY.selectAvailableColors}>
               {SAMPLE_COLORS.map((color) => (
                 <button
                   key={color.value}
@@ -221,7 +222,7 @@ export function SilhouetteSwitch({
                   style={{ backgroundColor: color.value }}
                 />
               ))}
-            </div>
+            </RadioGroup>
           </div>
           {CONCEPT_FEATURES ? (
           <div className="flex flex-col gap-2">
@@ -229,7 +230,7 @@ export function SilhouetteSwitch({
               <p className={chromeTextClass()}>{FLV_COPY.selectSampleSize}</p>
               <ConceptPreviewBadge />
             </div>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={FLV_COPY.selectSampleSize}>
+            <RadioGroup className="flex flex-wrap gap-2" aria-label={FLV_COPY.selectSampleSize}>
               {SAMPLE_SIZE_IDS.map((size) => (
                 <button
                   key={size}
@@ -255,7 +256,7 @@ export function SilhouetteSwitch({
                   {size}
                 </button>
               ))}
-            </div>
+            </RadioGroup>
           </div>
           ) : null}
         </aside>

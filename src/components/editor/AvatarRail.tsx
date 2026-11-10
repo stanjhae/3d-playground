@@ -18,6 +18,7 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+import { RadioGroup } from '../ui/RadioGroup'
 
 const FILTERS: { id: AvatarFilter | 'all'; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -114,9 +115,8 @@ export function AvatarRail() {
     <aside className={railFrameClass()}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.avatar}</p>
       <p className={chromeMutedClass()}>{FLV_COPY.visualFitNote}</p>
-      <div
+      <RadioGroup
         className="flex flex-wrap gap-2"
-        role="radiogroup"
         aria-label="Avatar filter"
       >
         {FILTERS.map((entry) => (
@@ -137,7 +137,7 @@ export function AvatarRail() {
             {entry.label}
           </button>
         ))}
-      </div>
+      </RadioGroup>
       {selectedOutsideFilter ? (
         <p className={chromeMutedClass()}>
           Current avatar is outside this filter — still selected above.
@@ -196,9 +196,8 @@ export function AvatarRail() {
           <p className={chromeKickerClass()}>Environment</p>
           <ConceptPreviewBadge />
         </div>
-        <div
+        <RadioGroup
           className="flex flex-wrap gap-2"
-          role="radiogroup"
           aria-label="Environment preview"
         >
           {ENV_OPTIONS.map((entry) => (
@@ -223,7 +222,7 @@ export function AvatarRail() {
               {entry.label}
             </button>
           ))}
-        </div>
+        </RadioGroup>
       </div>
     </aside>
   )

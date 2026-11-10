@@ -1,13 +1,13 @@
 /**
  * Where people report a published design or ask for account deletion
- * (Q10 #195). Set per environment; without it the app says reporting is
- * not open yet rather than linking nowhere.
+ * (Q10 #195). Required on deployed builds (`build-env.ts`) and for the demo.
  */
 export const CONTACT_EMAIL: string | null = import.meta.env.VITE_FLP_CONTACT_EMAIL?.trim() || null
 
+/** Never missing: with no address set, the privacy page explains how to report. */
 export function reportDesignHref({ slug, email = CONTACT_EMAIL }: { slug: string; email?: string | null }) {
   if (!email) {
-    return null
+    return '/privacy#report'
   }
 
   const subject = encodeURIComponent(`Report shared design ${slug}`)
