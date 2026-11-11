@@ -64,10 +64,10 @@ test('the landing and all its stages make no claim the alpha cannot back, and la
   await page.goto('/sign-in')
   await expectNoClaims({ page, name: 'sign-in' })
 
-  // The guest-era board isn't in the alpha; its page says where voting is now (V1).
+  // The board lists published designs and sends voters to each one (V1, V2).
   await page.goto('/vote')
-  await expect(page.getByRole('heading', { name: 'Not part of this alpha' })).toBeVisible()
-  await expect(page.getByText('To vote, open a shared design’s link and sign in.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Top designs' })).toBeVisible()
+  await expect(page.getByText('Open one to see every side and vote.')).toBeVisible()
   await expectNoClaims({ page, name: 'vote' })
 })
 
