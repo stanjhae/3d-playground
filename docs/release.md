@@ -57,8 +57,17 @@ Run it on the exact commit to be tagged, in the main checkout.
 - [ ] Create a GitHub release from the tag (marked pre-release), with the CHANGELOG entry, the migrations list and the measured numbers
 - [ ] Update the tracker (#125) with the candidate and anything still open
 
+## Rollback floor
+
+Builds below the floor can't open designs that newer builds save, so never promote a deployment below it.
+
+- **Floor: master at `cb4d4c9`** (#326, merged 10 Nov 2026), the reader for flips, locks and pen pressure. From W1 (flip writer) on, designs can store `flipX` and `flipY`, which `v0.9.0-rc.6` and earlier refuse. **rc.6 is no longer a fallback.**
+- No tag contains the floor yet. Until one does, roll back by promoting a Vercel deployment built from `cb4d4c9` or later, or by `git revert`.
+- `src/lib/optional-fields.test.ts` loads a design using every optional field; it must keep passing at the floor.
+- Move the floor only when a new reader lands and its writer is about to merge (reader deployed 24 h first).
+
 ## Rollback
 
-- **Code:** redeploy the previous tag (Vercel → Deployments → promote), or `git revert` the offending merge and cut a new candidate.
+- **Code:** redeploy the previous tag at or above the floor (Vercel → Deployments → promote), or `git revert` the offending merge and cut a new candidate.
 - **Database:** forward fixes only; restore from backup if a migration damaged data (`docs/backup-restore.md`, Q09 #194).
 - **Local demo:** check out the previous tag, `pnpm install --frozen-lockfile`, `pnpm build && pnpm preview`, then `node scripts/demo-reset.mjs`.

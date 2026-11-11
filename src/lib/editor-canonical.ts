@@ -202,6 +202,11 @@ function unit({ value }: { value: number }) {
   return Math.min(1, Math.max(0, value))
 }
 
+/** A copy keeps its flips; only the ones that are on are stored. */
+function flipsFrom(layer: { flipX?: boolean; flipY?: boolean }) {
+  return { ...(layer.flipX ? { flipX: true as const } : {}), ...(layer.flipY ? { flipY: true as const } : {}) }
+}
+
 /**
  * Translate a store patch. Pointer and slider input is normalised here:
  * a drag past the panel edge pins to the edge and angles wrap. Values the
@@ -237,6 +242,9 @@ function translatePatch({
     next.scale = Math.min(CANONICAL_LIMITS.maxObjectScale, Math.max(0.01, patch.scale))
   }
   if (patch.rotation !== undefined) next.rotation = wrapAngle({ value: patch.rotation })
+  // Flips are about the item's own axes, so a mirrored panel keeps them as they are.
+  if (patch.flipX !== undefined) next.flipX = patch.flipX
+  if (patch.flipY !== undefined) next.flipY = patch.flipY
 
   if (kind === 'text') {
     // Over-long text is refused with a message, never cut (#162).
@@ -343,6 +351,7 @@ export function translateCommand({
           rotation: wrapAngle({ value: layer.rotation }),
           assetId,
           aspect: layer.aspect ?? 1,
+          ...flipsFrom(layer),
         },
       },
     }
@@ -374,6 +383,7 @@ export function translateCommand({
           content: layer.content,
           face: layer.face,
           color,
+          ...flipsFrom(layer),
         },
       },
     }
