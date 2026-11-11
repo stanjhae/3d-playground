@@ -124,7 +124,10 @@ function panelUvOf({ manifest }: { manifest: TemplateManifest }) {
   }
 
   const regions = Object.values(manifest.regions)
-  return { panelUv: Object.fromEntries(regions.map((region) => [region.renderPanel, { ...region.uv }])) }
+  return {
+    panelUv: Object.fromEntries(regions.map((region) => [region.renderPanel, { ...region.uv }])),
+    atlasSize: manifest.atlas.width,
+  }
 }
 
 function flipsOf(layer: { flipX?: true; flipY?: true }) {

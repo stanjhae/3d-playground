@@ -1,4 +1,5 @@
 import {
+  createRef,
   useEffect,
   useMemo,
   useRef,
@@ -9,7 +10,7 @@ import {
 
 import { documentHasInk } from '../../lib/design-document'
 import { trackAssumption } from '../../lib/assumption-events'
-import type { PanelId } from '../../lib/design-document'
+import type { DesignDocument, PanelId } from '../../lib/design-document'
 import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
@@ -126,11 +127,14 @@ function paintPanelSurface({
   atlas,
   panel,
   selected,
+  rects,
 }: {
   canvas: HTMLCanvasElement
   atlas: HTMLCanvasElement
   panel: PanelId
   selected: PlaceableLayer | null
+  /** The document's panel rectangles (absent: the tee's). */
+  rects?: DesignDocument['panelUv']
 }) {
   const context = canvas.getContext('2d')
 
@@ -146,6 +150,7 @@ function paintPanelSurface({
     panel,
     width: atlas.width,
     height: atlas.height,
+    rects,
   })
   context.drawImage(
     atlas,
@@ -388,8 +393,9 @@ function PaintSurface({
       atlas,
       panel,
       selected,
+      rects: documentState.panelUv,
     })
-  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, panel, selected])
+  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.panelUv, panel, selected])
 
   function handlePointerDown({
     event,
@@ -743,10 +749,8 @@ export function PaintCanvas({
   layout?: 'single' | 'quad'
 }) {
   const phoneCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const frontCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const backCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const leftCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const rightCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  // One canvas per panel; template-built garments have their own panels.
+  const canvasRefMap = useRef(new Map<PanelId, RefObject<HTMLCanvasElement | null>>())
   const dragRef = useRef<DragState | null>(null)
   const editStartContentRef = useRef('')
   const documentState = useEditorStore((state) => state.document)
@@ -784,11 +788,15 @@ export function PaintCanvas({
     panels,
     lgUp,
   })
-  const canvasRefs: Record<PanelId, RefObject<HTMLCanvasElement | null>> = {
-    front: frontCanvasRef,
-    back: backCanvasRef,
-    left: leftCanvasRef,
-    right: rightCanvasRef,
+  const canvasRefFor = (panel: PanelId) => {
+    let ref = canvasRefMap.current.get(panel)
+
+    if (!ref) {
+      ref = createRef<HTMLCanvasElement>()
+      canvasRefMap.current.set(panel, ref)
+    }
+
+    return ref
   }
   const atlas = useMemo(() => {
     if (typeof document === 'undefined') {
@@ -887,7 +895,11 @@ export function PaintCanvas({
         <p className="font-body text-xs text-flv-muted">{HOUSE_COPY.panelOrientationHint}</p>
       ) : null}
       {quad && lgUp ? (
-        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2">
+        <div
+          className="grid min-h-0 flex-1 grid-cols-2 gap-2"
+          // Two per row: the tee's four panels, or a template's own (a hood, a skirt).
+          style={{ gridTemplateRows: `repeat(${Math.ceil(mountedPanels.length / 2)}, minmax(0, 1fr))` }}
+        >
           {mountedPanels.map((panelId) => {
             const meta = panels.find((panel) => panel.id === panelId)
 
@@ -905,7 +917,7 @@ export function PaintCanvas({
                   <PaintSurface
                     {...surfaceProps({
                       panel: panelId,
-                      canvasRef: canvasRefs[panelId],
+                      canvasRef: canvasRefFor(panelId),
                     })}
                   />
                 </div>

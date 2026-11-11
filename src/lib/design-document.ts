@@ -206,6 +206,8 @@ export type DesignDocument = {
    * the tee and v1 documents, which use `DEFAULT_PANEL_UV`.
    */
   panelUv?: Record<PanelId, { u0: number; v0: number; u1: number; v1: number }>
+  /** Print atlas size in pixels, for template-built garments (else 512). */
+  atlasSize?: number
 }
 
 const PANEL_ID_SET = new Set<string>(PANEL_IDS)

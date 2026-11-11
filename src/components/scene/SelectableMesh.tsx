@@ -27,14 +27,19 @@ import { SELECTION_COLOR, meshOutlineVisible } from '../../lib/selection-chrome'
 
 function pointerUv({
   event,
+  printUv = false,
 }: {
   event: ThreeEvent<PointerEvent>
+  /** Template-built garments print through their own UV set (`uv1`). */
+  printUv?: boolean
 }) {
-  if (!event.uv) {
+  const uv = printUv ? event.uv1 : event.uv
+
+  if (!uv || uv.x < 0 || uv.y < 0) {
     return null
   }
 
-  return { u: event.uv.x, v: event.uv.y }
+  return { u: uv.x, v: uv.y }
 }
 
 export function SelectableMesh({
@@ -140,7 +145,7 @@ export function SelectableMesh({
           return
         }
 
-        const uv = pointerUv({ event })
+        const uv = pointerUv({ event, printUv: Boolean(panelUv) })
 
         if (!uv) {
           return
@@ -235,14 +240,14 @@ export function SelectableMesh({
           return
         }
 
-        const uv = pointerUv({ event })
+        const uv = pointerUv({ event, printUv: Boolean(panelUv) })
 
         if (!uv) {
           return
         }
 
         if (clothDrag()) {
-          const edit = moveClothDragOnUv({ u: uv.u, v: uv.v })
+          const edit = moveClothDragOnUv({ u: uv.u, v: uv.v, rects: panelUv })
 
           if (!edit) {
             return

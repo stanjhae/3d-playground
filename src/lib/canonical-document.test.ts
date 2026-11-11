@@ -250,7 +250,7 @@ describe('validateCanonicalDocument — rejects with paths', () => {
   test('unknown base kinds and templates', () => {
     const value = mutate((d) => {
       d.base = { kind: 'gradient', colors: ['#000000', '#ffffff'] }
-      d.template = { id: 'hoodie', version: 1.5 }
+      d.template = { id: 'cape', version: 1.5 }
     })
 
     expect(paths({ value })).toEqual([
