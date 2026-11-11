@@ -24,6 +24,9 @@ export type LayerPatch = {
   content?: string
   face?: TextFace
   label?: string
+  /** Mirror about the item's own axis; false puts it back. Words and images only. */
+  flipX?: boolean
+  flipY?: boolean
 }
 import type { MaterialOverride } from './design-schema'
 
@@ -166,6 +169,16 @@ function applyToDocument({
 
           if (layer.kind === 'graphic') {
             layer.color = command.patch.color
+          }
+        }
+      }
+
+      if (layer.kind === 'graphic' || layer.kind === 'text') {
+        for (const flag of ['flipX', 'flipY'] as const) {
+          if (command.patch[flag] === true) {
+            layer[flag] = true
+          } else if (command.patch[flag] === false) {
+            delete layer[flag]
           }
         }
       }

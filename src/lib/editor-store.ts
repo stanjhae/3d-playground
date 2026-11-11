@@ -593,6 +593,14 @@ function layerPatchChanges({
     }
   }
 
+  if (layer.kind === 'graphic' || layer.kind === 'text') {
+    for (const flag of ['flipX', 'flipY'] as const) {
+      if (patch[flag] !== undefined && patch[flag] !== Boolean(layer[flag])) {
+        return true
+      }
+    }
+  }
+
   if (layer.kind === 'text') {
     if (patch.content !== undefined && patch.content !== layer.content) {
       return true

@@ -9,9 +9,11 @@ import { deleteAccounts } from '../e2e/helpers.ts'
 import { ASSUMPTION_EVENTS } from '../src/lib/assumption-events.ts'
 import { GOLDEN_DOCUMENT } from '../src/lib/canonical-fixtures.ts'
 import { createAccount, withImageAsset } from '../src/lib/flp-api/integration-harness.ts'
+import { clearModerationHold, takeDownPublication } from '../src/lib/flp-api/moderation.ts'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
 import { flpRoutes, routeLabel } from '../src/lib/flp-api/route-table.ts'
 import { TINY_JPEG } from '../src/lib/image-fixtures.ts'
+import { TERMS_VERSION } from '../src/lib/terms.ts'
 import {
   DEPLOYED_SUPABASE_SOURCE,
   contentSecurityPolicy,
@@ -620,6 +622,140 @@ await check({
     const after = await (await api(`/s/${fixture.slug}`)).text()
     expect(!after.includes('Hosted check tee'), 'the share page still shows the title after unpublishing')
     note('share page: no title or image after unpublishing')
+  },
+})
+
+/** A request as one of the check's accounts, or signed out without `token`. */
+function as({ token, path, method = 'GET', body }) {
+  return api(`/api/flp/${path}`, {
+    method,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  })
+}
+
+async function republish({ a, fixture }) {
+  return as({
+    token: a.token,
+    path: `designs/${fixture.designId}/publication`,
+    method: 'POST',
+    body: { seq: 1, displayName: 'Hosted check' },
+  })
+}
+
+await check({
+  id: 'terms-acceptance',
+  issues: [195],
+  title: 'A new account has not accepted the terms; accepting records the version in force (P1)',
+  run: async ({ note }) => {
+    const { b } = await setUp()
+    const before = await json(await as({ token: b.token, path: 'profile' }))
+    expect(before && !before.termsVersion, `a new account already has terms ${before?.termsVersion}`)
+
+    const accepted = await as({ token: b.token, path: 'terms', method: 'POST', body: { version: TERMS_VERSION } })
+    expect(accepted.status < 300, `accepting the terms answered ${accepted.status}`)
+    const stale = await as({ token: b.token, path: 'terms', method: 'POST', body: { version: '1999-01-01' } })
+    expect(stale.status >= 400 && stale.status < 500, `accepting terms not in force answered ${stale.status}`)
+
+    const after = await json(await as({ token: b.token, path: 'profile' }))
+    expect(after?.termsVersion === TERMS_VERSION, `profile shows terms ${after?.termsVersion}, not ${TERMS_VERSION}`)
+    note(`terms ${TERMS_VERSION}: none before, recorded after; another version refused (${stale.status})`)
+  },
+})
+
+await check({
+  id: 'account-votes',
+  issues: [125],
+  title: 'One vote per account; signed-out readers see the count, never who voted (V1)',
+  run: async ({ note }) => {
+    const { a, b, fixture } = await setUp()
+    // unpublish-404 took the fixture down; publish it again.
+    const published = await republish({ a, fixture })
+    expect(published.status < 300, `republishing answered ${published.status}`)
+    const vote = (token, method = 'GET') => as({ token, path: `public/${fixture.slug}/vote`, method })
+
+    const anonymousWrite = await vote(undefined, 'POST')
+    expect(anonymousWrite.status === 401, `a signed-out vote answered ${anonymousWrite.status}`)
+
+    for (const step of ['first', 'again']) {
+      const cast = await json(await vote(b.token, 'POST'))
+      expect(cast?.count === 1 && cast.voted === true, `${step} vote gave ${JSON.stringify(cast)}`)
+    }
+
+    const anonymous = await vote(undefined)
+    const anonymousText = await anonymous.text()
+    expect(anonymous.status === 200, `the signed-out count answered ${anonymous.status}`)
+    expect(JSON.parse(anonymousText).count === 1, `the signed-out count is ${anonymousText}`)
+    expect(!anonymousText.includes(b.id), 'the signed-out count names the voter')
+    const owner = await json(await vote(a.token))
+    expect(owner?.count === 1 && owner.voted === false, `the owner sees ${JSON.stringify(owner)}`)
+
+    const retracted = await json(await vote(b.token, 'DELETE'))
+    expect(retracted?.count === 0 && retracted.voted === false, `retracting gave ${JSON.stringify(retracted)}`)
+    const recast = await json(await vote(b.token, 'POST'))
+    expect(recast?.count === 1, `voting after retracting gave ${JSON.stringify(recast)}`)
+    note('signed out: 401 to vote, count only to read; voting twice keeps one vote; retract and vote again work')
+  },
+})
+
+await check({
+  id: 'moderation-takedown',
+  issues: [195],
+  title: 'A takedown unpublishes at once and blocks republishing until the hold is cleared; votes survive (P2)',
+  run: async ({ note }) => {
+    const { admin, a, fixture } = await setUp()
+    await takeDownPublication({ admin, slug: fixture.slug, reason: 'Hosted check', heldBy: 'hosted-check' })
+
+    const page = await api(`/api/flp/public/${fixture.slug}`)
+    await page.arrayBuffer()
+    expect(page.status === 404, `the payload after a takedown is ${page.status}`)
+
+    const refused = await republish({ a, fixture })
+    const refusal = await json(refused)
+    expect(
+      refused.status === 403 && refusal?.error?.code === 'taken_down',
+      `republishing a held design answered ${refused.status} ${JSON.stringify(refusal)}`,
+    )
+
+    await clearModerationHold({ admin, slug: fixture.slug, clearedBy: 'hosted-check' })
+    const stillDown = await api(`/api/flp/public/${fixture.slug}`)
+    await stillDown.arrayBuffer()
+    expect(stillDown.status === 404, `clearing the hold republished the design (${stillDown.status})`)
+
+    const again = await republish({ a, fixture })
+    expect(again.status < 300, `republishing after the hold was cleared answered ${again.status}`)
+    const votes = await json(await as({ path: `public/${fixture.slug}/vote` }))
+    expect(votes?.count === 1, `the vote did not survive the takedown: ${JSON.stringify(votes)}`)
+    note('takedown: payload 404, republish 403 taken_down; cleared: still down until the owner republishes; vote kept')
+  },
+})
+
+await check({
+  id: 'account-deletion',
+  issues: [195],
+  title: 'Deleting an account needs its email, then removes the account, its designs and its public link (P1)',
+  run: async ({ note }) => {
+    const { admin, a, fixture } = await setUp()
+
+    const wrong = await as({ token: a.token, path: 'account', method: 'DELETE', body: { confirmEmail: 'someone@example.test' } })
+    expect(wrong.status >= 400 && wrong.status < 500, `deleting with the wrong email answered ${wrong.status}`)
+    const kept = await admin.auth.admin.getUserById(a.id)
+    expect(kept.data?.user, 'the account went with the wrong email')
+
+    const deleted = await as({ token: a.token, path: 'account', method: 'DELETE', body: { confirmEmail: a.email } })
+    expect(deleted.status < 300, `deleting the account answered ${deleted.status}`)
+
+    const gone = await admin.auth.admin.getUserById(a.id)
+    expect(!gone.data?.user, 'the auth user is still there')
+    const { count } = await admin.from('designs').select('id', { count: 'exact', head: true }).eq('owner_id', a.id)
+    expect(count === 0, `${count} designs are left`)
+    const page = await api(`/api/flp/public/${fixture.slug}`)
+    await page.arrayBuffer()
+    expect(page.status === 404, `the public link answered ${page.status} after deletion`)
+    note(`wrong email: ${wrong.status}, nothing removed; right email: account, designs and link gone`)
   },
 })
 

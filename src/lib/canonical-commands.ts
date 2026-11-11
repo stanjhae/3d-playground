@@ -37,6 +37,9 @@ export type CanonicalLayerPatch = {
   content?: string
   face?: CanonicalTextFace
   color?: Color
+  /** true stores the flag; false removes it, as flips are stored only when on. */
+  flipX?: boolean
+  flipY?: boolean
 }
 
 export type CanonicalCommand =
@@ -229,8 +232,8 @@ function applyToDocument({
       found.layer.kind === 'paint'
         ? ['opacity', 'visible', 'name']
         : found.layer.kind === 'image'
-          ? ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name']
-          : ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color']
+          ? ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY']
+          : ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY']
 
     for (const [key, value] of Object.entries(command.patch)) {
       if (value === undefined) {
@@ -242,6 +245,11 @@ function applyToDocument({
           ok: false,
           issues: [{ path: `$.patch.${key}`, message: `not editable on a ${found.layer.kind} layer` }],
         }
+      }
+
+      if ((key === 'flipX' || key === 'flipY') && value === false) {
+        delete (found.layer as Record<string, unknown>)[key]
+        continue
       }
 
       ;(found.layer as Record<string, unknown>)[key] = value
