@@ -11,6 +11,7 @@ import {
 } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
+import type { ModelFrame } from '../../lib/design-document'
 import { useEditorStore } from '../../lib/editor-store'
 import {
   LANDING_CAMERA_POSITIONS,
@@ -261,9 +262,12 @@ export function StudioFloor({
 export function StudioCamera({
   intro = false,
   framing = 'garment',
+  modelFrame,
 }: {
   intro?: boolean
   framing?: StageFraming
+  /** A real model's bounds; the camera fits it instead of the preset seat. */
+  modelFrame?: ModelFrame
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const aspect = useThree((state) => state.size.width / state.size.height)
@@ -276,8 +280,9 @@ export function StudioCamera({
   const moving = useRef(false)
   const freeOrbit = cameraPreset === 'orbit' && !capturingAngles
   const seatPreset = cameraPreset === 'orbit' ? 'threeQuarter' : cameraPreset
-  // A real model (template-built garment) is fitted by its own size and sleeves.
-  const modelFrame = useEditorStore((state) => state.document.modelFrame)
+  // A real model (template-built garment) is fitted by its own size and
+  // sleeves. Only the stage showing the design passes one: other stages
+  // (a look page, the landing) frame their own garment by its preset.
   const fitted = useMemo(
     () => (modelFrame ? modelSeat({ preset: seatPreset, frame: modelFrame, live: !capturingAngles }) : null),
     [capturingAngles, modelFrame, seatPreset],
@@ -408,12 +413,14 @@ export function StudioStage({
   intro = false,
   envMode,
   framing = 'garment',
+  modelFrame,
 }: {
   children?: ReactNode
   picking?: boolean
   intro?: boolean
   envMode?: StudioEnvMode
   framing?: StageFraming
+  modelFrame?: ModelFrame
 }) {
   const storeEnv = useEditorStore((state) => state.studioEnv)
   const resolvedEnv = envMode ?? storeEnv
@@ -429,7 +436,7 @@ export function StudioStage({
         envMode={resolvedEnv}
       />
       <StudioFloor picking={picking} framing={framing} />
-      <StudioCamera intro={intro} framing={framing} />
+      <StudioCamera intro={intro} framing={framing} modelFrame={modelFrame} />
       <RenderOnEditorChange />
       {children}
     </>

@@ -20,6 +20,8 @@ import {
   STUDIO_SORTS,
   type StudioSort,
   copyTitle,
+  documentGarment,
+  untitledTitle,
   readStudioSort,
   visibleDesigns,
   writeStudioSort,
@@ -187,7 +189,7 @@ function MyStudio() {
     const result = await createOwnedDesign({
       request: {
         mutationKey: createKey.current,
-        title: fromLanding ? 'Landing tee' : `Untitled ${getGarment({ garmentId: newGarment }).label.toLowerCase()}`,
+        title: fromLanding ? 'Landing tee' : untitledTitle({ garmentId: newGarment }),
         content: document,
       },
     })
@@ -269,7 +271,7 @@ function MyStudio() {
       copyAttempts.current.set(design.id, attempt)
     }
 
-    const title = copyTitle({ title: design.title })
+    const title = copyTitle({ title: design.title, garmentId: documentGarment({ document: attempt.content }) })
     const result = await createOwnedDesign({ request: { mutationKey: attempt.key, title, content: attempt.content } })
     setCopying(null)
 

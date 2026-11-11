@@ -72,6 +72,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
   const tryOn = useEditorStore(isTryOn)
   // A real model (the @4 tee, template-built forms) stands at its true height.
   const realModel = useEditorStore((state) => Boolean(state.document.modelSrc))
+  const modelFrame = useEditorStore((state) => state.document.modelFrame)
   const framing =
     !tryOn &&
     resolveGarmentId({ garmentId: isHouse ? leader?.garmentId : garmentId }) === 'tee' &&
@@ -126,7 +127,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
           className="h-full min-h-48 w-full touch-none lg:min-h-80"
           style={{ background: studioStageBackdrop() }}
         >
-          <StudioStage picking={!isHouse} intro framing={framing}>
+          <StudioStage picking={!isHouse} intro framing={framing} modelFrame={isHouse ? undefined : modelFrame}>
             <Suspense fallback={<FashionLoader />}>
               {isHouse ? (
                 leader ? (

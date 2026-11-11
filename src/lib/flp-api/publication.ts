@@ -498,16 +498,19 @@ export async function unpublish({
   return respond({ status: 204 })
 }
 
-export type PublishedDesign = {
+/** A live publication, as the image route needs it: no garment. */
+export type Publication = {
   designId: string
   slug: string
   title: string
   displayName: string | null
   seq: number
   publishedAt: string
-  garmentId: string
   renderPaths: Map<string, string>
 }
+
+/** A live publication with its garment, for the pages that show it. */
+export type PublishedDesign = Publication & { garmentId: string }
 
 /**
  * The live publication behind `slug`, or null when it is unknown, revoked
@@ -516,13 +519,13 @@ export type PublishedDesign = {
  * three views stays public (#179); `renderPaths` holds whichever exist.
  * Throws when the database can't answer: that isn't "not published".
  */
-export async function findPublishedDesign({
+export async function findPublication({
   admin,
   slug,
 }: {
   admin: SupabaseClient
   slug: string | undefined
-}): Promise<PublishedDesign | null> {
+}): Promise<Publication | null> {
   if (!slug || !SLUG.test(slug)) {
     return null
   }
@@ -553,18 +556,6 @@ export async function findPublishedDesign({
     return null
   }
 
-  // The garment comes from the published version's own template.
-  const { data: version } = await admin
-    .from('design_versions')
-    .select('template_id:content->template->>id, template_version:content->template->>version')
-    .eq('design_id', publication.design_id as string)
-    .eq('seq', publication.version_seq as number)
-    .maybeSingle()
-  const pinned = version as { template_id?: string | null; template_version?: string | null } | null
-  const resolved = pinned?.template_id
-    ? resolveTemplate({ id: pinned.template_id, version: Number(pinned.template_version) })
-    : null
-
   return {
     designId: publication.design_id as string,
     slug,
@@ -572,9 +563,45 @@ export async function findPublishedDesign({
     displayName: (publication.display_name as string | null) ?? null,
     seq: publication.version_seq as number,
     publishedAt: publication.published_at as string,
-    garmentId: resolved?.ok ? resolved.manifest.garmentId : 'tee',
     renderPaths,
   }
+}
+
+/**
+ * The live publication behind `slug` with its garment, which comes from the
+ * published version's own template. Only the pages that show the garment pay
+ * for the extra read; the image route uses `findPublication`.
+ */
+export async function findPublishedDesign({
+  admin,
+  slug,
+}: {
+  admin: SupabaseClient
+  slug: string | undefined
+}): Promise<PublishedDesign | null> {
+  const publication = await findPublication({ admin, slug })
+
+  if (!publication) {
+    return null
+  }
+
+  const { data: version, error } = await admin
+    .from('design_versions')
+    .select('template_id:content->template->>id, template_version:content->template->>version')
+    .eq('design_id', publication.designId)
+    .eq('seq', publication.seq)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error('version read failed', { cause: error })
+  }
+
+  const pinned = version as { template_id?: string | null; template_version?: string | null } | null
+  const resolved = pinned?.template_id
+    ? resolveTemplate({ id: pinned.template_id, version: Number(pinned.template_version) })
+    : null
+
+  return { ...publication, garmentId: resolved?.ok ? resolved.manifest.garmentId : 'tee' }
 }
 
 /**
@@ -672,10 +699,10 @@ export async function readPublicImage({
     return gone()
   }
 
-  let published: PublishedDesign | null
+  let published: Publication | null
 
   try {
-    published = await findPublishedDesign({ admin, slug })
+    published = await findPublication({ admin, slug })
   } catch (error) {
     console.error('flp public image read failed', { error })
     return Response.json(
@@ -730,86 +757,47 @@ export type BoardEntry = {
   image: string
 }
 
-/** How many publications the board reads; the newest win past it. */
+/** How many designs the board shows: the most voted, over every publication. */
 export const BOARD_LIMIT = 200
 
 /**
  * GET /public — the board: every published design with its three base views,
  * its garment (from the version's own template) and its votes, most voted
- * first. Anonymous, like the share pages; three reads however many designs.
+ * first. Anonymous, like the share pages. One query (`flp_board`), which
+ * ranks and counts in the database, so no row cap or URL length bounds it.
  */
 export async function readBoard({ admin, respond }: { admin: SupabaseClient; respond: Respond }) {
   try {
-    const { data: publications, error } = await admin
-      .from('publications')
-      .select('slug, design_id, version_seq, display_name, title, published_at')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(BOARD_LIMIT)
+    const { data, error } = await admin.rpc('flp_board', { p_limit: BOARD_LIMIT })
 
     if (error) {
       throw error
     }
 
-    const live = (publications ?? []).filter(
-      (row) => row.design_id && row.version_seq && row.title,
-    ) as Array<{ slug: string; design_id: string; version_seq: number; display_name: string | null; title: string; published_at: string }>
-    const designIds = [...new Set(live.map((row) => row.design_id))]
-
-    if (designIds.length === 0) {
-      return respond({ status: 200, body: { designs: [] } })
-    }
-
-    const [renders, versions, votes] = await Promise.all([
-      admin
-        .from('render_artifacts')
-        .select('design_id, version_seq, kind')
-        .in('design_id', designIds)
-        .eq('status', 'ready')
-        .in('kind', [...BASE_PUBLIC_RENDER_KINDS]),
-      admin
-        .from('design_versions')
-        .select('design_id, seq, template_id:content->template->>id, template_version:content->template->>version')
-        .in('design_id', designIds),
-      admin.from('publication_votes').select('slug').in('slug', live.map((row) => row.slug)),
-    ])
-
-    for (const result of [renders, versions, votes]) {
-      if (result.error) throw result.error
-    }
-
-    const ready = new Map<string, Set<string>>()
-    for (const row of renders.data as Array<{ design_id: string; version_seq: number; kind: string }>) {
-      const key = `${row.design_id}:${row.version_seq}`
-      ready.set(key, (ready.get(key) ?? new Set()).add(row.kind))
-    }
-
-    const templates = new Map<string, { id: string | null; version: string | null }>()
-    for (const row of versions.data as Array<{ design_id: string; seq: number; template_id: string | null; template_version: string | null }>) {
-      templates.set(`${row.design_id}:${row.seq}`, { id: row.template_id, version: row.template_version })
-    }
-
-    const counts = new Map<string, number>()
-    for (const row of votes.data as Array<{ slug: string }>) {
-      counts.set(row.slug, (counts.get(row.slug) ?? 0) + 1)
-    }
-
-    const designs: BoardEntry[] = live
-      .filter((row) => BASE_PUBLIC_RENDER_KINDS.every((kind) => ready.get(`${row.design_id}:${row.version_seq}`)?.has(kind)))
-      .map((row) => {
-        const template = templates.get(`${row.design_id}:${row.version_seq}`)
-        const resolved = template?.id ? resolveTemplate({ id: template.id, version: Number(template.version) }) : null
-        return {
-          slug: row.slug,
-          title: row.title,
-          displayName: row.display_name,
-          garmentId: resolved?.ok ? resolved.manifest.garmentId : 'tee',
-          votes: counts.get(row.slug) ?? 0,
-          publishedAt: row.published_at,
-          image: publicImagePath({ slug: row.slug, seq: row.version_seq }),
-        }
-      })
-      .sort((a, b) => b.votes - a.votes || b.publishedAt.localeCompare(a.publishedAt))
+    const rows = (data ?? []) as Array<{
+      slug: string
+      title: string
+      display_name: string | null
+      version_seq: number
+      published_at: string
+      template_id: string | null
+      template_version: string | null
+      vote_count: number
+    }>
+    const designs: BoardEntry[] = rows.map((row) => {
+      const resolved = row.template_id
+        ? resolveTemplate({ id: row.template_id, version: Number(row.template_version) })
+        : null
+      return {
+        slug: row.slug,
+        title: row.title,
+        displayName: row.display_name,
+        garmentId: resolved?.ok ? resolved.manifest.garmentId : 'tee',
+        votes: row.vote_count,
+        publishedAt: row.published_at,
+        image: publicImagePath({ slug: row.slug, seq: row.version_seq }),
+      }
+    })
 
     return respond({ status: 200, body: { designs } })
   } catch (error) {

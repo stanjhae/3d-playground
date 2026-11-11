@@ -1,4 +1,7 @@
+import type { CanonicalDocument } from './canonical-document'
 import type { DesignSummary } from './flp-api/client'
+import { getGarment } from './garments'
+import { resolveTemplate } from './template-manifest'
 
 /** How My Studio orders its cards (P3). */
 export const STUDIO_SORTS = [
@@ -37,10 +40,24 @@ export function visibleDesigns({
     : [...matching].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
-/** "Crest tee" → "Crest tee copy", kept inside the 80-character limit. */
-export function copyTitle({ title }: { title: string }) {
+/** "Untitled hoodie": the title a new design of `garmentId` starts with. */
+export function untitledTitle({ garmentId }: { garmentId: string }) {
+  return `Untitled ${getGarment({ garmentId }).label.toLowerCase()}`
+}
+
+/** The garment a saved document is drawn on, from its own template. */
+export function documentGarment({ document }: { document: CanonicalDocument }): string {
+  const resolved = resolveTemplate({ id: document.template.id, version: document.template.version })
+  return resolved.ok ? resolved.manifest.garmentId : 'tee'
+}
+
+/**
+ * "Crest tee" → "Crest tee copy", kept inside the 80-character limit; an
+ * untitled design is named after its garment.
+ */
+export function copyTitle({ title, garmentId = 'tee' }: { title: string; garmentId?: string }) {
   const suffix = ' copy'
-  const base = title.trim() || 'Untitled tee'
+  const base = title.trim() || untitledTitle({ garmentId })
   return `${base.slice(0, TITLE_MAX - suffix.length).trimEnd()}${suffix}`
 }
 
