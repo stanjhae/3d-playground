@@ -19,6 +19,9 @@ Status key:
 | `mixed.glb` | "White shirt black leather skirt outfit", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
 | `coat.glb` | "Black jacket coat", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
 | `suit.glb` | "White Suit Set", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
+| `hoodie.glb` | "Green and white hoodie", Style3D CG | CC BY 4.0 | GLB `asset.extras` and README; added 11 Nov | **Cleared, credit required** |
+| `overall.glb` | "Black Denim Overall Dress", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
+| `tailored.glb` | "Man Black Business Suit", Style3D CG | CC BY 4.0 | Same as above. Mesh simplified (an adaptation; CC BY allows it, and the credit should say it was modified) | **Cleared, credit required** |
 
 Credits currently appear in the studio silhouette switch (`SilhouetteSwitch.tsx`) and on the landing stage (`LandingStageHost.tsx`), using `garments.ts`. **Gap:** the shared `/look/:id` page, OG cards and board stills of looks built on Style3D forms show no attribution. CC BY 4.0 requires credit where the adapted work is shown. Either add credit there or keep Style3D forms out of the MVP's public outputs, which centre on the tee.
 

@@ -201,6 +201,42 @@ export const GARMENTS: readonly GarmentEntry[] = [
     },
   },
   {
+    id: 'hoodie',
+    label: 'Hoodie',
+    src: '/models/hoodie.glb',
+    parts: partsNamed({ ids: ['body'] }),
+    rail: true,
+    credit: {
+      label: 'Hoodie by Style3D CG',
+      href: 'https://sketchfab.com/3d-models/green-and-white-hoodie-af100701826e4bb9abc1ff1a1d24ab1e',
+      ...STYLE3D_LICENSE,
+    },
+  },
+  {
+    id: 'overall',
+    label: 'Overall dress',
+    src: '/models/overall.glb',
+    parts: partsNamed({ ids: ['body', 'hardware'] }),
+    rail: true,
+    credit: {
+      label: 'Overall dress by Style3D CG',
+      href: 'https://sketchfab.com/3d-models/black-denim-overall-dress-09c6f4cdafee4ed2a566affa4cbebf66',
+      ...STYLE3D_LICENSE,
+    },
+  },
+  {
+    id: 'tailored',
+    label: 'Tailored suit',
+    src: '/models/tailored.glb',
+    parts: partsNamed({ ids: ['body', 'hardware'] }),
+    rail: true,
+    credit: {
+      label: 'Tailored suit by Style3D CG',
+      href: 'https://sketchfab.com/3d-models/man-black-business-suit-7a669a06fb954d459985ccaa98672177',
+      ...STYLE3D_LICENSE,
+    },
+  },
+  {
     id: 'jacket',
     label: 'Jacket',
     src: '/models/jacket.glb',

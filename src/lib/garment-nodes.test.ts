@@ -237,4 +237,28 @@ describe('house forms', () => {
       parts: ['body', 'hardware'],
     })
   })
+
+  test('hoodie is credited and framed', async () => {
+    await expectSeatedStyle3d({
+      path: 'public/models/hoodie.glb',
+      title: 'Green and white hoodie',
+      parts: ['body'],
+    })
+  })
+
+  test('overall dress keeps its hardware', async () => {
+    await expectSeatedStyle3d({
+      path: 'public/models/overall.glb',
+      title: 'Black Denim Overall Dress',
+      parts: ['body', 'hardware'],
+    })
+  })
+
+  test('tailored suit keeps tailoring panels', async () => {
+    await expectSeatedStyle3d({
+      path: 'public/models/tailored.glb',
+      title: 'Man Black Business Suit',
+      parts: ['body', 'hardware'],
+    })
+  })
 })

@@ -41,6 +41,9 @@ const GARMENT_CATEGORY: Record<GarmentId, GarmentCategoryId> = {
   mixed: 'tops',
   coat: 'outerwear',
   suit: 'outerwear',
+  hoodie: 'tops',
+  overall: 'tops',
+  tailored: 'outerwear',
   jacket: 'outerwear',
 }
 
