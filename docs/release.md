@@ -75,8 +75,8 @@ Run it on the exact commit to be tagged, in the main checkout.
 
 Builds below the floor can't open designs that newer builds save, so never promote a deployment below it.
 
-- **Floor: master at `cb4d4c9`** (#326, merged 10 Nov 2026), the reader for flips, locks and pen pressure. From W1 (flip writer) on, designs can store `flipX` and `flipY`, and from W3 (locks writer) `locked`, which `v0.9.0-rc.6` and earlier refuse. **rc.6 is no longer a fallback.**
-- No tag contains the floor yet. Until one does, roll back by promoting a Vercel deployment built from `cb4d4c9` or later, or by `git revert`.
+- **Floor: `v0.9.0-rc.7`.** It contains the reader for flips, locks and pen pressure (#326, master `cb4d4c9`) and their writers (#338, #341, #352). Designs saved from W1 on can store `flipX`, `flipY`, `pressures` and `locked`, which `v0.9.0-rc.6` and earlier refuse. **rc.6 is no longer a fallback.**
+- Roll back by promoting a Vercel deployment built from rc.7 or later, or by `git revert`.
 - `src/lib/optional-fields.test.ts` loads a design using every optional field; it must keep passing at the floor.
 - Move the floor only when a new reader lands and its writer is about to merge (reader deployed 24 h first).
 

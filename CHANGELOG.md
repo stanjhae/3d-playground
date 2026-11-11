@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.9.0-rc.7: alpha release candidate (11 Nov 2026)
+
+The studio depth and trust candidate. Faster painting, keyboard editing, snapping, restacking and Pro colour; flips, pencil pressure and locks saved in designs; account votes; terms, self-serve account deletion and takedowns; error tracking, a health check and nightly backups. Delivered by #322–#354.
+
+**Rollback floor:** designs saved on this build can store flips, pen pressure and locks, which rc.6 and earlier refuse. rc.7 is the new floor; never promote a deployment below it (`docs/release.md`).
+
+### Added
+- **Flip** left to right or upside down for words and images, in the inspector, each one undo step (#338).
+- **Pencil pressure is kept:** a stroke whose pressure varies stores it per point, so its taper survives the pen lifting. Mouse strokes are stored exactly as before (#341).
+- **Locks:** lock an item from the layer list, the inspector or ⌘/Ctrl+L. A locked item can't be picked on the panel or the tee, moved, edited or deleted until it's unlocked (#352).
+- **Keyboard editing:** ⌘/Ctrl+D duplicates with a small step aside, ⌘/Ctrl+C and V copy and paste within the session, B, E, T and G pick a tool, and Esc drops the stroke being drawn. Keyboard help shows in Guided too (#332).
+- **Snapping and align:** a dragged item pulls to the centre line, the chest line and other items' centres, with guide lines; rotation pulls to quarter turns; Alt places freely. Centre and On chest in the inspector (#336).
+- **Restacking:** drag a layer by its grip, To front and To back in Pro, and ⌘/Ctrl+[ and ] (#342).
+- **Pro colour:** a full picker, hex entry, the eyedropper where the browser has one, and the last 8 colours. Guided keeps the 8 named colours (#342).
+- **Account votes on shared designs:** one vote per account, with a Vote / Voted button and the count. Signed out it says Sign in to vote. Votes carry over a republish. Guest voting is retired (#340).
+- **My Studio:** real thumbnails, search, sort and Duplicate. First-run hints outline the control they're about (#346).
+- **Terms of use** at `/terms`, accepted once before My Studio or the studio (#347, #349).
+- **Delete account** at the bottom of My Studio, confirmed by typing the account's email (#347).
+- **Takedowns:** an operator can take a shared design down with `scripts/moderation.mjs`, which also stops it being published again until the hold is cleared (#343).
+- **Error pages:** a branded error page and 404, with Try again and a way home (#323).
+- **Operations:** error reports through `/api/errors` (off until `SENTRY_DSN` is set), `/api/health`, a scheduled check of beta four times an hour (#337), and nightly backups of the database and stored files with a restore check (#347, #351).
+
+### Changed
+- **Painting is much faster:** a live stroke draws over a cached design instead of redrawing it for every point. Atlas work per frame went from 84–87 ms to 2.5–3.6 ms at 512 px, with identical pixels (#329).
+- **A new brush stroke stays on top** of words and images, as it looked while drawing. Before, it dropped beneath them on release (#325).
+- **Publish and share:** publishing, unpublishing and Copy link are announced and keep focus. The share page tells an outage from an unpublished design, offers Try again and "Make your own" (#328).
+- **Navigation and accessibility:** a phone menu, a site footer with Privacy and Terms, page titles, a skip link, focus on route change and after rename or delete, arrow keys in every choice group, and a text description of the 3D view (#328).
+- **Plain words:** no raw error codes, Sign in everywhere, and a Report link that's never missing (#328).
+- **Shared and public request limits** count in the database instead of each server's memory, and public reads have their own limits (#343).
+- **Beta** is served at `beta.fashionleadervote.com` (#330), and only master deploys (#327).
+
+### Fixed
+- **A palm on the screen** no longer ends or disturbs a pen stroke, on the panels or on the tee (#323).
+- **A batch over a limit part way through** now says which limit, instead of failing silently (#323).
+- **Republishing a version overwrote its stored pictures.** Stored views are now written once, and renders record their template and compiler version (#335, closes the #179 part).
+- **Publish checks the drawn content** by hash, not only the document's revision (#334, #164).
+- **Image colour swatches that did nothing** are gone (#332).
+- **"Start from an example" could make two copies** after a lost response (#346).
+- **Sign-in:** the code step survives a reload, and an ended session is explained (#328).
+- **The demo reset failed** once the terms gate arrived, because it never accepted the terms for the demo account (#354).
+
+### Known limits for the alpha
+- **The browser journey was not run on staging for this candidate.** The hosted check passed its other 15 checks, including terms, votes, takedowns and account deletion (`docs/evidence/hosted-2026-11-11.md`), but the run can't read sign-in codes.
+- **Real iPad and Pencil** haven't been tried with this candidate: pressure, palm handling and frame times were proven with simulated events only.
+- **Error tracking is off** until `SENTRY_DSN` is set in Vercel (`docs/alerts.md`).
+- **The terms wording** is a plain-language draft awaiting the owner's review.
+- **Drawing after placing a word or image adds a paint layer,** so the 40-layer panel limit arrives sooner.
+- **Marks near a side seam read narrower,** and brush dabs and base patterns draw in atlas proportions, as on rc.6.
+- **After sign-out,** a direct database read with the old access token can still work until it expires, at most an hour (`docs/decisions.md`, 3 Nov).
+- **The first request after a sign-in can fail on the local stack** ("JWT issued at future", PGRST303), as on rc.6.
+- **WebKit stands in for recent Safari.** Real iPhone Safari and Android aren't tested.
+- **Owner items:** rights (#138), brand and product decisions (#198), the claims questions (#199), branch protection (#192), the operator for alerts (#193), and validation and pitch work (#196, #197, #200, #201).
+
 ## 0.9.0-rc.6: alpha release candidate (9 Nov 2026)
 
 The studio overhaul candidate. Four steps instead of six, Guided by default with a Pro tools switch, a white 3D stage, a new look across the site, and clearer sign-in failures. Delivered by #310–#318 and #320.
