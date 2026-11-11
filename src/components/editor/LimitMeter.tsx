@@ -1,6 +1,7 @@
 import {
+  type CanonicalDocument,
   type CanonicalPanelId,
-  CANONICAL_PANEL_IDS,
+  panelIdsOf,
 } from '../../lib/canonical-document'
 import { cn } from '../../lib/cn'
 import { isCanonicalGarment } from '../../lib/concept-flags'
@@ -15,12 +16,21 @@ import { getCanonicalDocument, useEditorStore } from '../../lib/editor-store'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { canonicalPanel } from '../../lib/render-projection'
 import { chromeMutedClass } from '../../lib/studio-chrome'
+import { resolveTemplate } from '../../lib/template-manifest'
 
-const PANEL_LABELS: Record<CanonicalPanelId, string> = {
+const PANEL_LABELS: Partial<Record<CanonicalPanelId, string>> = {
   front: HOUSE_COPY.front,
   back: HOUSE_COPY.back,
   left: HOUSE_COPY.wearerLeft,
   right: HOUSE_COPY.wearerRight,
+}
+
+/** The tee's house labels, else the template's own name for the panel. */
+function panelLabel({ document, panel }: { document: CanonicalDocument; panel: CanonicalPanelId }) {
+  const resolved = resolveTemplate(document.template)
+  return (resolved.ok && resolved.manifest.garmentId !== 'tee' ? resolved.manifest.regions[panel]?.label : undefined)
+    ?? PANEL_LABELS[panel]
+    ?? panel
 }
 
 const LIMIT_LABELS: Record<LimitKind, string> = {
@@ -47,9 +57,9 @@ export function LimitMeter() {
   }
 
   // Every panel near a limit shows, the one being edited first.
-  const active = canonicalPanel({ renderPanel: paintPanel })
   const document = getCanonicalDocument()
-  const near = [active, ...CANONICAL_PANEL_IDS.filter((panel) => panel !== active)].flatMap((panel) =>
+  const active = canonicalPanel({ renderPanel: paintPanel, template: document.template })
+  const near = [active, ...panelIdsOf({ document }).filter((panel) => panel !== active)].flatMap((panel) =>
     panelLimitCounters({ document, panel })
       .map(
         (counter): LimitCounter =>
@@ -77,7 +87,7 @@ export function LimitMeter() {
                   'text-flv-muted': counter.used < LIMIT_MAX[counter.kind],
                 })}
               >
-                {PANEL_LABELS[counter.panel]} · {LIMIT_LABELS[counter.kind]} {counter.used} / {counter.max}
+                {panelLabel({ document, panel: counter.panel })} · {LIMIT_LABELS[counter.kind]} {counter.used} / {counter.max}
               </span>
             </li>
           ))}

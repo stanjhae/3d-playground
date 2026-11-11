@@ -58,6 +58,8 @@ export function SelectableMesh({
   const typeDraft = useEditorStore((state) => state.typeDraft)
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
+  // Template-built garments carry their own panel rectangles (absent: the tee's).
+  const panelUv = useEditorStore((state) => state.document.panelUv)
   const startStroke = useEditorStore((state) => state.startStroke)
   const appendStroke = useEditorStore((state) => state.appendStroke)
   const endStroke = useEditorStore((state) => state.endStroke)
@@ -144,7 +146,7 @@ export function SelectableMesh({
           return
         }
 
-        const point = uvToPanelPoint({ u: uv.u, v: uv.v })
+        const point = uvToPanelPoint({ u: uv.u, v: uv.v, rects: panelUv })
 
         if (!point) {
           return
@@ -256,7 +258,7 @@ export function SelectableMesh({
           return
         }
 
-        const point = uvToPanelPoint({ u: uv.u, v: uv.v })
+        const point = uvToPanelPoint({ u: uv.u, v: uv.v, rects: panelUv })
 
         if (!point) {
           return

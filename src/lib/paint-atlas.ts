@@ -4,7 +4,6 @@ import { MAX_ART_MAP_CHARS, isSafeDataImage } from './look-thumbnail'
 import {
   atlasPixelForUv,
   atlasSourceRect,
-  DEFAULT_PANEL_UV,
   panelPointToUv,
 } from './panel-uv'
 import { textCanvasFont, textFaceState } from './text-faces'
@@ -17,6 +16,8 @@ export type AtlasBuffer = {
   pixels: Uint8ClampedArray
   /** Writes outside these pixel bounds (end-exclusive) are dropped. */
   clip?: { x0: number; y0: number; x1: number; y1: number }
+  /** The document's panel rectangles; absent means `DEFAULT_PANEL_UV` (the tee). */
+  panelUv?: DesignDocument['panelUv']
 }
 
 function hexToRgb({ color }: { color: string }) {
@@ -182,6 +183,7 @@ export function drawStroke({
   if (stroke.tool === 'fill') {
     const { r, g, b, a } = hexToRgb({ color: stroke.color })
     const rect = atlasSourceRect({
+      rects: buffer.panelUv,
       panel: stroke.panel,
       width: buffer.width,
       height: buffer.height,
@@ -232,11 +234,13 @@ export function drawStroke({
     }
 
     const start = panelPointToUv({
+    rects: buffer.panelUv,
       panel: stroke.panel,
       x: from.x,
       y: from.y,
     })
     const end = panelPointToUv({
+    rects: buffer.panelUv,
       panel: stroke.panel,
       x: to.x,
       y: to.y,
@@ -553,6 +557,7 @@ function drawTextMark({
   }
 
   const origin = panelPointToUv({
+    rects: buffer.panelUv,
     panel: layer.panel,
     x: layer.x,
     y: layer.y,
@@ -680,6 +685,7 @@ function drawPatternMark({
   }
 
   const origin = panelPointToUv({
+    rects: buffer.panelUv,
     panel: layer.panel,
     x: layer.x,
     y: layer.y,
@@ -732,7 +738,7 @@ function drawPeriodicPattern({
     return
   }
 
-  const origin = panelPointToUv({ panel: layer.panel, x: layer.x, y: layer.y })
+  const origin = panelPointToUv({ panel: layer.panel, x: layer.x, y: layer.y, rects: buffer.panelUv })
   const pixel = atlasPixelForUv({
     u: origin.u,
     v: origin.v,
@@ -813,6 +819,7 @@ function drawGraphicMark({
   image?: AtlasBuffer
 }) {
   const origin = panelPointToUv({
+    rects: buffer.panelUv,
     panel: layer.panel,
     x: layer.x,
     y: layer.y,
@@ -864,15 +871,23 @@ function drawGraphicMark({
 export function createAtlasBuffer({
   width = ATLAS_SIZE,
   height = ATLAS_SIZE,
+  panelUv,
 }: {
   width?: number
   height?: number
+  panelUv?: DesignDocument['panelUv']
 } = {}): AtlasBuffer {
   return {
     width,
     height,
     pixels: new Uint8ClampedArray(width * height * 4),
+    ...(panelUv ? { panelUv } : {}),
   }
+}
+
+/** Panelled garments (the tee, template-built forms) clip marks to each panel. */
+function clipsPanels({ document }: { document: DesignDocument }) {
+  return document.garmentId === 'tee' || Boolean(document.panelUv)
 }
 
 /**
@@ -886,7 +901,7 @@ function clipToPanel({
   buffer: AtlasBuffer
   panel: Stroke['panel']
 }): AtlasBuffer {
-  const rect = atlasSourceRect({ panel, width: buffer.width, height: buffer.height })
+  const rect = atlasSourceRect({ panel, width: buffer.width, height: buffer.height, rects: buffer.panelUv })
 
   return {
     ...buffer,
@@ -936,10 +951,10 @@ export function rasterizeLayers({
   images?: Record<string, AtlasBuffer>
   pendingText?: PendingText
 }): AtlasBuffer {
-  const buffer = createAtlasBuffer({ width, height })
+  const buffer = createAtlasBuffer({ width, height, panelUv: document.panelUv })
   // Tee panels are separate print regions; concept garments keep v1 drawing.
   const target = ({ panel }: { panel: Stroke['panel'] }) =>
-    document.garmentId === 'tee' ? clipToPanel({ buffer, panel }) : buffer
+    clipsPanels({ document }) ? clipToPanel({ buffer, panel }) : buffer
   const liveEraser = extraStroke?.tool === 'eraser' && extraStrokeLayerId !== undefined
   // A live stroke previews inside the layer it will be committed to, so it
   // looks as it will once saved: at that layer's opacity, under its erasers.
@@ -952,7 +967,7 @@ export function rasterizeLayers({
   let scratch: AtlasBuffer | null = null
   const layerBuffer = ({ region }: { region: NonNullable<AtlasBuffer['clip']> }) => {
     if (!scratch) {
-      scratch = createAtlasBuffer({ width, height })
+      scratch = createAtlasBuffer({ width, height, panelUv: document.panelUv })
       return scratch
     }
 
@@ -1002,7 +1017,7 @@ export function rasterizeLayers({
 
       for (const stroke of strokes) {
         drawStroke({
-          buffer: document.garmentId === 'tee' ? clipToPanel({ buffer: own, panel: stroke.panel }) : own,
+          buffer: clipsPanels({ document }) ? clipToPanel({ buffer: own, panel: stroke.panel }) : own,
           stroke,
         })
       }
@@ -1060,7 +1075,7 @@ function paintRegion({
   strokes: readonly Stroke[]
 }): Region | null {
   const region =
-    document.garmentId === 'tee'
+    clipsPanels({ document })
       ? unionClip({ clips: strokes.map((stroke) => clipToPanel({ buffer, panel: stroke.panel }).clip!) })
       : { x0: 0, y0: 0, x1: buffer.width, y1: buffer.height }
 
@@ -1095,7 +1110,12 @@ function compositeRegion({
 }
 
 function copyBuffer({ buffer }: { buffer: AtlasBuffer }): AtlasBuffer {
-  return { width: buffer.width, height: buffer.height, pixels: new Uint8ClampedArray(buffer.pixels) }
+  return {
+    width: buffer.width,
+    height: buffer.height,
+    pixels: new Uint8ClampedArray(buffer.pixels),
+    ...(buffer.panelUv ? { panelUv: buffer.panelUv } : {}),
+  }
 }
 
 type RasterInput = Parameters<typeof rasterizeLayers>[0]
@@ -1133,7 +1153,7 @@ function livePlan({
   layerId: string | null | undefined
 }): LivePlan {
   // Concept garments draw without panel clips, so order matters everywhere.
-  if (document.garmentId !== 'tee' || stroke.tool === 'fill' || layerId === undefined) {
+  if (!clipsPanels({ document }) || stroke.tool === 'fill' || layerId === undefined) {
     return { kind: 'full' }
   }
 
@@ -1231,7 +1251,7 @@ export function createLiveAtlas({ enabled = true }: { enabled?: boolean } = {}) 
           ...shared,
           document: { ...document, layers: document.layers.filter((_, index) => index !== plan.index) },
         })
-        own = createAtlasBuffer({ width, height })
+        own = createAtlasBuffer({ width, height, panelUv: document.panelUv })
 
         for (const stroke of plan.layer.strokes) {
           drawStroke({ buffer: clipToPanel({ buffer: own, panel: stroke.panel }), stroke })
@@ -1330,7 +1350,7 @@ export function atlasPixelAtPanel({
   x: number
   y: number
 }) {
-  const uv = panelPointToUv({ panel, x, y, rects: DEFAULT_PANEL_UV })
+  const uv = panelPointToUv({ panel, x, y, rects: buffer.panelUv })
   const { index } = atlasPixelForUv({
     u: uv.u,
     v: uv.v,

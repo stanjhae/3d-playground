@@ -48,7 +48,7 @@ export function placementScale({
     return scale
   }
 
-  const rect = DEFAULT_PANEL_UV[panel]
+  const rect = surface.uv ?? DEFAULT_PANEL_UV[panel]!
   const box = imageBox({ scale, aspect })
   const fills = Math.max(box.width / (rect.u1 - rect.u0), (box.height * surface.stretchY) / (rect.v1 - rect.v0))
   return fills > 0.9 ? scale * (0.9 / fills) : scale
@@ -68,7 +68,7 @@ export function layerBox({
 
   // The panel draws its atlas rectangle at the cloth's shape, so the frame
   // follows what is drawn, in that panel's own units.
-  const rect = DEFAULT_PANEL_UV[layer.panel]
+  const rect = surface.uv ?? DEFAULT_PANEL_UV[layer.panel]!
   return {
     width: atlas.width / (rect.u1 - rect.u0),
     height: (atlas.height * surface.stretchY) / (rect.v1 - rect.v0),

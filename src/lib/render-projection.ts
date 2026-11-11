@@ -1,7 +1,7 @@
 import {
   type CanonicalDocument,
   type CanonicalPanelId,
-  CANONICAL_PANEL_IDS,
+  panelIdsOf,
 } from './canonical-document.ts'
 import type { DesignDocument, DesignLayer, PanelId } from './design-document.ts'
 import { CURRENT_TEMPLATE, type TemplateManifest, resolveTemplate } from './template-manifest.ts'
@@ -32,31 +32,39 @@ export type RenderProjection = {
   missingAssets: string[]
 }
 
-// Panel routing is the same in every template version.
-const RENDER_BY_CANONICAL = Object.fromEntries(
-  CANONICAL_PANEL_IDS.map((panel) => [
-    panel,
-    CURRENT_TEMPLATE.regions[panel].renderPanel,
-  ]),
-) as Record<CanonicalPanelId, PanelId>
+function manifestFor({ template }: { template?: CanonicalDocument['template'] }) {
+  if (!template) {
+    return CURRENT_TEMPLATE
+  }
 
-const CANONICAL_BY_RENDER = Object.fromEntries(
-  CANONICAL_PANEL_IDS.map((panel) => [RENDER_BY_CANONICAL[panel], panel]),
-) as Record<PanelId, CanonicalPanelId>
-
-/** UI and pointer code speak render panels; commands speak canonical. */
-export function canonicalPanel({ renderPanel }: { renderPanel: PanelId }) {
-  return CANONICAL_BY_RENDER[renderPanel]
-}
-
-export function renderPanel({ panel }: { panel: CanonicalPanelId }) {
-  return RENDER_BY_CANONICAL[panel]
-}
-
-function manifestFor({ template }: { template: CanonicalDocument['template'] }) {
   const resolved = resolveTemplate(template)
   // Unresolvable documents are refused on load (cloud-design-load.ts).
   return resolved.ok ? resolved.manifest : CURRENT_TEMPLATE
+}
+
+/**
+ * UI and pointer code speak render panels; commands speak canonical.
+ * Routing is the same in every version of a template; without one, the tee's.
+ */
+export function canonicalPanel({
+  renderPanel,
+  template,
+}: {
+  renderPanel: PanelId
+  template?: CanonicalDocument['template']
+}): CanonicalPanelId {
+  const regions = manifestFor({ template }).regions
+  return Object.keys(regions).find((panel) => regions[panel]!.renderPanel === renderPanel) ?? renderPanel
+}
+
+export function renderPanel({
+  panel,
+  template,
+}: {
+  panel: CanonicalPanelId
+  template?: CanonicalDocument['template']
+}): PanelId {
+  return manifestFor({ template }).regions[panel]?.renderPanel ?? panel
 }
 
 /** Whether `panel` is drawn left-right reversed in the render document. */
@@ -67,7 +75,7 @@ export function rendersMirrored({
   template: CanonicalDocument['template']
   panel: CanonicalPanelId
 }) {
-  return manifestFor({ template }).regions[panel].renderMirrorX
+  return manifestFor({ template }).regions[panel]?.renderMirrorX ?? false
 }
 
 /**
@@ -109,6 +117,16 @@ function panelAspects({ manifest }: { manifest: TemplateManifest }) {
     : {}
 }
 
+/** Template-built garments carry their own atlas rectangles; the tee uses the default. */
+function panelUvOf({ manifest }: { manifest: TemplateManifest }) {
+  if (manifest.geometry.kind === 'procedural') {
+    return {}
+  }
+
+  const regions = Object.values(manifest.regions)
+  return { panelUv: Object.fromEntries(regions.map((region) => [region.renderPanel, { ...region.uv }])) }
+}
+
 function flipsOf(layer: { flipX?: true; flipY?: true }) {
   return { ...(layer.flipX ? { flipX: true } : {}), ...(layer.flipY ? { flipY: true } : {}) }
 }
@@ -126,9 +144,13 @@ export function toRenderDocument({
   const layers: DesignLayer[] = []
   const missingAssets: string[] = []
 
+  const panels = panelIdsOf({ document })
+  const routeOf = (panel: CanonicalPanelId) => manifest.regions[panel]?.renderPanel ?? panel
+  const regionOf = (panel: CanonicalPanelId) => manifest.regions[panel]
+
   if (base.kind !== 'solid') {
-    for (const panel of CANONICAL_PANEL_IDS) {
-      const render = RENDER_BY_CANONICAL[panel]
+    for (const panel of panels) {
+      const render = routeOf(panel)
       const angle = base.kind === 'stripes' ? base.angle : 0
       layers.push({
         id: `base-fill-${render}`,
@@ -140,7 +162,7 @@ export function toRenderDocument({
         y: 0.5,
         scale: 1.05,
         rotation: mirrorToRender({
-          mirrored: manifest.regions[panel].renderMirrorX,
+          mirrored: regionOf(panel)?.renderMirrorX ?? false,
           value: { rotation: angle },
         }).rotation,
         // The picked colour at full strength: what you pick is what prints.
@@ -151,15 +173,19 @@ export function toRenderDocument({
     }
   }
 
-  for (const panel of CANONICAL_PANEL_IDS) {
-    const render = RENDER_BY_CANONICAL[panel]
-    const mirrored = manifest.regions[panel].renderMirrorX
-    const regionSurface = manifest.regions[panel].surface
-    const surface = regionSurface ? { surface: regionSurface } : {}
+  for (const panel of panels) {
+    const render = routeOf(panel)
+    const mirrored = regionOf(panel)?.renderMirrorX ?? false
+    const region = regionOf(panel)
+    const regionSurface = region?.surface
+    // Template-built garments carry their rectangle, so frames and hits use it.
+    const surface = regionSurface
+      ? { surface: manifest.geometry.kind === 'glb' ? { ...regionSurface, uv: { ...region!.uv } } : regionSurface }
+      : {}
     const place = ({ x, rotation }: { x: number; rotation: number }) =>
       mirrorToRender({ mirrored, value: { x, rotation } })
 
-    for (const layer of document.panels[panel].layers) {
+    for (const layer of document.panels[panel]?.layers ?? []) {
       const label = layer.name ? { label: layer.name } : {}
       // The editor reads the lock from here; it draws nothing differently.
       const locked = layer.locked ? { locked: true as const } : {}
@@ -243,14 +269,15 @@ export function toRenderDocument({
 
   return {
     document: {
-      garmentId: 'tee',
-      garmentVersion: 2,
+      garmentId: manifest.garmentId as DesignDocument['garmentId'],
+      garmentVersion: manifest.geometry.kind === 'procedural' ? 2 : manifest.version,
       structural: { ...manifest.geometry.structural },
       overrides:
         base.kind === 'solid' && baseColor === manifest.material.color
           ? []
           : [{ meshName: 'body', color: baseColor, roughness: 0.86, metalness: 0 }],
       ...panelAspects({ manifest }),
+      ...panelUvOf({ manifest }),
       layers: layers.length > 0 ? layers : [{ id: 'paint-empty', kind: 'paint', visible: true, strokes: [] }],
     },
     missingAssets,

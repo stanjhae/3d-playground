@@ -38,7 +38,8 @@ import {
   type LayerEdit,
   placementScale,
 } from './layer-hit'
-import { panelSurface } from './template-manifest'
+import { isCanonicalGarment } from './concept-flags'
+import { panelSurface, resolveTemplate, templateForGarment } from './template-manifest'
 import type {
   Design,
   DesignMethod,
@@ -393,14 +394,28 @@ let commandStack: CommandStack = stackFromDocument({
 const garmentShelves = new Map<GarmentId, CommandStack>()
 
 /**
- * The tee runs on the canonical v2 engine; concept garments keep the
- * legacy v1 stack above. `activeGarment` says which one is live.
+ * Garments with a template (the tee, template-built forms) run on the
+ * canonical v2 engine; concept garments keep the legacy v1 stack above.
+ * `activeGarment` says which one is live; `tee` is the live canonical
+ * engine, and `canonicalShelves` keeps the others while one is away.
  */
 let tee: TeeEngine = createTeeEngine()
 let activeGarment: GarmentId = 'tee'
+const canonicalShelves = new Map<GarmentId, TeeEngine>()
 
 function teeActive() {
-  return activeGarment === 'tee'
+  return isCanonicalGarment({ garmentId: activeGarment })
+}
+
+/** The engine a canonical garment resumes with: its shelf, else a fresh one. */
+function canonicalEngineFor({ garmentId }: { garmentId: GarmentId }) {
+  return (
+    canonicalShelves.get(garmentId) ??
+    createTeeEngine({
+      revision: tee.stack.revision + 1,
+      templateId: templateForGarment({ garmentId })?.id,
+    })
+  )
 }
 
 /** Point the live engine at a document; returns import notes for the tee. */
@@ -412,6 +427,12 @@ function loadEngine({
   garmentId: GarmentId
 }): { importNotes: ImportNote[]; limitNotice: string | null } {
   activeGarment = garmentId
+
+  // Only tee v1 documents (drafts, looks) convert; other templates start empty.
+  if (isCanonicalGarment({ garmentId }) && garmentId !== 'tee') {
+    tee = canonicalEngineFor({ garmentId })
+    return { importNotes: [], limitNotice: null }
+  }
 
   if (garmentId === 'tee') {
     const loaded = loadTeeEngine({ engine: tee, document })
@@ -456,7 +477,7 @@ function syncFromStack({
     return {
       document,
       overrides: document.overrides,
-      garmentId: 'tee' as GarmentId,
+      garmentId: activeGarment,
       revision: tee.stack.revision,
       undoCount: tee.stack.past.length,
       redoCount: tee.stack.future.length,
@@ -711,7 +732,7 @@ export function layerPlacement({
   }
 
   return {
-    panel: renderPanel({ panel: found.panel }),
+    panel: renderPanel({ panel: found.panel, template: tee.stack.document.template }),
     index: found.index,
     count: tee.stack.document.panels[found.panel].layers.length,
   }
@@ -753,17 +774,24 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     const resolved = resolveGarmentId({ garmentId })
 
     set((state) => {
-      // A cloud design is a canonical tee; it never switches garment.
-      if (state.garmentId === resolved || (state.cloud && resolved !== 'tee')) {
+      // A cloud design is pinned to its template; it never switches garment.
+      if (state.garmentId === resolved || state.cloud) {
         return state
       }
 
-      if (!teeActive()) {
+      if (teeActive()) {
+        canonicalShelves.set(activeGarment, tee)
+      } else {
         shelfCurrent({ garmentId: state.garmentId })
       }
 
       activeGarment = resolved
-      const restored = resolved === 'tee' ? tee : restoreShelf({ garmentId: resolved })
+
+      if (isCanonicalGarment({ garmentId: resolved })) {
+        tee = canonicalEngineFor({ garmentId: resolved })
+      }
+
+      const restored = isCanonicalGarment({ garmentId: resolved }) ? tee : restoreShelf({ garmentId: resolved })
 
       if (restored) {
         return syncFromStack({
@@ -949,6 +977,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   reset: () => {
     garmentShelves.clear()
+    canonicalShelves.clear()
     tee = createTeeEngine({ revision: tee.stack.revision + 1 })
     activeGarment = 'tee'
     commandStack = stackFromDocument({ document: emptyDocument({ garmentId: 'tee' }) })
@@ -1304,7 +1333,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
               limitNotice: limitMessage({
                 counter: {
                   kind: 'points',
-                  panel: canonicalPanel({ renderPanel: state.activeStroke.panel }),
+                  panel: canonicalPanel({ renderPanel: state.activeStroke.panel, template: tee.stack.document.template }),
                   used: state.activeStroke.points.length,
                   max,
                 },
@@ -1678,7 +1707,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     })
   },
   loadCanonical: ({ document, cloud }) => {
-    activeGarment = 'tee'
+    canonicalShelves.clear()
+    const resolved = resolveTemplate(document.template)
+    activeGarment = (resolved.ok ? resolved.manifest.garmentId : 'tee') as GarmentId
     tee = { stack: replaceDocument({ stack: tee.stack, document }), assetSources: {} }
     set({
       ...syncFromStack(),
@@ -1724,7 +1755,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       engine: { ...tee, assetSources: { ...tee.assetSources, [assetId]: src } },
       command: {
         type: 'addLayer',
-        panel: canonicalPanel({ renderPanel: panel ?? get().paintPanel }),
+        panel: canonicalPanel({ renderPanel: panel ?? get().paintPanel, template: tee.stack.document.template }),
         layer: {
           id: layerId,
           kind: 'image',

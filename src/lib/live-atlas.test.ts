@@ -74,7 +74,7 @@ function design({
   }
 
   for (const [panel, panelLayers] of Object.entries(layers)) {
-    document.panels[panel as CanonicalPanelId].layers = panelLayers
+    document.panels[panel as CanonicalPanelId]!.layers = panelLayers!
   }
 
   return toRenderDocument({ document, assetSources: { [ASSET]: ASSET_SRC } }).document

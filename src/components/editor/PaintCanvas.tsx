@@ -11,7 +11,6 @@ import { documentHasInk } from '../../lib/design-document'
 import { trackAssumption } from '../../lib/assumption-events'
 import type { PanelId } from '../../lib/design-document'
 import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
-import { isCanonicalGarment } from '../../lib/concept-flags'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
 import { acceptsPointer } from '../../lib/palm-rejection'
@@ -360,7 +359,8 @@ function PaintSurface({
   onActivate: () => void
 }) {
   // Guides are measured on the tee; concept garments have none.
-  const teeGuides = useEditorStore((state) => isCanonicalGarment({ garmentId: state.garmentId }))
+  // Chest and collar guides are measured on the tee.
+  const teeGuides = useEditorStore((state) => state.garmentId === 'tee')
   const guides = teeGuides ? panelGuides({ panel }) : null
   const startStroke = useEditorStore((state) => state.startStroke)
   const appendStroke = useEditorStore((state) => state.appendStroke)

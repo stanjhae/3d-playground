@@ -1,4 +1,5 @@
 import type { GarmentId } from './design-schema'
+import { templateForGarment } from './template-manifest'
 
 /**
  * FLP scope gate (E01 #152). The tee runs on the canonical v2 document;
@@ -8,9 +9,12 @@ import type { GarmentId } from './design-schema'
  */
 export const CONCEPT_FEATURES = import.meta.env.VITE_FLP_CONCEPT === 'true'
 
-/** True for garments whose design is stored as the canonical v2 document. */
+/**
+ * True for garments whose design is stored as the canonical v2 document:
+ * those with a template (`template-manifest.ts`).
+ */
 export function isCanonicalGarment({ garmentId }: { garmentId: GarmentId }) {
-  return garmentId === 'tee'
+  return Boolean(templateForGarment({ garmentId }))
 }
 
 export function showsGarmentInStudio({ garmentId }: { garmentId: GarmentId }) {

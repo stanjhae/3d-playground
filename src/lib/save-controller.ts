@@ -1,5 +1,5 @@
 import type { CanonicalDocument } from './canonical-document.ts'
-import { CANONICAL_PANEL_IDS } from './canonical-document.ts'
+import { panelIdsOf } from './canonical-document.ts'
 import type { FlpResult } from './flp-api/client.ts'
 import type { VersionResponse } from './flp-api/contract.ts'
 import { isLibraryAssetId } from './library-assets.ts'
@@ -75,7 +75,7 @@ const MAX_RETRY_MS = 60_000
  * in this browser and must be uploaded first.
  */
 export function imagesReady({ document }: { document: CanonicalDocument }) {
-  return CANONICAL_PANEL_IDS.every((panel) =>
+  return panelIdsOf({ document: document }).every((panel) =>
     document.panels[panel].layers.every(
       (layer) =>
         layer.kind !== 'image' ||

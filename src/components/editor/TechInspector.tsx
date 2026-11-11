@@ -211,7 +211,7 @@ export function TechInspector() {
   // A locked item shows its settings but takes no change but unlocking (W3).
   const locked = selected.kind !== 'pattern' && selected.locked === true
   // Only the tee's chest is measured.
-  const chest = isCanonicalGarment({ garmentId }) && selected.kind !== 'pattern' ? chestLineY({ panel: selected.panel }) : null
+  const chest = garmentId === 'tee' && selected.kind !== 'pattern' ? chestLineY({ panel: selected.panel }) : null
   const alignButtonClass = cn(
     'min-h-11 flex-1 border border-flv-line px-3 text-flv-muted hover:text-flv-accent disabled:opacity-50 disabled:hover:text-flv-muted',
     chromeTextClass(),

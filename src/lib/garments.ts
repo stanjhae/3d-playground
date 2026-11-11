@@ -7,6 +7,7 @@ import type {
 } from './design-document.ts'
 import type { GarmentId } from './design-schema.ts'
 import { resolveGarmentId } from './design-schema.ts'
+import { templateForGarment } from './template-manifest.ts'
 import {
   GOWN_CREDIT_HREF,
   GOWN_LICENSE_HREF,
@@ -286,12 +287,25 @@ export function garmentSrc({
   return garment.src
 }
 
+/**
+ * The panels a garment prints on: the tee's house list, else its
+ * template's (render panel ids, which equal canonical ids there).
+ */
 export function garmentPanels({
   garmentId,
 }: {
   garmentId?: string | null
-}) {
-  return getGarment({ garmentId }).panels ?? []
+}): readonly GarmentPanel[] {
+  const garment = getGarment({ garmentId })
+
+  if (garment.panels) {
+    return garment.panels
+  }
+
+  const template = templateForGarment({ garmentId: garment.id })
+  return template
+    ? Object.entries(template.regions).map(([id, region]) => ({ id, label: region.label }))
+    : []
 }
 
 export function garmentCanPaint({

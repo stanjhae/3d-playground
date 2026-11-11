@@ -7,7 +7,7 @@ import {
   type Color,
   type GarmentBase,
   type ValidationIssue,
-  CANONICAL_PANEL_IDS,
+  panelIdsOf,
   validateCanonicalDocument,
 } from './canonical-document.ts'
 
@@ -107,7 +107,7 @@ export function findLayer({
   document: CanonicalDocument
   layerId: string
 }) {
-  for (const panel of CANONICAL_PANEL_IDS) {
+  for (const panel of panelIdsOf({ document: document })) {
     const index = document.panels[panel].layers.findIndex(
       (layer) => layer.id === layerId,
     )
@@ -181,7 +181,7 @@ export function lockedIssues({
   }
 
   if (command.type === 'removeStroke') {
-    for (const panel of CANONICAL_PANEL_IDS) {
+    for (const panel of panelIdsOf({ document: document })) {
       for (const layer of document.panels[panel].layers) {
         if (layer.kind === 'paint' && layer.locked && layer.strokes.some((stroke) => stroke.id === command.strokeId)) {
           return refuse(layer.id)
@@ -279,7 +279,7 @@ function applyToDocument({
   }
 
   if (command.type === 'removeStroke') {
-    for (const panel of CANONICAL_PANEL_IDS) {
+    for (const panel of panelIdsOf({ document: next })) {
       for (const layer of next.panels[panel].layers) {
         if (layer.kind === 'paint') {
           layer.strokes = layer.strokes.filter((stroke) => stroke.id !== command.strokeId)

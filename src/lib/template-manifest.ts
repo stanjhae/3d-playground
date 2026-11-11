@@ -52,8 +52,16 @@ export type TemplateRegion = {
 export type TemplateManifest = {
   id: TemplateId
   version: number
+  /** The garment (`garments.ts`) this template prints on. */
+  garmentId: string
   orientation: 'wearer'
   geometry: {
+    /**
+     * `procedural`: the scene builds the mesh (`createClothingMesh`).
+     * `glb`: the scene loads `file`, whose print UVs (`TEXCOORD_1`) lay
+     * each panel in its `uv` rectangle (`scripts/build-template.mjs`).
+     */
+    kind: 'procedural' | 'glb'
     file: string
     sha256: string
     generator: string
@@ -62,8 +70,8 @@ export type TemplateManifest = {
      * scene always builds the newest layout; older versions are projected
      * onto it through `renderMirrorX`.
      */
-    uvLayout: 1 | 2
-    structural: { neck: 'crew'; hem: 'long'; sleeve: 'short' }
+    uvLayout?: 1 | 2
+    structural?: { neck: 'crew'; hem: 'long'; sleeve: 'short' }
   }
   atlas: { width: number; height: number }
   material: { color: string; roughness: number; metalness: number }
@@ -73,6 +81,7 @@ export type TemplateManifest = {
     package: string
     license: 'OFL-1.1'
   }>
+  /** Print panels, in the order the editor lists them. */
   regions: Record<CanonicalPanelId, TemplateRegion>
 }
 
@@ -84,8 +93,10 @@ export const COLLAR_START_Y = 0.861
 export const TEE_CREW_SHORT_V1: TemplateManifest = Object.freeze({
   id: 'tee-crew-short',
   version: 1,
+  garmentId: 'tee',
   orientation: 'wearer',
   geometry: {
+    kind: 'procedural',
     file: '/models/tee.glb',
     sha256: '50654ee6efe843f7efa2bff433e91ae53c1eb1778652acbe653d6ebe08ae8bac',
     generator: 'scripts/build-tee.mjs (createTeeMesh in src/lib/tee-geometry.ts)',
@@ -226,12 +237,35 @@ export const TEE_CREW_SHORT_V3: TemplateManifest = Object.freeze({
   },
 }) as TemplateManifest
 
-/** The template new designs pin. */
+/** The template new tee designs pin. */
 export const CURRENT_TEMPLATE = TEE_CREW_SHORT_V3
 
 /** Every version that saved designs may reference. Never remove entries. */
 const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
   'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3 },
+}
+
+/** The version new designs pin, per template. */
+const CURRENT_VERSIONS: Record<string, TemplateManifest> = {
+  'tee-crew-short': CURRENT_TEMPLATE,
+}
+
+export const TEMPLATE_IDS: readonly string[] = Object.freeze(Object.keys(TEMPLATE_ARCHIVE))
+
+/** The manifest new designs on this template pin. */
+export function currentTemplateFor({ templateId }: { templateId: string }): TemplateManifest {
+  const manifest = CURRENT_VERSIONS[templateId]
+
+  if (!manifest) {
+    throw new Error(`Garment template "${templateId}" is not available`)
+  }
+
+  return manifest
+}
+
+/** The template a garment prints on, if it has one. */
+export function templateForGarment({ garmentId }: { garmentId: string }) {
+  return Object.values(CURRENT_VERSIONS).find((manifest) => manifest.garmentId === garmentId)
 }
 
 /** How a render panel lies on the cloth for a design's pinned template. */

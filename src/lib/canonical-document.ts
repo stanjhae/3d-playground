@@ -16,15 +16,20 @@
  * See docs/canonical-document.md.
  */
 
+import { currentTemplateFor, resolveTemplate, TEMPLATE_IDS } from './template-manifest.ts'
+
+export { TEMPLATE_IDS }
+
 export const CANONICAL_SCHEMA_VERSION = 2
 
+/** The tee's panels. Each template names its own; see `panelIdsOf`. */
 export const CANONICAL_PANEL_IDS = ['front', 'back', 'left', 'right'] as const
 
-export type CanonicalPanelId = (typeof CANONICAL_PANEL_IDS)[number]
+/** A panel id from the document's template (`template.regions`). */
+export type CanonicalPanelId = string
 
-export const TEMPLATE_IDS = ['tee-crew-short'] as const
-
-export type TemplateId = (typeof TEMPLATE_IDS)[number]
+/** A key of `TEMPLATE_ARCHIVE` in template-manifest.ts. */
+export type TemplateId = string
 
 export const BASE_KINDS = ['solid', 'stripes', 'check'] as const
 
@@ -172,6 +177,17 @@ export type CanonicalDocument = {
   template: TemplateRef
   base: GarmentBase
   panels: Record<CanonicalPanelId, CanonicalPanel>
+}
+
+/** The panels this document's template prints on, in template order. */
+export function panelIdsOf({ document }: { document: Pick<CanonicalDocument, 'panels'> }) {
+  return Object.keys(document.panels)
+}
+
+/** The panels a template prints on; the tee's when the template is unknown. */
+export function templatePanelIds({ template }: { template: { id: string; version: number } }) {
+  const resolved = resolveTemplate(template)
+  return resolved.ok ? Object.keys(resolved.manifest.regions) : [...CANONICAL_PANEL_IDS]
 }
 
 export type ValidationIssue = {
@@ -773,18 +789,20 @@ function checkPanels({
   context,
   value,
   path,
+  panelIds,
 }: {
   context: Context
   value: unknown
   path: string
+  panelIds: readonly string[]
 }) {
-  const panels = checkRecord({ context, value, path, required: CANONICAL_PANEL_IDS })
+  const panels = checkRecord({ context, value, path, required: panelIds })
 
   if (!panels) {
     return
   }
 
-  for (const panelId of CANONICAL_PANEL_IDS) {
+  for (const panelId of panelIds) {
     const panelPath = `${path}.${panelId}`
 
     if (!(panelId in panels)) {
@@ -813,6 +831,14 @@ function checkPanels({
       checkLayer({ context, value: layer, path: `${panelPath}.layers[${index}]` })
     })
   }
+}
+
+/** The template's panels when its id and version resolve, else the tee's. */
+function panelIdsForValidation({ template }: { template: unknown }) {
+  const ref = template as { id?: unknown; version?: unknown } | undefined
+  return typeof ref?.id === 'string' && typeof ref.version === 'number'
+    ? templatePanelIds({ template: { id: ref.id, version: ref.version } })
+    : [...CANONICAL_PANEL_IDS]
 }
 
 export function validateCanonicalDocument({
@@ -850,7 +876,12 @@ export function validateCanonicalDocument({
     }
 
     if ('panels' in root) {
-      checkPanels({ context, value: root.panels, path: '$.panels' })
+      checkPanels({
+        context,
+        value: root.panels,
+        path: '$.panels',
+        panelIds: panelIdsForValidation({ template: root.template }),
+      })
     }
   }
 
@@ -861,19 +892,19 @@ export function validateCanonicalDocument({
   return { ok: true, document: value as CanonicalDocument }
 }
 
-export function createEmptyCanonicalDocument(): CanonicalDocument {
+export function createEmptyCanonicalDocument({
+  templateId = 'tee-crew-short',
+}: { templateId?: TemplateId } = {}): CanonicalDocument {
+  const manifest = currentTemplateFor({ templateId })
+
   return {
     schemaVersion: CANONICAL_SCHEMA_VERSION,
-    // CURRENT_TEMPLATE in template-manifest.ts (kept literal to avoid a cycle).
-    template: { id: 'tee-crew-short', version: 3 },
-    // The template's own material colour, so an untouched tee renders as before.
-    base: { kind: 'solid', color: '#f3efe6' },
-    panels: {
-      front: { layers: [] },
-      back: { layers: [] },
-      left: { layers: [] },
-      right: { layers: [] },
-    },
+    template: { id: manifest.id, version: manifest.version },
+    // The template's own material colour, so an untouched garment renders as before.
+    base: { kind: 'solid', color: manifest.material.color as `#${string}` },
+    panels: Object.fromEntries(
+      Object.keys(manifest.regions).map((panel) => [panel, { layers: [] }]),
+    ),
   }
 }
 
