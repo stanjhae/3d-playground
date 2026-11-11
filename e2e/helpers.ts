@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { loadEnv } from 'vite'
 
 import { listFilesUnder, removeFiles } from '../src/lib/flp-api/storage-tree.mjs'
-import { TERMS_VERSION } from '../src/lib/terms'
+import { TERMS_VERSION } from '../src/lib/terms.ts'
 
 /** Shared steps for the journey suites (Q04 #189). */
 
