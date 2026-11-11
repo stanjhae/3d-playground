@@ -9,8 +9,20 @@ export const OVERALL_V1: TemplateManifest = {
   "geometry": {
     "kind": "glb",
     "file": "/models/overall.glb",
-    "sha256": "5ecebbdaa6c192af8819551fa62675add228af06d235451f5859d51f63dd79bb",
-    "generator": "scripts/build-template.mjs (templates/overall.pieces.json)"
+    "sha256": "a6ec2f43038114e11fc91bbb2db1012af466da30e42e49ab6701ace466bd8cfa",
+    "generator": "scripts/build-template.mjs (templates/overall.pieces.json)",
+    "bounds": {
+      "min": [
+        -0.253299,
+        0.60527,
+        -0.2547
+      ],
+      "max": [
+        0.243655,
+        1.65,
+        0.271919
+      ]
+    }
   },
   "atlas": {
     "width": 2048,
@@ -58,7 +70,12 @@ export const OVERALL_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.473703
-      }
+      },
+      "center": [
+        0.000516,
+        1.06418,
+        0.018399
+      ]
     },
     "back": {
       "label": "Back",
@@ -82,7 +99,12 @@ export const OVERALL_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.471828
-      }
+      },
+      "center": [
+        0.000344,
+        1.065476,
+        0.019153
+      ]
     }
   }
 }

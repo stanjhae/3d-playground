@@ -56,6 +56,8 @@ export type TemplateRegion = {
   notes: readonly string[]
   /** From `@3`: how this region lies on the cloth, measured from the mesh. */
   surface?: PanelSurface
+  /** Template-built garments: where the panel sits on the model (metres), for the camera. */
+  center?: [number, number, number]
 }
 
 export type TemplateManifest = {
@@ -81,6 +83,8 @@ export type TemplateManifest = {
      */
     uvLayout?: 1 | 2
     structural?: { neck: 'crew'; hem: 'long'; sleeve: 'short' }
+    /** Template-built garments: the model's extent (metres), for the camera to fit. */
+    bounds?: { min: [number, number, number]; max: [number, number, number] }
   }
   atlas: { width: number; height: number }
   material: { color: string; roughness: number; metalness: number }

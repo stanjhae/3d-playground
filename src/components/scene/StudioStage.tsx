@@ -23,6 +23,7 @@ import {
   CAMERA_PRESET_POSITIONS,
   captureFov,
   liveSeat,
+  modelSeat,
   presetTarget,
   stillSeat,
   STUDIO_CAMERA,
@@ -275,11 +276,19 @@ export function StudioCamera({
   const moving = useRef(false)
   const freeOrbit = cameraPreset === 'orbit' && !capturingAngles
   const seatPreset = cameraPreset === 'orbit' ? 'threeQuarter' : cameraPreset
-  const presetSeat = capturingAngles
-    ? stillSeat({ preset: seatPreset, framing })
-    : liveSeat({ preset: seatPreset, framing })
+  // A real model (template-built garment) is fitted by its own size and sleeves.
+  const modelFrame = useEditorStore((state) => state.document.modelFrame)
+  const fitted = useMemo(
+    () => (modelFrame ? modelSeat({ preset: seatPreset, frame: modelFrame, live: !capturingAngles }) : null),
+    [capturingAngles, modelFrame, seatPreset],
+  )
+  const presetSeat = fitted
+    ? fitted.seat
+    : capturingAngles
+      ? stillSeat({ preset: seatPreset, framing })
+      : liveSeat({ preset: seatPreset, framing })
   // The sleeve views aim at their sleeve; every other preset at the garment.
-  const presetAim = presetTarget({ preset: seatPreset })
+  const presetAim = fitted ? fitted.target : presetTarget({ preset: seatPreset })
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near

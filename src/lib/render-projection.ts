@@ -117,6 +117,27 @@ function panelAspects({ manifest }: { manifest: TemplateManifest }) {
     : {}
 }
 
+/** Where a real model stands and where its sleeves are, for the camera to fit. */
+function modelFrameOf({ manifest }: { manifest: TemplateManifest }) {
+  const bounds = manifest.geometry.bounds
+
+  if (!bounds) {
+    return {}
+  }
+
+  const sleeves: { minusX?: [number, number, number]; plusX?: [number, number, number] } = {}
+
+  for (const panel of ['left', 'right']) {
+    const center = manifest.regions[panel]?.center
+
+    if (center) {
+      sleeves[center[0] < 0 ? 'minusX' : 'plusX'] = center
+    }
+  }
+
+  return { modelFrame: { min: bounds.min, max: bounds.max, sleeves } }
+}
+
 /** Template-built garments carry their own atlas rectangles; the tee uses the default. */
 function panelUvOf({ manifest }: { manifest: TemplateManifest }) {
   if (manifest.geometry.kind === 'procedural') {
@@ -128,6 +149,7 @@ function panelUvOf({ manifest }: { manifest: TemplateManifest }) {
     panelUv: Object.fromEntries(regions.map((region) => [region.renderPanel, { ...region.uv }])),
     atlasSize: manifest.atlas.width,
     modelSrc: manifest.geometry.file,
+    ...modelFrameOf({ manifest }),
   }
 }
 

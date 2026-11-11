@@ -9,8 +9,20 @@ export const MIXED_V1: TemplateManifest = {
   "geometry": {
     "kind": "glb",
     "file": "/models/mixed.glb",
-    "sha256": "31708235113b0e5fe67d80321b05ced9a2426d816846269649ffd013be87a105",
-    "generator": "scripts/build-template.mjs (templates/mixed.pieces.json)"
+    "sha256": "474ee812301436669409ab97c56e3c688cd58be09f175250db4375301cccbe8e",
+    "generator": "scripts/build-template.mjs (templates/mixed.pieces.json)",
+    "bounds": {
+      "min": [
+        -0.263447,
+        0.267083,
+        -0.156217
+      ],
+      "max": [
+        0.259914,
+        1.65,
+        0.179933
+      ]
+    }
   },
   "atlas": {
     "width": 2048,
@@ -58,7 +70,12 @@ export const MIXED_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.302337
-      }
+      },
+      "center": [
+        0.002134,
+        0.955228,
+        0.023486
+      ]
     },
     "back": {
       "label": "Back",
@@ -82,7 +99,12 @@ export const MIXED_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.30214
-      }
+      },
+      "center": [
+        0.001002,
+        0.953833,
+        0.023725
+      ]
     },
     "left": {
       "label": "Wearer's left sleeve",
@@ -106,7 +128,12 @@ export const MIXED_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.333394
-      }
+      },
+      "center": [
+        0.141888,
+        1.141344,
+        0.002447
+      ]
     },
     "right": {
       "label": "Wearer's right sleeve",
@@ -130,7 +157,12 @@ export const MIXED_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.473357
-      }
+      },
+      "center": [
+        -0.181907,
+        1.237857,
+        0.004147
+      ]
     }
   }
 }

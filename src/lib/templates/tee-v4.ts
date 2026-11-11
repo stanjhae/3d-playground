@@ -9,8 +9,20 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
   "geometry": {
     "kind": "glb",
     "file": "/models/tee-real.glb",
-    "sha256": "4af3f1abf4aa80f6e78d6a634a23e9a969ba5765f948f5c27f7c7b54f8dce06d",
-    "generator": "scripts/build-template.mjs (templates/tee.pieces.json)"
+    "sha256": "9fdfca9b3f5af0978b1e7d01c2cacd56fb1c936a8aa637644ccf87cb1a886134",
+    "generator": "scripts/build-template.mjs (templates/tee.pieces.json)",
+    "bounds": {
+      "min": [
+        -0.284555,
+        0.897299,
+        -0.164229
+      ],
+      "max": [
+        0.284555,
+        1.606166,
+        0.164229
+      ]
+    }
   },
   "atlas": {
     "width": 2048,
@@ -58,7 +70,12 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.627626
-      }
+      },
+      "center": [
+        -0.028993,
+        1.243341,
+        0.094534
+      ]
     },
     "back": {
       "label": "Back",
@@ -82,7 +99,12 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.629067
-      }
+      },
+      "center": [
+        -0.012593,
+        1.248862,
+        -0.110633
+      ]
     },
     "left": {
       "label": "Wearer's left sleeve",
@@ -106,7 +128,12 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.586774
-      }
+      },
+      "center": [
+        0.2261,
+        1.428296,
+        -0.004234
+      ]
     },
     "right": {
       "label": "Wearer's right sleeve",
@@ -130,7 +157,12 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.610068
-      }
+      },
+      "center": [
+        -0.23867,
+        1.39599,
+        -0.063754
+      ]
     }
   }
 }

@@ -210,6 +210,16 @@ export type DesignDocument = {
   atlasSize?: number
   /** The model a template-built garment renders on (else the garment's own). */
   modelSrc?: string
+  /** Where a template-built garment stands, for the camera (`studio-camera.ts`). */
+  modelFrame?: ModelFrame
+}
+
+/** A real model's extent and its sleeves (by side), in metres. */
+export type ModelFrame = {
+  min: [number, number, number]
+  max: [number, number, number]
+  /** Sleeve panel centres at −x (the wearer's right) and +x. */
+  sleeves: { minusX?: [number, number, number]; plusX?: [number, number, number] }
 }
 
 const PANEL_ID_SET = new Set<string>(PANEL_IDS)

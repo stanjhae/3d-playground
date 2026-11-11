@@ -9,8 +9,20 @@ export const HOODIE_V1: TemplateManifest = {
   "geometry": {
     "kind": "glb",
     "file": "/models/hoodie.glb",
-    "sha256": "6f5c9c14e202215f18b327805e507c8485322dd240f9882396b3042125544bae",
-    "generator": "scripts/build-template.mjs (templates/hoodie.pieces.json)"
+    "sha256": "b5a18d28b34b97ecb136bb72f123ac6095e55b248c31c4dd7b58da84db9809d0",
+    "generator": "scripts/build-template.mjs (templates/hoodie.pieces.json)",
+    "bounds": {
+      "min": [
+        -0.366199,
+        0.871597,
+        -0.2287
+      ],
+      "max": [
+        0.37272,
+        1.65,
+        0.214639
+      ]
+    }
   },
   "atlas": {
     "width": 2048,
@@ -58,7 +70,12 @@ export const HOODIE_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.855643
-      }
+      },
+      "center": [
+        -0.000263,
+        1.242574,
+        0.116157
+      ]
     },
     "back": {
       "label": "Back",
@@ -82,7 +99,12 @@ export const HOODIE_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.833608
-      }
+      },
+      "center": [
+        -0.010743,
+        1.239483,
+        -0.098051
+      ]
     },
     "left": {
       "label": "Wearer's left sleeve",
@@ -106,7 +128,12 @@ export const HOODIE_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.547216
-      }
+      },
+      "center": [
+        0.243011,
+        1.168305,
+        0.01368
+      ]
     },
     "right": {
       "label": "Wearer's right sleeve",
@@ -130,7 +157,12 @@ export const HOODIE_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.53973
-      }
+      },
+      "center": [
+        -0.248394,
+        1.166167,
+        0.016345
+      ]
     },
     "hood-left": {
       "label": "Hood, wearer's left",
@@ -154,7 +186,12 @@ export const HOODIE_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 1.311249
-      }
+      },
+      "center": [
+        0.074075,
+        1.565362,
+        -0.081833
+      ]
     },
     "hood-right": {
       "label": "Hood, wearer's right",
@@ -178,7 +215,12 @@ export const HOODIE_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 1.32731
-      }
+      },
+      "center": [
+        -0.083297,
+        1.561587,
+        -0.083041
+      ]
     }
   }
 }

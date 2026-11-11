@@ -299,12 +299,15 @@ async function build({ piecesFile }) {
   // 1. Which triangles print, on which panel, and where they project.
   const plans = []
   const boxes = []
+  /** Where each panel sits on the garment (the mean of its printed vertices), for the camera. */
+  const centers = []
 
   for (const panel of spec.panels) {
     const right = VIEW_RIGHT[panel.view]
     const toward = VIEW_TOWARD[panel.view]
     if (!right) throw new Error(`Panel ${panel.id}: unknown view ${panel.view}`)
     const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+    const sum = { x: 0, y: 0, z: 0, count: 0 }
 
     for (const pick of panel.pieces) {
       const node = nodes.get(pick.node)
@@ -332,6 +335,10 @@ async function build({ piecesFile }) {
             box.maxX = Math.max(box.maxX, px)
             box.minY = Math.min(box.minY, py)
             box.maxY = Math.max(box.maxY, py)
+            sum.x += world[vertex * 3]
+            sum.y += world[vertex * 3 + 1]
+            sum.z += world[vertex * 3 + 2]
+            sum.count += 1
           }
         }
 
@@ -341,6 +348,7 @@ async function build({ piecesFile }) {
 
     if (!Number.isFinite(box.minX)) throw new Error(`Panel ${panel.id}: nothing faces the ${panel.view} view`)
     boxes.push({ ...box, width: box.maxX - box.minX, height: box.maxY - box.minY })
+    centers.push([sum.x / sum.count, sum.y / sum.count, sum.z / sum.count].map((value) => round({ value })))
   }
 
   // 2. Pack panels at one shared scale.
@@ -445,6 +453,21 @@ async function build({ piecesFile }) {
     }
   }
 
+  // The whole garment's extent, for the camera to fit.
+  const boundsMin = [Infinity, Infinity, Infinity]
+  const boundsMax = [-Infinity, -Infinity, -Infinity]
+  for (const node of meshNodes({ document })) {
+    for (const primitive of node.getMesh().listPrimitives()) {
+      const world = worldPositions({ primitive, matrix: node.getWorldMatrix() })
+      for (let index = 0; index < world.length; index += 3) {
+        for (let axis = 0; axis < 3; axis += 1) {
+          boundsMin[axis] = Math.min(boundsMin[axis], world[index + axis])
+          boundsMax[axis] = Math.max(boundsMax[axis], world[index + axis])
+        }
+      }
+    }
+  }
+
   await io.write(spec.out, document)
   const sha256 = createHash('sha256').update(readFileSync(spec.out)).digest('hex')
 
@@ -465,6 +488,7 @@ async function build({ piecesFile }) {
           landmarks: {},
           notes: [`Planar print from the ${panel.view}; ${(box.width * 100).toFixed(1)} × ${(box.height * 100).toFixed(1)} cm.`],
           surface: { stretchY: 1, panelAspect: round({ value: box.width / box.height }) },
+          center: centers[index],
         },
       ]
     }),
@@ -479,6 +503,7 @@ async function build({ piecesFile }) {
       file: spec.out.replace(/^public/, ''),
       sha256,
       generator: `scripts/build-template.mjs (${piecesFile})`,
+      bounds: { min: boundsMin.map((value) => round({ value })), max: boundsMax.map((value) => round({ value })) },
     },
     atlas: { width: size, height: size },
     material: { color: spec.color ?? '#ffffff', roughness: 0.86, metalness: 0 },

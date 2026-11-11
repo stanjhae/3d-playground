@@ -31,7 +31,8 @@ import type { PendingAsset } from '../lib/legacy-import'
 import { uploadPendingAssets } from '../lib/legacy-assets'
 import { initialStudioDocument } from '../lib/studio-create'
 import { EXAMPLE_DESIGN_TITLE, createExampleDocument } from '../lib/example-design'
-import { resolveTemplate } from '../lib/template-manifest'
+import { getGarment, listRailGarments } from '../lib/garments'
+import { resolveTemplate, templateForGarment } from '../lib/template-manifest'
 import { trackAssumption } from '../lib/assumption-events'
 
 export const Route = createFileRoute('/studio')({
@@ -51,6 +52,11 @@ export const Route = createFileRoute('/studio')({
 
 // Only templates this app can open are offered (F07 #142).
 const TEE = resolveTemplate(createEmptyCanonicalDocument().template)
+
+/** Garments a new design can start from: every one with a template. */
+function designableGarments() {
+  return listRailGarments().filter((garment) => templateForGarment({ garmentId: garment.id }))
+}
 
 function sortStorage() {
   try {
@@ -90,6 +96,8 @@ function MyStudio() {
   const ownerId = useSessionStore((state) => state.account?.userId ?? null)
   const [list, setList] = useState<ListState>({ status: 'loading' })
   const [creating, setCreating] = useState(false)
+  // Every garment with a template can be designed; the tee stays the default.
+  const [newGarment, setNewGarment] = useState<string>('tee')
   const [createError, setCreateError] = useState<string | null>(null)
   const [listNotice, setListNotice] = useState('')
   const designsHeading = useRef<HTMLHeadingElement | null>(null)
@@ -143,7 +151,13 @@ function MyStudio() {
     setCreating(true)
     setCreateError(null)
 
-    let document = fromLanding && conversion?.fromLanding ? conversion.document : initialStudioDocument({ handoff: null }).document
+    const garmentTemplate = templateForGarment({ garmentId: newGarment })
+    let document =
+      fromLanding && conversion?.fromLanding
+        ? conversion.document
+        : newGarment !== 'tee' && garmentTemplate
+          ? createEmptyCanonicalDocument({ templateId: garmentTemplate.id })
+          : initialStudioDocument({ handoff: null }).document
 
     // Inline images from the landing design become real uploads first; the
     // server refuses a design that points at an image it never received.
@@ -173,7 +187,7 @@ function MyStudio() {
     const result = await createOwnedDesign({
       request: {
         mutationKey: createKey.current,
-        title: fromLanding ? 'Landing tee' : 'Untitled tee',
+        title: fromLanding ? 'Landing tee' : `Untitled ${getGarment({ garmentId: newGarment }).label.toLowerCase()}`,
         content: document,
       },
     })
@@ -305,13 +319,35 @@ function MyStudio() {
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
+          {conversion?.fromLanding ? null : (
+            <label className="flex items-center gap-2 font-body text-sm text-flv-muted">
+              Garment
+              <select
+                value={newGarment}
+                onChange={(event) => setNewGarment(event.target.value)}
+                className="min-h-9 rounded-full border border-flv-line bg-flv-paper px-3 text-flv-ink"
+              >
+                {designableGarments().map((garment) => (
+                  <option key={garment.id} value={garment.id}>
+                    {garment.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button
             type="button"
             className={buttonClass}
             disabled={creating || !TEE.ok}
             onClick={() => (conversion?.fromLanding ? setPreviewing(true) : void create())}
           >
-            {creating ? 'Creating…' : conversion?.fromLanding ? 'Create from your landing design' : 'Create a T-shirt'}
+            {creating
+              ? 'Creating…'
+              : conversion?.fromLanding
+                ? 'Create from your landing design'
+                : newGarment === 'tee'
+                  ? 'Create a T-shirt'
+                  : `Create a ${getGarment({ garmentId: newGarment }).label.toLowerCase()}`}
           </button>
           <button
             type="button"
@@ -323,7 +359,7 @@ function MyStudio() {
           </button>
           {TEE.ok ? (
             <p className="font-body text-xs text-flv-muted">
-              {TEE.manifest.regions.front.label}, back and both sleeves · crew neck, short sleeve
+              Prints on: {Object.values(templateForGarment({ garmentId: newGarment })?.regions ?? {}).map((region) => region.label).join(', ')}
             </p>
           ) : null}
         </div>
