@@ -11,6 +11,7 @@ import {
   parseStoredCounts,
   parseStoredList,
   parseWaitlistEmail,
+  removeWaitlistEmail,
   resetWaitlistStore,
 } from './waitlist-store'
 
@@ -61,6 +62,42 @@ describe('waitlist', () => {
 
     expect(JSON.parse(store.value)).toEqual(['a@house.test', 'b@house.test'])
     vi.unstubAllGlobals()
+  })
+
+  test('removes one address from Redis on request, and a dry run changes nothing', async () => {
+    const store = { value: JSON.stringify(['a@house.test', 'b@house.test']), sets: 0 }
+    const env = { KV_REST_API_URL: 'https://kv.test', KV_REST_API_TOKEN: 'token' }
+
+    vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
+      const command = JSON.parse(String(init?.body ?? '[]')) as unknown[]
+
+      if (command[0] === 'GET') {
+        return { ok: true, json: async () => ({ result: store.value }) }
+      }
+
+      store.sets += 1
+      store.value = String(command[2] ?? '[]')
+      return { ok: true, json: async () => ({ result: 'OK' }) }
+    })
+
+    expect(await removeWaitlistEmail({ email: ' A@House.test ', env, dryRun: true })).toEqual({ ok: true, found: true, count: 2 })
+    expect(store.sets).toBe(0)
+
+    expect(await removeWaitlistEmail({ email: 'A@House.test', env })).toEqual({ ok: true, found: true, count: 1 })
+    expect(JSON.parse(store.value)).toEqual(['b@house.test'])
+
+    expect(await removeWaitlistEmail({ email: 'a@house.test', env })).toEqual({ ok: true, found: false, count: 1 })
+    expect(store.sets).toBe(1)
+    expect(await removeWaitlistEmail({ email: 'not an email', env })).toEqual({ ok: false })
+    vi.unstubAllGlobals()
+  })
+
+  test('removes an address kept in memory', async () => {
+    await addWaitlistEmail({ email: 'max@house.test' })
+    await addWaitlistEmail({ email: 'ann@house.test' })
+
+    expect(await removeWaitlistEmail({ email: 'max@house.test' })).toEqual({ ok: true, found: true, count: 1 })
+    expect(await removeWaitlistEmail({ email: 'max@house.test' })).toEqual({ ok: true, found: false, count: 1 })
   })
 
   test('accepts a real address and rejects a fake one', () => {
