@@ -306,3 +306,34 @@ describe('coordinate contract', () => {
     })
   })
 })
+
+describe('template-driven panels', () => {
+  test('a new document takes its panels and colour from the template', async () => {
+    const { createEmptyCanonicalDocument, panelIdsOf } = await import('./canonical-document')
+    const document = createEmptyCanonicalDocument()
+
+    expect(document.template).toEqual({ id: 'tee-crew-short', version: 3 })
+    expect(document.base).toEqual({ kind: 'solid', color: '#f3efe6' })
+    expect(panelIdsOf({ document })).toEqual(['front', 'back', 'left', 'right'])
+  })
+
+  test('the validator asks for exactly the template panels', async () => {
+    const { createEmptyCanonicalDocument, validateCanonicalDocument } = await import('./canonical-document')
+    const document = createEmptyCanonicalDocument()
+    const { left: _left, ...withoutLeft } = document.panels
+
+    const result = validateCanonicalDocument({ value: { ...document, panels: withoutLeft } })
+
+    expect(result.ok).toBe(false)
+    expect(result.ok ? [] : result.issues.map((issue) => issue.path)).toContain('$.panels.left')
+  })
+
+  test('an unknown template is refused by id, not by its panels', async () => {
+    const { createEmptyCanonicalDocument, templatePanelIds, validateCanonicalDocument } = await import('./canonical-document')
+    const document = createEmptyCanonicalDocument()
+
+    expect(templatePanelIds({ template: { id: 'nope', version: 1 } })).toEqual(['front', 'back', 'left', 'right'])
+    const result = validateCanonicalDocument({ value: { ...document, template: { id: 'nope', version: 1 } } })
+    expect(result.ok ? [] : result.issues.map((issue) => issue.path)).toEqual(['$.template.id'])
+  })
+})

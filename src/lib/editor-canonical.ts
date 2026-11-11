@@ -18,7 +18,7 @@ import {
   type Color,
   type ValidationIssue,
   CANONICAL_LIMITS,
-  CANONICAL_PANEL_IDS,
+  panelIdsOf,
   createEmptyCanonicalDocument,
   validateCanonicalDocument,
 } from './canonical-document.ts'
@@ -65,9 +65,10 @@ export type TeeStep = {
 
 export function createTeeEngine({
   revision = 0,
-}: { revision?: number } = {}): TeeEngine {
+  templateId,
+}: { revision?: number; templateId?: string } = {}): TeeEngine {
   return {
-    stack: createCanonicalStack({ document: createEmptyCanonicalDocument(), revision }),
+    stack: createCanonicalStack({ document: createEmptyCanonicalDocument({ templateId }), revision }),
     assetSources: {},
   }
 }
@@ -322,7 +323,7 @@ export function translateCommand({
   }
 
   if (command.type === 'clearPaint') {
-    const panels = command.panel ? [canonicalPanel({ renderPanel: command.panel })] : CANONICAL_PANEL_IDS
+    const panels = command.panel ? [canonicalPanel({ renderPanel: command.panel, template: document.template })] : panelIdsOf({ document: document })
     const commands: CanonicalCommand[] = panels.flatMap((panel) =>
       document.panels[panel].layers
         // Clearing ink leaves locked ink where it is (W3).
@@ -338,7 +339,7 @@ export function translateCommand({
       return null
     }
 
-    const layer = fromRender(canonicalPanel({ renderPanel: command.layer.panel }), command.layer)
+    const layer = fromRender(canonicalPanel({ renderPanel: command.layer.panel, template: document.template }), command.layer)
     const libraryId = libraryAssetId({ src: layer.src })
     // A copy of a placed upload keeps its finalized asset id (S01 #170).
     const knownId = Object.keys(same).find((id) => same[id] === layer.src)
@@ -348,7 +349,7 @@ export function translateCommand({
       assetSources: libraryId || knownId ? same : { ...same, [assetId]: layer.src },
       command: {
         type: 'addLayer',
-        panel: canonicalPanel({ renderPanel: layer.panel }),
+        panel: canonicalPanel({ renderPanel: layer.panel, template: document.template }),
         layer: {
           id: layer.id,
           kind: 'image',
@@ -368,7 +369,7 @@ export function translateCommand({
   }
 
   if (command.type === 'addText') {
-    const layer = fromRender(canonicalPanel({ renderPanel: command.layer.panel }), command.layer)
+    const layer = fromRender(canonicalPanel({ renderPanel: command.layer.panel, template: document.template }), command.layer)
     const color = toColor({ value: layer.color })
 
     if (!layer.content.trim() || !color) {
@@ -379,7 +380,7 @@ export function translateCommand({
       assetSources: same,
       command: {
         type: 'addLayer',
-        panel: canonicalPanel({ renderPanel: layer.panel }),
+        panel: canonicalPanel({ renderPanel: layer.panel, template: document.template }),
         layer: {
           id: layer.id,
           kind: 'text',
@@ -706,7 +707,7 @@ export function nearLimit({ counter }: { counter: LimitCounter }) {
 
 /** Every limit the document is already over, front panel first. */
 export function limitOverages({ document }: { document: CanonicalDocument }) {
-  return CANONICAL_PANEL_IDS.flatMap((panel) =>
+  return panelIdsOf({ document: document }).flatMap((panel) =>
     panelLimitCounters({ document, panel }).filter((counter) => counter.used > counter.max),
   )
 }
@@ -773,7 +774,7 @@ export function glyphRefusal({
 
 /** The first word a face can't draw, said where it is, or null. */
 export function glyphNotice({ document }: { document: CanonicalDocument }) {
-  for (const panel of CANONICAL_PANEL_IDS) {
+  for (const panel of panelIdsOf({ document: document })) {
     for (const layer of document.panels[panel].layers) {
       const message = layer.kind === 'text' ? glyphMessage({ text: layer.content, face: layer.face }) : null
 
@@ -794,7 +795,7 @@ export function documentNotice({ document }: { document: CanonicalDocument }) {
 function limitExcess({ document }: { document: CanonicalDocument }) {
   let excess = 0
 
-  for (const panel of CANONICAL_PANEL_IDS) {
+  for (const panel of panelIdsOf({ document: document })) {
     for (const layer of document.panels[panel].layers) {
       if (layer.kind === 'paint') {
         excess += Math.max(0, layer.strokes.length - LIMIT_MAX.strokes)
@@ -932,7 +933,7 @@ function relieveCommand({
   }
 
   if (command.type === 'removeStroke' || command.type === 'clearPaintLayer') {
-    for (const panel of CANONICAL_PANEL_IDS) {
+    for (const panel of panelIdsOf({ document: next })) {
       for (const layer of next.panels[panel].layers) {
         if (layer.kind !== 'paint') {
           continue

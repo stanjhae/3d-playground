@@ -6,9 +6,14 @@ import {
 } from './design-schema.ts'
 import { isSafeLayerSrc, sanitizeArtMap } from './look-thumbnail.ts'
 
+/** The tee's render panels; v1 documents only ever use these. */
 export const PANEL_IDS = ['front', 'back', 'left', 'right'] as const
 
-export type PanelId = (typeof PANEL_IDS)[number]
+/**
+ * A render panel. The tee's are `PANEL_IDS`; a template-built garment's
+ * are its canonical panel ids (`template-manifest.ts`).
+ */
+export type PanelId = string
 
 /** Legacy panel id from drafts published before four-sided panels. */
 const LEGACY_PANEL_ALIASES: Record<string, PanelId> = {
@@ -86,7 +91,12 @@ export type PaintLayer = {
  * `stretchY` is the atlas height that looks as long on the cloth as one unit
  * of atlas width; `panelAspect` is the panel's true width / height.
  */
-export type PanelSurface = { stretchY: number; panelAspect: number }
+export type PanelSurface = {
+  stretchY: number
+  panelAspect: number
+  /** The panel's atlas rectangle, on template-built garments (else `DEFAULT_PANEL_UV`). */
+  uv?: { u0: number; v0: number; u1: number; v1: number }
+}
 
 export type GraphicLayer = {
   id: string
@@ -191,6 +201,11 @@ export type DesignDocument = {
   layers: DesignLayer[]
   /** True width / height of each panel; absent on older templates (6:7). */
   panelAspects?: Partial<Record<PanelId, number>>
+  /**
+   * Atlas rectangle of each panel, for template-built garments. Absent for
+   * the tee and v1 documents, which use `DEFAULT_PANEL_UV`.
+   */
+  panelUv?: Record<PanelId, { u0: number; v0: number; u1: number; v1: number }>
 }
 
 const PANEL_ID_SET = new Set<string>(PANEL_IDS)

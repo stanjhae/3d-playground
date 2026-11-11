@@ -1,5 +1,5 @@
 import {
-  CANONICAL_PANEL_IDS,
+  panelIdsOf,
   type CanonicalDocument,
   type CanonicalPanelId,
   type Color,
@@ -172,7 +172,7 @@ export function previewVersion({ document }: { document: CanonicalDocument }): V
     document.base.kind === 'solid'
       ? { label: 'Solid', colors: [document.base.color] }
       : { label: document.base.kind === 'stripes' ? 'Stripes' : 'Check', colors: [...document.base.colors] }
-  const panels = CANONICAL_PANEL_IDS.map((panel) => ({
+  const panels = panelIdsOf({ document: document }).map((panel) => ({
     panel,
     layers: [...document.panels[panel].layers].reverse().map((layer) => ({
       kind: layer.kind,
