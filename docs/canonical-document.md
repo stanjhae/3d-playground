@@ -72,7 +72,7 @@ The adapter has three outcomes:
 | Panel `left` / `right` | `right` / `left` | v1 ids name the render sleeve: v1 `left` is built at −x, the **wearer's right**. The same physical sleeve keeps its print, routed through the manifest's `renderPanel`. |
 | Panel `sleeve` (before four panels) | `right` | Warning. **Documented mapping:** v1 had one sleeve panel, drawn on render panel `left`, which is the wearer's right sleeve. |
 | Paint layer | One paint layer per panel that has strokes | If the strokes span several panels, IDs get a `--<panel>` suffix |
-| Brush and eraser strokes | Same tool; points flattened to `[x, y, …]` | Pressure is dropped (warning if any point differs from 0.7, the old default). Off-panel points are clamped exactly as the old renderer clamped them (warning). |
+| Brush and eraser strokes | Same tool; points flattened to `[x, y, …]` | Pressure that changes along a stroke is kept per point in optional `pressures` (W2, from 11 Nov 2026), with the stroke's own width. Even pressure, as with every mouse stroke, folds into the width as before (warning if it differs from 0.7, the old default), so those strokes store no `pressures`. Off-panel points are clamped exactly as the old renderer clamped them (warning). |
 | `fill` stroke | — | Unsupported |
 | Graphic | `image`, `aspect: 1` | Gets a reserved `asset_legacy_<sha256(src)[0:32]>` ID and is listed in `pendingAssets` for upload (S01 #170). Tint is dropped (warning). |
 | Text | Text | All content is kept. A warning appears when it was longer than the 32 characters the old preview showed. Over 280 characters is unsupported. |
