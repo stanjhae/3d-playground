@@ -358,6 +358,29 @@ export function TechInspector() {
           </div>
         </div>
       ) : null}
+      {selected.kind !== 'pattern' ? (
+        <div role="group" aria-label="Flip" className="flex flex-col gap-1">
+          <span className={cn('text-flv-muted', chromeTextClass())}>Flip</span>
+          <div className="flex gap-2">
+            {(
+              [
+                ['flipX', 'Left to right'],
+                ['flipY', 'Upside down'],
+              ] as const
+            ).map(([flag, name]) => (
+              <button
+                key={flag}
+                type="button"
+                aria-pressed={Boolean(selected[flag])}
+                onClick={() => commitDraft({ patch: { [flag]: !selected[flag] } })}
+                className={cn(alignButtonClass, { 'border-flv-accent text-flv-accent': Boolean(selected[flag]) })}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {pro ? (
         <div className="flex flex-col gap-3 border-t border-flv-line pt-3">
           <span className="font-body text-xs font-medium text-flv-ink">Exact placement</span>
