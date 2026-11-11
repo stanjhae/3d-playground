@@ -7,6 +7,7 @@ import {
   callerSubject,
   clientAddress,
   decisionFromWait,
+  limiterCall,
   requestLimitsApply,
   takePublicToken,
 } from './rate-limit'
@@ -112,6 +113,68 @@ describe('takePublicToken', () => {
     expect(decisionFromWait({ wait: null })).toEqual({ allowed: true })
     expect(decisionFromWait({ wait: 'x' })).toEqual({ allowed: true })
     expect(decisionFromWait({ wait: 1.2 })).toEqual({ allowed: false, reason: 'limited', retryAfter: 2 })
+  })
+})
+
+/** A client whose RPC answers each call with the next of `results`. */
+function sequencedClient(results: Array<{ data?: unknown; error?: { code: string } | null } | Error>) {
+  let call = 0
+  const rpc = vi.fn(() => ({
+    abortSignal: () => {
+      const result = results[Math.min(call, results.length - 1)]!
+      call += 1
+      return result instanceof Error ? Promise.reject(result) : Promise.resolve({ data: null, error: null, ...result })
+    },
+  }))
+  return { client: { rpc } as unknown as SupabaseClient, rpc }
+}
+
+describe('one slow answer is retried before the outage policy', () => {
+  // The CI failure on #357: a limiter call cut off at 1.5 s came back with an
+  // empty code, and publish refused with a 503 though Postgres was up.
+  test.each([
+    ['a timeout (no error code)', { error: { code: '' } }],
+    ['a dropped connection (a throw)', new Error('fetch failed')],
+  ] as const)('after %s, the second answer decides', async (_, first) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { client, rpc } = sequencedClient([first as never, { data: 0 }])
+
+    expect(await takePublicToken({ request: request(), bucket: 'waitlist', env: DEPLOYED, client })).toEqual({
+      allowed: true,
+    })
+    expect(rpc).toHaveBeenCalledTimes(2)
+  })
+
+  test('two misses in a row still apply the outage policy', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { client, rpc } = sequencedClient([{ error: { code: '' } }])
+
+    expect(await takePublicToken({ request: request(), bucket: 'waitlist', env: DEPLOYED, client })).toEqual({
+      allowed: false,
+      reason: 'unavailable',
+    })
+    expect(rpc).toHaveBeenCalledTimes(2)
+  })
+
+  test('an error Postgres answered with is not retried', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { client, rpc } = sequencedClient([{ error: { code: 'PGRST301' } }, { data: 0 }])
+
+    expect(await takePublicToken({ request: request(), bucket: 'waitlist', env: DEPLOYED, client })).toEqual({
+      allowed: false,
+      reason: 'unavailable',
+    })
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  test('limiterCall returns the first real answer', async () => {
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('aborted'))
+      .mockResolvedValueOnce({ data: 7, error: null })
+
+    expect(await limiterCall({ run })).toEqual({ data: 7, error: null })
+    expect(run).toHaveBeenCalledTimes(2)
   })
 })
 

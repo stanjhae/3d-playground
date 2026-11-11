@@ -50,6 +50,8 @@ import {
   type OutagePolicy,
   type PublicLimiter,
   decisionFromWait,
+  LIMIT_TIMEOUT_MS,
+  limiterCall,
   outageDecision,
   refusal,
   sharedLimiter,
@@ -99,7 +101,8 @@ export type RateBucket = keyof typeof RATE_LIMITS
  *   database whatever the limiter says.
  * - vote: allow. A missed limit on votes is a small, reversible cost.
  * - publish: refuse. Publishing is what puts content in front of the
- *   public; a refused publish loses nothing and the studio retries.
+ *   public; a refused publish loses nothing, and the person can publish
+ *   again. A single slow answer is retried first (`limiterCall`).
  */
 export const RATE_OUTAGE_POLICY: Record<RateBucket, OutagePolicy> = {
   save: 'allow',
@@ -110,8 +113,6 @@ export const RATE_OUTAGE_POLICY: Record<RateBucket, OutagePolicy> = {
 }
 
 const RATE_WINDOW_SECONDS = 60
-/** A slow limiter is an outage: its bucket's policy decides. */
-const RATE_TIMEOUT_MS = 1500
 const SLUG = /^[a-f0-9]{16}$/
 
 type DesignVersionRow = {
@@ -1083,14 +1084,18 @@ async function rateLimited({
   bucket: RateBucket
   env: FlpServerEnv
 }) {
-  const { data, error } = await admin
-    .rpc('flp_take_token', {
-      p_owner_id: userId,
-      p_bucket: bucket,
-      p_limit: env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
-      p_window_seconds: RATE_WINDOW_SECONDS,
-    })
-    .abortSignal(AbortSignal.timeout(RATE_TIMEOUT_MS))
+  // A limiter that stays slow after a retry is an outage: its bucket's policy decides.
+  const { data, error } = await limiterCall({
+    run: () =>
+      admin
+        .rpc('flp_take_token', {
+          p_owner_id: userId,
+          p_bucket: bucket,
+          p_limit: env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
+          p_window_seconds: RATE_WINDOW_SECONDS,
+        })
+        .abortSignal(AbortSignal.timeout(LIMIT_TIMEOUT_MS)),
+  })
 
   const decision = error
     ? outageDecision({ rule: { onOutage: RATE_OUTAGE_POLICY[bucket] } })
