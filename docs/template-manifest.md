@@ -111,3 +111,4 @@ A downloaded garment becomes a template with `scripts/build-template.mjs` and a 
 | Template | Panels | GLB |
 | --- | --- | --- |
 | `hoodie@1` | front, back, left/right sleeve, hood left/right | `public/models/hoodie.glb` (`templates/hoodie.pieces.json`) |
+| `tee-crew-short@4` | front, back, left/right sleeve (render routing kept: wearer's left on render `right`) | `public/models/tee-real.glb` (`templates/tee.pieces.json`); new tee designs pin it, and `@1`–`@3` designs keep the procedural tee |

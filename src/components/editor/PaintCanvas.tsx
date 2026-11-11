@@ -364,8 +364,8 @@ function PaintSurface({
   onActivate: () => void
 }) {
   // Guides are measured on the tee; concept garments have none.
-  // Chest and collar guides are measured on the tee.
-  const teeGuides = useEditorStore((state) => state.garmentId === 'tee')
+  // Chest and collar guides are measured on the procedural tee (@1–@3).
+  const teeGuides = useEditorStore((state) => state.garmentId === 'tee' && !state.document.modelSrc)
   const guides = teeGuides ? panelGuides({ panel }) : null
   const startStroke = useEditorStore((state) => state.startStroke)
   const appendStroke = useEditorStore((state) => state.appendStroke)

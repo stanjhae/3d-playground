@@ -208,6 +208,8 @@ export type DesignDocument = {
   panelUv?: Record<PanelId, { u0: number; v0: number; u1: number; v1: number }>
   /** Print atlas size in pixels, for template-built garments (else 512). */
   atlasSize?: number
+  /** The model a template-built garment renders on (else the garment's own). */
+  modelSrc?: string
 }
 
 const PANEL_ID_SET = new Set<string>(PANEL_IDS)

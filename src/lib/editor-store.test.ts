@@ -1,3 +1,5 @@
+// Measures the procedural tee (@3); must load before the store.
+import './testing/procedural-tee'
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import { createEmptyCanonicalDocument } from './canonical-document'

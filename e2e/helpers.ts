@@ -6,6 +6,7 @@ import { loadEnv } from 'vite'
 
 import { listFilesUnder, removeFiles } from '../src/lib/flp-api/storage-tree.mjs'
 import { TERMS_VERSION } from '../src/lib/terms.ts'
+import { currentTemplateFor } from '../src/lib/template-manifest'
 
 /** Shared steps for the journey suites (Q04 #189). */
 
@@ -375,4 +376,10 @@ export async function publishWithPlaceholders({ page }: { page: Page }) {
   const published = await request.post(`/api/flp/designs/${designId}/publication`, { headers, data: { seq: head.seq } })
   expect(published.status(), 'publish').toBe(200)
   return ((await published.json()) as { slug: string }).slug
+}
+
+/** A panel's true width ÷ height on the tee new designs pin (its print rectangle). */
+export function newTeePanelAspect({ panel }: { panel: 'front' | 'back' | 'left' | 'right' }) {
+  const { uv } = currentTemplateFor({ templateId: 'tee-crew-short' }).regions[panel]!
+  return (uv.u1 - uv.u0) / (uv.v1 - uv.v0)
 }

@@ -1,3 +1,5 @@
+// Measures the procedural tee (@3); must load before the store.
+import './testing/procedural-tee'
 import { type BufferGeometry, Mesh, type Object3D, Vector3 } from 'three'
 import { describe, expect, test } from 'vitest'
 

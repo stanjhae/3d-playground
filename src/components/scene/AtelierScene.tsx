@@ -70,8 +70,12 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
   const isHouse = mode === 'atelier'
   const garmentId = useEditorStore((state) => state.garmentId)
   const tryOn = useEditorStore(isTryOn)
+  // A real model (the @4 tee, template-built forms) stands at its true height.
+  const realModel = useEditorStore((state) => Boolean(state.document.modelSrc))
   const framing =
-    !tryOn && resolveGarmentId({ garmentId: isHouse ? leader?.garmentId : garmentId }) === 'tee'
+    !tryOn &&
+    resolveGarmentId({ garmentId: isHouse ? leader?.garmentId : garmentId }) === 'tee' &&
+    (isHouse || !realModel)
       ? 'garment'
       : 'figure'
 

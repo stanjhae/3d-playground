@@ -4,10 +4,9 @@ import { createEmptyCanonicalDocument, validateCanonicalDocument } from '../cano
 import { isCanonicalGarment } from '../concept-flags'
 import { garmentPanels } from '../garments'
 import { toRenderDocument } from '../render-projection'
-import { resolveTemplate, templateForGarment } from '../template-manifest'
+import { resolveTemplate, templateForGarment, type TemplateManifest } from '../template-manifest'
 import { HOODIE_V1 } from './hoodie'
-
-const GLB = `public${HOODIE_V1.geometry.file}`
+import { TEE_CREW_SHORT_V4 } from './tee-v4'
 
 /** Node's file reader; tests run in Vitest, not the browser bundle. */
 async function readBytes({ path }: { path: string }) {
@@ -26,21 +25,29 @@ function glbJson({ bytes }: { bytes: Uint8Array }) {
   }
 }
 
-describe('hoodie template (real model)', () => {
+const TEMPLATES: Array<{ manifest: TemplateManifest; panels: string[] }> = [
+  { manifest: HOODIE_V1, panels: ['front', 'back', 'left', 'right', 'hood-left', 'hood-right'] },
+  { manifest: TEE_CREW_SHORT_V4, panels: ['front', 'back', 'left', 'right'] },
+]
+
+describe.each(TEMPLATES)('$manifest.id@$manifest.version (real model)', ({ manifest, panels }) => {
+  const GLB = `public${manifest.geometry.file}`
+  const garmentId = manifest.garmentId
+
   test('pins the exact GLB it was built from', async () => {
     const digest = await crypto.subtle.digest('SHA-256', await readBytes({ path: GLB }))
     const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
-    expect(sha256).toBe(HOODIE_V1.geometry.sha256)
+    expect(sha256).toBe(manifest.geometry.sha256)
   })
 
-  test('is the hoodie garment, current and resolvable', () => {
-    expect(templateForGarment({ garmentId: 'hoodie' })).toBe(HOODIE_V1)
-    expect(resolveTemplate({ id: 'hoodie', version: 1 })).toEqual({ ok: true, manifest: HOODIE_V1 })
-    expect(isCanonicalGarment({ garmentId: 'hoodie' })).toBe(true)
+  test('is its garment, current and resolvable', () => {
+    expect(templateForGarment({ garmentId })).toBe(manifest)
+    expect(resolveTemplate({ id: manifest.id, version: manifest.version })).toEqual({ ok: true, manifest })
+    expect(isCanonicalGarment({ garmentId: garmentId as 'tee' })).toBe(true)
   })
 
   test('lays each panel in its own rectangle of the atlas', () => {
-    const rects = Object.values(HOODIE_V1.regions).map((region) => region.uv)
+    const rects = Object.values(manifest.regions).map((region) => region.uv)
 
     for (const rect of rects) {
       expect(rect.u0).toBeGreaterThanOrEqual(0)
@@ -59,9 +66,15 @@ describe('hoodie template (real model)', () => {
     )
   })
 
+  test('keeps canonical x toward the wearer\'s left: only the back renders mirrored', () => {
+    for (const [id, region] of Object.entries(manifest.regions)) {
+      expect(region.renderMirrorX, id).toBe(id === 'back')
+    }
+  })
+
   test('every printing node carries print UVs', async () => {
     const json = glbJson({ bytes: await readBytes({ path: GLB }) })
-    const printing = new Set(Object.values(HOODIE_V1.regions).flatMap((region) => region.mesh.split(' ')))
+    const printing = new Set(Object.values(manifest.regions).flatMap((region) => region.mesh.split(' ')))
 
     for (const node of json.nodes) {
       if (node.mesh === undefined || !printing.has(node.name ?? '')) continue
@@ -71,16 +84,19 @@ describe('hoodie template (real model)', () => {
     }
   })
 
-  test('a new hoodie design validates and lists the template panels', () => {
-    const document = createEmptyCanonicalDocument({ templateId: 'hoodie' })
+  test('a new design validates and lists the template panels', () => {
+    const document = createEmptyCanonicalDocument({ templateId: manifest.id })
 
-    expect(Object.keys(document.panels)).toEqual(['front', 'back', 'left', 'right', 'hood-left', 'hood-right'])
+    expect(document.template).toEqual({ id: manifest.id, version: manifest.version })
+    expect(Object.keys(document.panels)).toEqual(panels)
     expect(validateCanonicalDocument({ value: document }).ok).toBe(true)
-    expect(garmentPanels({ garmentId: 'hoodie' }).map((panel) => panel.id)).toEqual(Object.keys(document.panels))
+    expect(garmentPanels({ garmentId }).map((panel) => panel.id).sort()).toEqual(
+      Object.values(manifest.regions).map((region) => region.renderPanel).sort(),
+    )
   })
 
   test('renders through its own rectangles at its own atlas size', () => {
-    const document = createEmptyCanonicalDocument({ templateId: 'hoodie' })
+    const document = createEmptyCanonicalDocument({ templateId: manifest.id })
     document.panels.left!.layers.push({
       id: 'mark',
       kind: 'text',
@@ -96,10 +112,13 @@ describe('hoodie template (real model)', () => {
     })
     const render = toRenderDocument({ document }).document
 
-    expect(render.garmentId).toBe('hoodie')
+    const route = manifest.regions.left!.renderPanel
+
+    expect(render.garmentId).toBe(garmentId)
     expect(render.atlasSize).toBe(2048)
-    expect(render.panelUv?.left).toEqual(HOODIE_V1.regions.left!.uv)
-    // Wearer's left stays the wearer's left: no tee sleeve swap.
-    expect(render.layers.find((layer) => layer.id === 'mark')).toMatchObject({ panel: 'left' })
+    expect(render.modelSrc).toBe(manifest.geometry.file)
+    expect(render.panelUv?.[route]).toEqual(manifest.regions.left!.uv)
+    // The wearer's left sleeve prints in its own rectangle, whatever its render id.
+    expect(render.layers.find((layer) => layer.id === 'mark')).toMatchObject({ panel: route })
   })
 })
