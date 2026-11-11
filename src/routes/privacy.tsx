@@ -47,6 +47,7 @@ function Privacy() {
             entered.
           </li>
           <li>Your votes on shared designs, one per design, linked to your account.</li>
+          <li>Which version of the terms of use you accepted, and when.</li>
           <li>
             To stop any one visitor flooding the site: a scrambled form of your device’s network address, never the
             address itself, with a count of recent requests. It is deleted within a day.
@@ -93,8 +94,8 @@ function Privacy() {
         <p className={textClass}>
           Delete any design from <Link to="/studio" className="underline">My Studio</Link>; its history, pictures and
           public link go with it. To delete your whole account, choose Delete account at the bottom of My Studio and
-          type your email to confirm: your designs, history, pictures, uploads and public links are removed straight
-          away, and you are signed out. Copies in encrypted backups are deleted within 30 days. To leave the waitlist,
+          type your email to confirm: your designs, history, pictures, uploads, public links and votes are removed
+          straight away, and you are signed out. Copies in encrypted backups are deleted within 30 days. To leave the waitlist,
           email {contact} from the address you joined with.
         </p>
       </div>
@@ -104,7 +105,7 @@ function Privacy() {
         <p className={textClass}>
           Every shared design page has a “Report this design” link. Reports go to {contact}, and a design that breaks
           the rules is unpublished and can’t be published again unless the decision is reversed. Its owner keeps the
-          design itself.
+          design itself. A note of the decision is kept: which link, why, who decided and when.
         </p>
       </div>
 
