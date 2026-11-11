@@ -32,6 +32,7 @@ describe('resolveGarmentId', () => {
     expect(resolveGarmentId({ garmentId: 'mixed' })).toBe('mixed')
     expect(resolveGarmentId({ garmentId: 'coat' })).toBe('coat')
     expect(resolveGarmentId({ garmentId: 'suit' })).toBe('suit')
+    expect(resolveGarmentId({ garmentId: 'tailored' })).toBe('tailored')
     expect(resolveGarmentId({ garmentId: 'tee' })).toBe('tee')
   })
 })

@@ -1,4 +1,4 @@
-Third-party software and fonts in Fashion Leader Vote
+Third-party software, fonts and 3D models in Fashion Leader Vote
 
 Fonts, used under the SIL Open Font License, Version 1.1:
 
@@ -19,6 +19,19 @@ Lucide icons, used under the ISC License:
 Draco 3D decoder, used under the Apache License, Version 2.0:
   Copyright The Draco Authors (https://github.com/google/draco)
   https://www.apache.org/licenses/LICENSE-2.0
+
+3D garment models by Style3D CG (https://sketchfab.com/Style3DMeta), used under
+Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
+All were modified: rescaled, panels renamed, and recompressed (Draco, WebP).
+
+  White Evening Gown Dress  https://sketchfab.com/3d-models/white-evening-gown-dress-1f77c65b1542428f89b10f538b771ce4
+  Black Dress  https://sketchfab.com/3d-models/black-dress-b0b0e79eca3d4927b9bb25ded81221ec
+  White shirt black leather skirt outfit  https://sketchfab.com/3d-models/white-shirt-black-leather-skirt-outfit-9f9e3d05217a4f969cd08224ad0b0aee
+  Black jacket coat  https://sketchfab.com/3d-models/black-jacket-coat-2181e25803164fd690c0debb4d4f391a
+  White Suit Set  https://sketchfab.com/3d-models/white-suit-set-46111b5492f944bd862b8ca9ca4ba78b
+  Green and white hoodie  https://sketchfab.com/3d-models/green-and-white-hoodie-af100701826e4bb9abc1ff1a1d24ab1e
+  Black Denim Overall Dress  https://sketchfab.com/3d-models/black-denim-overall-dress-09c6f4cdafee4ed2a566affa4cbebf66
+  Man Black Business Suit (mesh also simplified)  https://sketchfab.com/3d-models/man-black-business-suit-7a669a06fb954d459985ccaa98672177
 
 The full SIL Open Font License follows.
 

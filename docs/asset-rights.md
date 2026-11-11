@@ -19,8 +19,11 @@ Status key:
 | `mixed.glb` | "White shirt black leather skirt outfit", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
 | `coat.glb` | "Black jacket coat", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
 | `suit.glb` | "White Suit Set", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
+| `hoodie.glb` | "Green and white hoodie", Style3D CG | CC BY 4.0 | GLB `asset.extras` and README; added 11 Nov | **Cleared, credit required** |
+| `overall.glb` | "Black Denim Overall Dress", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
+| `tailored.glb` | "Man Black Business Suit", Style3D CG | CC BY 4.0 | Same as above. Mesh simplified (an adaptation; CC BY allows it, and the credit should say it was modified) | **Cleared, credit required** |
 
-Credits currently appear in the studio silhouette switch (`SilhouetteSwitch.tsx`) and on the landing stage (`LandingStageHost.tsx`), using `garments.ts`. **Gap:** the shared `/look/:id` page, OG cards and board stills of looks built on Style3D forms show no attribution. CC BY 4.0 requires credit where the adapted work is shown. Either add credit there or keep Style3D forms out of the MVP's public outputs, which centre on the tee.
+Credits appear wherever a Style3D form is shown, all from `garments.ts`: the studio silhouette switch (`SilhouetteSwitch.tsx`), the landing stage (`LandingStageHost.tsx`, with license link), `/look/:id` and `/create` (`GownCredit.tsx`), the vote board (`LookCard.tsx` and the ranking table in `vote.tsx`), and the share description (`api/og-page.ts`, via `lookShareLine`, which keeps the credit inside the 160-character cut). The OG image itself is the baked still or thumbnail, shown alongside those credits. `public/third-party-notices.txt` (linked from `/privacy`) lists every model, its source and the changes made. Closed 11 Nov.
 
 ## Images and textures
 
@@ -77,7 +80,7 @@ No fabric weight (gsm/oz), size chart, production-ready, tech-pack or manufactur
 3. `public/graphics/*.svg`: confirm they are original or derived from the founder's own mockups.
 4. `logo-flv.svg`: brand decision (V03 #198).
 5. Seed creators in `data/designs.json`: real people with consent, or samples to label or remove.
-6. Style3D attribution on `/look`, OG and board stills, or keep those forms out of public MVP outputs.
+6. ~~Style3D attribution on `/look`, OG and board stills~~: credited everywhere the forms appear (11 Nov).
 
 ## Follow-ups (no new issue needed; they fit existing scope)
 

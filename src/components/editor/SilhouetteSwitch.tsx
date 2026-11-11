@@ -41,6 +41,9 @@ const FIT_LABEL: Partial<Record<GarmentId, string>> = {
   mixed: FLV_COPY.selectFitClassic,
   coat: FLV_COPY.selectFitClassic,
   suit: FLV_COPY.selectFitClassic,
+  hoodie: FLV_COPY.selectFitRelaxed,
+  overall: FLV_COPY.selectFitRelaxed,
+  tailored: FLV_COPY.selectFitClassic,
 }
 
 function FormGlyph({
@@ -60,7 +63,7 @@ function FormGlyph({
     )
   }
 
-  if (garmentId === 'gown' || garmentId === 'slip') {
+  if (garmentId === 'gown' || garmentId === 'slip' || garmentId === 'overall') {
     return (
       <svg
         viewBox="0 0 48 48"

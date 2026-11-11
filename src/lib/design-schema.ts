@@ -6,6 +6,9 @@ export const GARMENT_IDS = [
   'mixed',
   'coat',
   'suit',
+  'hoodie',
+  'overall',
+  'tailored',
   'jacket',
   'tee',
 ] as const

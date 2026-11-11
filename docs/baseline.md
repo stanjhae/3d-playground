@@ -128,7 +128,7 @@ Refreshed 10 November 2026 (P4) on the P4 branch, which is `master` at `34808bf`
 | --- | --- | --- | --- |
 | All JS, gzip | 570 KiB | 534.6 KiB (37 chunks) | CI `check` job, `scripts/check-budgets.mjs` |
 | Largest JS chunk, gzip | 310 KiB | 173.2 KiB (`StudioStage`) | CI `check` job, `scripts/check-budgets.mjs` |
-| GLB per garment template | 1.2 MiB | 1.10 MiB max (`coat.glb`, 1,127 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
+| GLB per garment template | 1.2 MiB | 1.12 MiB max (`tailored.glb`, 1,149 KiB, 11 Nov; was `coat.glb`, 1,127 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
 | Editor first load, all bytes over the wire | 2.0 MiB | 611 KiB (the tee editor, signed in, cold cache) | CI browser tests, `e2e/budgets.spec.ts` |
 | Editor frame time on a laptop-class GPU | p95 ≤ 16.7 ms (60 fps); uncapped p95 ≤ 8 ms | 16.8 / 3.8 ms (30 Oct) | Manual |
 | Editor frame cost on CI (software WebGL), p95 of animation-frame callbacks | 8 ms | 1.1 ms (median 0.5 ms, 384 frames; first CI run of #344) | CI browser tests, `e2e/budgets.spec.ts` |

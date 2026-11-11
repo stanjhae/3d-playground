@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { cn } from '../../lib/cn'
+import { GownCredit } from '../editor/GownCredit'
 import type { Design, DesignAttachmentId } from '../../lib/design-schema'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { lookRecipe } from '../../lib/look-recipe'
@@ -99,6 +100,7 @@ export function LookCard({
           {HOUSE_COPY.by} {design.author}
         </p>
       </Link>
+      <GownCredit garmentId={design.garmentId} />
       <div className="flex items-center justify-between gap-3">
         <p className={cn('text-flv-muted', chromeTextClass())}>
           {design.votes}{' '}

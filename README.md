@@ -35,8 +35,11 @@ The one dashboard step: in the Vercel project, add a Redis store (Marketplace �
 - `public/models/mixed.glb` — White shirt black leather skirt outfit by Style3D CG, CC BY 4.0. [Source](https://sketchfab.com/3d-models/white-shirt-black-leather-skirt-outfit-9f9e3d05217a4f969cd08224ad0b0aee).
 - `public/models/coat.glb` — Black jacket coat by Style3D CG, CC BY 4.0. [Source](https://sketchfab.com/3d-models/black-jacket-coat-2181e25803164fd690c0debb4d4f391a).
 - `public/models/suit.glb` — White Suit Set by Style3D CG, CC BY 4.0. [Source](https://sketchfab.com/3d-models/white-suit-set-46111b5492f944bd862b8ca9ca4ba78b).
+- `public/models/hoodie.glb` — Green and white hoodie by Style3D CG, CC BY 4.0. [Source](https://sketchfab.com/3d-models/green-and-white-hoodie-af100701826e4bb9abc1ff1a1d24ab1e).
+- `public/models/overall.glb` — Black Denim Overall Dress by Style3D CG, CC BY 4.0. [Source](https://sketchfab.com/3d-models/black-denim-overall-dress-09c6f4cdafee4ed2a566affa4cbebf66).
+- `public/models/tailored.glb` — Man Black Business Suit by Style3D CG, CC BY 4.0. [Source](https://sketchfab.com/3d-models/man-black-business-suit-7a669a06fb954d459985ccaa98672177). Trims (belt, buttons, tie clip) and cloth simplified to fit the GLB budget.
 - `public/models/jacket.glb` — original evening jacket. Same panel names. CC0. Hidden from the rail.
-- `python3 scripts/ingest-garment.py` seats a downloaded Sketchfab GLB (rename panels, studio frame, credit extras). It refuses to overwrite `public/models/garment.glb`. Then `scripts/compress-models.sh` for Draco + WebP. The house lathe, if you need it, is `node scripts/build-garment.mjs` → `garment-house.glb`.
+- `python3 scripts/ingest-garment.py` seats a downloaded Sketchfab GLB (rename panels, studio frame, credit extras). It refuses to overwrite `public/models/garment.glb`. If the result is over the GLB budget, `node scripts/simplify-parts.mjs` cuts dense trims (`hardware-*`) and, optionally, cloth. Then `scripts/compress-models.sh` for Draco + WebP; it lists the recipe used for each Style3D form. The house lathe, if you need it, is `node scripts/build-garment.mjs` → `garment-house.glb`.
 - Board stills live in `public/stills/`. `pnpm stills`
 
 Draco decoders live in `public/draco/` so first paint does not call gstatic.

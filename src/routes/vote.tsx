@@ -410,6 +410,16 @@ function VotePage() {
                       </td>
                       <td className="px-4 py-3 font-body text-sm text-flv-muted">
                         {garment.label}
+                        {garment.credit ? (
+                          <a
+                            href={garment.credit.href}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                            className="block text-[0.65rem] tracking-[0.08em] uppercase hover:text-flv-accent"
+                          >
+                            Style3D CG · {garment.credit.license}
+                          </a>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">

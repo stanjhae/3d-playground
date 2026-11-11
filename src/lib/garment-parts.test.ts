@@ -68,6 +68,9 @@ describe('listRailGarments', () => {
       'mixed',
       'coat',
       'suit',
+      'hoodie',
+      'overall',
+      'tailored',
     ])
   })
 })
@@ -86,6 +89,15 @@ describe('garmentCredit', () => {
     )
     expect(garmentCredit({ garmentId: 'suit' })?.label).toBe(
       'Suit by Style3D CG',
+    )
+    expect(garmentCredit({ garmentId: 'hoodie' })?.label).toBe(
+      'Hoodie by Style3D CG',
+    )
+    expect(garmentCredit({ garmentId: 'overall' })?.label).toBe(
+      'Overall dress by Style3D CG',
+    )
+    expect(garmentCredit({ garmentId: 'tailored' })?.label).toBe(
+      'Tailored suit by Style3D CG (modified)',
     )
   })
 })

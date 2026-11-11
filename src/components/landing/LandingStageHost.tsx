@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
+import { GownCredit } from '../editor/GownCredit'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import { parseCreateStep } from '../../lib/create-search'
@@ -440,9 +441,13 @@ function SelectDemo({
           {isCanonicalGarment({ garmentId }) ? null : <ConceptPreviewBadge />}
         </div>
         <h3 className="font-display text-xl text-flv-ink uppercase">{garmentLabel}</h3>
-        <p className="font-body text-sm text-flv-muted">
-          {garmentCredit ?? 'House silhouette with realistic 3D model.'}
-        </p>
+        {garmentCredit ? (
+          <GownCredit garmentId={garmentId} />
+        ) : (
+          <p className="font-body text-sm text-flv-muted">
+            House silhouette with realistic 3D model.
+          </p>
+        )}
         <ul className="flex flex-col gap-1 font-body text-xs text-flv-muted">
           <li>Realistic 3D model</li>
           <li>Live preview on landing</li>

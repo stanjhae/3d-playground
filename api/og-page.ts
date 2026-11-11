@@ -3,6 +3,7 @@ import {
   getStoredDesign,
   hydrateDesignsStore,
 } from '../src/lib/designs-store.ts'
+import { garmentCredit } from '../src/lib/garments.ts'
 import { lookRecipe, lookShareLine } from '../src/lib/look-recipe.ts'
 import { lookCardHtml, lookShareImage } from '../src/lib/og-card.ts'
 
@@ -15,6 +16,7 @@ async function render(request?: Request) {
 
   const design = lookId ? getStoredDesign({ id: lookId }) : null
   const recipe = design ? lookRecipe({ design }) : ''
+  const credit = design ? garmentCredit({ garmentId: design.garmentId }) : undefined
   const shareImage = lookShareImage({
     origin,
     lookId,
@@ -31,6 +33,7 @@ async function render(request?: Request) {
       description: lookShareLine({
         recipe,
         author: design?.author || '',
+        credit: credit ? `${credit.label}, ${credit.license}` : undefined,
       }),
       imageUrl: shareImage.imageUrl,
       imageType: shareImage.imageType,
