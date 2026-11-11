@@ -7,6 +7,13 @@ import { toRenderDocument } from '../render-projection'
 import { resolveTemplate, templateForGarment, type TemplateManifest } from '../template-manifest'
 import { HOODIE_V1 } from './hoodie'
 import { TEE_CREW_SHORT_V4 } from './tee-v4'
+import { COAT_V1 } from './coat'
+import { GOWN_V1 } from './gown'
+import { MIXED_V1 } from './mixed'
+import { OVERALL_V1 } from './overall'
+import { SLIP_V1 } from './slip'
+import { SUIT_V1 } from './suit'
+import { TAILORED_V1 } from './tailored'
 
 /** Node's file reader; tests run in Vitest, not the browser bundle. */
 async function readBytes({ path }: { path: string }) {
@@ -28,6 +35,13 @@ function glbJson({ bytes }: { bytes: Uint8Array }) {
 const TEMPLATES: Array<{ manifest: TemplateManifest; panels: string[] }> = [
   { manifest: HOODIE_V1, panels: ['front', 'back', 'left', 'right', 'hood-left', 'hood-right'] },
   { manifest: TEE_CREW_SHORT_V4, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: MIXED_V1, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: COAT_V1, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: SUIT_V1, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: TAILORED_V1, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: SLIP_V1, panels: ['front', 'back'] },
+  { manifest: OVERALL_V1, panels: ['front', 'back'] },
+  { manifest: GOWN_V1, panels: ['front', 'back'] },
 ]
 
 describe.each(TEMPLATES)('$manifest.id@$manifest.version (real model)', ({ manifest, panels }) => {
@@ -91,7 +105,9 @@ describe.each(TEMPLATES)('$manifest.id@$manifest.version (real model)', ({ manif
 
   test('renders through its own rectangles at its own atlas size', () => {
     const document = createEmptyCanonicalDocument({ templateId: manifest.id })
-    document.panels.left!.layers.push({
+    // The last panel: a sleeve where there is one, else the back.
+    const panel = panels.at(-1)!
+    document.panels[panel]!.layers.push({
       id: 'mark',
       kind: 'text',
       content: 'L',
@@ -106,13 +122,13 @@ describe.each(TEMPLATES)('$manifest.id@$manifest.version (real model)', ({ manif
     })
     const render = toRenderDocument({ document }).document
 
-    const route = manifest.regions.left!.renderPanel
+    const route = manifest.regions[panel]!.renderPanel
 
     expect(render.garmentId).toBe(garmentId)
     expect(render.atlasSize).toBe(2048)
     expect(render.modelSrc).toBe(manifest.geometry.file)
-    expect(render.panelUv?.[route]).toEqual(manifest.regions.left!.uv)
-    // The wearer's left sleeve prints in its own rectangle, whatever its render id.
+    expect(render.panelUv?.[route]).toEqual(manifest.regions[panel]!.uv)
+    // Each panel prints in its own rectangle, whatever its render id.
     expect(render.layers.find((layer) => layer.id === 'mark')).toMatchObject({ panel: route })
   })
 })

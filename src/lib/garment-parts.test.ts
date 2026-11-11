@@ -103,17 +103,19 @@ describe('garmentCredit', () => {
 })
 
 describe('garment paint', () => {
-  test('only the house-authored forms take ink', () => {
-    expect(garmentCanPaint({ garmentId: 'tee' })).toBe(true)
-    expect(garmentCanPaint({ garmentId: 'gown' })).toBe(false)
-    expect(garmentCanPaint({ garmentId: 'slip' })).toBe(false)
+  test('every garment with a template takes ink; the house jacket does not', () => {
+    for (const garmentId of ['tee', 'gown', 'slip', 'mixed', 'coat', 'suit', 'hoodie', 'overall', 'tailored']) {
+      expect(garmentCanPaint({ garmentId }), garmentId).toBe(true)
+    }
+    expect(garmentCanPaint({ garmentId: 'jacket' })).toBe(false)
   })
 
-  test('the tee sheet has four sides', () => {
+  test('the tee sheet has four sides; sleeveless forms print front and back', () => {
     expect(garmentPanels({ garmentId: 'tee' }).map((panel) => panel.id)).toEqual(
       ['front', 'back', 'left', 'right'],
     )
-    expect(garmentPanels({ garmentId: 'gown' })).toEqual([])
+    expect(garmentPanels({ garmentId: 'gown' }).map((panel) => panel.id)).toEqual(['front', 'back'])
+    expect(garmentPanels({ garmentId: 'coat' }).map((panel) => panel.id)).toEqual(['front', 'back', 'left', 'right'])
   })
 })
 

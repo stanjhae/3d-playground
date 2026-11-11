@@ -21,6 +21,7 @@ Status key:
 | `suit.glb` | "White Suit Set", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
 | `hoodie.glb` | "Green and white hoodie", Style3D CG | CC BY 4.0 | GLB `asset.extras` and README; added 11 Nov | **Cleared, credit required** |
 | `overall.glb` | "Black Denim Overall Dress", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
+| `garment-print.glb` | "White Evening Gown Dress", Style3D CG, with print UVs added | CC BY 4.0 | Copy of `garment.glb` given print UVs (`templates/gown.pieces.json`) | **Cleared, credit required** (same credit as the gown) |
 | `tee-real.glb` | "Tshirt", ajith98adithya | CC BY 4.0 | GLB `asset.extras` (author, license, source URL); README; third-party notices. Seated, recompressed, print UVs added (an adaptation, credited as modified) | **Cleared, credit required.** New tee designs print on it (template `@4`) |
 | `tailored.glb` | "Man Black Business Suit", Style3D CG | CC BY 4.0 | Same as above. Mesh simplified (an adaptation; CC BY allows it, and the credit should say it was modified) | **Cleared, credit required** |
 

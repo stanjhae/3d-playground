@@ -1,0 +1,93 @@
+{
+  "templateId": "mixed",
+  "version": 1,
+  "garmentId": "mixed",
+  "glb": "public/models/mixed.glb",
+  "out": "public/models/mixed.glb",
+  "manifest": "src/lib/templates/mixed.ts",
+  "atlas": 2048,
+  "panels": [
+    {
+      "id": "front",
+      "label": "Front",
+      "view": "front",
+      "pieces": [
+        {
+          "node": "skirt"
+        },
+        {
+          "node": "skirt-1"
+        },
+        {
+          "node": "skirt-2"
+        },
+        {
+          "node": "body-1"
+        },
+        {
+          "node": "body-3"
+        },
+        {
+          "node": "body-4"
+        },
+        {
+          "node": "body-5"
+        },
+        {
+          "node": "skirt-3"
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "view": "back",
+      "pieces": [
+        {
+          "node": "skirt"
+        },
+        {
+          "node": "skirt-1"
+        },
+        {
+          "node": "skirt-2"
+        },
+        {
+          "node": "body-1"
+        },
+        {
+          "node": "body-3"
+        },
+        {
+          "node": "body-4"
+        },
+        {
+          "node": "body-5"
+        },
+        {
+          "node": "skirt-3"
+        }
+      ]
+    },
+    {
+      "id": "left",
+      "label": "Wearer's left sleeve",
+      "view": "left",
+      "pieces": [
+        {
+          "node": "body-2"
+        }
+      ]
+    },
+    {
+      "id": "right",
+      "label": "Wearer's right sleeve",
+      "view": "right",
+      "pieces": [
+        {
+          "node": "body"
+        }
+      ]
+    }
+  ]
+}

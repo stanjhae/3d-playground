@@ -2,6 +2,13 @@ import type { CanonicalPanelId, TemplateId } from './canonical-document.ts'
 import type { PanelId, PanelSurface } from './design-document.ts'
 import { HOODIE_V1 } from './templates/hoodie.ts'
 import { TEE_CREW_SHORT_V4 } from './templates/tee-v4.ts'
+import { MIXED_V1 } from './templates/mixed.ts'
+import { SLIP_V1 } from './templates/slip.ts'
+import { COAT_V1 } from './templates/coat.ts'
+import { OVERALL_V1 } from './templates/overall.ts'
+import { GOWN_V1 } from './templates/gown.ts'
+import { SUIT_V1 } from './templates/suit.ts'
+import { TAILORED_V1 } from './templates/tailored.ts'
 
 /**
  * Pinned garment templates (FLP F07 #142). A canonical document names
@@ -252,6 +259,13 @@ export { TEE_CREW_SHORT_V4 }
 const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
   'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3, 4: TEE_CREW_SHORT_V4 },
   hoodie: { 1: HOODIE_V1 },
+  mixed: { 1: MIXED_V1 },
+  slip: { 1: SLIP_V1 },
+  coat: { 1: COAT_V1 },
+  overall: { 1: OVERALL_V1 },
+  gown: { 1: GOWN_V1 },
+  suit: { 1: SUIT_V1 },
+  tailored: { 1: TAILORED_V1 },
 }
 
 /** The version new designs pin, per template. */
@@ -259,6 +273,13 @@ const CURRENT_VERSIONS: Record<string, TemplateManifest> = {
   // @4: the real T-shirt (templates/tee.pieces.json). @1–@3 stay procedural.
   'tee-crew-short': TEE_CREW_SHORT_V4,
   hoodie: HOODIE_V1,
+  mixed: MIXED_V1,
+  slip: SLIP_V1,
+  coat: COAT_V1,
+  overall: OVERALL_V1,
+  gown: GOWN_V1,
+  suit: SUIT_V1,
+  tailored: TAILORED_V1,
 }
 
 /**
