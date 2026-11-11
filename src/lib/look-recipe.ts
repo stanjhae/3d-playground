@@ -163,20 +163,34 @@ export function lookRecipe({
   return `${garment.label} · ${extras}`
 }
 
+/** Share descriptions are cut at this length (`og-card.ts`). */
+export const SHARE_LINE_MAX = 160
+
+/**
+ * One-line share description. A garment credit (CC BY) always survives
+ * the cut: the recipe is shortened first to make room for it.
+ */
 export function lookShareLine({
   recipe,
   author,
+  credit,
 }: {
   recipe: string
   author: string
+  credit?: string
 }) {
   const by = author.trim()
     ? `By ${author.trim().slice(0, 40)}`
     : 'The house is open.'
+  const tail = credit ? `${by}. ${credit}` : by
 
   if (!recipe) {
-    return by
+    return tail
   }
 
-  return `${recipe}. ${by}`
+  const room = SHARE_LINE_MAX - tail.length - 2
+  const shortRecipe =
+    recipe.length > room ? `${recipe.slice(0, Math.max(room - 1, 0))}…` : recipe
+
+  return room > 1 ? `${shortRecipe}. ${tail}` : tail
 }

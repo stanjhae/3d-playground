@@ -74,6 +74,7 @@ describe('og HTTP', () => {
     expect(response.headers.get('Content-Type')).toContain('text/html')
     expect(html).toContain('Midnight Silk Column')
     expect(html).toContain('Gown · Ink Cotton')
+    expect(html).toContain('Gown by Style3D CG, CC BY 4.0')
     expect(html).toContain('image/png')
   })
 

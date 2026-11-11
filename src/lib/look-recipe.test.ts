@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'vitest'
 
 import { createEmptyDesign } from './design-schema'
-import { lookRecipe, lookShareLine, pickSoonLooks } from './look-recipe'
+import {
+  lookRecipe,
+  lookShareLine,
+  pickSoonLooks,
+  SHARE_LINE_MAX,
+} from './look-recipe'
 
 describe('lookRecipe', () => {
   test('names only cloth that lives on the form', () => {
@@ -216,5 +221,29 @@ describe('lookShareLine', () => {
         author: 'Elise Moreau',
       }),
     ).toBe('Gown · Ink Cotton. By Elise Moreau')
+  })
+
+  test('keeps a garment credit within the share cut', () => {
+    const line = lookShareLine({
+      recipe: `Tailored suit · ${'Ink Cotton, '.repeat(20)}`,
+      author: 'Elise Moreau',
+      credit: 'Tailored suit by Style3D CG (modified), CC BY 4.0',
+    })
+
+    expect(line.length).toBeLessThanOrEqual(SHARE_LINE_MAX)
+    expect(line.endsWith(
+      'By Elise Moreau. Tailored suit by Style3D CG (modified), CC BY 4.0',
+    )).toBe(true)
+    expect(line.startsWith('Tailored suit · Ink Cotton')).toBe(true)
+  })
+
+  test('leaves short lines untouched with a credit', () => {
+    expect(
+      lookShareLine({
+        recipe: 'Hoodie',
+        author: 'Ada Voss',
+        credit: 'Hoodie by Style3D CG, CC BY 4.0',
+      }),
+    ).toBe('Hoodie. By Ada Voss. Hoodie by Style3D CG, CC BY 4.0')
   })
 })
