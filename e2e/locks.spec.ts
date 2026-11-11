@@ -17,13 +17,21 @@ test.afterAll(async () => {
 
 const WORD = 'FLP'
 
-/** The word's centre on the front panel, from the inspector's own fields. */
-async function wordPoint({ page }: { page: Page }) {
+/** The word's place on the front panel, in percent, from the inspector's own fields. */
+async function wordSpot({ page }: { page: Page }) {
   const x = Number(await page.getByRole('textbox', { name: 'Position X, percent of panel' }).inputValue())
   const y = Number(await page.getByRole('textbox', { name: 'Position Y, percent of panel' }).inputValue())
+  return { x, y }
+}
+
+/**
+ * That place on screen, measured when it's used: locking adds a line to the
+ * rail, which can move the panel, and a stale point would miss the word.
+ */
+async function screenPoint({ page, spot }: { page: Page; spot: { x: number; y: number } }) {
   const box = (await panelCanvas({ page, panel: 'Front' }).boundingBox())!
   // Panel y runs bottom-up.
-  return { x: box.x + (box.width * x) / 100, y: box.y + (box.height * (100 - y)) / 100 }
+  return { x: box.x + (box.width * spot.x) / 100, y: box.y + (box.height * (100 - spot.y)) / 100 }
 }
 
 test('a locked word is not picked on the panel until it is unlocked', async ({ page }) => {
@@ -43,7 +51,7 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   const lock = rail.getByRole('button', { name: `Lock ${WORD}`, exact: true })
   const positionX = page.getByRole('textbox', { name: 'Position X, percent of panel' })
   await expect(select).toHaveAttribute('aria-current', 'true')
-  const point = await wordPoint({ page })
+  const spot = await wordSpot({ page })
 
   // Lock it from the list: its edit controls go off and say why.
   await expect(lock).toHaveAttribute('aria-pressed', 'false')
@@ -66,6 +74,7 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   // A real drag that starts on the word moves nothing and doesn't pick it:
   // with the brush it draws over it instead.
   await chooseTool({ page, tool: 'Draw' })
+  let point = await screenPoint({ page, spot })
   await page.mouse.move(point.x, point.y)
   await page.mouse.down()
   await page.mouse.move(point.x + 40, point.y + 20, { steps: 8 })
@@ -73,6 +82,7 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   await expect(select).not.toHaveAttribute('aria-current', 'true')
 
   // A plain click on it doesn't pick it either.
+  point = await screenPoint({ page, spot })
   await page.mouse.click(point.x, point.y)
   await expect(select).not.toHaveAttribute('aria-current', 'true')
 
@@ -87,6 +97,7 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   await page.keyboard.press('Escape')
   await expect(select).not.toHaveAttribute('aria-current', 'true')
 
+  point = await screenPoint({ page, spot })
   await page.mouse.click(point.x, point.y)
   await expect(select).toHaveAttribute('aria-current', 'true')
 })
