@@ -33,6 +33,10 @@ All were modified: rescaled, panels renamed, and recompressed (Draco, WebP).
   Black Denim Overall Dress  https://sketchfab.com/3d-models/black-denim-overall-dress-09c6f4cdafee4ed2a566affa4cbebf66
   Man Black Business Suit (mesh also simplified)  https://sketchfab.com/3d-models/man-black-business-suit-7a669a06fb954d459985ccaa98672177
 
+T-shirt model "Tshirt" by ajith98adithya (https://sketchfab.com/ajith98adithya), used under
+Creative Commons Attribution 4.0. Modified: rescaled, turned, recompressed and given print UVs.
+  https://sketchfab.com/3d-models/tshirt-8c838d3ea1e8494396438b5f5dc78ad8
+
 The full SIL Open Font License follows.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

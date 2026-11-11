@@ -1,3 +1,5 @@
+// Measures the procedural tee (@3) with print-view-harness; must load first.
+import '../testing/procedural-tee'
 import { type SupabaseClient, createClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 

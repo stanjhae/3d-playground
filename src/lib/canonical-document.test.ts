@@ -312,8 +312,8 @@ describe('template-driven panels', () => {
     const { createEmptyCanonicalDocument, panelIdsOf } = await import('./canonical-document')
     const document = createEmptyCanonicalDocument()
 
-    expect(document.template).toEqual({ id: 'tee-crew-short', version: 3 })
-    expect(document.base).toEqual({ kind: 'solid', color: '#f3efe6' })
+    expect(document.template).toEqual({ id: 'tee-crew-short', version: 4 })
+    expect(document.base).toEqual({ kind: 'solid', color: '#ffffff' })
     expect(panelIdsOf({ document })).toEqual(['front', 'back', 'left', 'right'])
   })
 

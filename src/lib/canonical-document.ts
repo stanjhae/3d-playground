@@ -894,8 +894,14 @@ export function validateCanonicalDocument({
 
 export function createEmptyCanonicalDocument({
   templateId = 'tee-crew-short',
-}: { templateId?: TemplateId } = {}): CanonicalDocument {
-  const manifest = currentTemplateFor({ templateId })
+  version,
+}: {
+  templateId?: TemplateId
+  /** A specific version (tests of an older template); default: the current one. */
+  version?: number
+} = {}): CanonicalDocument {
+  const pinned = version === undefined ? null : resolveTemplate({ id: templateId, version })
+  const manifest = pinned?.ok ? pinned.manifest : currentTemplateFor({ templateId })
 
   return {
     schemaVersion: CANONICAL_SCHEMA_VERSION,

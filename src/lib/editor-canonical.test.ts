@@ -1,3 +1,5 @@
+// Measures the procedural tee (@3); must load before the store.
+import './testing/procedural-tee'
 import { describe, expect, test } from 'vitest'
 
 import {

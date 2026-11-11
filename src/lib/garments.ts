@@ -152,6 +152,13 @@ export const GARMENTS: readonly GarmentEntry[] = [
       crew: '/models/tee.glb',
       v: '/models/tee-v.glb',
     },
+    // New tee designs (@4) print on this real model; older ones on the house form.
+    credit: {
+      label: 'T-shirt by ajith98adithya (modified)',
+      href: 'https://sketchfab.com/3d-models/tshirt-8c838d3ea1e8494396438b5f5dc78ad8',
+      license: 'CC BY 4.0',
+      licenseHref: 'https://creativecommons.org/licenses/by/4.0/',
+    },
   },
   {
     id: 'slip',
