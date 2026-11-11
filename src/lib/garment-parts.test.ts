@@ -97,7 +97,7 @@ describe('garmentCredit', () => {
       'Overall dress by Style3D CG',
     )
     expect(garmentCredit({ garmentId: 'tailored' })?.label).toBe(
-      'Tailored suit by Style3D CG',
+      'Tailored suit by Style3D CG (modified)',
     )
   })
 })

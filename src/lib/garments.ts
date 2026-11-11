@@ -231,7 +231,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     parts: partsNamed({ ids: ['body', 'hardware'] }),
     rail: true,
     credit: {
-      label: 'Tailored suit by Style3D CG',
+      label: 'Tailored suit by Style3D CG (modified)',
       href: 'https://sketchfab.com/3d-models/man-black-business-suit-7a669a06fb954d459985ccaa98672177',
       ...STYLE3D_LICENSE,
     },
