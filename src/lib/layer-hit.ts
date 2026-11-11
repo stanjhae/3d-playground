@@ -305,7 +305,9 @@ export function hitPlaceableLayer({
       continue
     }
 
-    if (layer.panel !== panel) {
+    // A locked item can't be picked on the cloth (W3): the click passes to
+    // whatever is under it. It is still selectable from the layer list.
+    if (layer.panel !== panel || (layer.kind !== 'pattern' && layer.locked)) {
       continue
     }
 

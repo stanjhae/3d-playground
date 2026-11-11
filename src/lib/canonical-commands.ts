@@ -40,6 +40,8 @@ export type CanonicalLayerPatch = {
   /** true stores the flag; false removes it, as flips are stored only when on. */
   flipX?: boolean
   flipY?: boolean
+  /** true locks the layer; false removes the flag, as locks are stored only when on. */
+  locked?: boolean
 }
 
 export type CanonicalCommand =
@@ -118,6 +120,79 @@ export function findLayer({
   return null
 }
 
+/** What a locked layer says when a command would change it (W3). */
+const LOCKED_MESSAGE = 'locked; unlock it to edit'
+
+/** The only change a locked layer takes is being unlocked. */
+function isUnlockOnly({ patch }: { patch: CanonicalLayerPatch }) {
+  const keys = Object.entries(patch).filter(([, value]) => value !== undefined)
+  return keys.length > 0 && keys.every(([key, value]) => key === 'locked' && value === false)
+}
+
+/**
+ * Why `command` would change a locked layer, or null. A locked layer can't
+ * be moved, restyled, restacked, removed or drawn into until it is
+ * unlocked; copying it is fine. A batch is checked command by command
+ * against the document as the batch leaves it.
+ */
+export function lockedIssues({
+  document,
+  command,
+}: {
+  document: CanonicalDocument
+  command: CanonicalCommand
+}): ValidationIssue[] | null {
+  const lockedLayer = (layerId: string) => findLayer({ document, layerId })?.layer.locked === true
+  const refuse = (layerId: string): ValidationIssue[] => [{ path: '$', message: `${layerId} is ${LOCKED_MESSAGE}` }]
+
+  if (command.type === 'batch') {
+    let current = document
+
+    for (const inner of command.commands) {
+      const issues = lockedIssues({ document: current, command: inner })
+
+      if (issues) {
+        return issues
+      }
+
+      const applied = applyToDocument({ document: current, command: inner })
+
+      if (!applied.ok) {
+        return null
+      }
+
+      current = applied.document
+    }
+
+    return null
+  }
+
+  if (command.type === 'updateLayer') {
+    return lockedLayer(command.layerId) && !isUnlockOnly({ patch: command.patch }) ? refuse(command.layerId) : null
+  }
+
+  if (
+    command.type === 'addStroke' ||
+    command.type === 'clearPaintLayer' ||
+    command.type === 'removeLayer' ||
+    command.type === 'moveLayer'
+  ) {
+    return lockedLayer(command.layerId) ? refuse(command.layerId) : null
+  }
+
+  if (command.type === 'removeStroke') {
+    for (const panel of CANONICAL_PANEL_IDS) {
+      for (const layer of document.panels[panel].layers) {
+        if (layer.kind === 'paint' && layer.locked && layer.strokes.some((stroke) => stroke.id === command.strokeId)) {
+          return refuse(layer.id)
+        }
+      }
+    }
+  }
+
+  return null
+}
+
 function missing({ id }: { id: string }): ValidationIssue[] {
   return [{ path: '$', message: `no layer ${id}` }]
 }
@@ -131,6 +206,8 @@ function withNewIds({
 }): CanonicalLayer {
   const copy = structuredClone(layer)
   copy.id = newId
+  // A copy is a new item to place, so it starts unlocked.
+  delete copy.locked
 
   if (copy.kind === 'paint') {
     copy.strokes = copy.strokes.map((stroke, index) => ({
@@ -149,6 +226,14 @@ function applyToDocument({
   document: CanonicalDocument
   command: CanonicalCommand
 }): { ok: true; document: CanonicalDocument } | { ok: false; issues: ValidationIssue[] } {
+  if (command.type !== 'batch') {
+    const locked = lockedIssues({ document, command })
+
+    if (locked) {
+      return { ok: false, issues: locked }
+    }
+  }
+
   const next = structuredClone(document)
 
   if (command.type === 'batch') {
@@ -230,10 +315,10 @@ function applyToDocument({
 
     const allowed =
       found.layer.kind === 'paint'
-        ? ['opacity', 'visible', 'name']
+        ? ['opacity', 'visible', 'name', 'locked']
         : found.layer.kind === 'image'
-          ? ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY']
-          : ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY']
+          ? ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked']
+          : ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY', 'locked']
 
     for (const [key, value] of Object.entries(command.patch)) {
       if (value === undefined) {
@@ -247,7 +332,7 @@ function applyToDocument({
         }
       }
 
-      if ((key === 'flipX' || key === 'flipY') && value === false) {
+      if ((key === 'flipX' || key === 'flipY' || key === 'locked') && value === false) {
         delete (found.layer as Record<string, unknown>)[key]
         continue
       }

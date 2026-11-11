@@ -9,7 +9,14 @@ import {
 import { garmentCanPaint, garmentPanels } from '../../lib/garments'
 import { hasCopiedLayer, layerPlacement, useEditorStore } from '../../lib/editor-store'
 import { layerVoice } from '../../lib/layer-hit'
-import { layerDeletedMessage, layerEdgeMessage, layerMovedMessage } from '../../lib/layer-list'
+import { isLockableLayer, isLockedLayer } from '../../lib/design-document'
+import {
+  layerDeletedMessage,
+  layerEdgeMessage,
+  layerLockedMessage,
+  layerLockMessage,
+  layerMovedMessage,
+} from '../../lib/layer-list'
 import { isOtherPointer } from '../../lib/pointer-owner'
 import { announce } from '../../lib/studio-announcer'
 import { studioKeyAction } from '../../lib/studio-keys'
@@ -50,6 +57,7 @@ export function DualStudio({
         (layer?.kind === 'graphic' || layer?.kind === 'text' || layer?.kind === 'pattern')
           ? layer
           : null
+      const lockable = showsDesignRails({ step: state.createStep }) && isLockableLayer({ layer }) ? layer : null
       const action = studioKeyAction({
         key: event.key,
         shiftKey: event.shiftKey,
@@ -61,6 +69,7 @@ export function DualStudio({
         drawing: state.activeStroke !== null,
         canPaste: hasCopiedLayer(),
         inDesign: showsDesignRails({ step: state.createStep }),
+        canLock: lockable !== null,
       })
 
       if (!action) {
@@ -108,7 +117,26 @@ export function DualStudio({
         return
       }
 
+      if (action.type === 'lock') {
+        if (lockable) {
+          const locked = !isLockedLayer({ layer: lockable })
+          state.updateLayer({ layerId: lockable.id, patch: { locked } })
+          announce({ message: layerLockMessage({ name: layerVoice({ layer: lockable }), locked }) })
+        }
+        return
+      }
+
       if (!placeable) {
+        return
+      }
+
+      // A locked item stays put until it is unlocked (W3); the store refuses
+      // these too, so this only says why nothing happened.
+      if (
+        isLockedLayer({ layer: placeable }) &&
+        (action.type === 'nudge' || action.type === 'delete' || action.type === 'arrange')
+      ) {
+        announce({ message: layerLockedMessage({ name: layerVoice({ layer: placeable }) }) })
         return
       }
 

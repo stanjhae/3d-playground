@@ -2,6 +2,7 @@ import {
   activePaintLayer,
   cloneDocument,
   createObjectId,
+  isLockedLayer,
   type DesignDocument,
   type DesignLayer,
   type GraphicLayer,
@@ -27,6 +28,8 @@ export type LayerPatch = {
   /** Mirror about the item's own axis; false puts it back. Words and images only. */
   flipX?: boolean
   flipY?: boolean
+  /** Lock the item where it is; false unlocks it. Paint, images and words only. */
+  locked?: boolean
 }
 import type { MaterialOverride } from './design-schema'
 
@@ -66,6 +69,45 @@ export function createCommandStack({
   }
 }
 
+/** The only change a locked layer takes is being unlocked. */
+function isUnlockOnly({ patch }: { patch: LayerPatch }) {
+  const keys = Object.entries(patch).filter(([, value]) => value !== undefined)
+  return keys.length > 0 && keys.every(([key, value]) => key === 'locked' && value === false)
+}
+
+/**
+ * Whether `command` would change a locked layer (W3). Locked items can't be
+ * moved, restyled, renamed, hidden or removed until they are unlocked; a
+ * locked paint layer keeps its ink, and new strokes go on a layer above.
+ */
+export function editsLockedLayer({
+  document,
+  command,
+}: {
+  document: DesignDocument
+  command: DesignCommand
+}) {
+  const lockedLayer = (layerId: string) =>
+    isLockedLayer({ layer: document.layers.find((layer) => layer.id === layerId) })
+
+  if (command.type === 'updateLayer') {
+    return lockedLayer(command.layerId) && !isUnlockOnly({ patch: command.patch })
+  }
+
+  if (command.type === 'removeLayer' || command.type === 'updateText') {
+    return lockedLayer(command.layerId)
+  }
+
+  if (command.type === 'eraseStroke') {
+    return document.layers.some(
+      (layer) =>
+        layer.kind === 'paint' && layer.locked && layer.strokes.some((stroke) => stroke.id === command.strokeId),
+    )
+  }
+
+  return false
+}
+
 function applyToDocument({
   document,
   command,
@@ -85,7 +127,7 @@ function applyToDocument({
 
   if (command.type === 'eraseStroke') {
     for (const layer of next.layers) {
-      if (layer.kind === 'paint') {
+      if (layer.kind === 'paint' && !layer.locked) {
         layer.strokes = layer.strokes.filter(
           (stroke) => stroke.id !== command.strokeId,
         )
@@ -96,7 +138,8 @@ function applyToDocument({
 
   if (command.type === 'clearPaint') {
     for (const layer of next.layers) {
-      if (layer.kind === 'paint') {
+      // Clearing ink leaves locked ink where it is.
+      if (layer.kind === 'paint' && !layer.locked) {
         layer.strokes = command.panel ? layer.strokes.filter((stroke) => stroke.panel !== command.panel) : []
       }
     }
@@ -183,6 +226,14 @@ function applyToDocument({
         }
       }
 
+      if (layer.kind === 'paint' || layer.kind === 'graphic' || layer.kind === 'text') {
+        if (command.patch.locked === true) {
+          layer.locked = true
+        } else if (command.patch.locked === false) {
+          delete layer.locked
+        }
+      }
+
       if (layer.kind === 'text') {
         if (command.patch.content !== undefined) {
           layer.content = command.patch.content
@@ -234,6 +285,11 @@ export function applyCommand({
   stack: CommandStack
   command: DesignCommand
 }): CommandStack {
+  // Refused outright, so a locked item's refusal is not an undo step.
+  if (editsLockedLayer({ document: stack.document, command })) {
+    return stack
+  }
+
   return {
     document: applyToDocument({ document: stack.document, command }),
     past: [...stack.past, cloneDocument({ document: stack.document })],
