@@ -1,15 +1,19 @@
 name: Reachable apt mirror
-description: Points apt at archive.ubuntu.com when the runner's Azure Ubuntu mirror does not resolve, so a mirror outage does not fail setup. Does nothing when the mirror is healthy.
+description: Points apt at archive.ubuntu.com when the runner's Azure Ubuntu mirror does not answer, and bounds apt's network waits, so a mirror outage neither fails nor hangs setup. Changes nothing else when the mirror is healthy.
 runs:
   using: composite
   steps:
-    - name: Fall back from an unreachable Azure apt mirror
+    - name: Fall back from an unresponsive Azure apt mirror
       shell: bash
       run: |
-        if getent hosts azure.archive.ubuntu.com > /dev/null; then
+        # A dead mirror otherwise stalls apt until the job times out.
+        printf 'Acquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::Retries "3";\n' \
+          | sudo tee /etc/apt/apt.conf.d/99-ci-timeouts > /dev/null
+        # Resolving is not enough: the mirror has also answered DNS and then hung.
+        if curl -fsS --max-time 15 -o /dev/null http://azure.archive.ubuntu.com/ubuntu/dists/noble/Release; then
           exit 0
         fi
-        echo "::warning::azure.archive.ubuntu.com does not resolve; using archive.ubuntu.com for apt."
+        echo "::warning::azure.archive.ubuntu.com is not answering; using archive.ubuntu.com for apt."
         if [ -f /etc/apt/apt-mirrors.txt ]; then
           echo "http://archive.ubuntu.com/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
         fi
