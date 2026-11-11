@@ -66,6 +66,12 @@ describe.each(TEMPLATES)('$manifest.id@$manifest.version (real model)', ({ manif
     )
   })
 
+  test('keeps canonical x toward the wearer\'s left: only the back renders mirrored', () => {
+    for (const [id, region] of Object.entries(manifest.regions)) {
+      expect(region.renderMirrorX, id).toBe(id === 'back')
+    }
+  })
+
   test('every printing node carries print UVs', async () => {
     const json = glbJson({ bytes: await readBytes({ path: GLB }) })
     const printing = new Set(Object.values(manifest.regions).flatMap((region) => region.mesh.split(' ')))
