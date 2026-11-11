@@ -1,6 +1,12 @@
 # Product and delivery decisions (V03 #198)
 
-Decisions that change scope or behaviour for the 1 December alpha (17 November until the entry of 9 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
+Decisions that change scope or behaviour for the alpha (17 November until the entry of 9 Nov 2026, then 1 December until the entry of 11 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
+
+## 11 Nov 2026: no fixed date; the alpha ships when it meets the quality bars
+
+**Decided by:** owner.
+
+The 1 December target, the 20 November stored-data cutoff and the 24 November freeze no longer apply. The alpha ships when a candidate meets every bar in `docs/release.md` ("The alpha ships on quality, not a date"). The freeze starts when the planned feature list is done. Work moved past 1 December in earlier entries is back in scope, in order of value and risk. That covers multi-select, 2D zoom, paste and drop, the sharper atlas, groups, the gesture model, 3D handles, the leaderboard, and closing the signed-out token window. The rollback rule and review of stored-data changes are unchanged.
 
 ## 9 Nov 2026: the alpha moves to 1 December, and the freeze to 24 November
 
