@@ -27,6 +27,7 @@ const PAYLOAD: PublicDesign = {
   displayName: 'Ada & co',
   seq: 4,
   publishedAt: '2026-10-31T10:00:00.000Z',
+  garmentId: 'hoodie',
   renders: {
     view_front: '/api/flp/public/3f9a1c22b7e04d11/image?seq=4',
     view_three_quarter: '/api/flp/public/3f9a1c22b7e04d11/image?view=view_three_quarter&seq=4',
@@ -117,7 +118,7 @@ describe('share page head (#182, #184)', () => {
     expect(root).toContain(`src="${PAYLOAD.renders.view_front}"`)
     expect(root).toContain('&lt;/script&gt;&lt;script&gt;alert(1)&lt;/script&gt;')
     expect(root).not.toContain('<script')
-    expect(root).toContain('By Ada &amp; co · version 4')
+    expect(root).toContain('By Ada &amp; co · Hoodie (Hoodie by Style3D CG, CC BY 4.0) · version 4')
     expect(html).toContain('<div id="root"></div>')
   })
 

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
-import { TEMPLATE_IDS } from '../template-manifest.ts'
+import { resolveTemplate, TEMPLATE_IDS } from '../template-manifest.ts'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
   type ApiError,
@@ -47,6 +47,8 @@ export type PublicDesign = {
   displayName: string | null
   seq: number
   publishedAt: string
+  /** The garment the published version was made on (`garments.ts`). */
+  garmentId: string
   /** Our image URLs; the sleeves only when that version has them. */
   renders: Record<BasePublicRenderKind, string> & Partial<Record<SleeveRenderKind, string>>
 }
@@ -503,6 +505,7 @@ export type PublishedDesign = {
   displayName: string | null
   seq: number
   publishedAt: string
+  garmentId: string
   renderPaths: Map<string, string>
 }
 
@@ -550,6 +553,18 @@ export async function findPublishedDesign({
     return null
   }
 
+  // The garment comes from the published version's own template.
+  const { data: version } = await admin
+    .from('design_versions')
+    .select('template_id:content->template->>id, template_version:content->template->>version')
+    .eq('design_id', publication.design_id as string)
+    .eq('seq', publication.version_seq as number)
+    .maybeSingle()
+  const pinned = version as { template_id?: string | null; template_version?: string | null } | null
+  const resolved = pinned?.template_id
+    ? resolveTemplate({ id: pinned.template_id, version: Number(pinned.template_version) })
+    : null
+
   return {
     designId: publication.design_id as string,
     slug,
@@ -557,6 +572,7 @@ export async function findPublishedDesign({
     displayName: (publication.display_name as string | null) ?? null,
     seq: publication.version_seq as number,
     publishedAt: publication.published_at as string,
+    garmentId: resolved?.ok ? resolved.manifest.garmentId : 'tee',
     renderPaths,
   }
 }
@@ -625,6 +641,7 @@ export function publicDesignPayload({ published }: { published: PublishedDesign 
     displayName: published.displayName,
     seq: published.seq,
     publishedAt: published.publishedAt,
+    garmentId: published.garmentId,
     renders,
   }
 }

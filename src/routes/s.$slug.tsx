@@ -1,7 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
+import { GownCredit } from '../components/editor/GownCredit'
 import { VoteButton } from '../components/share/VoteButton'
+import { getGarment } from '../lib/garments'
 import { reportDesignHref } from '../lib/alpha-contact'
 import { useCopyStatus } from '../lib/copy-text'
 import { HOUSE_COPY } from '../lib/house-copy'
@@ -191,9 +193,11 @@ function SharedDesign() {
             {design.title}
           </h1>
           <p className="font-body text-sm text-flv-muted">
-            {design.displayName ? `By ${design.displayName} · ` : ''}version {design.seq} · published{' '}
+            {design.displayName ? `By ${design.displayName} · ` : ''}
+            {getGarment({ garmentId: design.garmentId }).label} · version {design.seq} · published{' '}
             {new Date(design.publishedAt).toLocaleDateString()}
           </p>
+          <GownCredit garmentId={design.garmentId} />
           <div className="mt-2">
             <VoteButton slug={design.slug} />
           </div>

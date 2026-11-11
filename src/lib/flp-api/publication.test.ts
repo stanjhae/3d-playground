@@ -94,6 +94,7 @@ describe('publicImagePath', () => {
 describe('publicDesignPayload', () => {
   const published = (kinds: readonly string[]): PublishedDesign => ({
     designId: '00000000-0000-4000-8000-000000000001',
+    garmentId: 'tee',
     slug: '0123456789abcdef',
     title: 'Tee',
     displayName: null,

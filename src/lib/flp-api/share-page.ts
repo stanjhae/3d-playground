@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { garmentCredit, getGarment } from '../garments.ts'
 import { shareCardHead, shareCardHtml } from '../og-card.ts'
 import { type PublicLimiter, sharedLimiter } from '../rate-limit.ts'
 import type { PublicDesign } from './publication.ts'
@@ -86,9 +87,19 @@ const STATIC_SLEEVE_VIEWS: StaticView[] = [
  * on mount) until the page has rendered and removes it, so there is no
  * blank frame in between.
  */
+/** The garment's CC BY credit for the link preview, when it has one. */
+function shareCredit({ garmentId }: { garmentId: string }) {
+  const credit = garmentCredit({ garmentId })
+  return credit ? { credit: `${credit.label}, ${credit.license}` } : {}
+}
+
 function staticShareMarkup({ payload }: { payload: PublicDesign }) {
   const title = escapeHtml({ value: payload.title })
-  const byline = `${payload.displayName ? `By ${escapeHtml({ value: payload.displayName })} · ` : ''}version ${payload.seq}`
+  const credit = garmentCredit({ garmentId: payload.garmentId })
+  const garment = `${escapeHtml({ value: getGarment({ garmentId: payload.garmentId }).label })}${
+    credit ? ` (${escapeHtml({ value: `${credit.label}, ${credit.license}` })})` : ''
+  } · `
+  const byline = `${payload.displayName ? `By ${escapeHtml({ value: payload.displayName })} · ` : ''}${garment}version ${payload.seq}`
   // Sleeves sit below the fold: lazy, so they never slow the front view.
   const item = (view: StaticView, src: string, lazy = false) =>
     `<li class="flex min-w-0 flex-col gap-2"><img src="${escapeHtml({ value: src })}"${lazy ? ' loading="lazy"' : ''} alt="${title}, ${escapeHtml({ value: view.alt })}" class="aspect-[3/4] w-full border border-flv-line bg-flv-paper object-contain" /><span class="font-body text-xs tracking-[0.08em] text-flv-muted uppercase">${escapeHtml({ value: view.label })}</span></li>`
@@ -174,6 +185,7 @@ export async function handleSharePage({
         displayName: published.displayName,
         imageUrl: `${url.origin}${publicImagePath({ slug: published.slug })}`,
         imageType: published.renderPaths.get('view_front')?.endsWith('.png') ? 'image/png' : 'image/jpeg',
+        ...shareCredit({ garmentId: published.garmentId }),
       }
     : null
 
