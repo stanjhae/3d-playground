@@ -16,6 +16,7 @@ runs:
       with:
         path: ~/.cache/ms-playwright
         key: playwright-ubuntu-24.04-${{ steps.version.outputs.version }}-${{ inputs.browser }}
+    - uses: ./.github/actions/apt-mirror
     # The cache holds the browser; its system packages still come from apt.
     - if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
