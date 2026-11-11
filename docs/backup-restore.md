@@ -23,6 +23,8 @@ CI runs the same `scripts/backup-encrypted.sh` on every PR against its own local
 
 Until all four values exist, every nightly run fails and keeps the `backup-alert` issue open. That is on purpose: a backup that silently doesn't run is worse.
 
+**Set for staging on 10 Nov 2026.** The four values point at the staging project (`izoiruqvblbvvscpfgek`). The database password contains characters that must be percent-encoded in the URI (an `@` becomes `%40`); the stored secret is encoded. Two manual runs passed every check: [42897551516](https://github.com/stanjhae/3d-playground/actions/runs/42897551516) (0 designs) and [42898113525](https://github.com/stanjhae/3d-playground/actions/runs/42898113525) (1 seeded design, 5 objects), and the second archive decrypted locally with the private key. The private key was made on the owner's machine and must live in the password manager.
+
 | Where | Name | Value |
 | --- | --- | --- |
 | Settings → Secrets and variables → Actions → **Secrets** | `BACKUP_SUPABASE_URL` | `https://<ref>.supabase.co` of the project to back up |
@@ -161,7 +163,7 @@ All checks passed on both datasets. The scaled fixture was seeded through the re
 ## Gaps (known, not yet closed)
 
 - **Hosted rehearsal not yet run.** The section above is the procedure; its record table is empty until the owner runs it. Hosted recovery times are unknown until then.
-- **Nightly backups need the owner's setup** (secrets, the age key) before the first one runs. Until then the `backup-alert` issue stays open.
+- ~~**Nightly backups need the owner's setup**~~ Done 10 Nov 2026 for staging (see "Set for staging" above). A production project, when there is one, needs its own four values.
 - **Up to 24 hours can be lost** between nightly archives, unless point-in-time recovery is turned on in Supabase. PITR covers the database only; files uploaded since the last archive would still be missing.
 - **Deletion and backups.** An account deleted from My Studio (or with `scripts/delete-account.mjs`) is gone from live data at once, but stays in archives taken before, for up to 30 days (`BACKUP_RETENTION_DAYS`), and in Supabase's own database backups for their retention (7 days on Pro). The privacy page says 30 days; if the retention is raised, change it there too.
 - **The first hosted dump may need a tweak.** The hosted `postgres` role is not a superuser. If `pg_dump` is refused on a provider-owned table in `auth` or `storage`, the nightly run fails with its name; `FLP_DUMP_SCHEMAS` narrows the schemas, or exclude the one table in `backup-lib.mjs`.
