@@ -30,6 +30,12 @@ function percentile({ values, p }: { values: number[]; p: number }) {
 
 test('the editor stays inside its byte and frame budgets', async ({ page, browserName }, testInfo) => {
   test.skip(browserName !== 'chromium', 'Uses the Chrome DevTools Protocol')
+  // The byte budget is for the shipped bundle. The dev server serves every
+  // module unbundled (about 34 MB), so it can only fail there.
+  test.skip(
+    process.env.E2E_SERVER !== 'preview' && !process.env.E2E_BASE_URL,
+    'Needs the production build: E2E_SERVER=preview, or E2E_BASE_URL',
+  )
   test.setTimeout(120_000)
 
   // Time spent inside each animation frame callback. With software WebGL
