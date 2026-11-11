@@ -33,7 +33,18 @@ describe('parseRenderUpload', () => {
       ok: true,
       seq: 3,
       renders,
-      stamp: { templateVersion: null, compilerVersion: null },
+      stamp: { templateId: null, templateVersion: null, compilerVersion: null },
+    })
+  })
+
+  test('names the garment template that drew the views', () => {
+    expect(parseRenderUpload({ value: { seq: 3, renders, templateId: 'hoodie', templateVersion: 1, compilerVersion: 1 } })).toMatchObject({
+      ok: true,
+      stamp: { templateId: 'hoodie', templateVersion: 1, compilerVersion: 1 },
+    })
+    expect(parseRenderUpload({ value: { seq: 3, renders, templateId: 'cape' } })).toMatchObject({
+      ok: false,
+      error: { body: { error: { issues: [{ path: '$.templateId' }] } } },
     })
   })
 

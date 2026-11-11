@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
+import { TEMPLATE_IDS } from '../template-manifest.ts'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
   type ApiError,
@@ -73,9 +74,14 @@ function isRenderKind(value: unknown): value is PublicRenderKind {
 }
 
 /** What drew a set of views (C2): the garment template and the atlas compiler. */
-export type RenderBuildStamp = { templateVersion: number | null; compilerVersion: number | null }
+export type RenderBuildStamp = {
+  templateId: string | null
+  templateVersion: number | null
+  compilerVersion: number | null
+}
 
 const STAMP_FIELDS = ['templateVersion', 'compilerVersion'] as const
+const STAMP_KEYS: readonly string[] = [...STAMP_FIELDS, 'templateId']
 
 function isStampVersion(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 1000
@@ -101,7 +107,7 @@ export function parseRenderUpload({ value }: { value: unknown }):
   const record = value as Record<string, unknown>
 
   for (const key of Object.keys(record)) {
-    if (key !== 'seq' && key !== 'renders' && !(STAMP_FIELDS as readonly string[]).includes(key)) {
+    if (key !== 'seq' && key !== 'renders' && !STAMP_KEYS.includes(key)) {
       return invalid(`$.${key}`, 'unknown field')
     }
   }
@@ -110,6 +116,10 @@ export function parseRenderUpload({ value }: { value: unknown }):
     if (record[key] !== undefined && !isStampVersion(record[key])) {
       return invalid(`$.${key}`, 'expected a version number')
     }
+  }
+
+  if (record.templateId !== undefined && !(typeof record.templateId === 'string' && TEMPLATE_IDS.includes(record.templateId))) {
+    return invalid('$.templateId', 'expected a known garment template')
   }
 
   if (!Number.isInteger(record.seq) || (record.seq as number) < 1) {
@@ -141,6 +151,7 @@ export function parseRenderUpload({ value }: { value: unknown }):
     seq: record.seq as number,
     renders,
     stamp: {
+      templateId: (record.templateId as string | undefined) ?? null,
       templateVersion: (record.templateVersion as number | undefined) ?? null,
       compilerVersion: (record.compilerVersion as number | undefined) ?? null,
     },
@@ -265,7 +276,7 @@ export async function uploadRenders({
   const { data: version } = design
     ? await asUser
         .from('design_versions')
-        .select('seq')
+        .select('seq, template_id:content->template->>id')
         .eq('design_id', designId)
         .eq('seq', parsed.seq)
         .maybeSingle()
@@ -273,6 +284,18 @@ export async function uploadRenders({
 
   if (!design || !version) {
     const error = notFound()
+    return respond({ status: error.status, body: error.body })
+  }
+
+  // Views drawn on another garment than the version's would mislabel it.
+  const versionTemplate = (version as { template_id?: string | null }).template_id ?? null
+
+  if (parsed.stamp.templateId !== null && parsed.stamp.templateId !== versionTemplate) {
+    const error = apiError({
+      code: 'invalid',
+      message: 'These views were drawn on a different garment than this version',
+      issues: [{ path: '$.templateId', message: `expected ${versionTemplate ?? 'the version template'}` }],
+    })
     return respond({ status: error.status, body: error.body })
   }
 
@@ -322,6 +345,7 @@ export async function uploadRenders({
         status: 'ready',
         storage_path: storagePath,
         sha256: checked.image.sha256,
+        template_id: parsed.stamp.templateId,
         template_version: parsed.stamp.templateVersion,
         compiler_version: parsed.stamp.compilerVersion,
       },
