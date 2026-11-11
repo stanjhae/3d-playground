@@ -3,6 +3,7 @@ description: Installs psql, pg_dump and pg_restore 17 (the hosted and local serv
 runs:
   using: composite
   steps:
+    - uses: ./.github/actions/apt-mirror
     # The runner's own client is older than the server, and pg_dump refuses
     # to dump a newer server.
     - name: Install postgresql-client-17 and age
