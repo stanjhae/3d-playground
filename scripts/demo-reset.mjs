@@ -5,6 +5,8 @@ import { chromium } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { loadEnv } from 'vite'
 
+import { TERMS_VERSION } from '../src/lib/terms.ts'
+
 /**
  * Demo reset (#201). Puts the demo account in a known state for the
  * 1 Dec walkthrough (docs/demo.md):
@@ -333,6 +335,9 @@ await deleteDemoAccount()
 const session = await createDemoAccount()
 const api = apiClient({ token: session.access_token })
 await api('profile', { method: 'POST', body: { displayName: DISPLAY_NAME } })
+// The studio and My Studio sit behind the terms gate (P1). Accept the terms
+// in force so neither the headless publish nor the presenter meets the gate.
+await api('terms', { method: 'POST', body: { version: TERMS_VERSION } })
 
 // Oldest first: My Studio lists newest first (publishing counts as an
 // update), so the draft opens the list.

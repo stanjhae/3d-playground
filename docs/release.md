@@ -4,13 +4,27 @@ How the alpha is versioned, what may change after the freeze, and the checks eve
 
 ## Versions
 
-- `0.9.0-rc.N`: release candidates for the 1 Dec alpha. The version is in `package.json`, and each candidate gets a git tag `v0.9.0-rc.N`.
-- `0.9.0`: the alpha shown on 1 Dec. It is the last green candidate, retagged with no code changes.
+- `0.9.0-rc.N`: release candidates for the alpha. The version is in `package.json`, and each candidate gets a git tag `v0.9.0-rc.N`.
+- `0.9.0`: the alpha. It is the last green candidate that meets every quality bar below, retagged with no code changes.
 - `CHANGELOG.md` gets one entry per candidate, grouped by area, with the PRs that delivered each change.
 
-## Freeze (24 Nov 2026)
+## The alpha ships on quality, not a date
 
-Changes to stored data (migrations, a new document format, or a change to the pixels the atlas draws) land by 20 Nov, so they have the longest time in use.
+There is no fixed date (`docs/decisions.md`, 11 Nov). The alpha is `0.9.0` once a candidate meets every bar here, each proven with a record in `docs/evidence/`.
+
+| Area | Bar | How it's proven |
+| --- | --- | --- |
+| Paint feel | Stroke frame p95 ≤ 16.7 ms on a laptop and on a real iPad | The `docs/baseline.md` method, plus an iPad pass |
+| Interaction | INP ≤ 200 ms on the studio and the share page | Web Vitals on beta |
+| Public page | First image ≤ 3 s on Fast 3G, on staging | The `measure` spec against beta |
+| Beginners | At least 80% complete all 8 tasks unaided; SUS ≥ 80 | The usability sessions (#196, #197, `docs/usability-test.md`) |
+| Accessibility | WCAG 2.2 AA; every studio action reachable without a pointer | The axe e2e checks and a manual pass |
+| Reliability | No lost work in the fault tests; the staging journey passes with real sign-in | e2e, and the hosted check with no skips |
+| Devices | Real iPhone Safari, iPad with Pencil, and one Android phone | A manual pass, recorded |
+
+## Freeze
+
+The freeze starts when the planned feature list is done, not on a date. It is announced in `docs/decisions.md` and tagged as a candidate. Changes to stored data (migrations, a new document format, or a change to the pixels the atlas draws) land before it, so they have the longest time in use.
 
 From the freeze until the alpha:
 - **Only fixes for critical or high defects**, meaning anything that loses or leaks data, shows the wrong version publicly, or breaks the demo journey. No new features, no refactors, no dependency upgrades.
