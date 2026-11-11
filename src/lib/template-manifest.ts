@@ -1,5 +1,6 @@
 import type { CanonicalPanelId, TemplateId } from './canonical-document.ts'
 import type { PanelId, PanelSurface } from './design-document.ts'
+import { HOODIE_V1 } from './templates/hoodie.ts'
 
 /**
  * Pinned garment templates (FLP F07 #142). A canonical document names
@@ -243,11 +244,13 @@ export const CURRENT_TEMPLATE = TEE_CREW_SHORT_V3
 /** Every version that saved designs may reference. Never remove entries. */
 const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
   'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3 },
+  hoodie: { 1: HOODIE_V1 },
 }
 
 /** The version new designs pin, per template. */
 const CURRENT_VERSIONS: Record<string, TemplateManifest> = {
   'tee-crew-short': CURRENT_TEMPLATE,
+  hoodie: HOODIE_V1,
 }
 
 export const TEMPLATE_IDS: readonly string[] = Object.freeze(Object.keys(TEMPLATE_ARCHIVE))

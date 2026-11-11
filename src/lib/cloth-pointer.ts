@@ -32,9 +32,12 @@ export function clothDrag() {
 export function moveClothDragOnUv({
   u,
   v,
+  rects,
 }: {
   u: number
   v: number
+  /** The document's panel rectangles (absent: the tee's). */
+  rects?: Parameters<typeof uvOnPanel>[0]['rects']
 }): LayerEdit | null {
   if (!drag) {
     return null
@@ -44,6 +47,7 @@ export function moveClothDragOnUv({
     panel: drag.panel,
     u,
     v,
+    rects,
   })
 
   return {

@@ -214,7 +214,7 @@ describe('resolveTemplate', () => {
   })
 
   test('refuses unknown templates and versions explicitly', () => {
-    expect(resolveTemplate({ id: 'hoodie', version: 1 })).toMatchObject({
+    expect(resolveTemplate({ id: 'cape', version: 1 })).toMatchObject({
       ok: false,
       reason: 'unknown-template',
     })

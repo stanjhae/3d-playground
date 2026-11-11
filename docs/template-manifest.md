@@ -94,3 +94,20 @@ The atlas's rectangles don't match the garment. A square in the atlas measured 0
 **Existing documents.** A design pinned to `@1` or `@2` has no `surface`, so it draws exactly as before, with 6:7 panels. Only new designs pin `@3`. Published pictures are stored images and don't change.
 
 **Limits.** The torso is an oval, so the cloth runs wider at its middle than its sides. The front and back numbers hold across the central half, where a print sits, and a mark towards a side seam reads narrower. Brush dots and base patterns still draw in atlas proportions: a dab is slightly oval on the cloth, and a check's cells aren't square. Making them true to the cloth changes what a local draft restore draws, because a draft re-imports on `@1`, so that stays a limit for the alpha.
+
+## Template-built garments (real models)
+
+A downloaded garment becomes a template with `scripts/build-template.mjs` and a hand-written piece map (`templates/<id>.pieces.json`). The tee is built by code, but these garments are pattern pieces sewn in a tool such as Style3D, and their own UVs drive the fabric texture. Printing uses a second UV set instead.
+
+- **Panels:** each panel is a view (front, back, or the wearer's left or right) plus the mesh nodes, or their largest connected piece, that print on it. Run `--inspect <glb>` to list a model's nodes, pieces and bounds before writing the map.
+- **Print UVs (`TEXCOORD_1`):**
+  - A triangle prints when it belongs to a panel and faces that panel's viewer. Its print UV is a planar projection from that view, so marks read the right way round from where you look at them.
+  - The inner layer of a two-sided shell faces away and never prints.
+  - Every other vertex gets (−1, −1), which the ink shader (`apply-ink.ts`) leaves alone. Vertices shared between printed and unprinted triangles are split, so no ink smears across the atlas.
+- **Atlas:** panels are packed into a 2048² print atlas at one shared scale (the hoodie gets about 17 px/cm). A mark therefore prints at the same physical size on every panel, and each panel's `surface` is its true shape (`stretchY` 1).
+- **Manifest:** the builder writes `src/lib/templates/<id>.ts`, which pins the GLB's sha256. Register the manifest in `TEMPLATE_ARCHIVE` and `CURRENT_VERSIONS`. Any rebuild that changes the GLB needs a new version.
+- **Runtime:** canonical panel ids equal the render panel ids, so there is no mirroring or sleeve swap. `toRenderDocument` hands the rectangles and atlas size to the renderer (`panelUv`, `atlasSize`), and the painter, picking and pointer code read them.
+
+| Template | Panels | GLB |
+| --- | --- | --- |
+| `hoodie@1` | front, back, left/right sleeve, hood left/right | `public/models/hoodie.glb` (`templates/hoodie.pieces.json`) |

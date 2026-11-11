@@ -383,8 +383,8 @@ function SeatedForm({
 
     if (!atlasRef.current) {
       const canvas = document.createElement('canvas')
-      canvas.width = 512
-      canvas.height = 512
+      canvas.width = inkDocument.atlasSize ?? 512
+      canvas.height = inkDocument.atlasSize ?? 512
       const texture = new CanvasTexture(canvas)
       texture.colorSpace = SRGBColorSpace
       texture.needsUpdate = true
@@ -403,6 +403,7 @@ function SeatedForm({
       images: layerImages,
       // Words wait for their face here; the 2D panel shows them meanwhile.
       pendingText: 'skip',
+      ...(inkDocument.atlasSize ? { width: inkDocument.atlasSize, height: inkDocument.atlasSize } : {}),
     })
     const canvas = texture.image as HTMLCanvasElement
     canvas.width = buffer.width
@@ -424,6 +425,7 @@ function SeatedForm({
     bindInkMap({
       meshes,
       inkMap: hasInk ? texture : null,
+      printUv: Boolean(inkDocument.panelUv),
     })
     invalidate()
 

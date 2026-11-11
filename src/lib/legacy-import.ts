@@ -96,6 +96,11 @@ type Context = {
   warnings: ImportNote[]
   unsupported: ImportNote[]
   pendingAssets: Map<string, PendingAsset>
+  /**
+   * A live edit's render panel → canonical panel, from the document's own
+   * template. Absent for imports, which are always tee v1 documents.
+   */
+  panelOf?: (renderPanel: string) => CanonicalPanelId | null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -195,6 +200,10 @@ function toPanel({
   path: string
   context: Context
 }): CanonicalPanelId | null {
+  if (typeof value === 'string' && context.panelOf) {
+    return context.panelOf(value)
+  }
+
   if (typeof value === 'string' && PANELS.has(value)) {
     return CANONICAL_BY_RENDER_PANEL[value as CanonicalPanelId]
   }
@@ -865,9 +874,18 @@ export async function importLegacyDesign({
   }
 }
 
-/** One v1 stroke → v2, with the same rules as a full import. */
-export function strokeFromV1({ value }: { value: unknown }) {
-  const context: Context = { warnings: [], unsupported: [], pendingAssets: new Map() }
+/**
+ * One v1 stroke → v2, with the same rules as a full import. `panelOf` maps
+ * the stroke's render panel through the document's template (default: the tee's).
+ */
+export function strokeFromV1({
+  value,
+  panelOf,
+}: {
+  value: unknown
+  panelOf?: Context['panelOf']
+}) {
+  const context: Context = { warnings: [], unsupported: [], pendingAssets: new Map(), ...(panelOf ? { panelOf } : {}) }
   const converted = convertStroke({ value, path: 'stroke', context })
   return converted ? { ...converted, notes: [...context.warnings, ...context.unsupported] } : null
 }

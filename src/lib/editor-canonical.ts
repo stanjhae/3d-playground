@@ -290,7 +290,14 @@ export function translateCommand({
     mirrorToRender({ mirrored: mirrored(panel), value })
 
   if (command.type === 'addStroke') {
-    const converted = strokeFromV1({ value: command.stroke })
+    const panels = panelIdsOf({ document })
+    const converted = strokeFromV1({
+      value: command.stroke,
+      panelOf: (render) => {
+        const panel = canonicalPanel({ renderPanel: render, template: document.template })
+        return panels.includes(panel) ? panel : null
+      },
+    })
 
     if (!converted) {
       return null
