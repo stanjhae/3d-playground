@@ -179,6 +179,56 @@ export async function addWaitlistEmail({
   })
 }
 
+/**
+ * Takes one address off the waitlist (Q10 #195), for a person who asks to
+ * leave it. `dryRun` only reports whether it is there. Like adding, this
+ * reads and rewrites the whole list; a sign-up landing in the same moment
+ * from another server could be lost, so check `count` afterwards.
+ */
+export async function removeWaitlistEmail({
+  email,
+  env,
+  dryRun = false,
+}: {
+  email: string
+  env?: Record<string, string | undefined>
+  dryRun?: boolean
+}) {
+  const parsed = parseWaitlistEmail({ value: email })
+
+  if (!parsed) {
+    return { ok: false as const }
+  }
+
+  return withWaitlistLock({
+    run: async () => {
+      if (isKvConfigured({ env })) {
+        const source = envSource({ env })
+        const kv = { url: source.KV_REST_API_URL ?? '', token: source.KV_REST_API_TOKEN ?? '' }
+        const current = parseStoredList({ result: (await restCommand({ ...kv, command: ['GET', WAITLIST_KV_KEY] })).result })
+        const next = current.filter((entry) => entry !== parsed)
+        const found = next.length !== current.length
+
+        if (found && !dryRun) {
+          await restCommand({ ...kv, command: ['SET', WAITLIST_KV_KEY, JSON.stringify(next)] })
+        }
+
+        return { ok: true as const, found, count: dryRun ? current.length : next.length }
+      }
+
+      const store = memory()
+      const current = store.__flvWaitlist ?? []
+      const found = current.includes(parsed)
+
+      if (found && !dryRun) {
+        store.__flvWaitlist = current.filter((entry) => entry !== parsed)
+      }
+
+      return { ok: true as const, found, count: store.__flvWaitlist?.length ?? 0 }
+    },
+  })
+}
+
 export async function incrementAssumption({
   name,
   env,
