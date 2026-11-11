@@ -13,6 +13,8 @@ export default tseslint.config(
       'public',
       'playwright-report',
       'test-results',
+      // Local agent worktrees and settings, never part of the app.
+      '.claude',
       // Generated.
       'src/routeTree.gen.ts',
       'src/lib/glyph-coverage.gen.ts',
