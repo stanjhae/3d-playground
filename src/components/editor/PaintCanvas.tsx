@@ -172,12 +172,25 @@ function paintPanelSurface({
     context.rotate(-selected.rotation)
     context.strokeStyle = SELECTION_COLOR
     context.lineWidth = 1.5
+    // A locked item is outlined, dashed, with no handles to drag (W3).
+    const locked = selected.kind !== 'pattern' && selected.locked === true
+
+    if (locked) {
+      context.setLineDash([4, 4])
+    }
+
     context.strokeRect(
       -frame.width / 2,
       -frame.height / 2,
       frame.width,
       frame.height,
     )
+
+    if (locked) {
+      context.restore()
+      return
+    }
+
     context.fillStyle = SELECTION_COLOR
     context.beginPath()
     context.arc(frame.width / 2, frame.height / 2, 5, 0, Math.PI * 2)
@@ -402,7 +415,7 @@ function PaintSurface({
         ? event.pressure
         : undefined
 
-    if (selected && selected.panel === panel) {
+    if (selected && selected.panel === panel && (selected.kind === 'pattern' || !selected.locked)) {
       const handle = hitLayerHandle({
         layer: selected,
         x: point.x,

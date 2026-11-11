@@ -2,14 +2,17 @@ import { GripVertical } from 'lucide-react'
 import { type PointerEvent as ReactPointerEvent, useId, useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
+import { isLockableLayer, isLockedLayer } from '../../lib/design-document'
 import { garmentPanels } from '../../lib/garments'
 import { layerPlacement, useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import {
   focusAfterDelete,
+  LOCKED_REASON,
   layerDeletedMessage,
   layerEdgeMessage,
+  layerLockMessage,
   type LayerMove,
   layerListGroups,
   layerMovedMessage,
@@ -25,7 +28,12 @@ import {
 import { useStudioMode } from '../../lib/studio-mode'
 
 const actionClass = cn(
-  'min-h-11 text-flv-muted hover:text-flv-accent',
+  'min-h-11 text-flv-muted hover:text-flv-accent aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:text-flv-muted',
+  chromeTextClass(),
+)
+
+const lockClass = cn(
+  'min-h-11 border px-2',
   chromeTextClass(),
 )
 
@@ -125,9 +133,20 @@ export function LayerRail() {
                     layer.kind === 'graphic' ||
                     layer.kind === 'text' ||
                     layer.kind === 'pattern'
+                  const locked = isLockedLayer({ layer })
+                  const lockable = isLockableLayer({ layer })
                   const movable = row.index !== null
+                  const reasonId = `${headingId}-${layer.id}-locked`
+                  // Off while locked, with the reason beside them (W3).
+                  const lockedProps = locked
+                    ? { 'aria-disabled': true as const, 'aria-describedby': reasonId, title: LOCKED_REASON }
+                    : {}
 
                   function move(direction: Exclude<LayerMove, 'drag'>) {
+                    if (locked) {
+                      return
+                    }
+
                     const allowed = direction === 'up' || direction === 'front' ? row.canMoveUp : row.canMoveDown
 
                     if (!allowed) {
@@ -160,7 +179,7 @@ export function LayerRail() {
                         'opacity-50': drag?.layerId === layer.id,
                       })}
                     >
-                      {movable ? (
+                      {movable && !locked ? (
                         // Pointer only: the arrow buttons and To front / To back do the same from the keyboard.
                         <span
                           aria-hidden
@@ -207,14 +226,35 @@ export function LayerRail() {
                       >
                         {name}
                         {layer.visible ? null : <span className="sr-only">, hidden</span>}
+                        {locked ? <span className="sr-only">, locked</span> : null}
                       </button>
+                      {lockable ? (
+                        <button
+                          type="button"
+                          data-layer-control="lock"
+                          aria-label={`Lock ${name}`}
+                          aria-pressed={locked}
+                          title={locked ? `Unlock ${name}` : `Lock ${name}`}
+                          onClick={() => {
+                            updateLayer({ layerId: layer.id, patch: { locked: !locked } })
+                            announce({ message: layerLockMessage({ name, locked: !locked }) })
+                          }}
+                          className={cn(lockClass, {
+                            'border-flv-accent text-flv-accent': locked,
+                            'border-flv-line text-flv-muted hover:text-flv-accent': !locked,
+                          })}
+                        >
+                          Lock
+                        </button>
+                      ) : null}
                       {movable ? (
                         <span className="flex gap-1">
                           <button
                             type="button"
                             data-layer-control="up"
                             aria-label={`Move ${name} up`}
-                            aria-disabled={row.canMoveUp ? undefined : true}
+                            aria-disabled={row.canMoveUp && !locked ? undefined : true}
+                            aria-describedby={locked ? reasonId : undefined}
                             title={`Move ${name} up`}
                             onClick={() => {
                               move('up')
@@ -227,7 +267,8 @@ export function LayerRail() {
                             type="button"
                             data-layer-control="down"
                             aria-label={`Move ${name} down`}
-                            aria-disabled={row.canMoveDown ? undefined : true}
+                            aria-disabled={row.canMoveDown && !locked ? undefined : true}
+                            aria-describedby={locked ? reasonId : undefined}
                             title={`Move ${name} down`}
                             onClick={() => {
                               move('down')
@@ -238,12 +279,22 @@ export function LayerRail() {
                           </button>
                         </span>
                       ) : null}
+                      {locked ? (
+                        <span id={reasonId} className={cn('w-full', chromeMutedClass())}>
+                          Locked. {LOCKED_REASON}.
+                        </span>
+                      ) : null}
                       <span className="flex w-full flex-wrap gap-x-3">
                         <button
                           type="button"
                           data-layer-control="visibility"
                           aria-label={`${layer.visible ? HOUSE_COPY.hideLayer : HOUSE_COPY.showLayer} ${name}`}
+                          {...lockedProps}
                           onClick={() => {
+                            if (locked) {
+                              return
+                            }
+
                             updateLayer({
                               layerId: layer.id,
                               patch: { visible: !layer.visible },
@@ -261,7 +312,8 @@ export function LayerRail() {
                             <button
                               type="button"
                               aria-label={`Move ${name} to the front`}
-                              aria-disabled={row.canMoveUp ? undefined : true}
+                              aria-disabled={row.canMoveUp && !locked ? undefined : true}
+                              aria-describedby={locked ? reasonId : undefined}
                               onClick={() => move('front')}
                               className={cn(actionClass, 'aria-disabled:opacity-35')}
                             >
@@ -270,7 +322,8 @@ export function LayerRail() {
                             <button
                               type="button"
                               aria-label={`Move ${name} to the back`}
-                              aria-disabled={row.canMoveDown ? undefined : true}
+                              aria-disabled={row.canMoveDown && !locked ? undefined : true}
+                              aria-describedby={locked ? reasonId : undefined}
                               onClick={() => move('back')}
                               className={cn(actionClass, 'aria-disabled:opacity-35')}
                             >
@@ -283,7 +336,12 @@ export function LayerRail() {
                         <button
                           type="button"
                           aria-label={`${FLV_COPY.layerRename} ${name}`}
+                          {...lockedProps}
                           onClick={() => {
+                            if (locked) {
+                              return
+                            }
+
                             const next = window.prompt(
                               FLV_COPY.layerRename,
                               layer.label ?? name,
@@ -320,7 +378,12 @@ export function LayerRail() {
                           <button
                             type="button"
                             aria-label={`${FLV_COPY.layerDelete} ${name}`}
+                            {...lockedProps}
                             onClick={() => {
+                              if (locked) {
+                                return
+                              }
+
                               const next = focusAfterDelete({ orderedIds, deletedId: layer.id })
                               removeLayer({ layerId: layer.id })
                               announce({ message: layerDeletedMessage({ name }) })

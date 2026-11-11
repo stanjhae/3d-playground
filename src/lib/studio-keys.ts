@@ -24,6 +24,8 @@ export type StudioKeyAction =
   | { type: 'tool'; tool: StudioToolKey }
   /** Restack the selected item in its panel (A5). */
   | { type: 'arrange'; direction: 'up' | 'down' | 'front' | 'back' }
+  /** Lock or unlock the selected item (W3). */
+  | { type: 'lock' }
 
 /** Single-letter tools, as in most drawing apps. */
 export type StudioToolKey = 'brush' | 'eraser' | 'text' | 'graphics'
@@ -96,6 +98,7 @@ export function studioKeyAction({
   drawing = false,
   canPaste = false,
   inDesign = true,
+  canLock = false,
 }: {
   key: string
   shiftKey?: boolean
@@ -111,6 +114,8 @@ export function studioKeyAction({
   canPaste?: boolean
   /** On the design step, where the drawing tools are. */
   inDesign?: boolean
+  /** The selected item takes a lock: paint, a mark or a word. */
+  canLock?: boolean
 }): StudioKeyAction | null {
   // Esc drops a stroke mid-draw, wherever focus is.
   if (key === 'Escape' && drawing) {
@@ -161,6 +166,11 @@ export function studioKeyAction({
 
     if (lower === 'v' && canPaste && inDesign) {
       return { type: 'paste' }
+    }
+
+    // Without one, ⌘L keeps the browser's address bar.
+    if (lower === 'l' && canLock) {
+      return { type: 'lock' }
     }
 
     return null
@@ -221,6 +231,7 @@ export function studioKeyList({ mod = MOD }: { mod?: string } = {}) {
     { keys: 'B, E, T, G', does: 'Brush, eraser, text, graphics' },
     { keys: `${mod} + ] or ${mod} + [`, does: 'Bring the selected item forward, or send it back' },
     { keys: `Shift + ${mod} + ] or [`, does: 'Bring it to the front, or send it to the back' },
+    { keys: `${mod} + L`, does: 'Lock the selected item, or unlock it' },
     { keys: `${mod} + Z`, does: 'Undo' },
     { keys: `Shift + ${mod} + Z`, does: 'Redo' },
     { keys: 'Enter in the type field', does: 'Place the word on the active panel' },

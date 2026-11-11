@@ -6,6 +6,7 @@ import {
   applyCanonicalCommand,
   createCanonicalStack,
   findLayer,
+  lockedIssues,
   redoCanonical,
   replaceDocument,
   undoCanonical,
@@ -182,15 +183,21 @@ function paintLayerFor({
   const layers = document.panels[panel].layers
   // A brush stroke stays on top of everything, as it was drawn: it joins the
   // panel's top layer only when that is visible paint. An eraser works on the
-  // highest visible paint layer, wherever it sits.
+  // highest visible paint layer, wherever it sits. Locked ink is never drawn
+  // into or erased (W3): a brush over it starts a layer of its own.
   const top =
     tool === 'brush'
       ? layers.at(-1)
-      : [...layers].reverse().find((layer) => layer.kind === 'paint' && layer.visible)
+      : [...layers].reverse().find((layer) => layer.kind === 'paint' && layer.visible && !layer.locked)
 
   // A full paint layer overflows into a new one; the panel's layer limit
   // then decides whether the stroke fits (#162).
-  if (top?.kind === 'paint' && top.visible && top.strokes.length < CANONICAL_LIMITS.strokesPerLayer) {
+  if (
+    top?.kind === 'paint' &&
+    top.visible &&
+    !top.locked &&
+    top.strokes.length < CANONICAL_LIMITS.strokesPerLayer
+  ) {
     return top.id
   }
 
@@ -223,6 +230,8 @@ function translatePatch({
 
   if (patch.visible !== undefined) next.visible = patch.visible
   if (patch.opacity !== undefined) next.opacity = unit({ value: patch.opacity })
+
+  if (patch.locked !== undefined) next.locked = patch.locked
 
   if (patch.label !== undefined) {
     const name = patch.label.trim().slice(0, CANONICAL_LIMITS.nameLength)
@@ -316,7 +325,8 @@ export function translateCommand({
     const panels = command.panel ? [canonicalPanel({ renderPanel: command.panel })] : CANONICAL_PANEL_IDS
     const commands: CanonicalCommand[] = panels.flatMap((panel) =>
       document.panels[panel].layers
-        .filter((layer) => layer.kind === 'paint')
+        // Clearing ink leaves locked ink where it is (W3).
+        .filter((layer) => layer.kind === 'paint' && !layer.locked)
         .map((layer) => ({ type: 'clearPaintLayer' as const, layerId: layer.id })),
     )
     return commands.length > 0 ? { assetSources: same, command: { type: 'batch', commands } } : null
@@ -467,8 +477,15 @@ export function runTeeCommand({
   const over = limitOverages({ document })
 
   // A document that is already over a limit (a recovered or imported one)
-  // only takes commands that bring it back under (#162).
+  // only takes commands that bring it back under (#162). Those skip the
+  // command layer, so a locked layer is checked here first (W3).
   if (over.length > 0) {
+    const locked = lockedIssues({ document, command })
+
+    if (locked) {
+      return { engine, changed: false, issues: locked }
+    }
+
     const relieved = relieveCommand({ document, command })
 
     if (!relieved) {

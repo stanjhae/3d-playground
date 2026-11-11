@@ -136,6 +136,24 @@ export function layerVisibilityMessage({
   return visible ? `${name} shown.` : `${name} hidden.`
 }
 
+/** Why a locked item's controls are off (W3). */
+export const LOCKED_REASON = 'Unlock to edit'
+
+export function layerLockMessage({
+  name,
+  locked,
+}: {
+  name: string
+  locked: boolean
+}) {
+  return locked ? `${name} locked.` : `${name} unlocked.`
+}
+
+/** Said when a key would change a locked item. */
+export function layerLockedMessage({ name }: { name: string }) {
+  return `${name} is locked. ${LOCKED_REASON}.`
+}
+
 /**
  * After a row is deleted, focus the row that took its place, else the one
  * above it; null when the list is now empty.
