@@ -24,6 +24,8 @@ const FORBIDDEN: Array<[string, RegExp]> = [
   ['traction', /\b\d[\d,.]*\+?\s?(k\s)?(users|designers|creators|members|votes|designs created)\b/i],
   ['an early access promise', /\b(get early access|\d+ months? free|free access)\b/i],
   ['the old name', /Fashion Leaderboard/],
+  ['a shape the tee is not', /\boversized\b/i],
+  ['voting as a future feature', /voting comes later/i],
   ['a sample creator', /Elise Moreau|Camille Wren|Hiro Tanaka|Noor Rahman|Jules Adler|Marta Klein|Iman Farouk|Ada Voss|Jules Hart/],
 ]
 
@@ -31,7 +33,11 @@ async function expectNoClaims({ page, name }: { page: Page; name: string }) {
   // A shared design's own vote count (V1) is read from the database, not
   // claimed; everything else on the page still is checked.
   const live = await page.getByTestId('vote-count').allInnerTexts()
-  const text = live.reduce((rest, count) => rest.replace(count, ''), await page.locator('body').innerText())
+  // Field values too: sample titles and tags sit in inputs, which innerText skips.
+  const fields = await page
+    .locator('input:visible, textarea:visible')
+    .evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value))
+  const text = [live.reduce((rest, count) => rest.replace(count, ''), await page.locator('body').innerText()), ...fields].join('\n')
 
   for (const [what, pattern] of FORBIDDEN) {
     expect(text.match(pattern)?.[0] ?? null, `${what} on ${name}`).toBeNull()
@@ -57,6 +63,12 @@ test('the landing and all its stages make no claim the alpha cannot back, and la
 
   await page.goto('/sign-in')
   await expectNoClaims({ page, name: 'sign-in' })
+
+  // The guest-era board isn't in the alpha; its page says where voting is now (V1).
+  await page.goto('/vote')
+  await expect(page.getByRole('heading', { name: 'Not part of this alpha' })).toBeVisible()
+  await expect(page.getByText('To vote, open a shared design’s link and sign in.')).toBeVisible()
+  await expectNoClaims({ page, name: 'vote' })
 })
 
 test('the studio, shared page and privacy page make no such claim, and the page can be reported', async ({ page, browser, request }) => {

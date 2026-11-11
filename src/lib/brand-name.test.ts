@@ -18,3 +18,9 @@ test('the sign-in email uses the public name', () => {
   expect(emailTemplate).toContain('Fashion Leader Vote')
   expect(authConfig).toContain('subject = "Your Fashion Leader Vote sign-in code"')
 })
+
+test('the sign-in email promises what sign-in does: a 6-digit code that expires in 10 minutes', () => {
+  expect(authConfig).toMatch(/^otp_length = 6$/m)
+  expect(authConfig).toMatch(/^otp_expiry = 600$/m)
+  expect(emailTemplate).toContain('expires in 10 minutes')
+})

@@ -1090,10 +1090,10 @@ function ShareDemo({
 }) {
   const angles = ['Front', '3/4', 'Back'] as const
   const methods = ['Draw', 'Tech', 'Combined'] as const
-  const visibilityOptions = ['Public', 'Private', 'Unlisted'] as const
+  const visibilityOptions = ['Private', 'Published by link'] as const
   const [angle, setAngle] = useState<(typeof angles)[number]>('Front')
-  const [title, setTitle] = useState('Cross Flame Oversized Tee')
-  const [tags, setTags] = useState('Streetwear, Oversized, Graphic')
+  const [title, setTitle] = useState('Cross Flame Tee')
+  const [tags, setTags] = useState('Streetwear, Graphic')
   const [method, setMethod] = useState<(typeof methods)[number]>('Combined')
   const [visibility, setVisibility] =
     useState<(typeof visibilityOptions)[number]>('Private')
