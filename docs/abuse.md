@@ -28,7 +28,7 @@ Signed-out limits apply on Vercel deployments (`VERCEL_ENV` set) or where `FLP_R
 | `details` | 30 per min per account | rename, delete, public name | **Allow**. Cheap, and blocking a rename or delete helps no one. |
 | `vote` | 30 per min per account | cast or retract a vote (V1) | **Allow**. A vote is one per account and can be taken back, so a missed limit costs little. |
 
-"Fails" means the database returned an error, took longer than 1.5 s, or (signed out, on a deployment) the server has no Supabase settings. Each failure is logged as `flp request limit check failed` or `flp rate limit check failed`.
+"Fails" means the database returned an error, gave no answer within 1.5 s twice in a row, or (signed out, on a deployment) the server has no Supabase settings. A call that gets no answer (a timeout or a dropped connection) is tried once more before the policy applies, so one slow moment doesn't refuse a publish; an error the database answers with isn't retried. A refused publish shows "This isn't available right now", and the studio doesn't retry it on its own. Each failure is logged as `flp request limit check failed` or `flp rate limit check failed`.
 
 The shared limits are generous on purpose: people behind one address (an office, a phone network's NAT) share a count. Over the limit, the share page comes back as a 429 with the plain app and no design embedded; the app then asks the public API itself and shows "This design can't load right now" if that is limited too, which never reads as the design being taken down.
 

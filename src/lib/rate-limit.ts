@@ -132,8 +132,45 @@ export function decisionFromWait({ wait }: { wait: unknown }): LimitDecision {
     : { allowed: true }
 }
 
-/** Gives up after this long and applies the outage policy. */
-const LIMIT_TIMEOUT_MS = 1500
+/** Gives up on one attempt after this long. */
+export const LIMIT_TIMEOUT_MS = 1500
+
+/** What a limiter RPC answers, with a throw folded in as an error without a code. */
+export type LimiterAnswer = { data: unknown; error: { code?: string; message?: string } | null }
+
+/**
+ * Runs a limiter RPC, and runs it once more when it got no answer from
+ * Postgres: a timeout or a dropped connection, which come back without an
+ * error code (or throw). One slow moment then costs a short wait instead of
+ * the outage policy, which refuses publishing and the waitlist. An error
+ * Postgres did answer with (it has a code) isn't retried: it won't heal in
+ * a moment. A timed-out call that did reach Postgres may take a second
+ * token; every limit has room for that.
+ */
+export async function limiterCall({
+  run,
+  attempts = 2,
+}: {
+  /** One attempt, with its own timeout. */
+  run: () => PromiseLike<LimiterAnswer>
+  attempts?: number
+}): Promise<LimiterAnswer> {
+  let answer: LimiterAnswer = { data: null, error: { message: 'not run' } }
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      answer = await run()
+    } catch (error) {
+      answer = { data: null, error: { message: error instanceof Error ? error.message : String(error) } }
+    }
+
+    if (!answer.error || answer.error.code) {
+      return answer
+    }
+  }
+
+  return answer
+}
 
 /**
  * Takes one request from a caller's bucket. Never throws: a failure is
@@ -174,14 +211,17 @@ export async function takePublicToken({
         auth: { persistSession: false, autoRefreshToken: false },
       })
     const subject = await callerSubject({ address: clientAddress({ request }), secret: config.secretKey })
-    const { data, error } = await admin
-      .rpc('flp_take_request_token', {
-        p_subject: subject,
-        p_bucket: bucket,
-        p_limit: rule.limit,
-        p_window_seconds: rule.windowSeconds,
-      })
-      .abortSignal(AbortSignal.timeout(LIMIT_TIMEOUT_MS))
+    const { data, error } = await limiterCall({
+      run: () =>
+        admin
+          .rpc('flp_take_request_token', {
+            p_subject: subject,
+            p_bucket: bucket,
+            p_limit: rule.limit,
+            p_window_seconds: rule.windowSeconds,
+          })
+          .abortSignal(AbortSignal.timeout(LIMIT_TIMEOUT_MS)),
+    })
 
     if (error) {
       console.error('flp request limit check failed', { bucket, code: error.code })
