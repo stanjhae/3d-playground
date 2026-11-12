@@ -133,8 +133,11 @@ export function LandingHeroSection({
               <HeroPoster />
             </div>
           )}
-          {/* A credited model (CC BY) is named under it; today's tee is project-made. */}
-          <div className="mt-3 flex justify-center lg:absolute lg:-bottom-8 lg:right-0">
+          {/*
+            A credited model (CC BY) is named with it: under it on phones, above
+            it on desktop, where the tool dock overlaps the stage's lower edge.
+          */}
+          <div className="mt-3 flex justify-center lg:absolute lg:-top-8 lg:right-0 lg:mt-0">
             <GownCredit garmentId="tee" />
           </div>
           <div className="relative z-10 w-full max-w-md lg:absolute lg:-bottom-14 lg:-left-14 lg:w-[19rem] xl:-left-20">
@@ -357,6 +360,10 @@ export function LandingVote({ mode }: { mode: LandingMode }) {
             })}
           </ul>
           <p className="font-body text-sm text-flv-muted">{vote.fine}</p>
+          {/* The real board, not just this illustration: a plain link works prerendered too. */}
+          <a href="/vote" className="inline-flex min-h-11 items-center gap-2 font-body text-sm font-medium text-flv-accent hover:underline">
+            {vote.boardLink} <span aria-hidden>→</span>
+          </a>
         </div>
 
         <figure className="flv-reveal relative mx-auto w-full max-w-md">

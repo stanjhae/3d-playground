@@ -29,6 +29,8 @@ import {
 } from '../../lib/design-document'
 import { CONCEPT_FEATURES } from '../../lib/concept-flags'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
+import { shapesFromScene, usePanelShapes } from '../../lib/panel-shape'
+import { atlasSourceRect } from '../../lib/panel-uv'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { getCanonicalDocument, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { garmentSrc } from '../../lib/garment-parts'
@@ -40,6 +42,7 @@ import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { clothNormalMap } from '../../lib/fabric-normal'
 import { createClothingMesh } from '../../lib/tee-geometry'
+import { createShapeRig } from '../../lib/garment-shape'
 import { ClothingPoseContext } from './clothing-pose'
 import { SelectableMesh } from './SelectableMesh'
 
@@ -298,6 +301,18 @@ function GltfGarment({
   picking: boolean
 }) {
   const { scene } = useGLTF(src)
+  const panelUv = inkDocument.panelUv
+
+  // The flat sides shade what falls off the garment: each panel's printable
+  // shape, read once per model from its print UVs.
+  useEffect(() => {
+    if (!picking || !panelUv) {
+      return
+    }
+
+    const shapes = shapesFromScene({ scene, panelUv })
+    usePanelShapes.getState().setShapes({ src, shapes })
+  }, [panelUv, picking, scene, src])
 
   return (
     <SeatedForm
@@ -324,6 +339,7 @@ function SeatedForm({
 }) {
   const activeStroke = useEditorStore((state) => state.activeStroke)
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
+  const panelFlash = useEditorStore((state) => state.panelFlash)
   const loadedMaps = useTexture(FABRIC_MAP_SRC)
   const lerpClock = useRef(1)
   // On-demand rendering: each change below asks for a frame.
@@ -334,16 +350,30 @@ function SeatedForm({
   // Its own cache: the tee leaves pending words out.
   const [liveAtlas] = useState(() => createLiveAtlas({ enabled: LIVE_STROKE_CACHE }))
 
-  const { tree, meshes, baseMaterials } = useMemo(() => {
+  const { tree, meshes, baseMaterials, shapeRig } = useMemo(() => {
     const root = scene.clone(true)
     cloneObjectMaterials({ root })
     stampAncestorNames({ root })
     const baseMaterials = captureMeshMaterials({ root })
     const meshes = listMeshes({ root })
+    // Before the graph comes apart: the rig reads each mesh's place in it.
+    const shapeRig = createShapeRig({ root, meshes, ...(clothDetail ? { parts: {} } : {}) })
     const tree = detachChildren({ object: root })
 
-    return { tree, meshes, baseMaterials }
-  }, [scene])
+    return { tree, meshes, baseMaterials, shapeRig }
+  }, [clothDetail, scene])
+
+  // Parametric shape: the studio's slider preview while dragging, else the document's.
+  const shapePreview = useEditorStore((state) => state.shapePreview)
+  const shape = picking && shapePreview ? shapePreview : inkDocument.shape
+
+  useLayoutEffect(() => {
+    if (shapeRig.apply({ shape })) {
+      invalidate()
+    }
+  }, [invalidate, shape, shapeRig])
+
+  useEffect(() => () => shapeRig.dispose(), [shapeRig])
 
   useLayoutEffect(() => {
     for (const texture of Object.values(loadedMaps)) {
@@ -419,10 +449,24 @@ function SeatedForm({
       0,
       0,
     )
+    // A side picked from its tab is lit for a moment: the tint lands only on
+    // that piece, since nothing else prints into its part of the atlas.
+    const flashing = picking && panelFlash && inkDocument.panelUv?.[panelFlash] ? panelFlash : null
+
+    if (flashing) {
+      const source = atlasSourceRect({ panel: flashing, width: buffer.width, height: buffer.height, rects: inkDocument.panelUv })
+      const context = canvas.getContext('2d')
+
+      if (context) {
+        context.fillStyle = 'rgba(224, 20, 31, 0.22)'
+        context.fillRect(source.sourceX, source.sourceY, source.sourceWidth, source.sourceHeight)
+      }
+    }
+
     texture.needsUpdate = true
 
     const hasInk =
-      documentHasInk({ document: inkDocument }) || Boolean(picking && activeStroke)
+      documentHasInk({ document: inkDocument }) || Boolean(picking && activeStroke) || Boolean(flashing)
 
     bindInkMap({
       meshes,
@@ -445,7 +489,7 @@ function SeatedForm({
         },
       })
     }
-  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, picking, textFaces])
+  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, panelFlash, picking, textFaces])
 
   // Nothing is on screen to be current once this form goes.
   useEffect(() => () => useAtlasBuild.setState({ build: null }), [])

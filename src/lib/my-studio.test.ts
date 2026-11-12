@@ -63,6 +63,8 @@ describe('new cloud design content', () => {
     })
 
     expect(fromLanding).toBe(true)
+    // It opens as the real 3D tee, not the procedural @1 the import pins.
+    expect(document.template).toEqual({ id: 'tee-crew-short', version: 4 })
     expect(document.base).toEqual({ kind: 'solid', color: '#6b1d2a' })
     expect(document.panels.front.layers[0]).toMatchObject({ id: 'w', content: 'FLP' })
     expect(notes.map((note) => note.path)).toContain('structural.neck')

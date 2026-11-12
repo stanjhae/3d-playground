@@ -126,14 +126,14 @@ Refreshed 10 November 2026 (P4) on the P4 branch, which is `master` at `34808bf`
 
 | Budget | Limit | Today | Enforced |
 | --- | --- | --- | --- |
-| All JS, gzip | 570 KiB | 534.6 KiB (37 chunks) | CI `check` job, `scripts/check-budgets.mjs` |
+| All JS, gzip | 600 KiB | 566.5 KiB (#372); 571.0 KiB with the graphics library (#373) | CI `check` job, `scripts/check-budgets.mjs` |
 | Largest JS chunk, gzip | 310 KiB | 173.2 KiB (`StudioStage`) | CI `check` job, `scripts/check-budgets.mjs` |
 | GLB per garment template | 1.2 MiB | 1.19 MiB max (`coat.glb`, 1,214 KiB, with print UVs, 11 Nov; was `tailored.glb`, 1,149 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
 | Editor first load, all bytes over the wire | 2.0 MiB | 611 KiB (the tee editor, signed in, cold cache) | CI browser tests, `e2e/budgets.spec.ts` |
 | Editor frame time on a laptop-class GPU | p95 ≤ 16.7 ms (60 fps); uncapped p95 ≤ 8 ms | 16.8 / 3.8 ms (30 Oct) | Manual |
 | Editor frame cost on CI (software WebGL), p95 of animation-frame callbacks | 8 ms | 1.1 ms (median 0.5 ms, 384 frames; first CI run of #344) | CI browser tests, `e2e/budgets.spec.ts` |
 
-All limits live in `scripts/budgets.json`. Raising one is a deliberate change: update that file and this table in the same commit. The all-JS limit now has only about 7% headroom, not 15%. Lazy chunks count toward it as well, so a new route or library has to fit.
+All limits live in `scripts/budgets.json`. Raising one is a deliberate change: update that file and this table in the same commit. On 12 Nov the all-JS limit went from 570 to 600 KiB. The first tester's feedback added about 32 KiB of real features: two-finger gestures, the selection toolbar, side shapes, the Create page, rankings, the template upgrade and the landing's real tee. The graphics library (#373) and shape editing (#374) then reached 571 and 570.3 KiB. Trimming that much would have meant dropping features. The largest-chunk and first-load budgets are unchanged and well inside their limits. The all-JS limit now has only about 7% headroom, not 15%. Lazy chunks count toward it as well, so a new route or library has to fit.
 
 The browser budgets run in the CI browser shards against the production build:
 - **First load** reloads the editor of a new tee with the cache cleared and switched off. It then adds up every response's encoded size from the Chrome DevTools Protocol (`Network.loadingFinished`), headers included. That covers what the tee editor loads, including Supabase calls. It is lower than the 1.6 MiB above because the default gown is no longer preloaded on the editor.

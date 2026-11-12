@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import { DEFAULT_AVATAR_MEASUREMENTS } from './avatars'
+import type { AvatarMeasurements } from './avatar-geometry'
 import { garmentPanels } from './garments'
 import {
   applyCommand,
@@ -73,9 +74,11 @@ import {
 } from './editor-canonical'
 import type { ImportNote } from './legacy-import'
 import { type CanonicalDocument, CANONICAL_LIMITS } from './canonical-document'
-import { findLayer, replaceDocument } from './canonical-commands'
+import { findLayer, replaceDocument, replaceDocumentUndoable } from './canonical-commands'
+import { upgradeToCurrentTemplate } from './template-upgrade'
 import { canonicalPanel, renderPanel } from './render-projection'
 import { NUDGE_MERGE_MS } from './studio-keys'
+import { clampShape, type GarmentShape, templateHasShape } from './garment-shape-params'
 import { roundPlacement } from './transform-fields'
 
 export type EditorMode = 'design' | 'atelier'
@@ -97,11 +100,7 @@ export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'left' | 'right' 
 export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
 export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
 
-export type AvatarMeasurements = {
-  height: number
-  chest: number
-  waist: number
-}
+export type { AvatarMeasurements } from './avatar-geometry'
 
 export const BASE_FINISH_PRESETS = [
   { id: 'matte', label: 'Matte', fabricId: 'cotton' },
@@ -127,6 +126,11 @@ type EditorState = {
   importNotes: ImportNote[]
   /** A refused command or an over-limit document, in words (#162). */
   limitNotice: string | null
+  /**
+   * The shape a slider shows while it is dragged, before `setShape` commits
+   * it as one undo step; null when nothing is being dragged.
+   */
+  shapePreview: GarmentShape | null
   /** The owned cloud design open in the studio, if any (A05 #149). */
   cloud: CloudContext | null
   /** Bumped by every `loadCanonical`, so autosave restarts on a reload. */
@@ -153,6 +157,10 @@ type EditorState = {
   redoCount: number
   createStep: CreateStep
   designTool: DesignTool
+  // Draw tool held for turning the garment instead of inking it.
+  rotateView: boolean
+  /** A side picked from its tab, lit on the 3D garment for a moment. */
+  panelFlash: PanelId | null
   publishTags: string[]
   publishMethod: DesignMethod | null
   challengeId: string | null
@@ -194,6 +202,8 @@ type EditorState = {
   setStudioView: ({ studioView }: { studioView: StudioView }) => void
   setCreateStep: ({ createStep }: { createStep: CreateStep }) => void
   setDesignTool: ({ designTool }: { designTool: DesignTool }) => void
+  setRotateView: ({ rotateView }: { rotateView: boolean }) => void
+  flashPanel: ({ panel }: { panel: PanelId }) => void
   setPublishTags: ({ tags }: { tags: string[] }) => void
   setPublishMethod: ({
     method,
@@ -249,9 +259,14 @@ type EditorState = {
   addGraphic: ({
     src,
     panel,
+    x,
+    y,
   }: {
     src: string
     panel?: PanelId
+    /** Where it was dropped; a tapped tile lands mid-panel. */
+    x?: number
+    y?: number
   }) => void
   addText: ({
     content,
@@ -317,6 +332,10 @@ type EditorState = {
   moveLayerTo: ({ layerId, toIndex }: { layerId: string; toIndex: number }) => void
   setNeck: ({ neck }: { neck: NeckId }) => void
   setStructural: ({ structural }: { structural: StructuralParams }) => void
+  /** Preview a shape on the 3D garment without touching the document. */
+  previewShape: ({ shape }: { shape: GarmentShape | null }) => void
+  /** Commit shape fields (clamped to their safe ranges) as one undo step. */
+  setShape: ({ shape }: { shape: Partial<GarmentShape> }) => void
   addPattern: ({
     patternId,
     panel,
@@ -350,6 +369,8 @@ type EditorState = {
   setCloudDescription: ({ description }: { description: string }) => void
   /** Put recovered local work over the open cloud design as a new revision (S05 #174). */
   recoverCanonical: ({ document }: { document: CanonicalDocument }) => void
+  /** Moves the open design onto its garment's newest template, as one undo step. */
+  upgradeTemplate: () => boolean
   /** Place an uploaded, ready asset (S01 #170); `src` is what the renderer draws. */
   addUploadedImage: ({
     assetId,
@@ -533,6 +554,10 @@ export function hasCopiedLayer() {
 /** A duplicate or paste lands this share of the panel away, down and right. */
 export const COPY_OFFSET = 0.03
 
+/** How long a side picked from its tab stays lit on the 3D garment. */
+const PANEL_FLASH_MS = 900
+let panelFlashTimer = 0
+
 function placeableLayer({ document, layerId }: { document: DesignDocument; layerId: string }) {
   const layer = document.layers.find((entry) => entry.id === layerId)
   return layer && (layer.kind === 'graphic' || layer.kind === 'text' || layer.kind === 'pattern') ? layer : null
@@ -687,6 +712,7 @@ const INITIAL_EDITOR_STATE = {
   revision: 0,
   importNotes: [] as ImportNote[],
   limitNotice: null as string | null,
+  shapePreview: null as GarmentShape | null,
   cloud: null as CloudContext | null,
   cloudLoad: 0,
   title: '',
@@ -711,6 +737,8 @@ const INITIAL_EDITOR_STATE = {
   redoCount: 0,
   createStep: 'select' as CreateStep,
   designTool: 'draw' as DesignTool,
+  rotateView: false,
+  panelFlash: null as PanelId | null,
   publishTags: [] as string[],
   publishMethod: null as DesignMethod | null,
   challengeId: null as string | null,
@@ -730,6 +758,16 @@ const INITIAL_EDITOR_STATE = {
 /** The tee's canonical v2 document, for cloud saving (S04 #173). */
 export function getCanonicalDocument(): CanonicalDocument {
   return tee.stack.document
+}
+
+/** Whether the open garment's template takes shape sliders (shape v1). */
+export function canEditShape() {
+  return teeActive() && templateHasShape({ template: tee.stack.document.template })
+}
+
+/** `canEditShape`, kept current: it re-reads on every content revision. */
+export function useCanEditShape() {
+  return useEditorStore((state) => state.revision >= 0 && state.garmentId !== null && canEditShape())
 }
 
 /**
@@ -1043,13 +1081,30 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set(() => {
       return {
         createStep,
+        rotateView: false,
         ...(forcesClothView({ step: createStep }) ? { studioView: 'cloth' as const } : {}),
       }
     })
   },
   setDesignTool: ({ designTool }) => {
-    // Only which panel shows: on a phone the panels stay where words are placed.
-    set({ designTool })
+    // Which panel shows, and what a press on the cloth does: leaving Text
+    // drops tap-to-place so the next press never strands a word, and any
+    // switch lets go of the Rotate-view hold.
+    set((state) => ({
+      designTool,
+      rotateView: false,
+      ...(designTool !== 'text' && state.paintTool === 'type' ? { paintTool: 'brush' as StrokeTool } : {}),
+    }))
+  },
+  setRotateView: ({ rotateView }) => {
+    set({ rotateView })
+  },
+  flashPanel: ({ panel }) => {
+    set({ panelFlash: panel })
+    window.clearTimeout(panelFlashTimer)
+    panelFlashTimer = window.setTimeout(() => {
+      set((state) => (state.panelFlash === panel ? { panelFlash: null } : state))
+    }, PANEL_FLASH_MS)
   },
   setPublishTags: ({ tags }) => {
     set({
@@ -1074,6 +1129,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         height: measurements.height ?? state.avatarMeasurements.height,
         chest: measurements.chest ?? state.avatarMeasurements.chest,
         waist: measurements.waist ?? state.avatarMeasurements.waist,
+        hip: measurements.hip ?? state.avatarMeasurements.hip,
+        build: measurements.build ?? state.avatarMeasurements.build,
       },
     }))
   },
@@ -1412,7 +1469,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       }),
     )
   },
-  addGraphic: ({ src, panel }) => {
+  addGraphic: ({ src, panel, x, y }) => {
     if (!isSafeLayerSrc({ src })) {
       return
     }
@@ -1428,8 +1485,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             kind: 'graphic',
             panel: panel ?? state.paintPanel,
             src,
-            x: 0.5,
-            y: 0.48,
+            x: x ?? 0.5,
+            y: y ?? 0.48,
             scale: placementScale({
               panel: panel ?? state.paintPanel,
               scale: 0.28,
@@ -1678,6 +1735,22 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       }),
     )
   },
+  previewShape: ({ shape }) => {
+    set({ shapePreview: shape ? clampShape({ shape }) : null })
+  },
+  setShape: ({ shape }) => {
+    set((state) => {
+      if (!teeActive() || !templateHasShape({ template: tee.stack.document.template })) {
+        return { shapePreview: null }
+      }
+
+      const clamped = clampShape({ shape: { ...(state.document.shape ?? {}), ...shape } })
+      const patch = Object.fromEntries(Object.keys(shape).map((field) => [field, clamped[field as keyof GarmentShape]]))
+      const step = runTeeCommand({ engine: tee, command: { type: 'setShape', shape: patch } })
+      tee = step.engine
+      return syncFromStack({ extra: { shapePreview: null, ...(step.refusal ? { limitNotice: step.refusal } : {}) } })
+    })
+  },
   setStructural: ({ structural }) => {
     set(() =>
       runCommand({
@@ -1751,6 +1824,32 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
   setCloudTitle: ({ title }) => {
     set((state) => (state.cloud ? { cloud: { ...state.cloud, title } } : state))
+  },
+  upgradeTemplate: () => {
+    if (!teeActive()) {
+      return false
+    }
+
+    const result = upgradeToCurrentTemplate({ document: tee.stack.document })
+
+    if (!result.ok || !result.changed) {
+      return false
+    }
+
+    const pushed = replaceDocumentUndoable({ stack: tee.stack, document: result.document })
+
+    if (!pushed.ok) {
+      return false
+    }
+
+    tee = { ...tee, stack: pushed.stack }
+    set({
+      ...syncFromStack(),
+      activeStroke: null,
+      activeLayerEdit: null,
+      selectedLayerId: null,
+    })
+    return true
   },
   recoverCanonical: ({ document }) => {
     if (!get().cloud || !teeActive()) {

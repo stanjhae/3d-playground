@@ -1,7 +1,7 @@
 import {
   type CanonicalDocument,
   CANONICAL_SCHEMA_VERSION,
-  validateCanonicalDocument,
+  readCanonicalDocument,
 } from './canonical-document.ts'
 import { serializeCanonicalDocument } from './canonical-hash.ts'
 
@@ -461,7 +461,7 @@ function entryOffer({
     return { kind: 'unsupported', key, record }
   }
 
-  const checked = validateCanonicalDocument({ value: record.document })
+  const checked = readCanonicalDocument({ value: record.document })
 
   if (!checked.ok) {
     return { kind: 'unsupported', key, record }

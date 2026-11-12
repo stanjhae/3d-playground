@@ -1,4 +1,5 @@
 import {
+  Suspense,
   createRef,
   useEffect,
   useMemo,
@@ -11,7 +12,11 @@ import {
 import { documentHasInk } from '../../lib/design-document'
 import { trackAssumption } from '../../lib/assumption-events'
 import type { DesignDocument, PanelId } from '../../lib/design-document'
-import { liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
+import { type DesignTool, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
+import { surfaceGesture } from '../../lib/surface-gesture'
+import { outsideVeil, usePanelShapes } from '../../lib/panel-shape'
+import { PanelShapeLoader } from './PanelShapeLoader'
+import { carriesGraphic, droppedGraphic } from '../../lib/graphic-drag'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
 import { acceptsPointer } from '../../lib/palm-rejection'
@@ -25,6 +30,7 @@ import {
   panelTrueAspect,
   hitLayerHandle,
   hitPlaceableLayer,
+  layerVoice,
   placedType,
   wordEditShouldCommit,
   wordEditorWidth,
@@ -38,6 +44,9 @@ import { SELECTION_COLOR } from '../../lib/selection-chrome'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { cn } from '../../lib/cn'
+import { BringToFront, Copy, Trash2 } from 'lucide-react'
+import { announce } from '../../lib/studio-announcer'
+import { PanelShapeIcon } from './PanelShapeIcon'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
 import { CANONICAL_LIMITS } from '../../lib/canonical-document'
@@ -74,7 +83,7 @@ function panelFromEvent({
   event,
   node,
 }: {
-  event: PointerEvent
+  event: Pick<PointerEvent, 'clientX' | 'clientY'>
   node: HTMLCanvasElement
 }) {
   const rect = node.getBoundingClientRect()
@@ -128,11 +137,14 @@ function paintPanelSurface({
   panel,
   selected,
   rects,
+  veil = null,
 }: {
   canvas: HTMLCanvasElement
   atlas: HTMLCanvasElement
   panel: PanelId
   selected: PlaceableLayer | null
+  /** Shades what lies off the garment, so the panel shows its true shape. */
+  veil?: HTMLCanvasElement | null
   /** The document's panel rectangles (absent: the tee's). */
   rects?: DesignDocument['panelUv']
 }) {
@@ -163,6 +175,10 @@ function paintPanelSurface({
     canvas.width,
     canvas.height,
   )
+
+  if (veil) {
+    context.drawImage(veil, 0, 0, canvas.width, canvas.height)
+  }
 
   if (selected && selected.panel === panel) {
     const frame = canvasLayerFrame({
@@ -285,6 +301,91 @@ function WordOnCloth({
 }
 
 /** Chest line and collar band, faint and out of the pointer's way. */
+/**
+ * Remove, Duplicate and Bring forward right beside the selected mark, so
+ * nobody hunts for them (tester feedback). Sits above the mark, or below it
+ * when the mark is near the top of the panel; hidden while it is dragged.
+ */
+function SelectionToolbar({
+  layer,
+  canvasWidth,
+  canvasHeight,
+}: {
+  layer: PlaceableLayer
+  canvasWidth: number
+  canvasHeight: number
+}) {
+  const removeLayer = useEditorStore((state) => state.removeLayer)
+  const duplicateLayer = useEditorStore((state) => state.duplicateLayer)
+  const moveLayer = useEditorStore((state) => state.moveLayer)
+  const dragging = useEditorStore((state) => state.activeLayerEdit !== null)
+  const locked = layer.kind !== 'pattern' && layer.locked === true
+
+  if (dragging || locked) {
+    return null
+  }
+
+  const frame = canvasLayerFrame({ layer, width: canvasWidth, height: canvasHeight })
+  const top = (frame.y - frame.height / 2 - frame.rotateGap) / canvasHeight
+  const below = top < 0.14
+  const left = Math.min(0.85, Math.max(0.15, frame.x / canvasWidth))
+  const at = below ? (frame.y + frame.height / 2) / canvasHeight : top
+  const name = layerVoice({ layer })
+  const button =
+    'inline-flex size-9 items-center justify-center rounded-full text-flv-ink hover:bg-flv-soft hover:text-flv-accent'
+
+  return (
+    <div
+      role="toolbar"
+      aria-label={`${name} actions`}
+      className={cn(
+        'pointer-events-auto absolute z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-flv-line bg-white/95 p-0.5 shadow-md',
+        below ? 'mt-2' : '-translate-y-full -mt-2',
+      )}
+      style={{ left: `${left * 100}%`, top: `${Math.min(0.92, Math.max(0, at)) * 100}%` }}
+      // A press here is for the toolbar, not a stroke on the panel below.
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <button
+        type="button"
+        aria-label={`Remove ${name}`}
+        title="Remove"
+        className={button}
+        onClick={() => {
+          removeLayer({ layerId: layer.id })
+          announce({ message: `${name} removed. Undo brings it back.` })
+        }}
+      >
+        <Trash2 aria-hidden className="size-4" />
+      </button>
+      {layer.kind === 'pattern' ? null : (
+        <button
+          type="button"
+          aria-label={`Duplicate ${name}`}
+          title="Duplicate"
+          className={button}
+          onClick={() => {
+            duplicateLayer({ layerId: layer.id })
+          }}
+        >
+          <Copy aria-hidden className="size-4" />
+        </button>
+      )}
+      <button
+        type="button"
+        aria-label={`Bring ${name} forward`}
+        title="Bring forward"
+        className={button}
+        onClick={() => {
+          moveLayer({ layerId: layer.id, direction: 'up' })
+        }}
+      >
+        <BringToFront aria-hidden className="size-4" />
+      </button>
+    </div>
+  )
+}
+
 function PanelGuideOverlay({ guides }: { guides: PanelGuides }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden font-body text-[0.6rem] text-flv-muted">
@@ -331,6 +432,7 @@ function PaintSurface({
   activeStroke,
   selected,
   paintTool,
+  designTool,
   typeDraft,
   textFace,
   textScale,
@@ -352,6 +454,7 @@ function PaintSurface({
   activeStroke: ReturnType<typeof useEditorStore.getState>['activeStroke']
   selected: PlaceableLayer | null
   paintTool: ReturnType<typeof useEditorStore.getState>['paintTool']
+  designTool: DesignTool
   typeDraft: string
   textFace: ReturnType<typeof useEditorStore.getState>['textFace']
   textScale: number
@@ -380,6 +483,9 @@ function PaintSurface({
   const panelAspect = documentState.panelAspects?.[panel] ?? DEFAULT_PANEL_ASPECT
   const canvasSize = panelCanvasSize({ aspect: panelAspect })
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
+  const shapes = usePanelShapes((state) => state.shapes)
+  const shapeSrc = usePanelShapes((state) => state.src)
+
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -388,14 +494,21 @@ function PaintSurface({
       return
     }
 
+    const modelSrc = documentState.modelSrc
+    const triangles = modelSrc && shapeSrc === modelSrc ? shapes[panel] : undefined
+
     paintPanelSurface({
       canvas,
       atlas,
       panel,
       selected,
       rects: documentState.panelUv,
+      veil:
+        modelSrc && triangles
+          ? outsideVeil({ src: modelSrc, panel, triangles, width: canvas.width, height: canvas.height })
+          : null,
     })
-  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.panelUv, panel, selected])
+  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, panel, selected, shapeSrc, shapes])
 
   function handlePointerDown({
     event,
@@ -460,8 +573,16 @@ function PaintSurface({
       x: point.x,
       y: point.y,
     })
+    // One rule for the panels and the cloth (`surface-gesture.ts`).
+    const word = paintTool === 'type' && designTool === 'text' ? placedType({ typeDraft }) : null
+    const gesture = surfaceGesture({
+      designTool,
+      wordArmed: Boolean(word),
+      hitsLayer: Boolean(hit),
+      rotatingView: false,
+    })
 
-    if (hit) {
+    if (gesture === 'drag-layer' && hit) {
       selectLayer({ selectedLayerId: hit.id })
       dragRef.current = {
         handle: 'move',
@@ -487,27 +608,28 @@ function PaintSurface({
       return
     }
 
-    if (paintTool === 'type') {
-      const word = placedType({ typeDraft })
-
-      if (word) {
-        addText({
-          content: word,
-          x: point.x,
-          y: point.y,
-          face: textFace,
-          scale: textScale,
-          panel,
-        })
-        editStartContentRef.current = word
-        setDraftWord(word)
-        setEditingWord(true)
-      }
-
+    if (gesture === 'place-text' && word) {
+      addText({
+        content: word,
+        x: point.x,
+        y: point.y,
+        face: textFace,
+        scale: textScale,
+        panel,
+      })
+      editStartContentRef.current = word
+      setDraftWord(word)
+      setEditingWord(true)
       return
     }
 
     selectLayer({ selectedLayerId: null })
+
+    // Graphics, Upload and Text place by tapping their tiles or dropping on
+    // the panel: a press on bare cloth only clears the selection.
+    if (gesture !== 'stroke') {
+      return
+    }
 
     if (!documentHasInk({ document: documentState }) && !activeStroke) {
       void trackAssumption({ name: 'started_drawing' })
@@ -699,6 +821,26 @@ function PaintSurface({
         onPointerDown={(event) => {
           handlePointerDown({ event })
         }}
+        onDragOver={(event) => {
+          if (carriesGraphic({ dataTransfer: event.dataTransfer })) {
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'copy'
+          }
+        }}
+        onDrop={(event) => {
+          const src = droppedGraphic({ dataTransfer: event.dataTransfer })
+          const node = canvasRef.current
+
+          if (!src || !node) {
+            return
+          }
+
+          // A graphic dragged from the library lands where it was let go.
+          event.preventDefault()
+          const point = panelFromEvent({ event: event.nativeEvent, node })
+          onActivate()
+          useEditorStore.getState().addGraphic({ src, panel, x: point.x, y: point.y })
+        }}
         onPointerMove={(event) => {
           handlePointerMove({ event })
         }}
@@ -720,6 +862,9 @@ function PaintSurface({
       />
       {guides ? <PanelGuideOverlay guides={guides} /> : null}
       {snapGuides.length ? <SnapGuideOverlay guides={snapGuides} /> : null}
+      {selected && selected.panel === panel && !editingWord ? (
+        <SelectionToolbar layer={selected} canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
+      ) : null}
       {editingWord && selected?.kind === 'text' && selected.panel === panel ? (
         <WordOnCloth
           layer={selected}
@@ -761,10 +906,12 @@ export function PaintCanvas({
   const paintPanel = useEditorStore((state) => state.paintPanel)
   const panels = garmentPanels({ garmentId })
   const paintTool = useEditorStore((state) => state.paintTool)
+  const designTool = useEditorStore((state) => state.designTool)
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
   const typeDraft = useEditorStore((state) => state.typeDraft)
   const setPaintPanel = useEditorStore((state) => state.setPaintPanel)
+  const flashPanel = useEditorStore((state) => state.flashPanel)
   const layerImages = useLayerImages({ document: documentState })
   // Words draw in a fallback until their face loads, then redraw (#155).
   const textFaces = useTextFacesVersion()
@@ -848,6 +995,7 @@ export function PaintCanvas({
       activeStroke,
       selected,
       paintTool,
+      designTool,
       typeDraft,
       textFace,
       textScale,
@@ -858,6 +1006,12 @@ export function PaintCanvas({
       setDraftWord,
       setEditingWord,
       onActivate: () => {
+        // Moving to another side lights it on the garment; working on the
+        // same side doesn't flash on every stroke.
+        if (useEditorStore.getState().paintPanel !== panel) {
+          flashPanel({ panel })
+        }
+
         setPaintPanel({ paintPanel: panel })
       },
     }
@@ -865,6 +1019,12 @@ export function PaintCanvas({
 
   return (
     <aside className="flv-panel flex h-full min-h-80 flex-col gap-3 p-3">
+      {/* The sides' true shapes, even when no 3D view is mounted to read them from. */}
+      {documentState.modelSrc && documentState.panelUv ? (
+        <Suspense fallback={null}>
+          <PanelShapeLoader modelSrc={documentState.modelSrc} panelUv={documentState.panelUv} />
+        </Suspense>
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <p className={chromeKickerClass()}>Every side</p>
         <nav
@@ -880,12 +1040,15 @@ export function PaintCanvas({
               aria-pressed={paintPanel === panel.id}
               onClick={() => {
                 setPaintPanel({ paintPanel: panel.id })
+                // Show which piece of the garment that is.
+                flashPanel({ panel: panel.id })
               }}
-              className={cn('min-h-11', chromeTextClass(), {
+              className={cn('inline-flex min-h-11 items-center gap-1.5', chromeTextClass(), {
                 'text-flv-accent': paintPanel === panel.id,
                 'text-flv-muted hover:text-flv-accent': paintPanel !== panel.id,
               })}
             >
+              <PanelShapeIcon panel={panel.id} />
               {panel.label}
             </button>
           ))}

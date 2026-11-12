@@ -127,3 +127,18 @@ describe('drawing the optional fields', () => {
     expectSamePixels(draw(withFront([{ ...image(), locked: true }])).pixels, draw(withFront([image()])).pixels)
   })
 })
+
+describe('shape (parametric shape v1)', () => {
+  test('a shaped v4 tee reads, projects its shape, and serializes stably', () => {
+    const document: CanonicalDocument = {
+      ...createEmptyCanonicalDocument({ templateId: 'tee-crew-short', version: 4 }),
+      shape: { leftSleeveLength: 0.5, rightSleeveLength: -0.2, bodyLength: 0.1, bodyWidth: 0.05, necklineDepth: 0.4 },
+    }
+
+    expect(issuesOf(document)).toEqual([])
+    expect(toRenderDocument({ document }).document.shape).toEqual(document.shape)
+    expect(serializeCanonicalDocument({ document: JSON.parse(serializeCanonicalDocument({ document })) })).toBe(
+      serializeCanonicalDocument({ document }),
+    )
+  })
+})

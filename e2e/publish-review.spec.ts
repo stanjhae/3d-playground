@@ -3,7 +3,7 @@ import { type Page, expect, test } from '@playwright/test'
 import { deleteAccounts, drawStroke, expectSaved, newEmail, signIn } from './helpers'
 
 /**
- * "Publish…" opens the publish review every time. Twice on 1 Nov a click
+ * "Publish publicly…" opens the publish review every time. Twice on 1 Nov a click
  * landed and nothing opened: the 3D canvas started during the click, the
  * "Publishing needs the 3D preview…" line under the button went away, and
  * the bottom-anchored panel moved the button out from under the pointer.
@@ -31,7 +31,7 @@ async function createSavedDesign({ page, label }: { page: Page; label: string })
   return designId
 }
 
-test(`"Publish…" opens the review (${LOOPS}×)`, async ({ page }) => {
+test(`"Publish publicly…" opens the review (${LOOPS}×)`, async ({ page }) => {
   test.setTimeout(60_000 + LOOPS * 30_000)
   const designId = await createSavedDesign({ page, label: 'publish-review' })
   const failures: number[] = []
@@ -39,7 +39,7 @@ test(`"Publish…" opens the review (${LOOPS}×)`, async ({ page }) => {
   for (let i = 0; i < LOOPS; i += 1) {
     await page.goto(`/create?cloud=${designId}&step=share`)
     await expectSaved({ page })
-    await page.getByRole('button', { name: 'Publish…' }).click()
+    await page.getByRole('button', { name: 'Publish publicly…' }).click()
 
     try {
       await expect(page.getByRole('button', { name: 'Confirm publish' })).toBeVisible({ timeout: 5_000 })
@@ -52,7 +52,7 @@ test(`"Publish…" opens the review (${LOOPS}×)`, async ({ page }) => {
   expect(failures, 'runs where the review did not open').toEqual([])
 })
 
-test('"Publish…" opens the review when the 3D preview starts mid-click', async ({ page }) => {
+test('"Publish publicly…" opens the review when the 3D preview starts mid-click', async ({ page }) => {
   const designId = await createSavedDesign({ page, label: 'publish-review-late' })
 
   // Hold back every ResizeObserver report, so the R3F canvas (which waits for
@@ -86,7 +86,7 @@ test('"Publish…" opens the review when the 3D preview starts mid-click', async
 
   await page.goto(`/create?cloud=${designId}&step=share`)
   await expectSaved({ page })
-  const open = page.getByRole('button', { name: 'Publish…' })
+  const open = page.getByRole('button', { name: 'Publish publicly…' })
   // The canvas has not started: publishing explains it is waiting for it.
   await expect(page.getByRole('status').filter({ hasText: 'Starting the 3D preview' })).toBeVisible()
   const box = (await open.boundingBox())!
@@ -115,7 +115,7 @@ test('moving to Publish keeps the 3D canvas and never reports the preview as gon
   })
 
   await page.getByRole('button', { name: /Preview & Publish/ }).click()
-  await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeVisible()
   await expectSaved({ page })
 
   expect(
@@ -124,6 +124,6 @@ test('moving to Publish keeps the 3D canvas and never reports the preview as gon
   ).toBe(true)
   const statuses = await page.evaluate(() => (window as unknown as { __flpStatuses?: string[] }).__flpStatuses ?? [])
   expect(statuses.filter((line) => line.includes('Publishing needs the 3D preview'))).toEqual([])
-  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Publish publicly…' }).click()
   await expect(page.getByRole('button', { name: 'Confirm publish' })).toBeEnabled()
 })

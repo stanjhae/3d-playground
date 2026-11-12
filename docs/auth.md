@@ -36,7 +36,7 @@ Logic is in `src/lib/auth/` (`code-flow.ts`, `return-path.ts`, `session-store.ts
 
 Wherever Supabase is configured, `/create` and `/studio` require a session (A05 #149):
 - After sign-in the browser goes to **My Studio** (`/studio`). Signed-in `/create` without `cloud=` or a board remix (`design=`) redirects there.
-- Publishing refuses without a session, and a cloud design can only publish once it shows **Saved to cloud**.
+- Publishing refuses without a session, and a cloud design can only publish once it shows **Saved privately**.
 - `VITE_FLP_REQUIRE_AUTH=false` opts out, for a guest-only demo build.
 - Deploys without Supabase env vars, such as today's Vercel production, keep the guest studio.
 

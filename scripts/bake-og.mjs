@@ -26,6 +26,13 @@ const display = base64('node_modules/@fontsource/inter-tight/files/inter-tight-l
 const body = base64('node_modules/@fontsource/outfit/files/outfit-latin-400-normal.woff2')
 const tee = base64('public/landing/hero-tee-800.webp')
 
+// The hero tee is a CC BY model, so the card names it too (docs/asset-rights.md).
+const CREDIT = 'T-shirt by ajith98adithya (modified) · CC BY 4.0'
+if (!readFileSync(file('src/lib/garments.ts'), 'utf8').includes(`label: '${CREDIT.split(' · ')[0]}'`)) {
+  console.error('The tee credit in src/lib/garments.ts changed: update CREDIT in scripts/bake-og.mjs.')
+  process.exit(1)
+}
+
 const html = `<!doctype html><html><head><style>
 @font-face{font-family:D;src:url(data:font/woff2;base64,${display}) format('woff2');font-weight:800}
 @font-face{font-family:B;src:url(data:font/woff2;base64,${body}) format('woff2')}
@@ -41,10 +48,11 @@ h1{font-family:D;font-size:84px;line-height:.92;letter-spacing:-.045em;margin-to
 p{margin-top:28px;font-size:26px;color:#5b6270}
 .card{position:absolute;right:64px;top:55px;width:440px;height:520px;border-radius:36px;overflow:hidden;border:1px solid #e8eaee;background:#fff;box-shadow:0 40px 80px -30px rgb(11 13 18/.35)}
 .card img{width:100%;height:100%;object-fit:cover}
+.credit{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#5b6270}
 </style></head><body><div class="grid"></div>
 <div class="copy"><div class="mark">FLV</div><h1>Sketch it.<br>See it in 3D.<span class="accent">Put it to the vote.</span></h1>
 <p>Design a T-shirt in your browser. Fashion Leader Vote.</p></div>
-<div class="card"><img src="data:image/webp;base64,${tee}"></div></body></html>`
+<div class="card"><img src="data:image/webp;base64,${tee}"><div class="credit">${CREDIT}</div></div></body></html>`
 
 const browser = await puppeteer.launch({ executablePath: chrome, headless: true })
 

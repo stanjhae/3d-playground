@@ -64,8 +64,8 @@ test('the landing and all its sections make no claim the alpha cannot back, and 
 
   // The board lists published designs and sends voters to each one (V1, V2).
   await page.goto('/vote')
-  await expect(page.getByRole('heading', { name: 'Top designs' })).toBeVisible()
-  await expect(page.getByText('Open one to see every side and vote.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Vote and rankings' })).toBeVisible()
+  await expect(page.getByText('Open one to see every side and give it your vote.')).toBeVisible()
   await expectNoClaims({ page, name: 'vote' })
 })
 

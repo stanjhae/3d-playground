@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { validateCanonicalDocument } from '../../lib/canonical-document'
+import { readCanonicalDocument } from '../../lib/canonical-document'
 import { loadCloudDesign } from '../../lib/cloud-design-load'
 import { cn } from '../../lib/cn'
 import { getCanonicalDocument, useEditorStore } from '../../lib/editor-store'
@@ -116,7 +116,7 @@ export function HistoryPanel() {
 
     setPreview({ seq, status: 'loading' })
     const result = await getDesignVersion({ designId, seq })
-    const checked = result.ok ? validateCanonicalDocument({ value: result.data.content }) : null
+    const checked = result.ok ? readCanonicalDocument({ value: result.data.content }) : null
 
     if (!checked?.ok) {
       setPreview(null)

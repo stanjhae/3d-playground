@@ -12,6 +12,7 @@
     "generate": "node scripts/generate-routes.mjs",
     "garments": "node scripts/build-jacket.mjs",
     "tee": "node scripts/build-tee.mjs",
+    "graphics": "node scripts/build-graphics.mjs",
     "stills": "node scripts/bake-stills.mjs",
     "og": "node scripts/bake-og.mjs",
     "build": "pnpm generate && tsc --noEmit && vite build && node scripts/prerender-landing.mjs",

@@ -12,6 +12,7 @@ import {
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 import type { ModelFrame } from '../../lib/design-document'
+import { onClothHold } from '../../lib/cloth-pointer'
 import { useEditorStore } from '../../lib/editor-store'
 import {
   LANDING_CAMERA_POSITIONS,
@@ -237,6 +238,8 @@ export function StudioFloor({
       <mesh
         position={[0, height, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
+        // Not the garment: a graphic dropped here must not land on a panel.
+        userData={{ stageCatcher: true }}
         onClick={(event: ThreeEvent<MouseEvent>) => {
           event.stopPropagation()
 
@@ -263,11 +266,14 @@ export function StudioCamera({
   intro = false,
   framing = 'garment',
   modelFrame,
+  held = false,
 }: {
   intro?: boolean
   framing?: StageFraming
   /** A real model's bounds; the camera fits it instead of the preset seat. */
   modelFrame?: ModelFrame
+  /** Another seat owns the camera (a landing view button): don't pull it back. */
+  held?: boolean
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const aspect = useThree((state) => state.size.width / state.size.height)
@@ -278,7 +284,7 @@ export function StudioCamera({
   const elapsed = useRef(reducedMotion || !intro ? INTRO_DURATION : 0)
   // Whether the last frame asked for another one (see IDLE_FRAME_STEP).
   const moving = useRef(false)
-  const freeOrbit = cameraPreset === 'orbit' && !capturingAngles
+  const freeOrbit = (cameraPreset === 'orbit' || held) && !capturingAngles
   const seatPreset = cameraPreset === 'orbit' ? 'threeQuarter' : cameraPreset
   // A real model (template-built garment) is fitted by its own size and
   // sleeves. Only the stage showing the design passes one: other stages
@@ -384,8 +390,11 @@ export function IntroCamera({
 
 function LandingCameraSeat({
   cameraView,
+  modelFrame,
 }: {
   cameraView: LandingCameraView
+  /** The real tee's bounds: its own fitted seats, not the drawn tee's. */
+  modelFrame?: ModelFrame
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const controls = useThree((state) => state.controls) as
@@ -397,12 +406,16 @@ function LandingCameraSeat({
     | undefined
 
   useLayoutEffect(() => {
-    const seat = LANDING_CAMERA_POSITIONS[cameraView]
+    // The studio's own seats for a real model, so Left and Right find its
+    // sleeves as the studio's views do (render `left` is the wearer's right).
+    const fitted = modelFrame ? modelSeat({ preset: cameraView, frame: modelFrame, live: true }) : null
+    const seat = fitted?.seat ?? LANDING_CAMERA_POSITIONS[cameraView]
+    const target = fitted?.target ?? STUDIO_CAMERA.target
     camera.position.set(seat[0], seat[1], seat[2])
-    camera.lookAt(...STUDIO_CAMERA.target)
-    controls?.target.set(...STUDIO_CAMERA.target)
+    camera.lookAt(target[0], target[1], target[2])
+    controls?.target.set(target[0], target[1], target[2])
     controls?.update()
-  }, [camera, cameraView, controls])
+  }, [camera, cameraView, controls, modelFrame])
 
   return null
 }
@@ -414,6 +427,7 @@ export function StudioStage({
   envMode,
   framing = 'garment',
   modelFrame,
+  cameraHeld = false,
 }: {
   children?: ReactNode
   picking?: boolean
@@ -421,6 +435,8 @@ export function StudioStage({
   envMode?: StudioEnvMode
   framing?: StageFraming
   modelFrame?: ModelFrame
+  /** A landing view seats the camera itself (`StudioOrbit`'s `cameraView`). */
+  cameraHeld?: boolean
 }) {
   const storeEnv = useEditorStore((state) => state.studioEnv)
   const resolvedEnv = envMode ?? storeEnv
@@ -436,7 +452,7 @@ export function StudioStage({
         envMode={resolvedEnv}
       />
       <StudioFloor picking={picking} framing={framing} />
-      <StudioCamera intro={intro} framing={framing} modelFrame={modelFrame} />
+      <StudioCamera intro={intro} framing={framing} modelFrame={modelFrame} held={cameraHeld} />
       <RenderOnEditorChange />
       {children}
     </>
@@ -448,12 +464,15 @@ export function StudioOrbit({
   turntable = false,
   zoom = true,
   cameraView,
+  modelFrame,
 }: {
   intro?: boolean
   turntable?: boolean
   /** Off on the landing, where the wheel scrolls the page. */
   zoom?: boolean
   cameraView?: LandingCameraView
+  /** With `cameraView`: the real model whose seats the views use. */
+  modelFrame?: ModelFrame
 }) {
   const reducedMotion = prefersReducedMotion()
   const [enabled, setEnabled] = useState(() => !intro || reducedMotion)
@@ -463,6 +482,20 @@ export function StudioOrbit({
   )
   const painting = useEditorStore((state) => Boolean(state.activeStroke))
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
+  // A graphic being dragged across the cloth holds the view as ink does.
+  const draggingLayer = useEditorStore((state) => state.activeLayerEdit !== null)
+  const controlsRef = useRef<{ enabled: boolean } | null>(null)
+  const orbitEnabled = enabled && !painting && !draggingLayer && !capturingAngles && !lockedView
+
+  // Ink or a dragged graphic holds the cloth: stand the orbit down in the
+  // same pointer event, and give it back only when the press lets go.
+  useEffect(() => {
+    return onClothHold((held) => {
+      if (controlsRef.current) {
+        controlsRef.current.enabled = !held && orbitEnabled
+      }
+    })
+  }, [orbitEnabled])
 
   useEffect(() => {
     if (!intro || reducedMotion) {
@@ -486,13 +519,16 @@ export function StudioOrbit({
 
   return (
     <>
-      {cameraView ? <LandingCameraSeat cameraView={cameraView} /> : null}
+      {cameraView ? <LandingCameraSeat cameraView={cameraView} modelFrame={modelFrame} /> : null}
       <OrbitControls
         autoRotate={
           turntable && spinning && enabled && !capturingAngles && !lockedView
         }
         autoRotateSpeed={0.35}
-        enabled={enabled && !painting && !capturingAngles && !lockedView}
+        ref={controlsRef as never}
+        // Shared through the scene, so a two-finger turn can drive it.
+        makeDefault
+        enabled={orbitEnabled}
         enablePan={false}
         enableZoom={zoom}
         maxDistance={6.5}

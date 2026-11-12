@@ -39,7 +39,7 @@ export function CreateCta({
 
   if (mode === 'static') {
     return (
-      <a href="/studio" className={classes} data-cta="create">
+      <a href="/studio?new=true" className={classes} data-cta="create">
         {body}
       </a>
     )
@@ -48,6 +48,8 @@ export function CreateCta({
   return (
     <Link
       to="/studio"
+      // Start creating opens Create (a new design), not the saved-designs library.
+      search={{ new: true }}
       viewTransition
       className={classes}
       data-cta="create"

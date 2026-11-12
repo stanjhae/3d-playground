@@ -1,10 +1,10 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Suspense, useRef } from 'react'
+import { Suspense, useMemo, useRef } from 'react'
 
 import type { DesignDocument } from '../../lib/design-document'
 import type { MaterialOverride } from '../../lib/design-schema'
 import type { LandingCameraView } from '../../lib/landing-demo'
-import { AvatarBody } from '../scene/AvatarBody'
+import { landingRenderDocument } from '../../lib/landing-real-tee'
 import { FashionLoader } from '../scene/FashionLoader'
 import { Garment } from '../scene/Garment'
 import { STUDIO_CAMERA, StudioOrbit, StudioStage } from '../scene/StudioStage'
@@ -49,6 +49,9 @@ export default function LandingCloth({
   onReady?: () => void
   onLost?: () => void
 }) {
+  // The studio's real tee, not the drawn one, so the demo matches the editor.
+  const document = useMemo(() => landingRenderDocument({ document: documentProp }), [documentProp])
+
   return (
     <Canvas
       shadows={!coarsePointer}
@@ -68,15 +71,19 @@ export default function LandingCloth({
       data-engine="landing"
       className={coarsePointer ? 'pointer-events-none size-full' : 'size-full'}
     >
-      <StudioStage envMode="studio" framing="garment">
+      <StudioStage envMode="studio" framing="figure" modelFrame={document.modelFrame} cameraHeld={Boolean(cameraView)}>
         <Suspense fallback={<FashionLoader />}>
-          <AvatarBody>
-            <Garment garmentId="tee" overrides={overrides} document={documentProp} picking={false} />
-          </AvatarBody>
+          {/* The real tee stands on its own, as in the studio: the mannequin was posed for the drawn one. */}
+          <Garment garmentId="tee" overrides={overrides} document={document} picking={false} />
           <FirstFrame onReady={onReady} />
         </Suspense>
       </StudioStage>
-      <StudioOrbit turntable={spin && !cameraView && active} zoom={false} cameraView={cameraView} />
+      <StudioOrbit
+        turntable={spin && !cameraView && active}
+        zoom={false}
+        cameraView={cameraView}
+        modelFrame={document.modelFrame}
+      />
     </Canvas>
   )
 }

@@ -68,7 +68,7 @@ test('create → edit → save → publish → view signed out → unpublish →
   // Publish the saved version.
   await page.goto(`/create?cloud=${designId}&step=share`)
   await expectSaved({ page })
-  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Publish publicly…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   await expect(link).toBeVisible({ timeout: 120_000 })
@@ -136,7 +136,7 @@ test('create → edit → save → publish → view signed out → unpublish →
 
   // Unpublish: the public page is gone at once.
   await page.getByRole('button', { name: 'Unpublish' }).click()
-  await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeVisible()
   await anonymous.reload()
   await expect(anonymous.getByRole('heading', { name: 'This design is not available' })).toBeVisible()
   const neutralPage = await anonymous.locator('main').innerText()

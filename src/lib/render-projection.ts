@@ -4,6 +4,7 @@ import {
   panelIdsOf,
 } from './canonical-document.ts'
 import type { DesignDocument, DesignLayer, PanelId } from './design-document.ts'
+import { templateHasShape } from './garment-shape-params.ts'
 import { CURRENT_TEMPLATE, type TemplateManifest, resolveTemplate } from './template-manifest.ts'
 
 /**
@@ -119,11 +120,8 @@ function panelAspects({ manifest }: { manifest: TemplateManifest }) {
 
 /**
  * Where a real model stands and where its sleeves are, for the camera to fit.
- * Sleeves are keyed by side, not by region id: the sleeve presets name the
- * render side (`left` is the wearer's right, at −x), while template-built
- * regions are named for the wearer (their `left` is the wearer's left, +x,
- * and labelled so). Placing them by position keeps each view on the sleeve
- * its label names, whatever the template calls it.
+ * Sleeves are keyed by render panel, which is what the sleeve presets are
+ * named for (`left` is the wearer's right).
  */
 function modelFrameOf({ manifest }: { manifest: TemplateManifest }) {
   const bounds = manifest.geometry.bounds
@@ -132,13 +130,11 @@ function modelFrameOf({ manifest }: { manifest: TemplateManifest }) {
     return {}
   }
 
-  const sleeves: { minusX?: [number, number, number]; plusX?: [number, number, number] } = {}
+  const sleeves: { left?: [number, number, number]; right?: [number, number, number] } = {}
 
-  for (const panel of ['left', 'right']) {
-    const center = manifest.regions[panel]?.center
-
-    if (center) {
-      sleeves[center[0] < 0 ? 'minusX' : 'plusX'] = center
+  for (const region of Object.values(manifest.regions)) {
+    if ((region.renderPanel === 'left' || region.renderPanel === 'right') && region.center) {
+      sleeves[region.renderPanel] = region.center
     }
   }
 
@@ -311,6 +307,8 @@ export function toRenderDocument({
           : [{ meshName: 'body', color: baseColor, roughness: 0.86, metalness: 0 }],
       ...panelAspects({ manifest }),
       ...panelUvOf({ manifest }),
+      // Only a model with a shape map deforms; the validator keeps it so.
+      ...(document.shape && templateHasShape({ template: document.template }) ? { shape: { ...document.shape } } : {}),
       layers: layers.length > 0 ? layers : [{ id: 'paint-empty', kind: 'paint', visible: true, strokes: [] }],
     },
     missingAssets,

@@ -38,10 +38,10 @@ export function StepHeader<Id extends string>({
                 onClick={() => {
                   onSelect(step.id)
                 }}
-                className="flex min-h-11 w-20 shrink-0 flex-col items-center gap-1 text-center font-body text-xs leading-tight"
+                className="flex min-h-11 w-14 shrink-0 flex-col items-center gap-1 text-center font-body text-xs leading-tight sm:w-20"
               >
                 <span
-                  className={cn('flex size-7 items-center justify-center rounded-full border text-xs', {
+                  className={cn('flex size-6 items-center sm:size-7 justify-center rounded-full border text-xs', {
                     'border-transparent bg-flv-accent font-medium text-white': isCurrent,
                     'border-flv-ink text-flv-ink': isDone,
                     'border-flv-line bg-white text-flv-muted': !isCurrent && !isDone,
@@ -51,6 +51,8 @@ export function StepHeader<Id extends string>({
                 </span>
                 <span
                   className={cn({
+                    // On a phone only the current step keeps its name in view.
+                    'max-sm:sr-only': !isCurrent,
                     'font-medium text-flv-accent': isCurrent,
                     'text-flv-ink': isDone,
                     'text-flv-muted': !isCurrent && !isDone,
@@ -62,7 +64,7 @@ export function StepHeader<Id extends string>({
               {index < steps.length - 1 ? (
                 <span
                   aria-hidden
-                  className={cn('mt-3.5 h-px min-w-1 flex-1', {
+                  className={cn('mt-3 h-px sm:mt-3.5 min-w-1 flex-1', {
                     'bg-flv-ink': isDone,
                     'bg-flv-line': !isDone,
                   })}

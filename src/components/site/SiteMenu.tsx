@@ -40,8 +40,9 @@ export function SiteMenu({ children }: { children: ReactNode }) {
     }
   }, [open])
 
+  // Up to lg, where the header's own section links take over: no width is left without them.
   return (
-    <div ref={root} className="relative md:hidden">
+    <div ref={root} className="relative lg:hidden">
       <button
         ref={button}
         type="button"

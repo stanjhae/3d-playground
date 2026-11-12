@@ -2,14 +2,17 @@ import {
   type CanonicalDocument,
   type CanonicalLayer,
   type CanonicalPanelId,
+  type CanonicalShape,
   type CanonicalStroke,
   type CanonicalTextFace,
   type Color,
   type GarmentBase,
   type ValidationIssue,
   panelIdsOf,
+  shapeOf,
   validateCanonicalDocument,
 } from './canonical-document.ts'
+import { isNeutralShape } from './garment-shape-params.ts'
 
 /**
  * Editor commands on the canonical v2 document (FLP E01 #152).
@@ -65,6 +68,12 @@ export type CanonicalCommand =
       newId: string
     }
   | { type: 'setBase'; base: GarmentBase }
+  /**
+   * Change some shape fields; the rest keep their values. A shape that comes
+   * out neutral is removed, as shapes are stored only when off neutral.
+   * Out-of-range values are refused, not clamped: the UI clamps.
+   */
+  | { type: 'setShape'; shape: Partial<CanonicalShape> }
   /** Several commands as one undo step, e.g. clearing every paint layer. */
   | { type: 'batch'; commands: CanonicalCommand[] }
 
@@ -391,6 +400,30 @@ function applyToDocument({
     return { ok: true, document: next }
   }
 
+  if (command.type === 'setShape') {
+    const merged = { ...shapeOf({ document: next }) }
+
+    for (const [field, value] of Object.entries(command.shape)) {
+      if (value === undefined) {
+        continue
+      }
+
+      if (!(field in merged)) {
+        return { ok: false, issues: [{ path: `$.shape.${field}`, message: 'unknown field' }] }
+      }
+
+      merged[field as keyof CanonicalShape] = value
+    }
+
+    if (isNeutralShape({ shape: merged })) {
+      delete next.shape
+    } else {
+      next.shape = merged
+    }
+
+    return { ok: true, document: next }
+  }
+
   next.base = structuredClone(command.base)
   return { ok: true, document: next }
 }
@@ -418,16 +451,33 @@ export function applyCanonicalCommand({
     return { ok: true, stack, changed: false }
   }
 
+  return { ok: true, changed: true, stack: pushHistory({ stack, document: checked.document }) }
+}
+
+/** `document` becomes the head; the old head is one undo step back. */
+function pushHistory({ stack, document }: { stack: CanonicalStack; document: CanonicalDocument }): CanonicalStack {
   return {
-    ok: true,
-    changed: true,
-    stack: {
-      document: checked.document,
-      revision: stack.revision + 1,
-      past: [...stack.past, stack.document].slice(-MAX_HISTORY),
-      future: [],
-    },
+    document,
+    revision: stack.revision + 1,
+    past: [...stack.past, stack.document].slice(-MAX_HISTORY),
+    future: [],
   }
+}
+
+/**
+ * Swaps in a whole new document as one undoable step, for changes no single
+ * command describes (moving a design onto a newer template). It is
+ * validated like any command's result.
+ */
+export function replaceDocumentUndoable({
+  stack,
+  document,
+}: {
+  stack: CanonicalStack
+  document: CanonicalDocument
+}): { ok: true; stack: CanonicalStack } | { ok: false; issues: ValidationIssue[] } {
+  const checked = validateCanonicalDocument({ value: document })
+  return checked.ok ? { ok: true, stack: pushHistory({ stack, document: checked.document }) } : { ok: false, issues: checked.issues }
 }
 
 export function undoCanonical({ stack }: { stack: CanonicalStack }): CanonicalStack {

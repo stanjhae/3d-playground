@@ -101,7 +101,7 @@ test('a design title and words show as text in the editor and My Studio', async 
   const back = await page.locator('canvas[aria-label^="Design panel Back"]').boundingBox()
   await page.mouse.click(back!.x + back!.width / 2, back!.y + back!.height / 3)
   await expect(page.getByText(XSS_NAME, { exact: true }).first()).toBeVisible()
-  await expect(page.getByRole('status').filter({ hasText: 'Saved to cloud' })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('status').filter({ hasText: 'Saved privately' })).toBeVisible({ timeout: 20_000 })
 
   await page.goto('/studio')
   await expect(page.getByRole('listitem').filter({ hasText: XSS_TITLE })).toBeVisible()
