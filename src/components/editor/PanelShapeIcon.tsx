@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useMemo } from 'react'
 
 import type { PanelId } from '../../lib/design-document'
 import { useEditorStore } from '../../lib/editor-store'
@@ -10,51 +10,34 @@ const HEIGHT = 20
 /**
  * A side's own shape in miniature beside its tab, so Front, Back and the
  * sleeves read as the pieces they are. Nothing for the drawn tee, whose
- * sides are plain rectangles.
+ * sides are plain rectangles. An SVG, not a canvas: the studio's canvases
+ * are its drawing surfaces.
  */
 export function PanelShapeIcon({ panel }: { panel: PanelId }) {
-  const canvas = useRef<HTMLCanvasElement | null>(null)
   const modelSrc = useEditorStore((state) => state.document.modelSrc)
   const triangles = usePanelShapes((state) => (state.src === modelSrc ? state.shapes[panel] : undefined))
-
-  useEffect(() => {
-    const context = canvas.current?.getContext('2d')
-
-    if (!context || !triangles) {
-      return
+  const path = useMemo(() => {
+    if (!triangles) {
+      return null
     }
 
-    const ratio = window.devicePixelRatio || 1
-    context.setTransform(ratio, 0, 0, ratio, 0, 0)
-    context.clearRect(0, 0, WIDTH, HEIGHT)
-    context.fillStyle = 'currentColor'
-    context.fillStyle = getComputedStyle(canvas.current!).color
-    context.beginPath()
+    const point = (x: number, y: number) => `${(x * WIDTH).toFixed(1)} ${((1 - y) * HEIGHT).toFixed(1)}`
+    let d = ''
 
     for (let i = 0; i + 5 < triangles.length; i += 6) {
-      context.moveTo(triangles[i]! * WIDTH, (1 - triangles[i + 1]!) * HEIGHT)
-      context.lineTo(triangles[i + 2]! * WIDTH, (1 - triangles[i + 3]!) * HEIGHT)
-      context.lineTo(triangles[i + 4]! * WIDTH, (1 - triangles[i + 5]!) * HEIGHT)
-      context.closePath()
+      d += `M${point(triangles[i]!, triangles[i + 1]!)}L${point(triangles[i + 2]!, triangles[i + 3]!)}L${point(triangles[i + 4]!, triangles[i + 5]!)}Z`
     }
 
-    context.fill()
+    return d
   }, [triangles])
 
-  if (!triangles) {
+  if (!path) {
     return null
   }
 
-  const ratio = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
-
   return (
-    <canvas
-      ref={canvas}
-      aria-hidden
-      width={WIDTH * ratio}
-      height={HEIGHT * ratio}
-      style={{ width: WIDTH, height: HEIGHT }}
-      className="shrink-0"
-    />
+    <svg aria-hidden viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width={WIDTH} height={HEIGHT} className="shrink-0 fill-current">
+      <path d={path} />
+    </svg>
   )
 }
