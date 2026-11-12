@@ -60,10 +60,6 @@ export function ColorPatternPanel() {
   const setBasePattern = useEditorStore((state) => state.setBasePattern)
   const setBaseFinish = useEditorStore((state) => state.setBaseFinish)
   const applyFabric = useEditorStore((state) => state.applyFabric)
-  const undoLast = useEditorStore((state) => state.undoLast)
-  const redoLast = useEditorStore((state) => state.redoLast)
-  const canUndo = useEditorStore((state) => state.undoCount > 0)
-  const canRedo = useEditorStore((state) => state.redoCount > 0)
   const fabricId = useEditorStore((state) => state.fabricId)
   const overrides = useEditorStore((state) => state.overrides)
   const finish = BASE_FINISH_PRESETS.find((entry) => entry.id === baseFinishId)
@@ -190,34 +186,8 @@ export function ColorPatternPanel() {
       ) : null}
       </>
       )}
-      <div className="flex gap-3">
-        <button
-          type="button"
-          disabled={!canUndo}
-          onClick={() => {
-            undoLast()
-          }}
-          className={cn(
-            'min-h-11 text-flv-muted hover:text-flv-accent disabled:opacity-30',
-            chromeTextClass(),
-          )}
-        >
-          {HOUSE_COPY.undo}
-        </button>
-        <button
-          type="button"
-          disabled={!canRedo}
-          onClick={() => {
-            redoLast()
-          }}
-          className={cn(
-            'min-h-11 text-flv-muted hover:text-flv-accent disabled:opacity-30',
-            chromeTextClass(),
-          )}
-        >
-          {HOUSE_COPY.redo}
-        </button>
-        {fabricId ? (
+      {fabricId ? (
+        <div className="flex gap-3">
           <button
             type="button"
             onClick={() => {
@@ -230,8 +200,8 @@ export function ColorPatternPanel() {
           >
             {HOUSE_COPY.cloth}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </aside>
   )
 }

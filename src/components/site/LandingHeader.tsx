@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react'
 
+import { cn } from '../../lib/cn'
+import { useActiveSection } from '../../lib/use-active-section'
+
 import { FLV_COPY } from '../../lib/flv-copy'
 import { LANDING_COPY, LANDING_NAV } from '../../lib/landing-copy'
 import { CreateCta, type LandingMode } from '../landing/LandingLink'
@@ -7,6 +10,7 @@ import { SiteMenu } from './SiteMenu'
 
 /** The landing's sections, in page order: every link has a section to land on. */
 export const LANDING_LINKS = LANDING_NAV
+const SECTION_IDS = LANDING_LINKS.map((link) => link.href.slice(1))
 
 export const MENU_LINK_CLASS = 'flex min-h-11 items-center rounded-lg px-3 text-flv-ink hover:bg-flv-soft'
 
@@ -41,6 +45,8 @@ export function LandingHeader({
   account: ReactNode
   menuAccount: ReactNode
 }) {
+  const active = useActiveSection({ ids: SECTION_IDS })
+
   return (
     <header className="flv-landing-header fixed inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-flv-ink sm:px-6 sm:pt-4 sm:pb-4">
       {home}
@@ -49,7 +55,12 @@ export function LandingHeader({
           <a
             key={link.href}
             href={link.href}
-            className="inline-flex min-h-11 items-center border-b-2 border-transparent px-1 text-flv-muted hover:border-flv-accent hover:text-flv-ink"
+            // The section in view is marked, so the reader knows where they are.
+            aria-current={active === link.href.slice(1) ? 'location' : undefined}
+            className={cn('inline-flex min-h-11 items-center border-b-2 px-1', {
+              'border-flv-accent text-flv-ink': active === link.href.slice(1),
+              'border-transparent text-flv-muted hover:border-flv-accent hover:text-flv-ink': active !== link.href.slice(1),
+            })}
           >
             {link.label}
           </a>
@@ -62,7 +73,12 @@ export function LandingHeader({
         </CreateCta>
         <SiteMenu>
           {LANDING_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className={MENU_LINK_CLASS}>
+            <a
+              key={link.href}
+              href={link.href}
+              aria-current={active === link.href.slice(1) ? 'location' : undefined}
+              className={cn(MENU_LINK_CLASS, { 'font-medium text-flv-accent': active === link.href.slice(1) })}
+            >
               {link.label}
             </a>
           ))}

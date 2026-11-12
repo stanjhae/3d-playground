@@ -113,7 +113,7 @@ GET /api/flp/profile                      → 200 { "displayName": "Ada" | null 
 POST /api/flp/profile { "displayName": "Ada" | null } → 200 { "displayName": … }
 ```
 
-The create, save, restore, list and read routes are live in `api/flp.ts` (`src/lib/flp-api/server.ts`), and the browser client is `src/lib/flp-api/client.ts`. Publication, rename, delete and profile routes are live too. Where sign-in is required, the legacy `api/designs.ts` KV board is no longer reachable from the app: Vote and Look leave the nav, and `/vote` and `/look/:id` say they are not part of this alpha (F09 #144). The guest app keeps them.
+The create, save, restore, list and read routes are live in `api/flp.ts` (`src/lib/flp-api/server.ts`), and the browser client is `src/lib/flp-api/client.ts`. Publication, rename, delete and profile routes are live too. Where sign-in is required, the legacy `api/designs.ts` KV board is no longer reachable from the app. Vote is in the main nav in every build: `/vote` shows the publication board (`PublicationBoard`, `GET /api/flp/public`) with Rankings (most voted, ranked over the whole board, ties sharing a place) and New tabs, and My Studio shows each published design's rank and votes (`GET /api/flp/designs` returns its `publicationSlug`). Look stays out of the nav and `/look/:id` says it is not part of this alpha (F09 #144). The guest app keeps the legacy board.
 
 `GET /api/flp/designs` returns the owner's designs, newest first. `GET /api/flp/designs/:id` returns the design and its head version. Both read **as the user**, so RLS applies.
 
@@ -210,7 +210,7 @@ Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/
 | `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where each render URL is our own seq-pinned image route (`/api/flp/public/:slug/image…`), which checks the publication on every request. A version published before the sleeve views (#179) has only the front, three-quarter and back; it stays public, and `renders` lists only the views that exist. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
 
 **Studio flow:**
-- **Publish…** is available only when the design shows **Saved to cloud**.
+- **Publish publicly…** is available only when the design shows **Saved privately**.
 - The review names the exact version and explains that anyone with the link can view it and copy its images.
 - **Confirm** captures the five views of that exact version (front, three-quarter, back, wearer's right, wearer's left), refusing if the design changed meanwhile, then uploads them and publishes.
 - The panel then shows "Published vX · draft vY", the link, **Copy link** and **Unpublish**.

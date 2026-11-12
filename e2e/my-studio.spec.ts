@@ -70,7 +70,7 @@ test('cards show the design, and can be searched, sorted and copied', async ({ p
   expect(await content(ids[0]!)).toEqual(await content(ids[1]!))
 
   // Newest first; by name the original comes first, and that is remembered.
-  const titles = () => page.getByRole('list').getByRole('link').allTextContents()
+  const titles = () => page.getByRole('list').getByRole('link').filter({ hasNotText: /^(Edit|Publish…)$/ }).allTextContents()
   expect(await titles()).toEqual(['Example design copy', 'Example design'])
   await page.getByLabel('Sort by').selectOption('name')
   expect(await titles()).toEqual(['Example design', 'Example design copy'])

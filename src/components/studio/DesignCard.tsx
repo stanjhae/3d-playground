@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
 import { type DesignThumbnail, designThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
-import { type DesignSummary, deleteDesign, updateDesign } from '../../lib/flp-api/client'
+import { type DesignSummary, deleteDesign, unpublishDesign, updateDesign } from '../../lib/flp-api/client'
+import { voteCountLabel } from '../../lib/flp-api/votes'
+import { buttonClass } from '../ui/Button'
 import { failureSentence } from '../../lib/flp-api/plain-messages'
 
 /**
@@ -22,8 +24,14 @@ export function DesignCard({
   onDeleted,
   onDuplicate,
   duplicating = false,
+  standing = null,
+  onUnpublished,
 }: {
   design: DesignSummary
+  /** Its place on the public board while published: why vote otherwise? */
+  standing?: { rank: number; votes: number } | null
+  /** Taken off the board from the card; the list shows it private again. */
+  onUnpublished?: () => void
   ownerId: string
   onRenamed: (title: string) => void
   onDeleted: () => void
@@ -97,9 +105,25 @@ export function DesignCard({
     }
   }
 
+  async function unpublish() {
+    setBusy(true)
+    setError(null)
+    const result = await unpublishDesign({ designId: design.id })
+    setBusy(false)
+
+    if (result.ok) {
+      onUnpublished?.()
+    } else if (result.code !== 'account-changed') {
+      setError(failureSentence({ lead: 'Still published', reason: result.message }))
+    }
+  }
+
   return (
     <div className="flv-panel flex min-h-20 min-w-0 flex-col gap-3 p-4">
-      <CardThumbnail design={design} />
+      {/* The picture opens the design too; the Edit button is its named twin. */}
+      <Link to="/create" search={{ cloud: design.id, step: 'design' }} tabIndex={-1} aria-hidden>
+        <CardThumbnail design={design} />
+      </Link>
       {mode === 'rename' ? (
         <form
           className="flex flex-wrap items-center gap-2"
@@ -142,6 +166,7 @@ export function DesignCard({
         </form>
       ) : (
         <Link
+          id={`card-title-${design.id}`}
           to="/create"
           search={{ cloud: design.id, step: 'design' }}
           className="font-display text-lg [overflow-wrap:anywhere] hover:text-flv-accent"
@@ -149,6 +174,40 @@ export function DesignCard({
           {design.title}
         </Link>
       )}
+
+      {mode === 'view' ? (
+        // Editing and publishing are the card's main jobs, so they're buttons, not a title link to discover.
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/create"
+            search={{ cloud: design.id, step: 'design' }}
+            aria-describedby={`card-title-${design.id}`}
+            className={buttonClass()}
+          >
+            Edit
+          </Link>
+          {design.visibility === 'published' ? (
+            <button
+              type="button"
+              className={smallButton}
+              disabled={busy}
+              aria-label={`Unpublish ${design.title}`}
+              onClick={() => void unpublish()}
+            >
+              {busy ? 'Unpublishing…' : 'Unpublish'}
+            </button>
+          ) : (
+            <Link
+              to="/create"
+              search={{ cloud: design.id, step: 'share' }}
+              aria-describedby={`card-title-${design.id}`}
+              className={buttonClass({ variant: 'secondary' })}
+            >
+              Publish…
+            </Link>
+          )}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 font-body text-xs text-flv-muted">
@@ -160,6 +219,13 @@ export function DesignCard({
           {design.visibility === 'published' ? 'Published · ' : 'Private · '}
           edited {new Date(design.updatedAt).toLocaleString()}
         </span>
+        {design.visibility === 'published' && standing ? (
+          <span className="font-body text-xs font-medium text-flv-accent">
+            #{standing.rank} on the board ·{' '}
+            {/* Read from the database, not claimed (docs/claims-audit.md). */}
+            <span data-testid="vote-count">{voteCountLabel({ count: standing.votes })}</span>
+          </span>
+        ) : null}
         {mode === 'view' ? (
           <span className="flex gap-2">
             <button ref={renameButton} type="button" className={smallButton} onClick={() => setMode('rename')}>

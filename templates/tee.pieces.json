@@ -40,9 +40,8 @@
     },
     {
       "id": "left",
-      "label": "Wearer's left sleeve",
+      "label": "Left sleeve",
       "view": "left",
-      "renderPanel": "right",
       "pieces": [
         {
           "node": "body-sleeves",
@@ -52,9 +51,8 @@
     },
     {
       "id": "right",
-      "label": "Wearer's right sleeve",
+      "label": "Right sleeve",
       "view": "right",
-      "renderPanel": "left",
       "pieces": [
         {
           "node": "body-sleeves",

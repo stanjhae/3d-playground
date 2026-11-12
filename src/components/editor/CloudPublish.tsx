@@ -1,4 +1,5 @@
 import { Globe, Lock } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { buttonClass } from '../ui/Button'
@@ -25,7 +26,7 @@ import { trackAssumption } from '../../lib/assumption-events'
 
 /**
  * Publish an owned cloud design (P03 #181). Only the exact saved version
- * can be published: the panel needs "Saved to cloud", captures that
+ * can be published: the panel needs "Saved privately", captures that
  * version's five views (front, three-quarter, back and both sleeves),
  * uploads them, then moves the public pointer.
  */
@@ -41,6 +42,7 @@ export function shareUrl({ slug }: { slug: string }) {
 }
 
 export function CloudPublish() {
+  const navigate = useNavigate()
   const cloud = useEditorStore((state) => state.cloud)
   const saveStatus = useCloudSaveStore((state) => state.state?.status ?? null)
   const webglStatus = useWebglStore((state) => state.status)
@@ -175,7 +177,7 @@ export function CloudPublish() {
       // The views must belong to the version being published.
       if (useEditorStore.getState().cloud?.headSeq !== headSeq) {
         setBusy(null)
-        setMessage('The design changed while publishing. Wait for Saved to cloud, then try again.')
+        setMessage('The design changed while publishing. Wait for Saved privately, then try again.')
         return
       }
 
@@ -296,7 +298,7 @@ export function CloudPublish() {
       ) : (
         <p className="flex items-center gap-2 font-body text-sm text-flv-ink">
           <Lock aria-hidden className="size-4 text-flv-muted" />
-          Private. Only you can see this design.
+          Private. Only you can see this design. Save it privately and publish later, or publish it now for votes.
         </p>
       )}
 
@@ -312,7 +314,7 @@ export function CloudPublish() {
       >
         {copyFeedback ??
           (!saved
-            ? 'Publishing is available once the design shows Saved to cloud.'
+            ? 'Publishing is available once the design shows Saved privately.'
             : (message ?? notice ?? renderBlocked))}
       </p>
 
@@ -369,7 +371,24 @@ export function CloudPublish() {
             setReviewing(true)
           }}
         >
-          {live ? (publication?.seq === headSeq ? 'Published' : 'Publish latest') : 'Publish…'}
+          {live ? (publication?.seq === headSeq ? 'Published' : 'Publish latest') : 'Publish publicly…'}
+        </button>
+      )}
+      {/*
+        The other choice, as plain as the first: keep it to yourself for now.
+        It saves as you work, so this waits for the save and goes to My Studio,
+        where it can be published later.
+      */}
+      {reviewing ? null : (
+        <button
+          type="button"
+          className={quietClass}
+          disabled={!saved}
+          onClick={() => {
+            void navigate({ to: '/studio', search: { saved: true } })
+          }}
+        >
+          {saved ? (live ? 'Done, back to My Studio' : 'Save privately') : 'Saving…'}
         </button>
       )}
     </section>

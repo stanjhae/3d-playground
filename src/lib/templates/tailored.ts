@@ -107,8 +107,8 @@ export const TAILORED_V1: TemplateManifest = {
       ]
     },
     "left": {
-      "label": "Wearer's left sleeve",
-      "renderPanel": "left",
+      "label": "Left sleeve",
+      "renderPanel": "right",
       "renderMirrorX": false,
       "mesh": "body-5",
       "uv": {
@@ -118,7 +118,7 @@ export const TAILORED_V1: TemplateManifest = {
         "v1": 0.996094
       },
       "axes": {
-        "x": "across the wearer's left sleeve as seen from the left",
+        "x": "across the left sleeve as seen from the left",
         "y": "up the garment"
       },
       "landmarks": {},
@@ -136,8 +136,8 @@ export const TAILORED_V1: TemplateManifest = {
       ]
     },
     "right": {
-      "label": "Wearer's right sleeve",
-      "renderPanel": "right",
+      "label": "Right sleeve",
+      "renderPanel": "left",
       "renderMirrorX": false,
       "mesh": "body-11",
       "uv": {
@@ -147,7 +147,7 @@ export const TAILORED_V1: TemplateManifest = {
         "v1": 0.996094
       },
       "axes": {
-        "x": "across the wearer's right sleeve as seen from the right",
+        "x": "across the right sleeve as seen from the right",
         "y": "up the garment"
       },
       "landmarks": {},

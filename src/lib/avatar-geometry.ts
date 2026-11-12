@@ -1,4 +1,5 @@
 import {
+  Box3,
   CapsuleGeometry,
   CylinderGeometry,
   Group,
@@ -8,12 +9,17 @@ import {
   type BufferGeometry,
 } from 'three'
 
-import { SLEEVE_PIVOT, WORN_SLEEVE_DROP } from './tee-geometry'
+import type { ModelFrame } from './design-document'
+import { SLEEVE_PIVOT, WORN_SLEEVE_DROP, createTeeMesh } from './tee-geometry'
 
 export type AvatarMeasurements = {
   height: number
   chest: number
   waist: number
+  /** Hip girth; absent, the hips follow the waist as before. */
+  hip?: number
+  /** Male and female mannequins differ in shoulders, bust and hips. */
+  build?: 'male' | 'female' | 'neutral'
 }
 
 const BASE_HEIGHT_CM = 180
@@ -133,7 +139,9 @@ export function createProceduralAvatar({
   })
   hips.position.set(0, 0.92, 0)
   // Hips follow the waist; the shared root scale already carries the chest.
-  const hipRatio = waistScale / chestScale
+  const build = measurements.build ?? 'neutral'
+  const hipScale = measurements.hip ? measurements.hip / (BASE_WAIST_CM * 1.22) : waistScale
+  const hipRatio = hipScale / chestScale
   hips.scale.set(hipRatio, 1, TORSO_DEPTH * hipRatio)
 
   const torso = part({
@@ -143,6 +151,8 @@ export function createProceduralAvatar({
   })
   torso.position.set(0, 1.17, 0)
   torso.scale.z = TORSO_DEPTH
+  // A female torso narrows to the waist; a male one stays broad through it.
+  torso.scale.x = build === 'female' ? 0.9 : build === 'male' ? 1.04 : 1
 
   const shoulders = part({
     name: 'avatar-shoulders',
@@ -152,6 +162,18 @@ export function createProceduralAvatar({
   shoulders.rotation.z = Math.PI / 2
   shoulders.position.set(0, SHOULDER_Y - 0.035, 0)
   shoulders.scale.z = 0.9
+  // Rotated a quarter turn, so the capsule's length (its y) is the shoulder width.
+  shoulders.scale.y = build === 'female' ? 0.86 : build === 'male' ? 1.08 : 1
+  // Kept inside the tee's chest rings so the cloth still covers it.
+  const bust =
+    build === 'female'
+      ? ([-1, 1] as const).map((side) => {
+          const mesh = part({ name: `avatar-bust-${side < 0 ? 'left' : 'right'}`, geometry: new SphereGeometry(0.06, 14, 10), material })
+          mesh.scale.set(1, 0.85, 0.55)
+          mesh.position.set(side * 0.068, 1.27, 0.03)
+          return mesh
+        })
+      : []
 
   const neck = part({
     name: 'avatar-neck',
@@ -174,6 +196,7 @@ export function createProceduralAvatar({
     hips,
     torso,
     shoulders,
+    ...bust,
     neck,
     head,
     ...buildArm({ side: 'left', material }),
@@ -235,4 +258,30 @@ export function scaleAvatarGroup({
     heightScale,
     chestScale,
   )
+}
+
+let wornTeeBox: Box3 | null = null
+
+/**
+ * Seats a real garment model (the @4 tee) where the worn drawn tee sits on
+ * the mannequin: the same height, its collar at the same top, centred on
+ * the body. The mannequin's own scale then carries it, as it does the
+ * drawn tee, so every preset wears it at its size.
+ */
+export function realGarmentSeat({ frame }: { frame: ModelFrame }): {
+  position: [number, number, number]
+  scale: number
+} {
+  wornTeeBox ??= new Box3().setFromObject(createTeeMesh({ pose: 'worn' }))
+  const target = wornTeeBox
+  const height = Math.max(1e-6, frame.max[1] - frame.min[1])
+  const scale = (target.max.y - target.min.y) / height
+  const centreX = (frame.min[0] + frame.max[0]) / 2
+  const centreZ = (frame.min[2] + frame.max[2]) / 2
+  const targetZ = (target.min.z + target.max.z) / 2
+
+  return {
+    position: [-centreX * scale, target.max.y - frame.max[1] * scale, targetZ - centreZ * scale],
+    scale,
+  }
 }

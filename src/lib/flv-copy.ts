@@ -112,7 +112,7 @@ export const FLV_COPY = {
     'Four-sided draw and tech tools are available on the tee. Switch to Tee to design.',
   suggestionsTitle: 'Graphics',
   graphicsTitle: 'Graphics',
-  suggestionsApply: 'Apply to design',
+  suggestionsApply: 'Tap a graphic to add it to the side you are on, or drag it onto the garment.',
   fillTool: 'Fill',
   brushSize: 'Size',
   brushOpacity: 'Opacity',

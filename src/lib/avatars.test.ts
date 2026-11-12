@@ -74,3 +74,38 @@ describe('avatars', () => {
     ).toBe('atelier-soft')
   })
 })
+
+describe('male and female mannequins differ (tester feedback)', () => {
+  test('Tall · Male and Tall · Female build visibly different bodies', () => {
+    const male = AVATAR_PRESETS.find((avatar) => avatar.label === 'Tall · Male')!
+    const female = AVATAR_PRESETS.find((avatar) => avatar.label === 'Tall · Female')!
+    const build = (avatar: typeof male) =>
+      createProceduralAvatar({
+        measurements: { height: avatar.heightCm, chest: avatar.chestCm, waist: avatar.waistCm, hip: avatar.hipCm, build: avatar.build },
+      }).root
+    const part = (root: ReturnType<typeof build>, name: string) => root.getObjectByName(name)
+
+    const maleRoot = build(male)
+    const femaleRoot = build(female)
+
+    expect(part(femaleRoot, 'avatar-bust-left')).toBeDefined()
+    expect(part(maleRoot, 'avatar-bust-left')).toBeUndefined()
+    // Broader shoulders on the male, wider hips (relative to the chest) on the female.
+    expect(part(maleRoot, 'avatar-shoulders')!.scale.y).toBeGreaterThan(part(femaleRoot, 'avatar-shoulders')!.scale.y)
+    expect(part(femaleRoot, 'avatar-hips')!.scale.x).toBeGreaterThan(part(maleRoot, 'avatar-hips')!.scale.x)
+  })
+})
+
+describe('realGarmentSeat', () => {
+  test('a real model takes the worn tee’s height and top, centred on the body', async () => {
+    const { realGarmentSeat } = await import('./avatar-geometry')
+    const { Box3 } = await import('three')
+    const worn = new Box3().setFromObject(createTeeMesh({ pose: 'worn' }))
+    const frame = { min: [0.1, 0.2, -0.05], max: [0.7, 0.9, 0.15], sleeves: {} } as const
+    const seat = realGarmentSeat({ frame: { min: [...frame.min], max: [...frame.max], sleeves: {} } })
+
+    expect((frame.max[1] - frame.min[1]) * seat.scale).toBeCloseTo(worn.max.y - worn.min.y, 6)
+    expect(frame.max[1] * seat.scale + seat.position[1]).toBeCloseTo(worn.max.y, 6)
+    expect(((frame.min[0] + frame.max[0]) / 2) * seat.scale + seat.position[0]).toBeCloseTo(0, 6)
+  })
+})

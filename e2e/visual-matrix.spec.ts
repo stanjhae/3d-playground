@@ -96,7 +96,7 @@ async function createDesigns({ page }: { page: Page }) {
 async function publish({ page, designId }: { page: Page; designId: string }) {
   await page.goto(`/create?cloud=${designId}&step=share`)
   await expectSaved({ page })
-  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Publish publicly…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   await expect(link).toBeVisible({ timeout: 180_000 })

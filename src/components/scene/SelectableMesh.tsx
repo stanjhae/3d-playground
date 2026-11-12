@@ -13,6 +13,7 @@ import {
   startClothPaint,
 } from '../../lib/cloth-pointer'
 import { useEditorStore } from '../../lib/editor-store'
+import { surfaceGesture } from '../../lib/surface-gesture'
 import { acceptsPointer } from '../../lib/palm-rejection'
 import { claimDrawingPointer, isOtherPointer } from '../../lib/pointer-owner'
 import { showsPaintPane } from '../../lib/create-steps'
@@ -60,6 +61,8 @@ export function SelectableMesh({
   const documentState = useEditorStore((state) => state.document)
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
   const paintTool = useEditorStore((state) => state.paintTool)
+  const designTool = useEditorStore((state) => state.designTool)
+  const rotateView = useEditorStore((state) => state.rotateView)
   const typeDraft = useEditorStore((state) => state.typeDraft)
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
@@ -157,6 +160,26 @@ export function SelectableMesh({
           return
         }
 
+        const word = paintTool === 'type' && designTool === 'text' ? placedType({ typeDraft }) : null
+        const hit = hitPlaceableLayer({
+          document: liveDocument,
+          panel: point.panel,
+          x: point.x,
+          y: point.y,
+        })
+        const gesture = surfaceGesture({
+          designTool,
+          wordArmed: Boolean(word),
+          hitsLayer: Boolean(hit),
+          rotatingView: rotateView,
+        })
+
+        // Not inking, placing or dragging: leave the press to the orbit so
+        // the garment turns instead of collecting stray ink.
+        if (gesture === 'none') {
+          return
+        }
+
         event.stopPropagation()
         event.nativeEvent.preventDefault()
 
@@ -171,30 +194,19 @@ export function SelectableMesh({
 
         setPaintPanel({ paintPanel: point.panel })
 
-        if (paintTool === 'type') {
-          const word = placedType({ typeDraft })
-
-          if (word) {
-            addText({
-              content: word,
-              panel: point.panel,
-              x: point.x,
-              y: point.y,
-              face: textFace,
-              scale: textScale,
-            })
-            return
-          }
+        if (gesture === 'place-text' && word) {
+          addText({
+            content: word,
+            panel: point.panel,
+            x: point.x,
+            y: point.y,
+            face: textFace,
+            scale: textScale,
+          })
+          return
         }
 
-        const hit = hitPlaceableLayer({
-          document: liveDocument,
-          panel: point.panel,
-          x: point.x,
-          y: point.y,
-        })
-
-        if (hit) {
+        if (gesture === 'drag-layer' && hit) {
           selectLayer({ selectedLayerId: hit.id })
           startClothDrag({
             drag: {
