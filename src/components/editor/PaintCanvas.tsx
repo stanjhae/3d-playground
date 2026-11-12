@@ -1,4 +1,5 @@
 import {
+  Suspense,
   createRef,
   useEffect,
   useMemo,
@@ -13,7 +14,8 @@ import { trackAssumption } from '../../lib/assumption-events'
 import type { DesignDocument, PanelId } from '../../lib/design-document'
 import { type DesignTool, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { surfaceGesture } from '../../lib/surface-gesture'
-import { ensurePanelShapes, outsideVeil, usePanelShapes } from '../../lib/panel-shape'
+import { outsideVeil, usePanelShapes } from '../../lib/panel-shape'
+import { PanelShapeLoader } from './PanelShapeLoader'
 import { carriesGraphic, droppedGraphic } from '../../lib/graphic-drag'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
@@ -484,12 +486,6 @@ function PaintSurface({
   const shapes = usePanelShapes((state) => state.shapes)
   const shapeSrc = usePanelShapes((state) => state.src)
 
-  // Without the 3D view (a phone's Draw view) the panels load the shapes themselves.
-  useEffect(() => {
-    if (documentState.modelSrc && documentState.panelUv) {
-      ensurePanelShapes({ modelSrc: documentState.modelSrc, panelUv: documentState.panelUv })
-    }
-  }, [documentState.modelSrc, documentState.panelUv])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1023,6 +1019,12 @@ export function PaintCanvas({
 
   return (
     <aside className="flv-panel flex h-full min-h-80 flex-col gap-3 p-3">
+      {/* The sides' true shapes, even when no 3D view is mounted to read them from. */}
+      {documentState.modelSrc && documentState.panelUv ? (
+        <Suspense fallback={null}>
+          <PanelShapeLoader modelSrc={documentState.modelSrc} panelUv={documentState.panelUv} />
+        </Suspense>
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <p className={chromeKickerClass()}>Every side</p>
         <nav
