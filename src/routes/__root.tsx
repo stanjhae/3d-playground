@@ -6,14 +6,11 @@ import {
   useMatch,
   useRouterState,
 } from '@tanstack/react-router'
-import { ArrowRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { AccountControl } from '../components/auth/AccountControl'
+import { BrandMark, LandingHeader, MENU_LINK_CLASS } from '../components/site/LandingHeader'
 import { SiteFooter } from '../components/site/SiteFooter'
-import { SiteMenu } from '../components/site/SiteMenu'
-import { buttonClass } from '../components/ui/Button'
-import { CONCEPT_FEATURES } from '../lib/concept-flags'
 import { onAccountChange, startSession, useSessionStore } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
 import { cn } from '../lib/cn'
@@ -24,6 +21,7 @@ import { FLV_COPY } from '../lib/flv-copy'
 import { ownsPageTitle, pageTitle, routeLabel } from '../lib/page-title'
 import { HOUSE_LOOK_FALLBACK_ID, lookIdFromPathname } from '../lib/paths'
 import { rankDesigns } from '../lib/rank-designs'
+import { releaseStaticShell } from '../lib/static-shell'
 
 export const Route = createRootRoute({
   component: RootShell,
@@ -47,19 +45,12 @@ onAccountChange((next) => {
   }
 })
 
-const MARKETING_LINKS = [
-  { href: '#product', label: FLV_COPY.navProduct },
-  { href: '#flow', label: FLV_COPY.navHowItWorks },
-  ...(CONCEPT_FEATURES ? [{ href: '#community', label: FLV_COPY.navCommunity }] : []),
-  { href: '#waitlist', label: FLV_COPY.navAbout },
-] as const
-
 /**
- * The studio fills the window, and a shared design carries its own footer
- * with these links.
+ * The studio fills the window, and the landing and a shared design carry
+ * their own footers with these links.
  */
 function showsSiteFooter({ pathname }: { pathname: string }) {
-  return pathname !== '/create' && !pathname.startsWith('/s/')
+  return pathname !== '/' && pathname !== '/create' && !pathname.startsWith('/s/')
 }
 
 /** Back to your designs when signed in; otherwise a way to sign in. */
@@ -81,8 +72,6 @@ function LandingAccountLink({ className }: { className: string }) {
   ) : null
 }
 
-const MENU_LINK_CLASS = 'flex min-h-11 items-center rounded-lg px-3 text-flv-ink hover:bg-flv-soft'
-
 function RootShell() {
   const lookMatch = useMatch({
     from: '/look/$lookId',
@@ -101,6 +90,11 @@ function RootShell() {
   const previousPath = useRef(shownPath)
 
   useEffect(() => {
+    // The prerendered landing only ever stands in for the landing.
+    if (shownPath && shownPath !== '/') {
+      releaseStaticShell()
+    }
+
     if (shownPath && !ownsPageTitle({ pathname: shownPath })) {
       document.title = pageTitle({ label: routeLabel({ pathname: shownPath }) })
     }
@@ -164,69 +158,34 @@ function RootShell() {
       >
         Skip to content
       </a>
-      <header
-        className={cn(
-          'z-30 flex items-center justify-between gap-3 border-b border-flv-line bg-flv-paper/95 text-flv-ink backdrop-blur-sm',
-          {
-            'absolute inset-x-0 top-0 border-transparent bg-transparent px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-5 sm:pb-5':
-              isLanding,
-            'sticky top-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-4 sm:pb-4':
-              !isLanding,
-          },
-        )}
-      >
-        <Link
-          to="/"
-          search={{}}
-          className="flex shrink-0 items-center gap-2.5 text-flv-ink"
-        >
-          <span className="flv-text-gradient font-display text-3xl leading-none">
-            {FLV_COPY.brandMark}
-          </span>
-          <span className="hidden font-display text-[0.65rem] leading-[1.1] tracking-normal uppercase sm:block">
-            Fashion
-            <br />
-            Leader Vote
-          </span>
-        </Link>
-        {isLanding ? (
-          <nav aria-label="Site" className="hidden items-center gap-8 font-body text-sm md:flex">
-            {MARKETING_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="inline-flex min-h-11 items-center border-b-2 border-transparent px-1 text-flv-muted hover:border-flv-accent hover:text-flv-ink"
-              >
-                {link.label}
-              </a>
-            ))}
-          </nav>
-        ) : (
+      {isLanding ? (
+        <LandingHeader
+          mode="live"
+          home={
+            <Link to="/" search={{}} className="flex shrink-0 items-center gap-2.5 text-flv-ink">
+              <BrandMark />
+            </Link>
+          }
+          account={<LandingAccountLink className="hidden min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-ink md:inline-flex" />}
+          menuAccount={<LandingAccountLink className={MENU_LINK_CLASS} />}
+        />
+      ) : (
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-flv-line bg-flv-paper/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-flv-ink backdrop-blur-sm sm:px-6 sm:pt-4 sm:pb-4">
+          <Link to="/" search={{}} className="flex shrink-0 items-center gap-2.5 text-flv-ink">
+            <BrandMark />
+          </Link>
           <nav aria-label="Site" className="flex items-center gap-2 font-body text-sm sm:gap-4">
-            <NavLink
-              to="/"
-              label="Home"
-              active={false}
-            />
-            <NavLink
-              to="/create"
-              label="Create"
-              active={location.pathname === '/create'}
-            />
+            <NavLink to="/" label="Home" active={false} />
+            <NavLink to="/create" label="Create" active={location.pathname === '/create'} />
             {AUTH_REQUIRED ? null : (
               <>
-                <NavLink
-                  to="/vote"
-                  label="Vote"
-                  active={location.pathname === '/vote'}
-                />
+                <NavLink to="/vote" label="Vote" active={location.pathname === '/vote'} />
                 <Link
                   to="/look/$lookId"
                   params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
                   className={cn('inline-flex min-h-11 items-center px-1', {
                     'text-flv-accent': location.pathname.startsWith('/look/'),
-                    'text-flv-muted hover:text-flv-accent':
-                      !location.pathname.startsWith('/look/'),
+                    'text-flv-muted hover:text-flv-accent': !location.pathname.startsWith('/look/'),
                   })}
                 >
                   Look
@@ -235,28 +194,8 @@ function RootShell() {
             )}
             <AccountControl />
           </nav>
-        )}
-        {isLanding ? (
-          <div className="flex items-center gap-2 sm:gap-3">
-            <LandingAccountLink className="hidden min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-ink md:inline-flex" />
-            <a
-              href="#waitlist"
-              className={buttonClass()}
-            >
-              {FLV_COPY.joinWaitlist}
-              <ArrowRight aria-hidden className="size-4" />
-            </a>
-            <SiteMenu>
-              {MARKETING_LINKS.map((link) => (
-                <a key={link.href} href={link.href} className={MENU_LINK_CLASS}>
-                  {link.label}
-                </a>
-              ))}
-              <LandingAccountLink className={MENU_LINK_CLASS} />
-            </SiteMenu>
-          </div>
-        ) : null}
-      </header>
+        </header>
+      )}
       <main
         ref={main}
         id="main-content"

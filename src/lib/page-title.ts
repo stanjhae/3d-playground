@@ -1,7 +1,10 @@
 import { FLV_COPY } from './flv-copy.ts'
+import { LANDING_SEO } from './landing-copy.ts'
 
 /** What each page is called, for its tab title and for screen readers. */
 const LABELS: Record<string, string> = {
+  // The landing ('/' with its slash trimmed): what people search for first.
+  '': LANDING_SEO.label,
   '/create': 'Create',
   '/studio': FLV_COPY.myStudio,
   '/sign-in': FLV_COPY.login,
@@ -17,8 +20,8 @@ export function pageTitle({ label }: { label?: string | null } = {}) {
 }
 
 /**
- * The page's name, or null for the landing and for a shared design, whose
- * title is the design's own and is set by that page.
+ * The page's name, or null for a shared design, whose title is the
+ * design's own and is set by that page.
  */
 export function routeLabel({ pathname }: { pathname: string }) {
   if (pathname.startsWith('/look/')) {
