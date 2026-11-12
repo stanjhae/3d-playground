@@ -29,6 +29,8 @@ import {
 } from '../../lib/design-document'
 import { CONCEPT_FEATURES } from '../../lib/concept-flags'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
+import type { PanelId } from '../../lib/design-document'
+import { panelTriangles, usePanelShapes } from '../../lib/panel-shape'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { getCanonicalDocument, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { garmentSrc } from '../../lib/garment-parts'
@@ -299,6 +301,43 @@ function GltfGarment({
   picking: boolean
 }) {
   const { scene } = useGLTF(src)
+  const panelUv = inkDocument.panelUv
+
+  // The flat sides shade what falls off the garment: each panel's printable
+  // shape, read once per model from its print UVs.
+  useEffect(() => {
+    if (!picking || !panelUv) {
+      return
+    }
+
+    const shapes: Partial<Record<PanelId, number[]>> = {}
+
+    scene.traverse((object) => {
+      const mesh = object as Mesh
+
+      if (!mesh.isMesh || mesh.userData.printable === false) {
+        return
+      }
+
+      const uv1 = mesh.geometry.getAttribute('uv1')
+
+      if (!uv1) {
+        return
+      }
+
+      const index = mesh.geometry.getIndex()
+
+      for (const [panel, rect] of Object.entries(panelUv) as [PanelId, (typeof panelUv)[PanelId]][]) {
+        const triangles = panelTriangles({ uvs: uv1.array, index: index ? index.array : null, rect })
+
+        if (triangles.length > 0) {
+          shapes[panel] = [...(shapes[panel] ?? []), ...triangles]
+        }
+      }
+    })
+
+    usePanelShapes.getState().setShapes({ src, shapes })
+  }, [panelUv, picking, scene, src])
 
   return (
     <SeatedForm

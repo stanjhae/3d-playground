@@ -50,6 +50,8 @@ export function PaintToolbar({
   const paintOpacity = useEditorStore((state) => state.paintOpacity)
   const paintHardness = useEditorStore((state) => state.paintHardness)
   const setPaintTool = useEditorStore((state) => state.setPaintTool)
+  const rotateView = useEditorStore((state) => state.rotateView)
+  const setRotateView = useEditorStore((state) => state.setRotateView)
   const setPaintColor = useEditorStore((state) => state.setPaintColor)
   const setPaintWidth = useEditorStore((state) => state.setPaintWidth)
   const setPaintOpacity = useEditorStore((state) => state.setPaintOpacity)
@@ -99,9 +101,10 @@ export function PaintToolbar({
               type="button"
               onClick={() => {
                 setPaintTool({ paintTool: 'brush' })
+                setRotateView({ rotateView: false })
               }}
-              aria-pressed={paintTool === 'brush'}
-              className={toolButtonClass({ selected: paintTool === 'brush' })}
+              aria-pressed={paintTool === 'brush' && !rotateView}
+              className={toolButtonClass({ selected: paintTool === 'brush' && !rotateView })}
             >
               {HOUSE_COPY.brush}
             </button>
@@ -109,11 +112,23 @@ export function PaintToolbar({
               type="button"
               onClick={() => {
                 setPaintTool({ paintTool: 'eraser' })
+                setRotateView({ rotateView: false })
               }}
-              aria-pressed={paintTool === 'eraser'}
-              className={toolButtonClass({ selected: paintTool === 'eraser' })}
+              aria-pressed={paintTool === 'eraser' && !rotateView}
+              className={toolButtonClass({ selected: paintTool === 'eraser' && !rotateView })}
             >
               {HOUSE_COPY.erase}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRotateView({ rotateView: !rotateView })
+              }}
+              aria-pressed={rotateView}
+              title={HOUSE_COPY.rotateViewHint}
+              className={toolButtonClass({ selected: rotateView })}
+            >
+              {HOUSE_COPY.rotateView}
             </button>
             {v2Tee ? null : (
             <button

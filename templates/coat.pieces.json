@@ -83,7 +83,7 @@
     },
     {
       "id": "left",
-      "label": "Wearer's left sleeve",
+      "label": "Left sleeve",
       "view": "left",
       "pieces": [
         {
@@ -93,7 +93,7 @@
     },
     {
       "id": "right",
-      "label": "Wearer's right sleeve",
+      "label": "Right sleeve",
       "view": "right",
       "pieces": [
         {

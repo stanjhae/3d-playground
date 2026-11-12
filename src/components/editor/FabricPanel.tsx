@@ -24,10 +24,6 @@ export function FabricPanel({
   const fabricId = useEditorStore((state) => state.fabricId)
   const applyFabric = useEditorStore((state) => state.applyFabric)
   const selectMesh = useEditorStore((state) => state.selectMesh)
-  const undoLast = useEditorStore((state) => state.undoLast)
-  const redoLast = useEditorStore((state) => state.redoLast)
-  const canUndo = useEditorStore((state) => state.undoCount > 0)
-  const canRedo = useEditorStore((state) => state.redoCount > 0)
   const selected = selectedMeshName ?? storeSelection ?? 'body'
   const parts = garmentParts({ garmentId })
   const fabrics = listFabrics()
@@ -77,32 +73,6 @@ export function FabricPanel({
               {clothOpen ? HOUSE_COPY.close : HOUSE_COPY.open}
             </span>
           </span>
-        </button>
-        <button
-          type="button"
-          disabled={!canUndo}
-          onClick={() => {
-            undoLast()
-          }}
-          className={cn(
-            'min-h-11 shrink-0 text-flv-muted hover:text-flv-accent disabled:opacity-30 disabled:hover:text-flv-muted',
-            chromeTextClass(),
-          )}
-        >
-          {HOUSE_COPY.undo}
-        </button>
-        <button
-          type="button"
-          disabled={!canRedo}
-          onClick={() => {
-            redoLast()
-          }}
-          className={cn(
-            'min-h-11 shrink-0 text-flv-muted hover:text-flv-accent disabled:opacity-30 disabled:hover:text-flv-muted',
-            chromeTextClass(),
-          )}
-        >
-          {HOUSE_COPY.redo}
         </button>
       </div>
       <div

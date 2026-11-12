@@ -451,16 +451,33 @@ export function applyCanonicalCommand({
     return { ok: true, stack, changed: false }
   }
 
+  return { ok: true, changed: true, stack: pushHistory({ stack, document: checked.document }) }
+}
+
+/** `document` becomes the head; the old head is one undo step back. */
+function pushHistory({ stack, document }: { stack: CanonicalStack; document: CanonicalDocument }): CanonicalStack {
   return {
-    ok: true,
-    changed: true,
-    stack: {
-      document: checked.document,
-      revision: stack.revision + 1,
-      past: [...stack.past, stack.document].slice(-MAX_HISTORY),
-      future: [],
-    },
+    document,
+    revision: stack.revision + 1,
+    past: [...stack.past, stack.document].slice(-MAX_HISTORY),
+    future: [],
   }
+}
+
+/**
+ * Swaps in a whole new document as one undoable step, for changes no single
+ * command describes (moving a design onto a newer template). It is
+ * validated like any command's result.
+ */
+export function replaceDocumentUndoable({
+  stack,
+  document,
+}: {
+  stack: CanonicalStack
+  document: CanonicalDocument
+}): { ok: true; stack: CanonicalStack } | { ok: false; issues: ValidationIssue[] } {
+  const checked = validateCanonicalDocument({ value: document })
+  return checked.ok ? { ok: true, stack: pushHistory({ stack, document: checked.document }) } : { ok: false, issues: checked.issues }
 }
 
 export function undoCanonical({ stack }: { stack: CanonicalStack }): CanonicalStack {

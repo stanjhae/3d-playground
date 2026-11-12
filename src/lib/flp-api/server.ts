@@ -1302,6 +1302,28 @@ export async function handleFlpRequest({
       return internalError()
     }
 
+    // Each published design's public slug, so My Studio can show how it is
+    // doing on the board. The owner reads only their own (RLS).
+    const publishedIds = data.filter((row) => row.visibility === 'published').map((row) => row.id)
+    const slugs = new Map<string, string>()
+
+    if (publishedIds.length > 0) {
+      const { data: publications, error: publicationError } = await asUser
+        .from('publications')
+        .select('design_id, slug')
+        .eq('status', 'published')
+        .in('design_id', publishedIds)
+
+      // A missing standing is not worth failing the list for.
+      if (publicationError) {
+        console.error('flp list publications failed', { code: publicationError.code })
+      }
+
+      for (const row of publications ?? []) {
+        slugs.set(row.design_id, row.slug)
+      }
+    }
+
     return json({
       status: 200,
       body: {
@@ -1311,6 +1333,7 @@ export async function handleFlpRequest({
           visibility: row.visibility,
           headSeq: row.head_seq,
           updatedAt: row.updated_at,
+          publicationSlug: slugs.get(row.id) ?? null,
         })),
       },
     })

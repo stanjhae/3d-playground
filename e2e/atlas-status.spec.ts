@@ -59,7 +59,7 @@ test('an image that fails says so in the preview, and publishing stops', async (
   await expectSaved({ page })
   await expect(page.getByText(FAILED)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Publish publicly…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
   await expect(page.getByRole('status').filter({ hasText: /hasn.t loaded|could not load/ }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })).toHaveCount(0)
@@ -85,7 +85,7 @@ test('publishing waits for a slow image, then includes it', async ({ page }) => 
   url.searchParams.set('step', 'share')
   await page.goto(url.toString())
   await expectSaved({ page })
-  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Publish publicly…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
 
   // No pictures go up while the image is held, for longer than a capture takes.
@@ -140,7 +140,7 @@ test('publishing never photographs an atlas that is still settling, and says why
   url.searchParams.set('step', 'share')
   await page.goto(url.toString())
   await expectSaved({ page })
-  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Publish publicly…' }).click()
 
   // Stands in for a word whose font is loading, which no image check can see.
   await page.evaluate(async () => {

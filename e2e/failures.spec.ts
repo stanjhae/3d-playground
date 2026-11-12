@@ -5,7 +5,7 @@ import { deleteAccounts, drawStroke, expectSaved, newEmail, signIn } from './hel
 /**
  * Failure injection and save/recovery races (Q05 #190, S06 #175). Each
  * case checks the visible save status, that no edit is lost, and that
- * "Saved to cloud" never shows before the server has acknowledged.
+ * "Saved privately" never shows before the server has acknowledged.
  */
 
 const emails: string[] = []
@@ -15,14 +15,14 @@ test.afterAll(async () => {
 })
 
 const VERSIONS = '**/api/flp/designs/*/versions'
-const STATUS_SAVED = 'Saved to cloud'
+const STATUS_SAVED = 'Saved privately'
 
 type SaveGate = {
   /** How the next save requests are answered, in order; then they pass. */
   plan: Array<(route: Route) => Promise<void>>
   /** Request bodies of every save the page sent. */
   sent: Array<{ at: number; mutationKey: string; baseSeq: number }>
-  /** "Saved to cloud" shown before the server acknowledged, while armed. */
+  /** "Saved privately" shown before the server acknowledged, while armed. */
   early: number
   armed: boolean
   /** While true every save fails as if the network were gone. */
@@ -32,7 +32,7 @@ type SaveGate = {
 }
 
 /**
- * Notes every time a status region turns to "Saved to cloud", in every
+ * Notes every time a status region turns to "Saved privately", in every
  * page load of the context, so a premature success cannot slip between
  * two assertions.
  */

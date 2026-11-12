@@ -1,8 +1,11 @@
 import { firstCreateStep, useStudioMode } from '../lib/studio-mode'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { RequireSession } from '../components/auth/RequireSession'
+import { cn } from '../lib/cn'
+import { boardView } from '../lib/board-view'
+import { getBoard } from '../lib/flp-api/public-read'
 import { DeleteAccount } from '../components/studio/DeleteAccount'
 import { DesignCard } from '../components/studio/DesignCard'
 import { ImportPreview } from '../components/studio/ImportPreview'
@@ -33,11 +36,17 @@ import type { PendingAsset } from '../lib/legacy-import'
 import { uploadPendingAssets } from '../lib/legacy-assets'
 import { initialStudioDocument } from '../lib/studio-create'
 import { EXAMPLE_DESIGN_TITLE, createExampleDocument } from '../lib/example-design'
-import { getGarment, listRailGarments } from '../lib/garments'
+import { getGarment, listRailGarments, printAreas } from '../lib/garments'
 import { resolveTemplate, templateForGarment } from '../lib/template-manifest'
 import { trackAssumption } from '../lib/assumption-events'
 
 export const Route = createFileRoute('/studio')({
+  // `?new=1` is where Create lands: the start of a new design, not the library.
+  validateSearch: (search: Record<string, unknown>): { new?: true; saved?: true } => ({
+    ...(isOn(search.new) ? { new: true as const } : {}),
+    // Arriving from "Save privately": say where the design went.
+    ...(isOn(search.saved) ? { saved: true as const } : {}),
+  }),
   beforeLoad: async ({ location }) => {
     if (!authConfigured()) {
       return
@@ -51,6 +60,10 @@ export const Route = createFileRoute('/studio')({
   },
   component: GuardedStudio,
 })
+
+function isOn(value: unknown) {
+  return value === true || value === 'true' || value === 1 || value === '1'
+}
 
 // Only templates this app can open are offered (F07 #142).
 const TEE = resolveTemplate(createEmptyCanonicalDocument().template)
@@ -99,6 +112,8 @@ type ListState =
 
 function MyStudio() {
   const navigate = useNavigate()
+  const search = Route.useSearch()
+  const startNew = search.new === true
   const accountEpoch = useSessionStore((state) => state.accountEpoch)
   const ownerId = useSessionStore((state) => state.account?.userId ?? null)
   const [list, setList] = useState<ListState>({ status: 'loading' })
@@ -146,6 +161,28 @@ function MyStudio() {
   useEffect(() => {
     void load()
   }, [load, accountEpoch])
+
+  // How each published design is doing: its rank and votes on the public board.
+  const [standings, setStandings] = useState<Map<string, { rank: number; votes: number }>>(new Map())
+  const anyPublished = list.status === 'ready' && list.designs.some((design) => design.publicationSlug)
+
+  useEffect(() => {
+    if (!anyPublished) {
+      return
+    }
+
+    let cancelled = false
+
+    void getBoard().then((result) => {
+      if (!cancelled && result.ok) {
+        setStandings(new Map(boardView({ designs: result.data }).map((entry) => [entry.slug, { rank: entry.rank, votes: entry.votes }])))
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [anyPublished])
 
   async function create({
     fromLanding = false,
@@ -313,6 +350,94 @@ function MyStudio() {
 
   const shown = list.status === 'ready' ? visibleDesigns({ designs: list.designs, query, sort }) : []
 
+  // Create: choosing what to make, apart from the library of what's made.
+  if (startNew) {
+    return (
+      <section className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-12">
+        <header className="flex flex-col gap-2">
+          <p className="font-body text-xs font-medium tracking-[0.08em] text-flv-accent uppercase">Create</p>
+          <h1 tabIndex={-1} data-focus-target className="font-display text-4xl leading-none uppercase">
+            Start a new design
+          </h1>
+          <p className="font-body text-sm text-flv-muted">
+            Pick a garment. Your design saves privately to My Studio as you work, and you choose later whether to
+            publish it.
+          </p>
+        </header>
+
+        {conversion?.fromLanding ? (
+          <div className="flv-panel flex flex-col items-start gap-3 p-4">
+            <p className="font-body text-sm text-flv-ink">You sketched on the landing page. Carry that sketch on?</p>
+            <button type="button" className={buttonClass} disabled={creating || !TEE.ok} onClick={() => setPreviewing(true)}>
+              {creating ? 'Creating…' : 'Create from your landing design'}
+            </button>
+          </div>
+        ) : (
+          <div role="radiogroup" aria-label="Garment" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {designableGarments().map((garment) => (
+              <button
+                key={garment.id}
+                type="button"
+                role="radio"
+                aria-checked={newGarment === garment.id}
+                onClick={() => setNewGarment(garment.id)}
+                className={cn('flv-panel flex min-h-24 flex-col items-start justify-between gap-2 p-4 text-left', {
+                  'border-flv-accent ring-2 ring-flv-accent': newGarment === garment.id,
+                })}
+              >
+                <span className="font-display text-lg text-flv-ink">{garment.label}</span>
+                <span className="font-body text-xs text-flv-muted">Prints on: {printAreas({ garmentId: garment.id })}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {previewing && landing && conversion?.fromLanding ? (
+          <ImportPreview
+            before={landing.document}
+            after={conversion.document}
+            notes={conversion.notes}
+            imageCount={conversion.pendingAssets.length}
+            uploadFailures={uploadState?.failed.map((each) => each.reason) ?? []}
+            busy={creating}
+            onCreate={() => void create({ fromLanding: true })}
+            onCreateWithoutFailed={() => void create({ fromLanding: true, withoutFailed: true })}
+            onStartEmpty={() => void create()}
+          />
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-4">
+          {conversion?.fromLanding ? null : (
+            <button type="button" className={buttonClass} disabled={creating || !newTemplate} onClick={() => void create()}>
+              {creating
+                ? 'Creating…'
+                : `Create ${withArticle({ noun: getGarment({ garmentId: newGarment }).label.toLowerCase() })}`}
+            </button>
+          )}
+          <button
+            type="button"
+            className="min-h-9 font-body text-sm text-flv-muted underline underline-offset-2 hover:text-flv-ink disabled:opacity-50"
+            disabled={creating || !TEE.ok}
+            onClick={() => void openExample()}
+          >
+            Start from an example
+          </button>
+        </div>
+
+        <p role="status" aria-live="polite" className="min-h-5 font-body text-sm text-flv-accent">
+          {createError}
+        </p>
+
+        <p className="font-body text-sm text-flv-muted">
+          Want to keep working on something?{' '}
+          <Link to="/studio" className="text-flv-ink underline underline-offset-2">
+            Open a saved design in My Studio
+          </Link>
+        </p>
+      </section>
+    )
+  }
+
   return (
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-12">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -322,8 +447,13 @@ function MyStudio() {
             Your designs
           </h1>
           <p className="font-body text-sm text-flv-muted">
-            Private to you. New designs save to your account as you work.
+            Private to you until you publish. Designs save to your account as you work.
           </p>
+          {search.saved ? (
+            <p role="status" className="font-body text-sm font-medium text-flv-ink">
+              Saved privately. Only you can see it; publish it from its card when you're ready.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col items-end gap-2">
           {conversion?.fromLanding ? null : (
@@ -365,9 +495,7 @@ function MyStudio() {
             Start from an example
           </button>
           {newTemplate ? (
-            <p className="font-body text-xs text-flv-muted">
-              Prints on: {Object.values(newTemplate.regions).map((region) => region.label).join(', ')}
-            </p>
+            <p className="font-body text-xs text-flv-muted">Prints on: {printAreas({ garmentId: newGarment })}</p>
           ) : null}
         </div>
       </header>
@@ -465,6 +593,20 @@ function MyStudio() {
             <li key={design.id} className="min-w-0">
               <DesignCard
                 design={design}
+                standing={design.publicationSlug ? (standings.get(design.publicationSlug) ?? null) : null}
+                onUnpublished={() => {
+                  setListNotice(`Unpublished ${design.title}. Its public link has stopped working.`)
+                  setList((current) =>
+                    current.status === 'ready'
+                      ? {
+                          status: 'ready',
+                          designs: current.designs.map((each) =>
+                            each.id === design.id ? { ...each, visibility: 'private', publicationSlug: null } : each,
+                          ),
+                        }
+                      : current,
+                  )
+                }}
                 ownerId={ownerId ?? ''}
                 duplicating={copying === design.id}
                 onDuplicate={() => void duplicate(design)}
