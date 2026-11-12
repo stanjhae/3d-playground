@@ -537,7 +537,8 @@ test('the T-shirt is the only template on offer, and the server refuses any othe
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
   const head = await savedHead({ page })
-  expect(head.content.template).toEqual({ id: 'tee-crew-short', version: 3 })
+  // New tees pin the real T-shirt.
+  expect(head.content.template).toEqual({ id: 'tee-crew-short', version: 4 })
 
   expect(await createFromHead({ page, head, template: { id: 'gown', version: 1 } })).toMatchObject({ status: 422 })
 })

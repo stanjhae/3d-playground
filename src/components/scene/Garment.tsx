@@ -223,7 +223,8 @@ export function Garment({
   })
   const resolvedId = resolveGarmentId({ garmentId })
 
-  if (resolvedId === 'tee') {
+  // Tee documents on @1–@3 are built by code; @4 and other templates load their model.
+  if (resolvedId === 'tee' && !inkDocument.modelSrc) {
     return (
       <HouseFormGarment
         inkDocument={inkDocument}
@@ -236,6 +237,7 @@ export function Garment({
   return (
     <GltfGarment
       src={
+        inkDocument.modelSrc ??
         src ??
         garmentSrc({
           garmentId,

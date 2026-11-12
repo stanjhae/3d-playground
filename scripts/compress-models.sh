@@ -41,3 +41,8 @@ compress_model "$models/garment.glb" --flatten false --join false
 #   tailored  --map "mat4=hardware,mat5=hardware,mat6=hardware",
 #             simplify --hardware-ratio 0.05 --hardware-error 0.01 --body-ratio 0.7
 #                                                                           1149 KiB
+#
+# Every form then gets print UVs (scripts/build-template.mjs, templates/*.pieces.json),
+# which adds split vertices; the tailored suit took one more --body-ratio 0.9 first
+# to stay under budget (1182 KiB). The gown's print copy is garment-print.glb, so
+# garment.glb stays exactly as the seated looks use it.

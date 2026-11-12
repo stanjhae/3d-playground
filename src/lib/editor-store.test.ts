@@ -1,3 +1,5 @@
+// Measures the procedural tee (@3); must load before the store.
+import './testing/procedural-tee'
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import { createEmptyCanonicalDocument } from './canonical-document'
@@ -54,8 +56,10 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().overrides).toEqual([])
   })
 
+  // Per-part fabric lives on the legacy v1 stack, which only the house
+  // jacket still uses; templated garments take one cloth colour.
   test('applyFabric appends an override from the fabric preset', () => {
-    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
+    useEditorStore.getState().setGarmentId({ garmentId: 'jacket' })
     useEditorStore.getState().selectMesh({ selectedMeshName: 'collar' })
     useEditorStore.getState().applyFabric({
       fabricId: 'ivory-silk',
@@ -76,7 +80,7 @@ describe('useEditorStore', () => {
   })
 
   test('undoLast pops the last override', () => {
-    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
+    useEditorStore.getState().setGarmentId({ garmentId: 'jacket' })
     useEditorStore.getState().selectMesh({ selectedMeshName: 'body' })
     useEditorStore.getState().applyFabric({
       fabricId: 'ink-cotton',
@@ -103,6 +107,7 @@ describe('useEditorStore', () => {
       ...createEmptyDesign({ id: 'look-1' }),
       title: 'Midnight Silk 04',
       author: 'Guest',
+      garmentId: 'jacket' as const,
       overrides: [{ meshName: 'lining', color: '#6b1d2a' }],
     }
 
@@ -115,7 +120,7 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().fabricId).toBeNull()
     expect(useEditorStore.getState().colorId).toBeNull()
     expect(useEditorStore.getState().selectedMeshName).toBe('body')
-    expect(useEditorStore.getState().garmentId).toBe('gown')
+    expect(useEditorStore.getState().garmentId).toBe('jacket')
   })
 
   test('setGarmentId clears cloth when the form changes', () => {

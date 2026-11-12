@@ -111,3 +111,8 @@ A downloaded garment becomes a template with `scripts/build-template.mjs` and a 
 | Template | Panels | GLB |
 | --- | --- | --- |
 | `hoodie@1` | front, back, left/right sleeve, hood left/right | `public/models/hoodie.glb` (`templates/hoodie.pieces.json`) |
+| `tee-crew-short@4` | front, back, left/right sleeve (render routing kept: wearer's left on render `right`) | `public/models/tee-real.glb` (`templates/tee.pieces.json`); new tee designs pin it, and `@1`–`@3` designs keep the procedural tee |
+| `mixed@1`, `coat@1`, `suit@1`, `tailored@1` | front, back, left/right sleeve | `public/models/<id>.glb` (`templates/<id>.pieces.json`) |
+| `slip@1`, `overall@1`, `gown@1` | front, back | `public/models/slip.glb`, `overall.glb`, `garment-print.glb` |
+
+Every garment but the hidden house jacket now has a template; front and back take all of a garment's cloth pieces (the facing test keeps them apart), and sleeves their own nodes. A board look on one of these garments opens in the studio with its cloth colour; its marks and art stay on the original.

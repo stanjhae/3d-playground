@@ -112,8 +112,9 @@ test('publishing waits for a slow image, then includes it', async ({ page }) => 
       canvas.height = image.height
       const context = canvas.getContext('2d')!
       context.drawImage(image, 0, 0)
-      // The middle of the picture, where the tee is, away from the dark backdrop.
-      const { data: pixels } = context.getImageData(image.width * 0.42, image.height * 0.42, image.width * 0.16, image.height * 0.25)
+      // The whole picture: the backdrop is light, so only the cross is dark,
+      // wherever the garment's own framing puts it.
+      const { data: pixels } = context.getImageData(0, 0, image.width, image.height)
       let count = 0
 
       for (let at = 0; at < pixels.length; at += 4) {

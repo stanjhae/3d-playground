@@ -223,10 +223,77 @@ function round({ value }) {
   return Math.round(value * 1e6) / 1e6
 }
 
+/**
+ * Seat a raw download in the studio frame, once: scale to metres, turn the
+ * front to face +z, and centre it on x and z (the floor stays at y = 0).
+ * `rename` gives mesh nodes the panel names colour overrides match.
+ * The seat is a parent node named `seat`, so a rebuild finds it and skips.
+ */
+function seatModel({ document, seat }) {
+  const scene = document.getRoot().getDefaultScene() ?? document.getRoot().listScenes()[0]
+  if (scene.listChildren().some((child) => child.getName() === 'seat')) return
+
+  // Panel names the app's colour overrides match (`body`, `body-*`).
+  for (const node of meshNodes({ document })) {
+    const name = seat.rename?.[node.getName()]
+    if (name) node.setName(name)
+  }
+
+  const seatNode = document.createNode('seat')
+  for (const child of scene.listChildren()) {
+    scene.removeChild(child)
+    seatNode.addChild(child)
+  }
+  scene.addChild(seatNode)
+
+  const half = ((seat.rotateY ?? 0) * Math.PI) / 360
+  seatNode.setRotation([0, Math.sin(half), 0, Math.cos(half)])
+  seatNode.setScale([seat.scale ?? 1, seat.scale ?? 1, seat.scale ?? 1])
+
+  const min = [Infinity, Infinity, Infinity]
+  const max = [-Infinity, -Infinity, -Infinity]
+  for (const node of meshNodes({ document })) {
+    for (const primitive of node.getMesh().listPrimitives()) {
+      const world = worldPositions({ primitive, matrix: node.getWorldMatrix() })
+      for (let index = 0; index < world.length; index += 3) {
+        for (let axis = 0; axis < 3; axis += 1) {
+          min[axis] = Math.min(min[axis], world[index + axis])
+          max[axis] = Math.max(max[axis], world[index + axis])
+        }
+      }
+    }
+  }
+  seatNode.setTranslation([-(min[0] + max[0]) / 2, 0, -(min[2] + max[2]) / 2])
+}
+
+/** Which connected piece a pick keeps: all, the largest, or the one furthest to ±x. */
+function keptPiece({ pick, pieces, indices, world }) {
+  if (pick.piece === 'largest') {
+    const counts = new Map()
+    for (const piece of pieces) counts.set(piece, (counts.get(piece) ?? 0) + 1)
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+  }
+
+  if (pick.piece === '+x' || pick.piece === '-x') {
+    const sums = new Map()
+    for (let triangle = 0; triangle < pieces.length; triangle += 1) {
+      const entry = sums.get(pieces[triangle]) ?? { x: 0, count: 0 }
+      entry.x += world[indices[triangle * 3] * 3]
+      entry.count += 1
+      sums.set(pieces[triangle], entry)
+    }
+    const sign = pick.piece === '+x' ? 1 : -1
+    return [...sums.entries()].sort((a, b) => sign * (b[1].x / b[1].count - a[1].x / a[1].count))[0][0]
+  }
+
+  return null
+}
+
 async function build({ piecesFile }) {
   const spec = JSON.parse(readFileSync(piecesFile, 'utf8'))
   const io = await createIo()
   const document = await io.read(spec.glb)
+  if (spec.seat) seatModel({ document, seat: spec.seat })
   const nodes = new Map(meshNodes({ document }).map((node) => [node.getName(), node]))
 
   // 1. Which triangles print, on which panel, and where they project.
@@ -247,13 +314,7 @@ async function build({ piecesFile }) {
         const world = worldPositions({ primitive, matrix: node.getWorldMatrix() })
         const indices = primitive.getIndices().getArray()
         const pieces = pieceOfTriangle({ primitive })
-        let keep = null
-
-        if (pick.piece === 'largest') {
-          const counts = new Map()
-          for (const piece of pieces) counts.set(piece, (counts.get(piece) ?? 0) + 1)
-          keep = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
-        }
+        const keep = keptPiece({ pick, pieces, indices, world })
 
         const printed = new Uint8Array(pieces.length)
         for (let triangle = 0; triangle < pieces.length; triangle += 1) {
@@ -395,11 +456,20 @@ async function build({ piecesFile }) {
         panel.id,
         {
           label: panel.label,
-          renderPanel: panel.id,
-          renderMirrorX: false,
+          // The tee keeps its render routing (wearer's left sleeve on render `right`).
+          renderPanel: panel.renderPanel ?? panel.id,
+          // Canonical x runs toward the wearer's left on every panel; a back
+          // panel is printed as seen from behind, so it renders mirrored.
+          renderMirrorX: panel.view === 'back',
           mesh: panel.pieces.map((pick) => pick.node).join(' '),
           uv: rects[index],
-          axes: { x: `across the ${panel.label.toLowerCase()} as seen from the ${panel.view}`, y: 'up the garment' },
+          axes: {
+            x:
+              panel.view === 'back'
+                ? "toward the wearer's left (mirrored when seen from behind)"
+                : `across the ${panel.label.toLowerCase()} as seen from the ${panel.view}`,
+            y: 'up the garment',
+          },
           landmarks: {},
           notes: [`Planar print from the ${panel.view}; ${(box.width * 100).toFixed(1)} × ${(box.height * 100).toFixed(1)} cm.`],
           surface: { stretchY: 1, panelAspect: round({ value: box.width / box.height }) },

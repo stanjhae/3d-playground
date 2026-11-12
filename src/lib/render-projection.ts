@@ -127,6 +127,7 @@ function panelUvOf({ manifest }: { manifest: TemplateManifest }) {
   return {
     panelUv: Object.fromEntries(regions.map((region) => [region.renderPanel, { ...region.uv }])),
     atlasSize: manifest.atlas.width,
+    modelSrc: manifest.geometry.file,
   }
 }
 

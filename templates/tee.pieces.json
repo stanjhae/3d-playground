@@ -1,0 +1,66 @@
+{
+  "templateId": "tee-crew-short",
+  "version": 4,
+  "garmentId": "tee",
+  "glb": "public/models/tee-real.glb",
+  "out": "public/models/tee-real.glb",
+  "manifest": "src/lib/templates/tee-v4.ts",
+  "atlas": 2048,
+  "color": "#ffffff",
+  "seat": {
+    "scale": 0.001,
+    "rotateY": -90,
+    "rename": {
+      "Material1718": "body-front",
+      "Material1722": "body-back",
+      "Material1724": "body-sleeves",
+      "Material1720": "body-collar"
+    }
+  },
+  "panels": [
+    {
+      "id": "front",
+      "label": "Front",
+      "view": "front",
+      "pieces": [
+        {
+          "node": "body-front"
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "view": "back",
+      "pieces": [
+        {
+          "node": "body-back"
+        }
+      ]
+    },
+    {
+      "id": "left",
+      "label": "Wearer's left sleeve",
+      "view": "left",
+      "renderPanel": "right",
+      "pieces": [
+        {
+          "node": "body-sleeves",
+          "piece": "+x"
+        }
+      ]
+    },
+    {
+      "id": "right",
+      "label": "Wearer's right sleeve",
+      "view": "right",
+      "renderPanel": "left",
+      "pieces": [
+        {
+          "node": "body-sleeves",
+          "piece": "-x"
+        }
+      ]
+    }
+  ]
+}

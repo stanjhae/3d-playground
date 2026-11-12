@@ -1,0 +1,97 @@
+{
+  "templateId": "slip",
+  "version": 1,
+  "garmentId": "slip",
+  "glb": "public/models/slip.glb",
+  "out": "public/models/slip.glb",
+  "manifest": "src/lib/templates/slip.ts",
+  "atlas": 2048,
+  "panels": [
+    {
+      "id": "front",
+      "label": "Front",
+      "view": "front",
+      "pieces": [
+        {
+          "node": "body"
+        },
+        {
+          "node": "body-1"
+        },
+        {
+          "node": "body-2"
+        },
+        {
+          "node": "body-3"
+        },
+        {
+          "node": "body-4"
+        },
+        {
+          "node": "body-5"
+        },
+        {
+          "node": "body-6"
+        },
+        {
+          "node": "body-7"
+        },
+        {
+          "node": "body-8"
+        },
+        {
+          "node": "body-9"
+        },
+        {
+          "node": "body-10"
+        },
+        {
+          "node": "body-11"
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "view": "back",
+      "pieces": [
+        {
+          "node": "body"
+        },
+        {
+          "node": "body-1"
+        },
+        {
+          "node": "body-2"
+        },
+        {
+          "node": "body-3"
+        },
+        {
+          "node": "body-4"
+        },
+        {
+          "node": "body-5"
+        },
+        {
+          "node": "body-6"
+        },
+        {
+          "node": "body-7"
+        },
+        {
+          "node": "body-8"
+        },
+        {
+          "node": "body-9"
+        },
+        {
+          "node": "body-10"
+        },
+        {
+          "node": "body-11"
+        }
+      ]
+    }
+  ]
+}

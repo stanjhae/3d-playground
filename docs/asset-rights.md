@@ -21,6 +21,8 @@ Status key:
 | `suit.glb` | "White Suit Set", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
 | `hoodie.glb` | "Green and white hoodie", Style3D CG | CC BY 4.0 | GLB `asset.extras` and README; added 11 Nov | **Cleared, credit required** |
 | `overall.glb` | "Black Denim Overall Dress", Style3D CG | CC BY 4.0 | Same as above | **Cleared, credit required** |
+| `garment-print.glb` | "White Evening Gown Dress", Style3D CG, with print UVs added | CC BY 4.0 | Copy of `garment.glb` given print UVs (`templates/gown.pieces.json`) | **Cleared, credit required** (same credit as the gown) |
+| `tee-real.glb` | "Tshirt", ajith98adithya | CC BY 4.0 | GLB `asset.extras` (author, license, source URL); README; third-party notices. Seated, recompressed, print UVs added (an adaptation, credited as modified) | **Cleared, credit required.** New tee designs print on it (template `@4`) |
 | `tailored.glb` | "Man Black Business Suit", Style3D CG | CC BY 4.0 | Same as above. Mesh simplified (an adaptation; CC BY allows it, and the credit should say it was modified) | **Cleared, credit required** |
 
 Credits appear wherever a Style3D form is shown, all from `garments.ts`: the studio silhouette switch (`SilhouetteSwitch.tsx`), `/look/:id` and `/create` (`GownCredit.tsx`), the vote board (`LookCard.tsx` and the ranking table in `vote.tsx`), and the share description (`api/og-page.ts`, via `lookShareLine`, which keeps the credit inside the 160-character cut). The OG image itself is the baked still or thumbnail, shown alongside those credits. `public/third-party-notices.txt` (linked from `/privacy`) lists every model, its source and the changes made. Closed 11 Nov.

@@ -428,10 +428,30 @@ function loadEngine({
 }): { importNotes: ImportNote[]; limitNotice: string | null } {
   activeGarment = garmentId
 
-  // Only tee v1 documents (drafts, looks) convert; other templates start empty.
+  // Only tee v1 documents convert in full. A look on another template (a
+  // board remix) keeps its cloth colour; its marks and art don't carry over.
   if (isCanonicalGarment({ garmentId }) && garmentId !== 'tee') {
-    tee = canonicalEngineFor({ garmentId })
-    return { importNotes: [], limitNotice: null }
+    const fresh = createTeeEngine({
+      revision: tee.stack.revision + 1,
+      templateId: templateForGarment({ garmentId })?.id,
+    })
+    const color = document.overrides.find((override) => override.meshName === 'body')?.color
+    const dropped = document.layers.some((layer) => layer.kind !== 'paint' || layer.strokes.length > 0)
+    tee = /^#[0-9a-f]{6}$/i.test(color ?? '')
+      ? {
+          ...fresh,
+          stack: replaceDocument({
+            stack: fresh.stack,
+            document: { ...fresh.stack.document, base: { kind: 'solid', color: color as `#${string}` } },
+          }),
+        }
+      : fresh
+    return {
+      importNotes: dropped
+        ? [{ path: '$', message: 'This look opened with its cloth colour; its marks and art stay on the original.' }]
+        : [],
+      limitNotice: null,
+    }
   }
 
   if (garmentId === 'tee') {

@@ -1,0 +1,123 @@
+{
+  "templateId": "tailored",
+  "version": 1,
+  "garmentId": "tailored",
+  "glb": "public/models/tailored.glb",
+  "out": "public/models/tailored.glb",
+  "manifest": "src/lib/templates/tailored.ts",
+  "atlas": 2048,
+  "panels": [
+    {
+      "id": "front",
+      "label": "Front",
+      "view": "front",
+      "pieces": [
+        {
+          "node": "body"
+        },
+        {
+          "node": "body-1"
+        },
+        {
+          "node": "body-2"
+        },
+        {
+          "node": "body-3"
+        },
+        {
+          "node": "body-4"
+        },
+        {
+          "node": "body-6"
+        },
+        {
+          "node": "body-7"
+        },
+        {
+          "node": "body-8"
+        },
+        {
+          "node": "body-9"
+        },
+        {
+          "node": "body-10"
+        },
+        {
+          "node": "body-12"
+        },
+        {
+          "node": "body-13"
+        },
+        {
+          "node": "body-14"
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "view": "back",
+      "pieces": [
+        {
+          "node": "body"
+        },
+        {
+          "node": "body-1"
+        },
+        {
+          "node": "body-2"
+        },
+        {
+          "node": "body-3"
+        },
+        {
+          "node": "body-4"
+        },
+        {
+          "node": "body-6"
+        },
+        {
+          "node": "body-7"
+        },
+        {
+          "node": "body-8"
+        },
+        {
+          "node": "body-9"
+        },
+        {
+          "node": "body-10"
+        },
+        {
+          "node": "body-12"
+        },
+        {
+          "node": "body-13"
+        },
+        {
+          "node": "body-14"
+        }
+      ]
+    },
+    {
+      "id": "left",
+      "label": "Wearer's left sleeve",
+      "view": "left",
+      "pieces": [
+        {
+          "node": "body-5"
+        }
+      ]
+    },
+    {
+      "id": "right",
+      "label": "Wearer's right sleeve",
+      "view": "right",
+      "pieces": [
+        {
+          "node": "body-11"
+        }
+      ]
+    }
+  ]
+}

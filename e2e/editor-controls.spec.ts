@@ -3,8 +3,8 @@ import { type Page, expect, test } from '@playwright/test'
 import { type PlaceableLayer, canvasLayerFrame } from '../src/lib/layer-hit'
 import { INK_COLORS } from '../src/lib/paint-colors'
 import { SELECTION_COLOR } from '../src/lib/selection-chrome'
-import { CURRENT_TEMPLATE } from '../src/lib/template-manifest'
-import { deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn, chooseTool } from './helpers'
+import { currentTemplateFor } from '../src/lib/template-manifest'
+import { deleteAccounts, drawStroke, expectSaved, newEmail, newTeePanelAspect, panelCanvas, signIn, chooseTool } from './helpers'
 
 /**
  * What the editor's controls do on screen, not only in the saved document
@@ -109,7 +109,7 @@ async function handles({ page, layer, panel = 'Front' }: { page: Page; layer: La
   const size = await locator.evaluate((node) => ({ width: (node as HTMLCanvasElement).width, height: (node as HTMLCanvasElement).height }))
   // The panel draws an uploaded image as the editor's own "graphic" kind.
   const kind = layer.kind === 'image' ? 'graphic' : layer.kind
-  const surface = Object.values(CURRENT_TEMPLATE.regions).find((region) => region.renderPanel === PANEL_KEY[panel])!.surface
+  const surface = Object.values(currentTemplateFor({ templateId: 'tee-crew-short' }).regions).find((region) => region.renderPanel === PANEL_KEY[panel])!.surface
   const frame = canvasLayerFrame({ layer: { ...layer, kind, surface, panel: PANEL_KEY[panel] } as unknown as PlaceableLayer, ...size })
   const pixels = {
     body: { x: frame.x, y: frame.y },
@@ -431,6 +431,54 @@ test('brush colour, size and opacity reach the stroke and show on the panel', as
   expect(green.matching).toBeGreaterThan(0)
 })
 
+/** The middle of the oxblood ink in the 3D scene, on screen. */
+async function inkOnScene({ page }: { page: Page }) {
+  const scene = page.locator('canvas[data-engine]')
+  await expect
+    .poll(async () => (await scene.boundingBox())?.width ?? 0, { timeout: 20_000 })
+    .toBeGreaterThan(0)
+  const box = (await scene.boundingBox())!
+  let centre: { x: number; y: number } | null = null
+
+  await expect
+    .poll(
+      async () => {
+        const shot = (await scene.screenshot()).toString('base64')
+        centre = await page.evaluate(async (data) => {
+          const image = new Image()
+          image.src = `data:image/png;base64,${data}`
+          await image.decode()
+          const canvas = document.createElement('canvas')
+          canvas.width = image.width
+          canvas.height = image.height
+          const context = canvas.getContext('2d')!
+          context.drawImage(image, 0, 0)
+          const { data: pixels } = context.getImageData(0, 0, image.width, image.height)
+          let [count, sumX, sumY] = [0, 0, 0]
+
+          for (let at = 0; at < pixels.length; at += 4) {
+            const [red, green, blue] = [pixels[at]!, pixels[at + 1]!, pixels[at + 2]!]
+
+            if (red > green + 40 && red > blue + 30) {
+              const index = at / 4
+              count += 1
+              sumX += index % image.width
+              sumY += Math.floor(index / image.width)
+            }
+          }
+
+          return count > 10 ? { x: sumX / count / image.width, y: sumY / count / image.height } : null
+        }, shot)
+        return centre !== null
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true)
+
+  const found = centre as unknown as { x: number; y: number }
+  return { x: box.x + found.x * box.width, y: box.y + found.y * box.height }
+}
+
 test('on the Preview step a drag turns the tee and adds no ink, and a preset takes it back', async ({ page }) => {
   test.setTimeout(120_000)
   await openDesign({ page, label: 'orbit', tech: false })
@@ -442,12 +490,13 @@ test('on the Preview step a drag turns the tee and adds no ink, and a preset tak
   await drawStroke({ page, panel: 'Front' })
   await saved({ read: async () => (await layers({ page, kind: 'paint' })).flatMap((layer) => layer.strokes ?? []).length }).toBe(1)
 
-  // On the Design step a drag on the tee itself still paints.
-  const designScene = (await page.locator('canvas[data-engine]').boundingBox())!
+  // On the Design step a drag on the tee itself still paints. Where the tee
+  // sits in the frame depends on its model, so aim at the ink just drawn.
+  const ink = await inkOnScene({ page })
   await drag({
     page,
-    from: { x: designScene.x + designScene.width / 2 - 15, y: designScene.y + designScene.height * 0.55 },
-    to: { x: designScene.x + designScene.width / 2 + 15, y: designScene.y + designScene.height * 0.55 },
+    from: { x: ink.x - 6, y: ink.y },
+    to: { x: ink.x + 6, y: ink.y },
   })
   await saved({
     read: async () => {
@@ -524,7 +573,7 @@ test('at phone width each panel keeps its shape and fits, and a sleeve can be dr
   const front = panelCanvas({ page, panel: 'Front' })
   await expect(front).toBeVisible()
   const frontBox = (await front.boundingBox())!
-  expect(frontBox.width / frontBox.height).toBeCloseTo(0.611, 1)
+  expect(frontBox.width / frontBox.height).toBeCloseTo(newTeePanelAspect({ panel: 'front' }), 1)
   expect(frontBox.x + frontBox.width).toBeLessThanOrEqual(390)
   expect(await overflow()).toBeLessThanOrEqual(0)
 
@@ -532,7 +581,7 @@ test('at phone width each panel keeps its shape and fits, and a sleeve can be dr
   const sleeve = panelCanvas({ page, panel: 'Right sleeve' })
   await expect(sleeve).toBeVisible()
   const sleeveBox = (await sleeve.boundingBox())!
-  expect(sleeveBox.width / sleeveBox.height).toBeCloseTo(3.037, 0)
+  expect(sleeveBox.width / sleeveBox.height).toBeCloseTo(newTeePanelAspect({ panel: 'right' }), 1)
   expect(sleeveBox.x + sleeveBox.width).toBeLessThanOrEqual(390)
   expect(await overflow()).toBeLessThanOrEqual(0)
 

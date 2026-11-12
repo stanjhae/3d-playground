@@ -160,6 +160,8 @@ export function TechInspector() {
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
   const garmentId = useEditorStore((state) => state.garmentId)
   const layers = useEditorStore((state) => state.document.layers)
+  // The chest line is measured on the procedural tee (@1–@3).
+  const realModel = useEditorStore((state) => Boolean(state.document.modelSrc))
   const updateLayer = useEditorStore((state) => state.updateLayer)
   const copyLayerToOpposite = useEditorStore(
     (state) => state.copyLayerToOpposite,
@@ -211,7 +213,7 @@ export function TechInspector() {
   // A locked item shows its settings but takes no change but unlocking (W3).
   const locked = selected.kind !== 'pattern' && selected.locked === true
   // Only the tee's chest is measured.
-  const chest = garmentId === 'tee' && selected.kind !== 'pattern' ? chestLineY({ panel: selected.panel }) : null
+  const chest = garmentId === 'tee' && !realModel && selected.kind !== 'pattern' ? chestLineY({ panel: selected.panel }) : null
   const alignButtonClass = cn(
     'min-h-11 flex-1 border border-flv-line px-3 text-flv-muted hover:text-flv-accent disabled:opacity-50 disabled:hover:text-flv-muted',
     chromeTextClass(),

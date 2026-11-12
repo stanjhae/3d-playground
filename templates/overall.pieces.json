@@ -1,0 +1,67 @@
+{
+  "templateId": "overall",
+  "version": 1,
+  "garmentId": "overall",
+  "glb": "public/models/overall.glb",
+  "out": "public/models/overall.glb",
+  "manifest": "src/lib/templates/overall.ts",
+  "atlas": 2048,
+  "panels": [
+    {
+      "id": "front",
+      "label": "Front",
+      "view": "front",
+      "pieces": [
+        {
+          "node": "body"
+        },
+        {
+          "node": "body-1"
+        },
+        {
+          "node": "body-2"
+        },
+        {
+          "node": "body-3"
+        },
+        {
+          "node": "body-4"
+        },
+        {
+          "node": "body-5"
+        },
+        {
+          "node": "body-6"
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "view": "back",
+      "pieces": [
+        {
+          "node": "body"
+        },
+        {
+          "node": "body-1"
+        },
+        {
+          "node": "body-2"
+        },
+        {
+          "node": "body-3"
+        },
+        {
+          "node": "body-4"
+        },
+        {
+          "node": "body-5"
+        },
+        {
+          "node": "body-6"
+        }
+      ]
+    }
+  ]
+}
