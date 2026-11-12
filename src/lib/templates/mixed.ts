@@ -63,7 +63,7 @@ export const MIXED_V1: TemplateManifest = {
     "back": {
       "label": "Back",
       "renderPanel": "back",
-      "renderMirrorX": false,
+      "renderMirrorX": true,
       "mesh": "skirt skirt-1 skirt-2 body-1 body-3 body-4 body-5 skirt-3",
       "uv": {
         "u0": 0.307788,
@@ -72,7 +72,7 @@ export const MIXED_V1: TemplateManifest = {
         "v1": 0.996094
       },
       "axes": {
-        "x": "across the back as seen from the back",
+        "x": "toward the wearer's left (mirrored when seen from behind)",
         "y": "up the garment"
       },
       "landmarks": {},
