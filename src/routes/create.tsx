@@ -16,6 +16,7 @@ import { LayerRail } from '../components/editor/LayerRail'
 import { StudioAnnouncer } from '../components/editor/StudioAnnouncer'
 import { PaintToolbar } from '../components/editor/PaintToolbar'
 import { StructureRail } from '../components/editor/StructureRail'
+import { TemplateUpgradeBanner } from '../components/editor/TemplateUpgradeBanner'
 import { StepActions } from '../components/editor/StepActions'
 import { StepIntro } from '../components/editor/StepIntro'
 import { StudioViewToggle } from '../components/editor/StudioViewToggle'
@@ -145,6 +146,7 @@ function AtelierHome() {
   const garmentId = useEditorStore((state) => state.garmentId)
   const createStep = useEditorStore((state) => state.createStep)
   const designTool = useEditorStore((state) => state.designTool)
+  const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
   const pro = useStudioMode((state) => state.pro)
   const setCreateStep = useEditorStore((state) => state.setCreateStep)
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
@@ -575,6 +577,7 @@ function AtelierHome() {
           <div className="flex flex-col gap-1 empty:hidden lg:col-span-3">
             {mode === 'design' ? <GownCredit garmentId={garmentId} /> : null}
             {cloudStatus === 'loaded' ? <RecoveryPrompt /> : null}
+            {cloudStatus === 'loaded' && mode === 'design' ? <TemplateUpgradeBanner /> : null}
             {cloudFailed ? (
               <p role="alert" className="font-body text-sm text-flv-accent">
                 {cloudStatus === 'missing'
@@ -646,7 +649,8 @@ function AtelierHome() {
                   {designTool === 'text' ? <PaintToolbar tools="text" /> : null}
                   {designTool === 'upload' ? <PaintToolbar tools="upload" /> : null}
                   {designTool === 'graphics' ? <GraphicLibrary /> : null}
-                  {designTool === 'draw' ? null : <TechInspector />}
+                  {/* With Draw on, a mark tapped on the cloth still shows its controls. */}
+                  {designTool === 'draw' && !selectedLayerId ? null : <TechInspector />}
                   <LayerRail />
                   <HistoryPanel />
                   <KeyboardHelp />

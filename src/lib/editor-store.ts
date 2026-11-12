@@ -73,7 +73,8 @@ import {
 } from './editor-canonical'
 import type { ImportNote } from './legacy-import'
 import { type CanonicalDocument, CANONICAL_LIMITS } from './canonical-document'
-import { findLayer, replaceDocument } from './canonical-commands'
+import { findLayer, replaceDocument, replaceDocumentUndoable } from './canonical-commands'
+import { upgradeToCurrentTemplate } from './template-upgrade'
 import { canonicalPanel, renderPanel } from './render-projection'
 import { NUDGE_MERGE_MS } from './studio-keys'
 import { roundPlacement } from './transform-fields'
@@ -153,6 +154,8 @@ type EditorState = {
   redoCount: number
   createStep: CreateStep
   designTool: DesignTool
+  // Draw tool held for turning the garment instead of inking it.
+  rotateView: boolean
   publishTags: string[]
   publishMethod: DesignMethod | null
   challengeId: string | null
@@ -194,6 +197,7 @@ type EditorState = {
   setStudioView: ({ studioView }: { studioView: StudioView }) => void
   setCreateStep: ({ createStep }: { createStep: CreateStep }) => void
   setDesignTool: ({ designTool }: { designTool: DesignTool }) => void
+  setRotateView: ({ rotateView }: { rotateView: boolean }) => void
   setPublishTags: ({ tags }: { tags: string[] }) => void
   setPublishMethod: ({
     method,
@@ -249,9 +253,14 @@ type EditorState = {
   addGraphic: ({
     src,
     panel,
+    x,
+    y,
   }: {
     src: string
     panel?: PanelId
+    /** Where it was dropped; a tapped tile lands mid-panel. */
+    x?: number
+    y?: number
   }) => void
   addText: ({
     content,
@@ -350,6 +359,8 @@ type EditorState = {
   setCloudDescription: ({ description }: { description: string }) => void
   /** Put recovered local work over the open cloud design as a new revision (S05 #174). */
   recoverCanonical: ({ document }: { document: CanonicalDocument }) => void
+  /** Moves the open design onto its garment's newest template, as one undo step. */
+  upgradeTemplate: () => boolean
   /** Place an uploaded, ready asset (S01 #170); `src` is what the renderer draws. */
   addUploadedImage: ({
     assetId,
@@ -711,6 +722,7 @@ const INITIAL_EDITOR_STATE = {
   redoCount: 0,
   createStep: 'select' as CreateStep,
   designTool: 'draw' as DesignTool,
+  rotateView: false,
   publishTags: [] as string[],
   publishMethod: null as DesignMethod | null,
   challengeId: null as string | null,
@@ -1043,13 +1055,23 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set(() => {
       return {
         createStep,
+        rotateView: false,
         ...(forcesClothView({ step: createStep }) ? { studioView: 'cloth' as const } : {}),
       }
     })
   },
   setDesignTool: ({ designTool }) => {
-    // Only which panel shows: on a phone the panels stay where words are placed.
-    set({ designTool })
+    // Which panel shows, and what a press on the cloth does: leaving Text
+    // drops tap-to-place so the next press never strands a word, and any
+    // switch lets go of the Rotate-view hold.
+    set((state) => ({
+      designTool,
+      rotateView: false,
+      ...(designTool !== 'text' && state.paintTool === 'type' ? { paintTool: 'brush' as StrokeTool } : {}),
+    }))
+  },
+  setRotateView: ({ rotateView }) => {
+    set({ rotateView })
   },
   setPublishTags: ({ tags }) => {
     set({
@@ -1412,7 +1434,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       }),
     )
   },
-  addGraphic: ({ src, panel }) => {
+  addGraphic: ({ src, panel, x, y }) => {
     if (!isSafeLayerSrc({ src })) {
       return
     }
@@ -1428,8 +1450,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             kind: 'graphic',
             panel: panel ?? state.paintPanel,
             src,
-            x: 0.5,
-            y: 0.48,
+            x: x ?? 0.5,
+            y: y ?? 0.48,
             scale: placementScale({
               panel: panel ?? state.paintPanel,
               scale: 0.28,
@@ -1751,6 +1773,32 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
   setCloudTitle: ({ title }) => {
     set((state) => (state.cloud ? { cloud: { ...state.cloud, title } } : state))
+  },
+  upgradeTemplate: () => {
+    if (!teeActive()) {
+      return false
+    }
+
+    const result = upgradeToCurrentTemplate({ document: tee.stack.document })
+
+    if (!result.ok || !result.changed) {
+      return false
+    }
+
+    const pushed = replaceDocumentUndoable({ stack: tee.stack, document: result.document })
+
+    if (!pushed.ok) {
+      return false
+    }
+
+    tee = { ...tee, stack: pushed.stack }
+    set({
+      ...syncFromStack(),
+      activeStroke: null,
+      activeLayerEdit: null,
+      selectedLayerId: null,
+    })
+    return true
   },
   recoverCanonical: ({ document }) => {
     if (!get().cloud || !teeActive()) {

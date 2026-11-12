@@ -19,7 +19,9 @@ class SceneBoundary extends Component<{ onError: () => void; children: ReactNode
     return { failed: true }
   }
 
-  componentDidCatch() {
+  componentDidCatch(error: unknown) {
+    // Said, not swallowed: a tester's "the demo doesn't work" needs a trace.
+    console.warn('[hero] the 3D preview failed; showing the poster', error)
     this.props.onError()
   }
 
@@ -89,6 +91,7 @@ export function HeroStage() {
                 coarsePointer={coarse}
                 onReady={() => setReady(true)}
                 onLost={() => {
+                  console.warn('[hero] the 3D preview lost its WebGL context; showing the poster')
                   setReady(false)
                   setFailed(true)
                 }}
@@ -108,10 +111,16 @@ export function HeroStage() {
         <button
           type="button"
           onClick={requestScene}
-          className="absolute bottom-4 left-1/2 inline-flex min-h-11 -translate-x-1/2 items-center gap-2 rounded-full border border-flv-line bg-white/90 px-4 font-body text-sm text-flv-ink shadow-sm backdrop-blur hover:border-flv-ink"
+          // The way into the live demo on a phone, so it reads as the button it is.
+          className="absolute bottom-4 left-1/2 inline-flex min-h-12 -translate-x-1/2 items-center gap-2 rounded-full bg-flv-accent px-5 font-body text-base font-medium text-white shadow-md hover:brightness-110"
         >
           {COPY.spin}
         </button>
+      ) : null}
+      {failed ? (
+        <p role="status" className="absolute inset-x-4 bottom-4 rounded-xl bg-white/90 p-3 text-center font-body text-xs text-flv-muted">
+          {COPY.sceneFailed}
+        </p>
       ) : null}
       {trigger === 'never' ? (
         <p className="absolute inset-x-4 bottom-4 rounded-xl bg-white/90 p-3 text-center font-body text-xs text-flv-muted">
