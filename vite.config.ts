@@ -148,6 +148,25 @@ async function handleApiRequest({
   }
 }
 
+/** The plain app shell beside the prerendered landing (scripts/prerender-landing.mjs). */
+const APP_SHELL = '/app.html'
+
+/** A page load that isn't the landing, a file, the API or a shared design. */
+function isAppNavigation({ req }: { req: IncomingMessage }) {
+  const url = req.url ?? '/'
+  const pathname = url.split('?')[0] ?? '/'
+
+  return (
+    (req.method === 'GET' || req.method === 'HEAD') &&
+    pathname !== '/' &&
+    pathname !== '/index.html' &&
+    !pathname.startsWith('/api/') &&
+    !pathname.startsWith('/s/') &&
+    !/\.[a-z0-9]+$/i.test(pathname) &&
+    (req.headers.accept ?? '').includes('text/html')
+  )
+}
+
 function flvApiPlugin({
   headers,
   previewHeaders,
@@ -169,11 +188,22 @@ function flvApiPlugin({
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        // Dev has no prerendered landing: the source index.html is the shell.
+        if (req.url === APP_SHELL) {
+          req.url = '/index.html'
+        }
+
         void handleApiRequest({ req, res, next, headers })
       })
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
+        // As on Vercel: dist/index.html is the prerendered landing, so every
+        // other page is served the plain shell (docs/deploy.md).
+        if (isAppNavigation({ req })) {
+          req.url = APP_SHELL
+        }
+
         void handleApiRequest({ req, res, next, headers: previewHeaders })
       })
     },

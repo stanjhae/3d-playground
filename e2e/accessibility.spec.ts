@@ -104,6 +104,28 @@ async function walkFocus({ page, name, problems }: { page: Page; name: string; p
   expect(reached, `${name}: Tab reached something`).toBeGreaterThan(0)
 }
 
+test('the landing has no serious violations on a desktop, a phone or without WebGL, and its focus shows', async ({ page }) => {
+  for (const [width, height] of [
+    [1280, 800],
+    [390, 800],
+  ] as const) {
+    await page.setViewportSize({ width, height })
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.locator('#faq details').evaluateAll((items) => items.forEach((item) => item.setAttribute('open', '')))
+    await expectAccessible({ page, name: `landing ${width}px` })
+  }
+
+  await page.goto('/?webgl=none')
+  await expectAccessible({ page, name: 'landing without WebGL' })
+
+  const problems: string[] = []
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/')
+  await walkFocus({ page, name: 'landing', problems })
+  expect(problems).toEqual([])
+})
+
 test('sign-in, My Studio, studio, shared page and privacy have no serious violations', async ({ page, browser }) => {
   // Publishing renders three views in software WebGL on CI runners.
   test.setTimeout(240_000)
