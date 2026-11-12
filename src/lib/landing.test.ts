@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { HERO_INKS, INK_SWATCH_CLASS } from '../components/landing/HeroToolDock'
+import { HERO_GRAPHICS, HERO_INKS, INK_SWATCH_CLASS } from '../components/landing/HeroToolDock'
 import { LANDING_LINKS } from '../components/site/LandingHeader'
 import { renderLanding } from '../prerender/landing'
 import { findForbiddenClaim } from './claims-patterns'
+import { GRAPHIC_ASSETS } from './graphics-library'
 import { heroSceneTrigger } from './hero-scene-gate'
 import { injectBeforeRoot, replaceSiteHead } from './html-shell'
 import { allLandingStrings, LANDING_COPY, LANDING_SEO } from './landing-copy'
@@ -87,6 +88,18 @@ describe('hero dock inks', () => {
 
     for (const color of HERO_INKS) {
       expect(INK_SWATCH_CLASS[color.id]?.toLowerCase()).toBe(`bg-[${color.value.toLowerCase()}]`)
+    }
+  })
+})
+
+describe('hero dock graphics', () => {
+  it('names graphics the library ships, as the library names them', () => {
+    expect(HERO_GRAPHICS).toHaveLength(3)
+
+    for (const graphic of HERO_GRAPHICS) {
+      const asset = GRAPHIC_ASSETS.find((entry) => entry.id === graphic.id)
+      expect(asset, graphic.id).toBeDefined()
+      expect(graphic).toEqual({ id: asset!.id, label: asset!.label, src: asset!.src })
     }
   })
 })
