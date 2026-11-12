@@ -358,12 +358,12 @@ test('a failed unpublish shows the error, says it is still published, and can be
   await unpublish.click()
   await expect(page.getByRole('status').filter({ hasText: 'Still published' })).toContainText('Injected failure')
   await expect(unpublish).toBeEnabled()
-  await expect(page.getByRole('button', { name: 'Publish…' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Publish publicly…' })).toHaveCount(0)
   expect((await request.get(`/api/flp/public/${slug}`)).status()).toBe(200)
 
   await page.unroute(publication)
   await unpublish.click()
-  await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeVisible()
   expect((await request.get(`/api/flp/public/${slug}`)).status()).toBe(404)
 })
 
@@ -575,7 +575,7 @@ test('a design on a template version this app cannot open says so, offers nothin
   await page.reload()
 
   await expect(page.getByRole('alert')).toContainText('This design uses a garment template this app cannot open.')
-  await expect(page.getByRole('status').filter({ hasText: 'Saved to cloud' })).toHaveCount(0)
+  await expect(page.getByRole('status').filter({ hasText: 'Saved privately' })).toHaveCount(0)
   await expect(page.locator('canvas')).toHaveCount(0)
   await expect(page.getByPlaceholder('Your text')).toHaveCount(0)
 
@@ -627,7 +627,7 @@ test('publishing and the privacy page say what stays out of reach after unpublis
   const url = new URL(page.url())
   url.searchParams.set('step', 'share')
   await page.goto(url.toString())
-  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Publish publicly…' }).click()
   const review = page.getByRole('group', { name: 'Publish review' })
   await expect(review).toContainText('Anyone with the link can view its five views')
   await expect(review).toContainText('public images can be copied')

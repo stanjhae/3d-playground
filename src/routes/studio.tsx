@@ -42,8 +42,11 @@ import { trackAssumption } from '../lib/assumption-events'
 
 export const Route = createFileRoute('/studio')({
   // `?new=1` is where Create lands: the start of a new design, not the library.
-  validateSearch: (search: Record<string, unknown>): { new?: true } =>
-    search.new === true || search.new === 'true' || search.new === 1 || search.new === '1' ? { new: true } : {},
+  validateSearch: (search: Record<string, unknown>): { new?: true; saved?: true } => ({
+    ...(isOn(search.new) ? { new: true as const } : {}),
+    // Arriving from "Save privately": say where the design went.
+    ...(isOn(search.saved) ? { saved: true as const } : {}),
+  }),
   beforeLoad: async ({ location }) => {
     if (!authConfigured()) {
       return
@@ -57,6 +60,10 @@ export const Route = createFileRoute('/studio')({
   },
   component: GuardedStudio,
 })
+
+function isOn(value: unknown) {
+  return value === true || value === 'true' || value === 1 || value === '1'
+}
 
 // Only templates this app can open are offered (F07 #142).
 const TEE = resolveTemplate(createEmptyCanonicalDocument().template)
@@ -105,7 +112,8 @@ type ListState =
 
 function MyStudio() {
   const navigate = useNavigate()
-  const startNew = Route.useSearch().new === true
+  const search = Route.useSearch()
+  const startNew = search.new === true
   const accountEpoch = useSessionStore((state) => state.accountEpoch)
   const ownerId = useSessionStore((state) => state.account?.userId ?? null)
   const [list, setList] = useState<ListState>({ status: 'loading' })
@@ -439,8 +447,13 @@ function MyStudio() {
             Your designs
           </h1>
           <p className="font-body text-sm text-flv-muted">
-            Private to you. New designs save to your account as you work.
+            Private to you until you publish. Designs save to your account as you work.
           </p>
+          {search.saved ? (
+            <p role="status" className="font-body text-sm font-medium text-flv-ink">
+              Saved privately. Only you can see it; publish it from its card when you're ready.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col items-end gap-2">
           {conversion?.fromLanding ? null : (
@@ -581,6 +594,19 @@ function MyStudio() {
               <DesignCard
                 design={design}
                 standing={design.publicationSlug ? (standings.get(design.publicationSlug) ?? null) : null}
+                onUnpublished={() => {
+                  setListNotice(`Unpublished ${design.title}. Its public link has stopped working.`)
+                  setList((current) =>
+                    current.status === 'ready'
+                      ? {
+                          status: 'ready',
+                          designs: current.designs.map((each) =>
+                            each.id === design.id ? { ...each, visibility: 'private', publicationSlug: null } : each,
+                          ),
+                        }
+                      : current,
+                  )
+                }}
                 ownerId={ownerId ?? ''}
                 duplicating={copying === design.id}
                 onDuplicate={() => void duplicate(design)}

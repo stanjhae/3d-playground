@@ -210,7 +210,7 @@ Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/
 | `GET /api/flp/public/:slug` | Anyone | Only `{ slug, title, displayName, seq, publishedAt, renders }`, where each render URL is our own seq-pinned image route (`/api/flp/public/:slug/image…`), which checks the publication on every request. A version published before the sleeve views (#179) has only the front, three-quarter and back; it stays public, and `renders` lists only the views that exist. Never the document, history or owner. `404` when unpublished, unknown or malformed. |
 
 **Studio flow:**
-- **Publish…** is available only when the design shows **Saved to cloud**.
+- **Publish publicly…** is available only when the design shows **Saved privately**.
 - The review names the exact version and explains that anyone with the link can view it and copy its images.
 - **Confirm** captures the five views of that exact version (front, three-quarter, back, wearer's right, wearer's left), refusing if the design changed meanwhile, then uploads them and publishes.
 - The panel then shows "Published vX · draft vY", the link, **Copy link** and **Unpublish**.

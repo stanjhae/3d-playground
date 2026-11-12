@@ -40,3 +40,31 @@ test('Create starts a new design, My Studio is the library, and the current tab 
   await page.getByRole('tab', { name: 'New' }).click()
   await expect(page.getByRole('tab', { name: 'New' })).toHaveAttribute('aria-selected', 'true')
 })
+
+test('Save privately returns to My Studio, where the card offers Edit and Publish later', async ({ page }) => {
+  test.setTimeout(120_000)
+  const email = newEmail({ label: 'save-privately' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+
+  // The publish step offers both choices, plainly.
+  await page.goto(`/create?cloud=${designId}&step=share`)
+  await expectSaved({ page })
+  await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeVisible()
+  await page.getByRole('button', { name: 'Save privately' }).click()
+
+  await expect(page).toHaveURL(/\/studio\?saved=true$/)
+  await expect(page.getByRole('status').filter({ hasText: 'Saved privately. Only you can see it' })).toBeVisible()
+
+  // Publishing later and editing are buttons on the card, not a link to discover.
+  await page.getByRole('link', { name: 'Publish…', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/create\\?cloud=${designId}&step=share`))
+  await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeVisible()
+
+  await page.goto('/studio')
+  await page.getByRole('link', { name: 'Edit', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/create\\?cloud=${designId}&step=design`))
+})
