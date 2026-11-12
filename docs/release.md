@@ -78,6 +78,7 @@ Builds below the floor can't open designs that newer builds save, so never promo
 - **Floor: `v0.9.0-rc.7`.** It contains the reader for flips, locks and pen pressure (#326, master `cb4d4c9`) and their writers (#338, #341, #352). Designs saved from W1 on can store `flipX`, `flipY`, `pressures` and `locked`, which `v0.9.0-rc.6` and earlier refuse. **rc.6 is no longer a fallback.**
 - Roll back by promoting a Vercel deployment built from rc.7 or later, or by `git revert`.
 - `src/lib/optional-fields.test.ts` loads a design using every optional field; it must keep passing at the floor.
+- **Pending: shape v1.** Designs shaped with the shape sliders store an optional top-level `shape` block (left out while the shape is neutral, so unshaped designs are byte-for-byte and hash-for-hash unchanged). Builds without the reader refuse a shaped design predictably: their strict validator reports `$.shape: unknown field`, cloud load shows the design as unreadable, and recovery treats it as `unsupported`. Nothing is silently dropped or overwritten. Unshaped designs still open on those builds. The reader and writer land together, so once a shaped design is saved, the floor moves to the release that carries shape v1. `src/lib/optional-fields.test.ts` loads a shaped v4 tee.
 - Move the floor only when a new reader lands and its writer is about to merge (reader deployed 24 h first).
 
 ## Rollback

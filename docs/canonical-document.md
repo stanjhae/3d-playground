@@ -33,6 +33,16 @@ Image and text layers may carry `flipX` and `flipY`, and paint, image and text l
 - **Locks** are written since W3. The layer rail, the inspector and ⌘L / Ctrl+L toggle them through `updateLayer` with `locked: true`; unlocking sends `locked: false`, which deletes the key, so a design that was never locked, or was locked and unlocked, serializes and hashes as it did before. Locking and unlocking are one undo step each.
 - A locked layer draws exactly as an unlocked one in 2D, 3D and the atlas (no `ATLAS_COMPILER_VERSION` change). What it changes is editing: `lockedIssues` in `src/lib/canonical-commands.ts` refuses any command that would change a locked layer (move, restyle, rename, hide, restack, remove, or draw into, erase or clear its ink) except an `updateLayer` whose only change is `locked: false`. The editor store and the v1 command stack refuse the same commands (`editsLockedLayer` in `src/lib/design-commands.ts`). Copies of a locked layer start unlocked. A locked item can't be picked on the 2D panel or the 3D garment; clicks pass to what is under it, and it stays selectable from the layer rail so it can be unlocked.
 
+### Parametric shape (shape v1)
+
+A document on a template with a shape map (today only `tee-crew-short@4`, `templateHasShape`) may carry an optional `shape` block that deforms the real model: `leftSleeveLength`, `rightSleeveLength` (the wearer's sides), `bodyLength`, `bodyWidth` and `necklineDepth`.
+
+- **Values.** Each is a fraction, and 0 is neutral. The safe ranges are `SHAPE_LIMITS` in `src/lib/garment-shape-params.ts`: sleeves −0.6 to 1.5 of their own length, length ±0.4 of armpit-to-hem, width −0.15 to 0.25, and neckline 0 to 1 (an 8 cm centre-front drop at most). The studio clamps and rounds to 3 decimals. The validator refuses anything out of range.
+- **One form per look.** The block is stored only when some value is off neutral, with all five fields. A neutral block is refused. `setShape` (a canonical command, one undo step per slider release) removes the block when the result is neutral. So a design that was never shaped serializes and hashes exactly as before, and the golden hash is unchanged.
+- **Migration.** `migrateCanonicalDocument` runs before validation on every read (`readCanonicalDocument`: cloud load, recovery, version preview). A document saved before shapes has no block and reads as neutral. A `null`, neutral or partial block is folded to the stored form. `schemaVersion` stays 2: the DB pins `schema_version = 2`, so the block follows the optional-field route that flips and locks took (see the rollback floor in `docs/release.md`).
+- **Rendering.** `toRenderDocument` passes the shape to the 3D renderer (`DesignDocument.shape`). `GltfGarment` deforms each mesh with `deformGeometry` (`src/lib/garment-shape.ts`): positions only, so vertex, index and UV counts are unchanged and prints follow the cloth. The studio, try-on and every publish capture render through it. The 2D panels and atlas don't change: a shape moves the cloth, not the print layout.
+- **Known gap.** A local v1 draft drops the shape, as it drops image `aspect`, because the importer pins drafts to `@1`. Cloud saves keep it.
+
 ## Content hashing
 
 `hashCanonicalDocument` returns `sha256:<hex>` over the UTF-8 bytes of `serializeCanonicalDocument`. The serialization:

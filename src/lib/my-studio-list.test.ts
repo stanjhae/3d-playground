@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { stillFrontBox, storedRenderSrc, thumbnailKey } from './design-thumbnail'
+import { stillFrontBox, storedRenderSrc, teeOutlinePoints, teeStillScale, thumbnailKey } from './design-thumbnail'
 import type { DesignSummary } from './flp-api/client'
 import { copyTitle, readStudioSort, visibleDesigns, writeStudioSort } from './my-studio-list'
 
@@ -109,3 +109,20 @@ describe('stillFrontBox', () => {
   })
 })
 
+
+describe('shaped tee stills (shape v1)', () => {
+  test('a neutral shape draws the plain outline at full size', () => {
+    const { body } = teeOutlinePoints({})
+    expect(body[4]).toEqual([0.8, 0.97])
+    expect(teeStillScale({})).toBe(1)
+  })
+
+  test('a longer sleeve and hem reach further and shrink the still to fit', () => {
+    const shape = { leftSleeveLength: 1, rightSleeveLength: 0, bodyLength: 0.4, bodyWidth: 0, necklineDepth: 0 }
+    const { body } = teeOutlinePoints({ shape })
+    // The wearer's left sleeve is on screen right; its cuff doubles its reach.
+    expect(body[1]![0]).toBeCloseTo(1.12, 5)
+    expect(body[8]![0]).toBeCloseTo(0.01, 9)
+    expect(teeStillScale({ shape })).toBeLessThan(1)
+  })
+})

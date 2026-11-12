@@ -1,9 +1,10 @@
 import { cn } from '../../lib/cn'
 import { nextCreateStep } from '../../lib/create-steps'
-import { useEditorStore } from '../../lib/editor-store'
+import { useCanEditShape, useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { garmentStructural } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
+import { ShapeRail } from './ShapeRail'
 import {
   chromeKickerClass,
   chromeMutedClass,
@@ -19,6 +20,12 @@ export function StructureRail() {
   const createStep = useEditorStore((state) => state.createStep)
   const setCreateStep = useEditorStore((state) => state.setCreateStep)
   const fields = garmentStructural({ garmentId })
+  const shaped = useCanEditShape()
+
+  // A model with a shape map gets sliders in place of the crew/v, crop/long toggles.
+  if (shaped) {
+    return <ShapeRail />
+  }
 
   if (fields.length === 0) {
     return (
