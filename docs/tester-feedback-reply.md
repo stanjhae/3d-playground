@@ -6,7 +6,8 @@ A partner tested the alpha on a phone and on a desktop as a first-time user, and
 
 - The phase numbers refer to the internal feedback plan: 1 editor blockers, 2 navigation, 3 save and publish, 4 editor clarity, 5 graphics library, 6 shape editing v1, 7 these documents. You may want to drop them from the message you send.
 - Nothing here promises a date or anything `docs/claims-audit.md` doesn't allow. In particular there is **no live AI** anywhere in the product, and the reply doesn't say otherwise.
-- We haven't seen the two videos the tester mentioned yet. Two answers (mobile overlap, landing demo) say what we found in the code and ask for the videos plus device and browser to confirm.
+- We haven't seen the two videos the tester mentioned yet. Two answers (mobile overlap, landing demo) say what we found and fixed, and ask for the videos plus device and browser to confirm.
+- Phases 1–4 are built (PR #372), and so are the graphics library (phase 5) and shape editing v1 (phase 6), each in its own PR. Send this once they're live, or soften "fixed" to "fixed, going live soon".
 
 ---
 
@@ -14,85 +15,82 @@ A partner tested the alpha on a phone and on a desktop as a first-time user, and
 
 Hi,
 
-Thank you for testing so carefully, and for writing everything down. This is exactly the first-time-user view we can't get ourselves. None of the points read as too many: almost all of them are real, and several turned out to be bugs we hadn't caught. Below I go through them in your order and say for each one whether it's intentional, a bug or planned.
+Thank you for testing so carefully, and for writing everything down. This is exactly the first-time-user view we can't get ourselves. None of the points read as too many: almost all of them are real, and several turned out to be bugs we hadn't caught. Most are already fixed. Below I go through them in your order and say for each one whether it was intentional, a bug or planned, and what changed.
 
 ### 1. Mobile: elements overlapping the workspace
 
-**Bug.** On a phone the editor stacks a header, a step bar, a step description, the tools and sometimes a floating hint card into one screen. On smaller phones they crowd out or cover the 3D view, and the publish panel can take up most of the screen.
+**Bug, fixed.** On a phone the editor stacked a header, a step bar, a step description and the tools into one screen, and the publish panel could take up most of it. We also found that the browser could scroll the whole editor sideways out from under its own header, which left the tools sitting over the garment.
 
-We're fixing it with:
-- a much more compact header and step bar on phones;
+What changed:
+- a compact step bar, with Undo/Redo on the same row as Back and Continue;
 - step descriptions folded into one line you can expand;
-- hints that sit in the tools area instead of over the garment;
-- an automated test on a phone-sized screen that fails if anything covers the workspace on any step.
+- the publish panel capped at half the screen;
+- the editor frame can no longer be scrolled out of place.
 
-Could you send the video, plus your phone model and browser? Then we can check that we're fixing exactly what you saw. *(Phase 1a)*
+On a standard phone the 3D view is about a third taller than before. Could you send the video, plus your phone model and browser? Then we can check that this covers exactly what you saw. *(Phase 1a)*
 
 ### 2. Desktop: simplified T-shirt instead of the 3D model
 
-**Bug, and a good catch.** The real 3D T-shirt is meant to show everywhere, and there's no deliberate desktop/mobile difference. What happened: a design started from the sketch pad on the landing page was brought into the studio on an older, simpler T-shirt model. Designs saved before the new model arrived also stay on the old one.
+**Bug, and a good catch. Fixed.** The real 3D T-shirt is meant to show everywhere, and there's no deliberate desktop/mobile difference. What happened: a design started from the sketch pad on the landing page was brought into the studio on an older, simpler T-shirt model. Designs saved before the new model arrived also stay on the old one.
 
 On desktop the landing's sketch pad loads automatically, so desktop visitors are much more likely to go through that path. That's why it looked like a desktop difference.
 
-We're fixing it in two ways:
-- designs from the landing page will open on the real 3D T-shirt;
-- older designs will get a one-click "upgrade to the new 3D T-shirt" that keeps everything you placed on them. *(Phase 1b)*
+What changed:
+- designs from the landing page now open on the real 3D T-shirt;
+- older designs show a one-click "Use the new 3D T-shirt" that keeps everything you placed on them (sizes can shift a little, and Undo takes it back). *(Phase 1b)*
 
 ### 3. Landing page and navigation
 
-- **Live demo didn't work: bug, being investigated.** The landing page was rebuilt very recently. The current version has a sketch pad with a live 3D T-shirt next to it. On phones and tablets the 3D part only starts after you tap "Spin it in 3D". Until then you see a still picture, which can look like a broken demo. If the 3D view fails to load, the page currently falls back to that picture silently.
-
-  We'll make the tap-to-start much clearer, record those failures so we can see them, and check against your video. *(Phase 1h)*
-- **Demo less advanced than the real editor: intentional at first, now changing.** The landing used the lighter, older T-shirt model to keep the page fast. We'll switch it to the same real 3D T-shirt the editor uses, so what you see first matches what you get. *(Phase 1h)*
-- **Showing which section you're viewing: planned.** The section links ("How it works" etc.) will highlight as you scroll. We also found that on tablet-sized screens the section links didn't show at all, and that's being fixed too. *(Phase 2)*
-- **Active tab highlighting: bug.** Home and My Studio never showed as active. Every main tab will highlight the page you're on, like the steps in the editor do. *(Phase 2)*
-- **Create vs My Studio: bug.** You were right: with sign-in on, "Create" quietly sent you to My Studio, so the two did the same thing. We're splitting them:
-  - **Create** will open a "Start a design" page where you pick a garment or an example;
-  - **My Studio** will be your library of saved designs. *(Phase 2)*
+- **Live demo didn't work: bug, improved, to confirm with your video.** The landing page was rebuilt very recently. It has a sketch pad with a live 3D T-shirt next to it. On phones and tablets the 3D part only starts after you tap "Spin it in 3D", and until then you see a still picture, which can look like a broken demo. That button is now much more prominent. If the 3D view fails, the page now says so instead of silently showing the picture, and the failure is logged so we can see it. *(Phase 1h)*
+- **Demo less advanced than the real editor: was intentional, now changed.** The landing used the lighter, older T-shirt model to keep the page fast. It now shows the same real 3D T-shirt the editor uses, and its Front/Back/Left/Right buttons turn that model. *(Phase 1h)*
+- **Showing which section you're viewing: done.** The section links ("How it works" etc.) now highlight as you scroll. We also found that on tablet-sized screens the section links didn't show at all; that's fixed too. *(Phase 2)*
+- **Active tab highlighting: fixed.** Every main tab now highlights the page you're on, like the steps in the editor do. *(Phase 2)*
+- **Create vs My Studio: fixed.** You were right: with sign-in on, "Create" quietly sent you to My Studio, so the two did the same thing. Now:
+  - **Create** opens a "Start a new design" page where you pick a garment or an example;
+  - **My Studio** is your library of saved designs. *(Phase 2)*
 
 ### 4. Design process and usability
 
-- **Undo: bug (missing control).** Undo and redo exist, but in the drawing step they were only reachable with the keyboard, so on a phone they weren't reachable at all. There will be Undo and Redo buttons at the top of the editor on every step. *(Phase 1f)*
-- **Selecting a graphic, then clicking the garment: bug (unclear behaviour).** Tapping a graphic adds it straight away to the middle of the side you're on. The next click on the garment then drew a brush line instead of placing anything, which is confusing. We're fixing it in three ways:
-  - you'll see a clear "Added to Front — drag to move" message;
-  - you'll be able to **drag graphics and images straight onto the garment**, in 2D and in 3D;
-  - dropping on an area that can't be printed (seams, collar) will tell you so instead of doing nothing. *(Phase 1d)*
-- **Deleting elements: bug (missing control).** Deleting was only possible with the keyboard or from the layers list. A selected element will get a small toolbar right next to it with Delete, Duplicate and Bring forward. *(Phase 1e)*
-- **Resizing uploaded images after placing them: bug (hard to reach).** Resize and rotate handles existed only on the flat 2D view, which phones mostly don't show. We're adding:
-  - tap an element on the 3D garment to select it, with size and rotation sliders always shown;
-  - pinch to resize and twist to rotate on touch screens. *(Phase 1e)*
-- **Drawing while rotating: bug, and an important one.** Any drag on the garment painted it, whichever tool was selected. From now on the garment only gets ink when the **Draw** tool is on. With every other tool, dragging the garment turns it. Inside Draw there will be a "rotate view" toggle, and two fingers always rotate on touch screens. Switching tools or steps leaves drawing mode. *(Phase 1c)*
-- **Bigger design area: planned.**
-  - Step descriptions and the step bar will get much smaller.
-  - On desktop you'll be able to fold away the flat 2D panel so the 3D garment gets the full width. *(Phases 1a and 1g)*
-- **Showing the real shape of each design surface: planned.** Today Front, Back and the sleeves are shown as plain rectangles. We'll draw each piece's actual outline and grey out what isn't printable. Each tab will get a small silhouette, and choosing a side will highlight that piece on the 3D garment. *(Phase 4)*
-- **Pro Tools: intentional, but too subtle.** Pro Tools shows precision controls: exact position and size fields, brush opacity, custom colours, named checkpoints and version history. It doesn't change the process itself, so it's easy to miss. The switch will say what it unlocks and point to the new controls when you turn it on. *(Phase 4)*
-- **"Coming soon" labels: planned.** Fits and options that aren't built yet will show as disabled with a "Coming soon" label. Also, the garment picker inside an existing design was silently ignored. It will now say that the garment is chosen when you start a new design. *(Phase 4)*
+- **Undo: bug (missing control), fixed.** Undo and redo existed, but in the drawing step only on the keyboard, so on a phone not at all. There are now Undo and Redo buttons in the editor on every step and screen size. *(Phase 1f)*
+- **Selecting a graphic, then clicking the garment: bug (unclear behaviour), fixed.** Tapping a graphic adds it straight away to the middle of the side you're on, and the next click on the garment used to draw a brush line instead, which was confusing. Now:
+  - you see a clear "added to the front, drag it on the garment to move it" message;
+  - you can **drag graphics straight onto the garment**, onto the flat sides or the 3D model;
+  - dropping somewhere that can't be printed (around the garment, the collar) says so instead of doing nothing. *(Phase 1d)*
+- **Deleting elements: bug (missing control), fixed.** Deleting was only possible with the keyboard or from the layers list. The selected element's panel now starts with **Remove** and **Duplicate**, and it scrolls into view when you select something. *(Phase 1e)*
+- **Resizing uploaded images after placing them: bug (hard to reach), fixed.** Resize and rotate handles existed only on the flat 2D view, which phones mostly don't show. Now tapping an element on the 3D garment selects it, and its size and rotation sliders are always shown, with or without Pro Tools. Pinch-to-resize on touch screens is next. *(Phase 1e)*
+- **Drawing while rotating: bug, and an important one. Fixed.** Any drag on the garment painted it, whichever tool was selected. Now the garment only gets ink when the **Draw** tool is on; with every other tool, dragging turns it. Inside Draw there's a **Rotate view** button, and switching tools or steps leaves it. *(Phase 1c)*
+- **Bigger design area: done.**
+  - Step descriptions and the step bar are much smaller on phones.
+  - On desktop you can fold away the flat sides ("Hide flat sides") so the 3D garment gets the full width. *(Phases 1a and 1g)*
+- **Showing the real shape of each design surface: done.** Front, Back and the sleeves used to be plain rectangles. Each now shows the piece's actual shape, with everything that falls off the garment shaded, so you can see where a design will and won't print. *(Phase 4)*
+- **Pro Tools: intentional, but too subtle. Clearer now.** Pro Tools shows precision controls: brush colour, size and opacity, exact size, angle and position numbers, copy to the opposite side, and named checkpoints and versions. It doesn't change the process itself, so it was easy to miss. The switch now says what it adds, briefly, each time you turn it on. *(Phase 4)*
+- **"Coming soon" labels: done.** Fits that aren't built yet show as disabled with a "Coming soon" label. The garment picker inside an existing design, which was silently ignored, now says a design keeps its garment and links to starting a new one. *(Phase 4)*
 
 ### 5. Saving, publishing and My Studio
 
-- **Private saving vs publishing: bug (unclear).** Designs save automatically and privately as you work, but the only button was Publish, so the "private" text read like a contradiction. The last step will have two clear choices: **Save privately** and **Publish publicly**. The save status will also say "Saved privately". *(Phase 3)*
-- **Publishing later from My Studio: planned.** Private designs in My Studio will get a "Publish…" action, and published ones an "Unpublish" action. *(Phase 3)*
-- **Editing saved designs: intentional, but hard to find.** It already works: clicking a design's title in My Studio reopens it in the editor. That clearly isn't obvious, so each card will get an explicit **Edit** button, and the picture will open the design too. *(Phase 3)*
+- **Private saving vs publishing: bug (unclear), fixed.** Designs save automatically and privately as you work, but the only button was Publish, so the "private" text read like a contradiction. The last step now has two clear choices, **Save privately** and **Publish publicly**, and the save status says "Saved privately". *(Phase 3)*
+- **Publishing later from My Studio: done.** Private designs in My Studio have a **Publish…** button, and published ones an **Unpublish** button. *(Phase 3)*
+- **Editing saved designs: intentional, but hard to find. Clearer now.** It already worked by clicking a design's title, which clearly wasn't obvious. Each card now has an **Edit** button, and the picture opens the design too. *(Phase 3)*
 
 ### 6. Voting, ranking and preview
 
-- **Voting in the main navigation: bug.** The voting board exists, but it was hidden from the menu once sign-in became required. "Vote" will be in the main navigation. *(Phase 2)*
-- **Rankings: planned.** Today you can vote on a design's page and see its count, but there's no ranking view yet. The voting page will get two tabs:
-  - **Vote**, for discovering designs;
-  - **Rankings**, with each design's place and vote count, filterable by garment.
+- **Voting in the main navigation: bug, fixed.** The voting board existed, but it was hidden from the menu once sign-in became required. **Vote** is now in the main navigation. *(Phase 2)*
+- **Rankings: done.** The voting page, now "Vote and rankings", has two tabs:
+  - **Rankings**, with each design's place and vote count, filterable by garment;
+  - **New**, the newest designs, for discovering and voting.
 
-  Your own published designs in My Studio will show their votes and rank. Every count comes from real accounts. *(Phase 2)*
-- **Tall Male vs Tall Female: bug (too little difference).** The preview figure is a simple mannequin that only changed in height, chest and waist, so the presets looked almost the same. The garment also didn't adapt to the figure. We'll give each preset clearly different proportions (shoulders, bust, hips) and fit the garment to the figure. This stays a visual preview, not a sizing tool. *(Phase 4)*
+  Your own published designs in My Studio show their rank and votes. Every count comes from real accounts. *(Phase 2)*
+- **Tall Male vs Tall Female: bug (too little difference), fixed.** The preview figure only changed in height, chest and waist, so the presets looked almost the same, and the real T-shirt didn't sit on it properly. There are now separate **Tall · Male** and **Tall · Female** models, every model is labelled, male and female figures have different shoulders, bust and hips, and the T-shirt sits on each one at its size. This stays a visual preview, not a sizing tool. *(Phase 4)*
 
 ### 7. Graphics, logos and design elements
 
 - **Fashion Leader logo:** being looked into separately.
-- **Why exactly these graphics: placeholders.** The flames, crosses and shapes were simple placeholder drawings, made to prove that placing, moving and layering graphics works. They were never meant as the final library, which is why they look rough on the new high-resolution T-shirt. There was also a technical reason they looked blurry, which we're fixing too.
-- **Searchable graphics library: planned.** We're building a curated, searchable library:
-  - many more detailed, high-quality vector graphics;
+- **Why exactly these graphics: placeholders.** The flames, crosses and shapes were simple placeholder drawings, made to prove that placing, moving and layering graphics works. They were never meant as the final library, which is why they look rough on the new high-resolution T-shirt. There was also a technical reason they looked blurry, which is fixed.
+- **Searchable graphics library: built.** There's now a curated, searchable library:
+  - 97 detailed vector graphics, drawn for us and cleared for use, replacing the placeholders;
   - categories (flames, crosses, symbols, patterns, florals, ornaments, shapes) and tags;
-  - a search box, so you can type "flames" or "cross" and filter.
+  - a search box, so you can type "flames" or "cross" and filter;
+  - graphics stay sharp on the high-resolution T-shirt.
 
   We're keeping it curated rather than pulling from the open internet. That way every graphic is cleared for use, looks good on a garment and stays sharp. And yes, adding more graphics doesn't change the workflow at all. *(Phase 5)*
 - **Your own artwork** still works alongside the library: you can upload your own PNG or JPEG images.
@@ -111,7 +109,7 @@ You're right that the MVP follows your **Workflow 2** today: pick an existing 3D
    - width, from fitted to boxy;
    - neckline depth.
 
-   Your prints and drawings stay attached as the shape changes. This is a contained addition to the current editor, and we're starting on it now. *(Phase 6)*
+   Your prints and drawings stay attached as the shape changes. This is a contained addition to the current editor, and a first version is built. *(Phase 6)*
 2. **Editing the garment's pattern in 2D.** This is how real garments are made. The garment is described as flat 2D pattern pieces (front, back, sleeves) sewn together. Change a piece's outline in 2D, for an asymmetric cut, a new neckline or a different silhouette, and the 3D garment is rebuilt from the pieces by simulating the fabric.
 
    This is the full version of Workflow 1, including drawing new outlines. It needs a new core (a pattern editor and fabric simulation), so it's a larger, later stage. Our editor already treats the flat 2D design as the source of truth, which is the right foundation for it.
@@ -125,7 +123,7 @@ You're right that the MVP follows your **Workflow 2** today: pick an existing 3D
 - Level 3 depends on outside AI technology that is moving fast. It makes the most sense once level 2 exists, so the AI has something real and editable to produce.
 
 **Is it planned, or a different architecture?**
-- Level 1 is planned and starts now.
+- Level 1 has a first version built.
 - Level 2 extends the current architecture: today the flat 2D design describes what's *printed* on a fixed garment, and it would also describe the garment's *pieces*.
 - Level 3 would be built on top of level 2.
 
@@ -148,31 +146,33 @@ Chijindu
 
 ## Status summary
 
-| # | Point | Status | Phase |
+| # | Point | Status | Where |
 | --- | --- | --- | --- |
-| 1 | Mobile elements overlapping the workspace | Bug | 1a |
-| 2 | Desktop shows the simplified tee | Bug | 1b |
-| 3 | Landing live demo not working | Bug (to confirm with video) | 1h |
-| 3 | Landing demo less advanced than the editor | Intentional (speed), changing | 1h |
-| 3 | Which section is in view | Planned | 2 |
-| 3 | Active nav tab highlight | Bug | 2 |
-| 3 | Create vs My Studio the same | Bug | 2 |
-| 4 | Undo button | Bug (missing control) | 1f |
-| 4 | Graphic, then click the garment | Bug (unclear behaviour) | 1d |
-| 4 | Deleting elements | Bug (missing control) | 1e |
-| 4 | Resizing uploaded images | Bug (hard to reach) | 1e |
-| 4 | Painting while rotating | Bug | 1c |
-| 4 | Bigger design area | Planned | 1a, 1g |
-| 4 | Real shape of each surface | Planned | 4 |
-| 4 | Pro Tools difference | Intentional, too subtle | 4 |
-| 4 | Coming soon labels | Planned | 4 |
-| 5 | Save privately vs publish | Bug (unclear) | 3 |
-| 5 | Publish later | Planned | 3 |
-| 5 | Edit saved designs | Intentional, hard to find | 3 |
-| 6 | Voting in the main nav | Bug | 2 |
-| 6 | Rankings | Planned | 2 |
-| 6 | Tall Male vs Tall Female | Bug (too little difference) | 4 |
+| 1 | Mobile elements overlapping the workspace | Fixed (to confirm with video) | PR #372, 1a |
+| 2 | Desktop shows the simplified tee | Fixed | PR #372, 1b |
+| 3 | Landing live demo not working | Improved (to confirm with video) | PR #372, 1h |
+| 3 | Landing demo less advanced than the editor | Changed: real tee | PR #372, 1h |
+| 3 | Which section is in view | Done | PR #372, 2 |
+| 3 | Active nav tab highlight | Fixed | PR #372, 2 |
+| 3 | Create vs My Studio the same | Fixed | PR #372, 2 |
+| 4 | Undo button | Fixed | PR #372, 1f |
+| 4 | Graphic, then click the garment | Fixed (drag onto the garment) | PR #372, 1d |
+| 4 | Deleting elements | Fixed (Remove in the selected-item panel) | PR #372, 1e |
+| 4 | Resizing uploaded images | Fixed (sliders on select); pinch next | PR #372, 1e |
+| 4 | Painting while rotating | Fixed (ink only with Draw, Rotate view) | PR #372, 1c |
+| 4 | Bigger design area | Done | PR #372, 1a, 1g |
+| 4 | Real shape of each surface | Done (shaded off-garment areas) | PR #372, 4 |
+| 4 | Pro Tools difference | Explained in the switch | PR #372, 4 |
+| 4 | Coming soon labels | Done | PR #372, 4 |
+| 5 | Save privately vs publish | Fixed | PR #372, 3 |
+| 5 | Publish later | Done | PR #372, 3 |
+| 5 | Edit saved designs | Edit button added | PR #372, 3 |
+| 6 | Voting in the main nav | Fixed | PR #372, 2 |
+| 6 | Rankings | Done | PR #372, 2 |
+| 6 | Tall Male vs Tall Female | Fixed | PR #372, 4 |
 | 7 | Fashion Leader logo | Being looked into | — |
-| 7 | Why these graphics | Placeholders | 5 |
-| 7 | Searchable library, more detail | Planned | 5 |
-| 8 | Shape editing (Workflow 1) | Planned, staged | 6, then later (see `docs/research/2d-to-3d.md`) |
+| 7 | Why these graphics | Placeholders, replaced | Graphics PR, 5 |
+| 7 | Searchable library, more detail | Built | Graphics PR, 5 |
+| 8 | Shape editing (Workflow 1) | Level 1 built; later levels staged | Shape PR, 6; see `docs/research/2d-to-3d.md` |
+
+**Not built yet** (from the plan, worth a follow-up): pinch-to-resize and twist-to-rotate on the 3D garment, two-finger rotate while drawing, a small toolbar beside the selected element, hint cards docked into the tools on phones, an automated "nothing covers the workspace" phone test, silhouettes on the side tabs and highlighting the chosen side on the 3D garment.
