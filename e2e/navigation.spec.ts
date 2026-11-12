@@ -24,6 +24,8 @@ test('Create starts a new design, My Studio is the library, and the current tab 
   await site.getByRole('link', { name: 'Create' }).click()
   await expect(page.getByRole('heading', { name: 'Start a new design' })).toBeVisible()
   await expect(site.getByRole('link', { name: 'Create' })).toHaveAttribute('aria-current', 'page')
+  // Only one tab is current: Create's page is under /studio, but it isn't My Studio.
+  await expect(site.getByRole('link', { name: 'My Studio' })).not.toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('heading', { name: 'Your designs' })).toHaveCount(0)
 
   await page.getByRole('radiogroup', { name: 'Garment' }).getByRole('radio', { name: /Hoodie/ }).click()

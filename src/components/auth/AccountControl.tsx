@@ -29,7 +29,16 @@ export function AccountControl({ studioActive = false }: { studioActive?: boolea
 
   return (
     <div className="flex items-center gap-2 font-body text-sm">
-      <Link to="/studio" aria-current={studioActive ? 'page' : undefined} className={navLinkClass({ active: studioActive })}>
+      {/*
+        Exact: the router otherwise counts /studio?new=true (Create's page) as
+        this link's too and adds its own aria-current, marking two tabs.
+      */}
+      <Link
+        to="/studio"
+        activeOptions={{ exact: true }}
+        aria-current={studioActive ? 'page' : undefined}
+        className={navLinkClass({ active: studioActive })}
+      >
         {FLV_COPY.myStudio}
       </Link>
       <span className="hidden max-w-40 truncate text-xs text-flv-muted sm:inline" title={email ?? undefined}>
