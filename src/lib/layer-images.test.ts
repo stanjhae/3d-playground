@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { type DesignDocument, createEmptyDocument } from './design-document'
-import { countUnavailableImages, loadLayerImages } from './layer-images'
+import { SVG_RASTER_LONG_EDGE, countUnavailableImages, isSvgSrc, layerRasterSize, loadLayerImages } from './layer-images'
 import type { AtlasBuffer } from './paint-atlas'
 
 function documentWith({ layers }: { layers: DesignDocument['layers'] }): DesignDocument {
@@ -86,5 +86,36 @@ describe('loadLayerImages', () => {
       })
     })
     expect(loaded).toEqual({ '/ok.png': pixels })
+  })
+})
+
+describe('layer raster size', () => {
+  test('an SVG is drawn with its long edge at the atlas size, keeping its aspect', () => {
+    expect(SVG_RASTER_LONG_EDGE).toBe(2048)
+    expect(layerRasterSize({ width: 400, height: 560, svg: true })).toEqual({ width: 1463, height: 2048 })
+    expect(layerRasterSize({ width: 800, height: 200, svg: true })).toEqual({ width: 2048, height: 512 })
+    expect(layerRasterSize({ width: 120, height: 160, svg: true })).toEqual({ width: 1536, height: 2048 })
+  })
+
+  test('a small SVG is scaled up, not drawn at its natural size', () => {
+    expect(layerRasterSize({ width: 24, height: 24, svg: true })).toEqual({ width: 2048, height: 2048 })
+  })
+
+  test('an SVG with no intrinsic size is drawn square', () => {
+    expect(layerRasterSize({ width: 0, height: 0, svg: true })).toEqual({ width: 2048, height: 2048 })
+  })
+
+  test('a raster image keeps its natural size, capped', () => {
+    expect(layerRasterSize({ width: 300, height: 200, svg: false })).toEqual({ width: 300, height: 200 })
+    expect(layerRasterSize({ width: 4000, height: 200, svg: false })).toEqual({ width: 1024, height: 200 })
+  })
+
+  test('knows an SVG source', () => {
+    expect(isSvgSrc({ src: '/graphics/rose.svg' })).toBe(true)
+    expect(isSvgSrc({ src: '/graphics/rose.SVG?v=2#x' })).toBe(true)
+    expect(isSvgSrc({ src: 'data:image/svg+xml;base64,PHN2Zz4=' })).toBe(true)
+    expect(isSvgSrc({ src: 'data:image/png;base64,AAAA' })).toBe(false)
+    expect(isSvgSrc({ src: '/uploads/photo.png' })).toBe(false)
+    expect(isSvgSrc({ src: '/uploads/svg.png' })).toBe(false)
   })
 })

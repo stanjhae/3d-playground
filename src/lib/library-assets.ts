@@ -1,7 +1,7 @@
-import { GRAPHIC_ASSETS } from './graphics-library.ts'
+import { GRAPHIC_IDS } from './graphics-ids.gen.ts'
 
 /**
- * Graphics shipped with the app are not uploads: they get stable
+ * Graphics shipped with the app (public/graphics/<id>.svg) are not uploads: they get stable
  * `asset_lib_<slug>` ids that need no asset row, and their bytes always
  * come from the app bundle. Every other image id must be a finalized
  * upload (S01 #170).
@@ -10,7 +10,7 @@ import { GRAPHIC_ASSETS } from './graphics-library.ts'
 const LIBRARY_PREFIX = 'asset_lib_'
 
 export const LIBRARY_ASSET_SOURCES: Readonly<Record<string, string>> = Object.freeze(
-  Object.fromEntries(GRAPHIC_ASSETS.map((asset) => [`${LIBRARY_PREFIX}${asset.id}`, asset.src])),
+  Object.fromEntries(GRAPHIC_IDS.map((id) => [`${LIBRARY_PREFIX}${id}`, `/graphics/${id}.svg`])),
 )
 
 const LIBRARY_ID_BY_SOURCE = new Map(

@@ -19,6 +19,55 @@ export function listLayerSrcs({
     .map((layer) => layer.src)
 }
 
+/** Raster images are decoded at their own size, up to this on each side. */
+export const RASTER_MAX_EDGE = 1024
+
+/**
+ * Vector graphics are drawn at the cloth's resolution instead: the long
+ * edge matches the tee v4 atlas (2048), so marks stay crisp when scaled up.
+ */
+export const SVG_RASTER_LONG_EDGE = 2048
+
+export function isSvgSrc({ src }: { src: string }) {
+  if (src.startsWith('data:')) {
+    return /^data:image\/svg\+xml[;,]/i.test(src)
+  }
+
+  return /\.svg$/i.test(src.split(/[?#]/)[0] ?? '')
+}
+
+/**
+ * The size a layer image is decoded at. SVGs are scaled so their long edge
+ * is `longEdge`, keeping their aspect; an SVG with no intrinsic size is
+ * treated as square. Other images keep their natural size, capped.
+ */
+export function layerRasterSize({
+  width,
+  height,
+  svg,
+  longEdge = SVG_RASTER_LONG_EDGE,
+}: {
+  width: number
+  height: number
+  svg: boolean
+  longEdge?: number
+}) {
+  if (svg) {
+    const w = width > 0 ? width : 1
+    const h = height > 0 ? height : w
+    const scale = longEdge / Math.max(w, h)
+    return {
+      width: Math.max(1, Math.round(w * scale)),
+      height: Math.max(1, Math.round(h * scale)),
+    }
+  }
+
+  return {
+    width: Math.max(1, Math.min(RASTER_MAX_EDGE, width)),
+    height: Math.max(1, Math.min(RASTER_MAX_EDGE, height)),
+  }
+}
+
 export async function decodeLayerImage({
   src,
 }: {
@@ -31,8 +80,11 @@ export async function decodeLayerImage({
   return new Promise((resolve) => {
     const image = new Image()
     image.onload = () => {
-      const width = Math.max(1, Math.min(1024, image.width))
-      const height = Math.max(1, Math.min(1024, image.height))
+      const { width, height } = layerRasterSize({
+        width: image.naturalWidth || image.width,
+        height: image.naturalHeight || image.height,
+        svg: isSvgSrc({ src }),
+      })
       const canvas = document.createElement('canvas')
       canvas.width = width
       canvas.height = height
