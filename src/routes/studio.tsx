@@ -33,7 +33,7 @@ import type { PendingAsset } from '../lib/legacy-import'
 import { uploadPendingAssets } from '../lib/legacy-assets'
 import { initialStudioDocument } from '../lib/studio-create'
 import { EXAMPLE_DESIGN_TITLE, createExampleDocument } from '../lib/example-design'
-import { getGarment, listRailGarments } from '../lib/garments'
+import { getGarment, listRailGarments, printAreas } from '../lib/garments'
 import { resolveTemplate, templateForGarment } from '../lib/template-manifest'
 import { trackAssumption } from '../lib/assumption-events'
 
@@ -365,9 +365,7 @@ function MyStudio() {
             Start from an example
           </button>
           {newTemplate ? (
-            <p className="font-body text-xs text-flv-muted">
-              Prints on: {Object.values(newTemplate.regions).map((region) => region.label).join(', ')}
-            </p>
+            <p className="font-body text-xs text-flv-muted">Prints on: {printAreas({ garmentId: newGarment })}</p>
           ) : null}
         </div>
       </header>

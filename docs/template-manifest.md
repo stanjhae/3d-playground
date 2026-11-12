@@ -110,12 +110,13 @@ A downloaded garment becomes a template with `scripts/build-template.mjs` and a 
   - Every other vertex gets (−1, −1), which the ink shader (`apply-ink.ts`) leaves alone. Vertices shared between printed and unprinted triangles are split, so no ink smears across the atlas.
 - **Atlas:** panels are packed into a 2048² print atlas at one shared scale (the hoodie gets about 17 px/cm). A mark therefore prints at the same physical size on every panel, and each panel's `surface` is its true shape (`stretchY` 1).
 - **Manifest:** the builder writes `src/lib/templates/<id>.ts`, which pins the GLB's sha256. Register the manifest in `TEMPLATE_ARCHIVE` and `CURRENT_VERSIONS`. Any rebuild that changes the GLB needs a new version.
-- **Runtime:** canonical panel ids equal the render panel ids, so there is no mirroring or sleeve swap. `toRenderDocument` hands the rectangles and atlas size to the renderer (`panelUv`, `atlasSize`), and the painter, picking and pointer code read them.
+- **Sleeves route like the tee's.** Canonical ids name the wearer's side: `left` is the wearer's left sleeve, labelled "Left sleeve" as worn. Render ids name the camera's side, where render `left` is the wearer's right, on every garment. The builder sets this routing (`renderPanel`) from the panel id and refuses a piece map that sets its own, or a `left` or `right` sleeve seen from the other side. So the editor tabs, the sleeve camera presets and the published side views mean the same sleeve on every garment. `glb-templates.test.ts` checks the sides against each sleeve's measured centre.
+- **Runtime:** only the back is mirrored (`renderMirrorX`). `toRenderDocument` hands the rectangles and atlas size to the renderer (`panelUv`, `atlasSize`, keyed by render panel), and the painter, picking and pointer code read them. The camera fits the model by its `bounds` and aims each sleeve view at that render panel's `center`.
 
 | Template | Panels | GLB |
 | --- | --- | --- |
 | `hoodie@1` | front, back, left/right sleeve, hood left/right | `public/models/hoodie.glb` (`templates/hoodie.pieces.json`) |
-| `tee-crew-short@4` | front, back, left/right sleeve (render routing kept: wearer's left on render `right`) | `public/models/tee-real.glb` (`templates/tee.pieces.json`); new tee designs pin it, and `@1`–`@3` designs keep the procedural tee |
+| `tee-crew-short@4` | front, back, left/right sleeve | `public/models/tee-real.glb` (`templates/tee.pieces.json`); new tee designs pin it, and `@1`–`@3` designs keep the procedural tee |
 | `mixed@1`, `coat@1`, `suit@1`, `tailored@1` | front, back, left/right sleeve | `public/models/<id>.glb` (`templates/<id>.pieces.json`) |
 | `slip@1`, `overall@1`, `gown@1` | front, back | `public/models/slip.glb`, `overall.glb`, `garment-print.glb` |
 

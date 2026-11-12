@@ -9,9 +9,9 @@
   "panels": [
     { "id": "front", "label": "Front", "view": "front", "pieces": [{ "node": "body-3" }] },
     { "id": "back", "label": "Back", "view": "back", "pieces": [{ "node": "body" }] },
-    { "id": "left", "label": "Wearer's left sleeve", "view": "left", "pieces": [{ "node": "body-7" }, { "node": "body-4", "piece": "largest" }] },
-    { "id": "right", "label": "Wearer's right sleeve", "view": "right", "pieces": [{ "node": "body-1" }, { "node": "body-2" }] },
-    { "id": "hood-left", "label": "Hood, wearer's left", "view": "left", "pieces": [{ "node": "body-5", "piece": "largest" }] },
-    { "id": "hood-right", "label": "Hood, wearer's right", "view": "right", "pieces": [{ "node": "body-6" }] }
+    { "id": "left", "label": "Left sleeve", "view": "left", "pieces": [{ "node": "body-7" }, { "node": "body-4", "piece": "largest" }] },
+    { "id": "right", "label": "Right sleeve", "view": "right", "pieces": [{ "node": "body-1" }, { "node": "body-2" }] },
+    { "id": "hood-left", "label": "Hood, left side", "view": "left", "pieces": [{ "node": "body-5", "piece": "largest" }] },
+    { "id": "hood-right", "label": "Hood, right side", "view": "right", "pieces": [{ "node": "body-6" }] }
   ]
 }

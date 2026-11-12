@@ -176,7 +176,7 @@ export const TEE_CREW_SHORT_V1: TemplateManifest = Object.freeze({
       ],
     },
     left: {
-      label: "Wearer's left sleeve",
+      label: 'Left sleeve',
       renderPanel: 'right',
       renderMirrorX: false,
       mesh: 'body-sleeve-right',
@@ -188,7 +188,7 @@ export const TEE_CREW_SHORT_V1: TemplateManifest = Object.freeze({
       ],
     },
     right: {
-      label: "Wearer's right sleeve",
+      label: 'Right sleeve',
       renderPanel: 'left',
       renderMirrorX: false,
       mesh: 'body-sleeve-left',

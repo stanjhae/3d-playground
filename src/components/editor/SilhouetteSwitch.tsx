@@ -7,7 +7,7 @@ import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { CONCEPT_FEATURES, showsGarmentInStudio } from '../../lib/concept-flags'
-import { garmentCanPaint, garmentCredit } from '../../lib/garments'
+import { garmentCanPaint, garmentCredit, garmentPanels, printAreas } from '../../lib/garments'
 import {
   GARMENT_CATEGORIES,
   garmentCategory,
@@ -200,9 +200,11 @@ export function SilhouetteSwitch({
             {selected.label} / {FIT_LABEL[selected.id] ?? FLV_COPY.selectFitClassic}
           </p>
           <p className={chromeMutedClass()}>
-            {canPaint
-              ? 'A crew-neck, short-sleeve tee with four print areas: front, back and both sleeves.'
-              : 'Seated Style3D form for color, preview, and publish. Print studio is on the tee.'}
+            {!canPaint
+              ? 'Seated Style3D form for color, preview, and publish. Print studio is on the tee.'
+              : selected.id === 'tee'
+                ? 'A crew-neck, short-sleeve tee with four print areas: front, back and both sleeves.'
+                : `${garmentPanels({ garmentId: selected.id }).length} print areas: ${printAreas({ garmentId: selected.id })}.`}
           </p>
           <div className="flex flex-col gap-2">
             <p className={chromeTextClass()}>{FLV_COPY.selectAvailableColors}</p>
