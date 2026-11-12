@@ -36,7 +36,11 @@ test('the editor stays inside its byte and frame budgets', async ({ page, browse
     process.env.E2E_SERVER !== 'preview' && !process.env.E2E_BASE_URL,
     'Needs the production build: E2E_SERVER=preview, or E2E_BASE_URL',
   )
-  test.setTimeout(120_000)
+  // The harness's time, not a budget: on CI's software WebGL the orbit drags
+  // alone take most of a minute, and the whole test ran 1.2–1.9 min across
+  // branches on 12 Nov (locally under one), so two minutes timed out on
+  // slower runners. The budgets are the expectations below.
+  test.setTimeout(180_000)
 
   // Time spent inside each animation frame callback. With software WebGL
   // the draw calls run on the CPU inside it, so this is the frame's cost
