@@ -13,7 +13,7 @@ import { trackAssumption } from '../../lib/assumption-events'
 import type { DesignDocument, PanelId } from '../../lib/design-document'
 import { type DesignTool, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { surfaceGesture } from '../../lib/surface-gesture'
-import { outsideVeil, usePanelShapes } from '../../lib/panel-shape'
+import { ensurePanelShapes, outsideVeil, usePanelShapes } from '../../lib/panel-shape'
 import { carriesGraphic, droppedGraphic } from '../../lib/graphic-drag'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
@@ -28,6 +28,7 @@ import {
   panelTrueAspect,
   hitLayerHandle,
   hitPlaceableLayer,
+  layerVoice,
   placedType,
   wordEditShouldCommit,
   wordEditorWidth,
@@ -41,6 +42,9 @@ import { SELECTION_COLOR } from '../../lib/selection-chrome'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { cn } from '../../lib/cn'
+import { BringToFront, Copy, Trash2 } from 'lucide-react'
+import { announce } from '../../lib/studio-announcer'
+import { PanelShapeIcon } from './PanelShapeIcon'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
 import { CANONICAL_LIMITS } from '../../lib/canonical-document'
@@ -295,6 +299,91 @@ function WordOnCloth({
 }
 
 /** Chest line and collar band, faint and out of the pointer's way. */
+/**
+ * Remove, Duplicate and Bring forward right beside the selected mark, so
+ * nobody hunts for them (tester feedback). Sits above the mark, or below it
+ * when the mark is near the top of the panel; hidden while it is dragged.
+ */
+function SelectionToolbar({
+  layer,
+  canvasWidth,
+  canvasHeight,
+}: {
+  layer: PlaceableLayer
+  canvasWidth: number
+  canvasHeight: number
+}) {
+  const removeLayer = useEditorStore((state) => state.removeLayer)
+  const duplicateLayer = useEditorStore((state) => state.duplicateLayer)
+  const moveLayer = useEditorStore((state) => state.moveLayer)
+  const dragging = useEditorStore((state) => state.activeLayerEdit !== null)
+  const locked = layer.kind !== 'pattern' && layer.locked === true
+
+  if (dragging || locked) {
+    return null
+  }
+
+  const frame = canvasLayerFrame({ layer, width: canvasWidth, height: canvasHeight })
+  const top = (frame.y - frame.height / 2 - frame.rotateGap) / canvasHeight
+  const below = top < 0.14
+  const left = Math.min(0.85, Math.max(0.15, frame.x / canvasWidth))
+  const at = below ? (frame.y + frame.height / 2) / canvasHeight : top
+  const name = layerVoice({ layer })
+  const button =
+    'inline-flex size-9 items-center justify-center rounded-full text-flv-ink hover:bg-flv-soft hover:text-flv-accent'
+
+  return (
+    <div
+      role="toolbar"
+      aria-label={`${name} actions`}
+      className={cn(
+        'pointer-events-auto absolute z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-flv-line bg-white/95 p-0.5 shadow-md',
+        below ? 'mt-2' : '-translate-y-full -mt-2',
+      )}
+      style={{ left: `${left * 100}%`, top: `${Math.min(0.92, Math.max(0, at)) * 100}%` }}
+      // A press here is for the toolbar, not a stroke on the panel below.
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <button
+        type="button"
+        aria-label={`Remove ${name}`}
+        title="Remove"
+        className={button}
+        onClick={() => {
+          removeLayer({ layerId: layer.id })
+          announce({ message: `${name} removed. Undo brings it back.` })
+        }}
+      >
+        <Trash2 aria-hidden className="size-4" />
+      </button>
+      {layer.kind === 'pattern' ? null : (
+        <button
+          type="button"
+          aria-label={`Duplicate ${name}`}
+          title="Duplicate"
+          className={button}
+          onClick={() => {
+            duplicateLayer({ layerId: layer.id })
+          }}
+        >
+          <Copy aria-hidden className="size-4" />
+        </button>
+      )}
+      <button
+        type="button"
+        aria-label={`Bring ${name} forward`}
+        title="Bring forward"
+        className={button}
+        onClick={() => {
+          moveLayer({ layerId: layer.id, direction: 'up' })
+        }}
+      >
+        <BringToFront aria-hidden className="size-4" />
+      </button>
+    </div>
+  )
+}
+
 function PanelGuideOverlay({ guides }: { guides: PanelGuides }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden font-body text-[0.6rem] text-flv-muted">
@@ -394,6 +483,13 @@ function PaintSurface({
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
   const shapes = usePanelShapes((state) => state.shapes)
   const shapeSrc = usePanelShapes((state) => state.src)
+
+  // Without the 3D view (a phone's Draw view) the panels load the shapes themselves.
+  useEffect(() => {
+    if (documentState.modelSrc && documentState.panelUv) {
+      ensurePanelShapes({ modelSrc: documentState.modelSrc, panelUv: documentState.panelUv })
+    }
+  }, [documentState.modelSrc, documentState.panelUv])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -770,6 +866,9 @@ function PaintSurface({
       />
       {guides ? <PanelGuideOverlay guides={guides} /> : null}
       {snapGuides.length ? <SnapGuideOverlay guides={snapGuides} /> : null}
+      {selected && selected.panel === panel && !editingWord ? (
+        <SelectionToolbar layer={selected} canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
+      ) : null}
       {editingWord && selected?.kind === 'text' && selected.panel === panel ? (
         <WordOnCloth
           layer={selected}
@@ -816,6 +915,7 @@ export function PaintCanvas({
   const textScale = useEditorStore((state) => state.textScale)
   const typeDraft = useEditorStore((state) => state.typeDraft)
   const setPaintPanel = useEditorStore((state) => state.setPaintPanel)
+  const flashPanel = useEditorStore((state) => state.flashPanel)
   const layerImages = useLayerImages({ document: documentState })
   // Words draw in a fallback until their face loads, then redraw (#155).
   const textFaces = useTextFacesVersion()
@@ -910,6 +1010,12 @@ export function PaintCanvas({
       setDraftWord,
       setEditingWord,
       onActivate: () => {
+        // Moving to another side lights it on the garment; working on the
+        // same side doesn't flash on every stroke.
+        if (useEditorStore.getState().paintPanel !== panel) {
+          flashPanel({ panel })
+        }
+
         setPaintPanel({ paintPanel: panel })
       },
     }
@@ -932,12 +1038,15 @@ export function PaintCanvas({
               aria-pressed={paintPanel === panel.id}
               onClick={() => {
                 setPaintPanel({ paintPanel: panel.id })
+                // Show which piece of the garment that is.
+                flashPanel({ panel: panel.id })
               }}
-              className={cn('min-h-11', chromeTextClass(), {
+              className={cn('inline-flex min-h-11 items-center gap-1.5', chromeTextClass(), {
                 'text-flv-accent': paintPanel === panel.id,
                 'text-flv-muted hover:text-flv-accent': paintPanel !== panel.id,
               })}
             >
+              <PanelShapeIcon panel={panel.id} />
               {panel.label}
             </button>
           ))}

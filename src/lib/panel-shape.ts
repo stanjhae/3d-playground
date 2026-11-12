@@ -1,6 +1,7 @@
+import type { Mesh, Object3D } from 'three'
 import { create } from 'zustand'
 
-import type { PanelId } from './design-document'
+import type { DesignDocument, PanelId } from './design-document'
 
 type UvRect = { u0: number; v0: number; u1: number; v1: number }
 
@@ -122,4 +123,81 @@ export function outsideVeil({
   context.stroke()
   masks.set(key, canvas)
   return canvas
+}
+
+/** Every panel's printable triangles in a loaded model, from its print UVs. */
+export function shapesFromScene({
+  scene,
+  panelUv,
+}: {
+  scene: Object3D
+  panelUv: NonNullable<DesignDocument['panelUv']>
+}): Partial<Record<PanelId, number[]>> {
+  const shapes: Partial<Record<PanelId, number[]>> = {}
+
+  scene.traverse((object) => {
+    const mesh = object as Mesh
+
+    if (!mesh.isMesh || mesh.userData.printable === false) {
+      return
+    }
+
+    const uv1 = mesh.geometry.getAttribute('uv1')
+
+    if (!uv1) {
+      return
+    }
+
+    const index = mesh.geometry.getIndex()
+
+    for (const [panel, rect] of Object.entries(panelUv) as [PanelId, UvRect][]) {
+      const triangles = panelTriangles({ uvs: uv1.array, index: index ? index.array : null, rect })
+
+      if (triangles.length > 0) {
+        shapes[panel] = [...(shapes[panel] ?? []), ...triangles]
+      }
+    }
+  })
+
+  return shapes
+}
+
+const loading = new Set<string>()
+
+/**
+ * Loads the model on its own when the 3D view isn't mounted (a phone's
+ * Draw view), so the flat sides still show their true shapes. The file is
+ * the one the 3D view uses, so the browser usually has it already.
+ */
+export function ensurePanelShapes({
+  modelSrc,
+  panelUv,
+}: {
+  modelSrc: string
+  panelUv: NonNullable<DesignDocument['panelUv']>
+}) {
+  if (usePanelShapes.getState().src === modelSrc || loading.has(modelSrc)) {
+    return
+  }
+
+  loading.add(modelSrc)
+  void Promise.all([
+    import('three/examples/jsm/loaders/GLTFLoader.js'),
+    import('three/examples/jsm/loaders/DRACOLoader.js'),
+  ])
+    .then(async ([{ GLTFLoader }, { DRACOLoader }]) => {
+      const draco = new DRACOLoader().setDecoderPath('/draco/')
+      const gltf = await new GLTFLoader().setDRACOLoader(draco).loadAsync(modelSrc)
+      draco.dispose()
+
+      if (usePanelShapes.getState().src !== modelSrc) {
+        usePanelShapes.getState().setShapes({ src: modelSrc, shapes: shapesFromScene({ scene: gltf.scene, panelUv }) })
+      }
+    })
+    .catch(() => {
+      // No shapes: the panels stay plain rectangles, as before.
+    })
+    .finally(() => {
+      loading.delete(modelSrc)
+    })
 }

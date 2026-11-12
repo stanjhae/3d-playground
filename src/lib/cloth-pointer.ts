@@ -15,10 +15,12 @@ export type ClothDrag = {
 
 let drag: ClothDrag | null = null
 let painting = false
+// Two fingers on the cloth (a pinch or a two-finger turn) hold it too.
+let gesturing = false
 const holdListeners = new Set<(held: boolean) => void>()
 
 function notifyHold() {
-  const held = drag !== null || painting
+  const held = drag !== null || painting || gesturing
   for (const listener of holdListeners) {
     listener(held)
   }
@@ -37,7 +39,13 @@ export function onClothHold(listener: (held: boolean) => void) {
 }
 
 export function clothHeld() {
-  return drag !== null || painting
+  return drag !== null || painting || gesturing
+}
+
+/** A two-finger gesture takes or lets go of the cloth. */
+export function holdClothForGesture({ held }: { held: boolean }) {
+  gesturing = held
+  notifyHold()
 }
 
 export function startClothDrag({
@@ -111,5 +119,6 @@ export function endClothPaint() {
 export function resetClothPointer() {
   drag = null
   painting = false
+  gesturing = false
   notifyHold()
 }
