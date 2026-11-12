@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { storedRenderSrc, thumbnailKey } from './design-thumbnail'
+import { stillFrontBox, storedRenderSrc, thumbnailKey } from './design-thumbnail'
 import type { DesignSummary } from './flp-api/client'
 import { copyTitle, readStudioSort, visibleDesigns, writeStudioSort } from './my-studio-list'
 
@@ -49,6 +49,7 @@ describe('My Studio list', () => {
     expect(copyTitle({ title: 'Crest tee' })).toBe('Crest tee copy')
     expect(copyTitle({ title: 'x'.repeat(80) })).toHaveLength(80)
     expect(copyTitle({ title: '   ' })).toBe('Untitled tee copy')
+    expect(copyTitle({ title: '', garmentId: 'hoodie' })).toBe('Untitled hoodie copy')
   })
 
   test('the sort is remembered, and junk or failing storage gives recent', () => {
@@ -85,3 +86,26 @@ describe('card thumbnails', () => {
     expect(thumbnailKey({ design: base })).toBe(thumbnailKey({ design: { ...base, title: 'Renamed' } }))
   })
 })
+
+describe('stillFrontBox', () => {
+  test('the tee front sits across the body from the shoulders', () => {
+    expect(stillFrontBox({ tee: true, aspect: 6 / 7, width: 240, height: 260 })).toEqual({
+      x: 48,
+      y: 260 * 0.04,
+      width: 144,
+      height: 168,
+    })
+  })
+
+  test('another garment shows its own front panel, whole and centred at its shape', () => {
+    for (const aspect of [0.4, 0.86, 2]) {
+      const box = stillFrontBox({ tee: false, aspect, width: 240, height: 260 })
+      expect(box.width / box.height).toBeCloseTo(aspect)
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.y).toBeGreaterThanOrEqual(0)
+      expect(box.x * 2 + box.width).toBeCloseTo(240)
+      expect(box.y * 2 + box.height).toBeCloseTo(260)
+    }
+  })
+})
+

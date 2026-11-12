@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import { NotInAlpha } from '../components/ui/NotInAlpha'
+import { PublicationBoard } from '../components/vote/PublicationBoard'
 import { AUTH_REQUIRED } from '../lib/auth/supabase-client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -36,9 +36,10 @@ export const Route = createFileRoute('/vote')({
 
     return {}
   },
-  // The guest board is retired where sign-in is required (F09 #144), and
-  // is read-only everywhere: votes are by account on shared designs (V1).
-  component: AUTH_REQUIRED ? NotInAlpha : VotePage,
+  // Where sign-in is required the board lists published designs, on every
+  // garment (V2); votes are by account on each design's share page (V1).
+  // Guest builds keep the read-only sample board.
+  component: AUTH_REQUIRED ? PublicationBoard : VotePage,
 })
 
 function medalClass({

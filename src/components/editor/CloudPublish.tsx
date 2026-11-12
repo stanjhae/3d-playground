@@ -115,8 +115,8 @@ export function CloudPublish() {
     setNotice(null)
     const editor = useEditorStore.getState()
 
-    // Published views show the tee alone, never the try-on mannequin. This
-    // comes first so the wait for the atlas below covers the tee remounting;
+    // Published views show the garment alone, never the try-on mannequin. This
+    // comes first so the wait for the atlas below covers the garment remounting;
     // a publish that stops short puts the figure back.
     const triedOn = editor.avatarId
     let published = false
@@ -188,7 +188,9 @@ export function CloudPublish() {
           kind: KIND_BY_ANGLE[index]!,
           data: still.slice(still.indexOf(',') + 1),
         })),
-        stamp: drawn ? { templateVersion: drawn.template.version, compilerVersion: drawn.compilerVersion } : undefined,
+        stamp: drawn
+          ? { templateId: drawn.template.id, templateVersion: drawn.template.version, compilerVersion: drawn.compilerVersion }
+          : undefined,
       })
 
       if (!uploaded.ok) {

@@ -9,8 +9,20 @@ export const TAILORED_V1: TemplateManifest = {
   "geometry": {
     "kind": "glb",
     "file": "/models/tailored.glb",
-    "sha256": "d8d34788fa2a72cf4d3d01ea1cfb881067935f6613e5321c2f440a91f10922f3",
-    "generator": "scripts/build-template.mjs (templates/tailored.pieces.json)"
+    "sha256": "4298a971337e17dc0e8302968608972d9cbeca60d3d1fb7c7772b1e53027da40",
+    "generator": "scripts/build-template.mjs (templates/tailored.pieces.json)",
+    "bounds": {
+      "min": [
+        -0.278008,
+        0.103823,
+        -0.166283
+      ],
+      "max": [
+        0.277459,
+        1.65,
+        0.212744
+      ]
+    }
   },
   "atlas": {
     "width": 2048,
@@ -58,7 +70,12 @@ export const TAILORED_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.346027
-      }
+      },
+      "center": [
+        0.002241,
+        1.153815,
+        0.028081
+      ]
     },
     "back": {
       "label": "Back",
@@ -82,7 +99,12 @@ export const TAILORED_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.346027
-      }
+      },
+      "center": [
+        0.002156,
+        1.155835,
+        0.022941
+      ]
     },
     "left": {
       "label": "Wearer's left sleeve",
@@ -106,7 +128,12 @@ export const TAILORED_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.282139
-      }
+      },
+      "center": [
+        0.216146,
+        1.396365,
+        0.011748
+      ]
     },
     "right": {
       "label": "Wearer's right sleeve",
@@ -130,7 +157,12 @@ export const TAILORED_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.279514
-      }
+      },
+      "center": [
+        -0.215891,
+        1.389717,
+        0.015438
+      ]
     }
   }
 }

@@ -339,7 +339,7 @@ describe.skipIf(!env)('publication races against local Supabase', () => {
       }
     }
 
-    expect(Object.keys(JSON.parse(payload)).sort()).toEqual(['displayName', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
+    expect(Object.keys(JSON.parse(payload)).sort()).toEqual(['displayName', 'garmentId', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
 
     // History stays private too: the first version is never served.
     expect((await api({ path: `public/${slug}/image?seq=1` })).status).toBe(404)

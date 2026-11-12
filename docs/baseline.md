@@ -128,7 +128,7 @@ Refreshed 10 November 2026 (P4) on the P4 branch, which is `master` at `34808bf`
 | --- | --- | --- | --- |
 | All JS, gzip | 570 KiB | 534.6 KiB (37 chunks) | CI `check` job, `scripts/check-budgets.mjs` |
 | Largest JS chunk, gzip | 310 KiB | 173.2 KiB (`StudioStage`) | CI `check` job, `scripts/check-budgets.mjs` |
-| GLB per garment template | 1.2 MiB | 1.12 MiB max (`tailored.glb`, 1,149 KiB, 11 Nov; was `coat.glb`, 1,127 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
+| GLB per garment template | 1.2 MiB | 1.19 MiB max (`coat.glb`, 1,214 KiB, with print UVs, 11 Nov; was `tailored.glb`, 1,149 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
 | Editor first load, all bytes over the wire | 2.0 MiB | 611 KiB (the tee editor, signed in, cold cache) | CI browser tests, `e2e/budgets.spec.ts` |
 | Editor frame time on a laptop-class GPU | p95 ≤ 16.7 ms (60 fps); uncapped p95 ≤ 8 ms | 16.8 / 3.8 ms (30 Oct) | Manual |
 | Editor frame cost on CI (software WebGL), p95 of animation-frame callbacks | 8 ms | 1.1 ms (median 0.5 ms, 384 frames; first CI run of #344) | CI browser tests, `e2e/budgets.spec.ts` |
@@ -197,3 +197,7 @@ The image therefore downloads in parallel with the app, shows before React mount
 On a normal connection the first image appears in well under a second. These measurements are local; they need repeating on staging (#186).
 
 These are dev-server figures only if `E2E_BASE_URL` is unset. The dev server loads hundreds of unbundled modules, so its public-page time (≈47 s on Fast 3G) is meaningless; always measure a production build.
+
+## Print atlas size (11 Nov)
+
+Template-built garments print through a 2048² atlas, so 16 MiB of RGBA on the GPU, plus mipmaps. The procedural tee uses 512² (1 MiB). Only the garment being designed holds an atlas. Real models are pattern pieces at true scale, and each panel needs its own rectangle at about 12–21 px/cm, so a 512 atlas would blur a print. If memory on low-end devices shows up in the frame-time check, the first lever is lowering `atlas` in a template's pieces file and rebuilding it.

@@ -10,7 +10,19 @@ export const GOWN_V1: TemplateManifest = {
     "kind": "glb",
     "file": "/models/garment-print.glb",
     "sha256": "c979ca180694fc250ad7da768d5a8cd17030e437692296e161858ca13d0fb4e4",
-    "generator": "scripts/build-template.mjs (templates/gown.pieces.json)"
+    "generator": "scripts/build-template.mjs (templates/gown.pieces.json)",
+    "bounds": {
+      "min": [
+        -0.243124,
+        0,
+        -0.197851
+      ],
+      "max": [
+        0.24031,
+        1.65,
+        0.179531
+      ]
+    }
   },
   "atlas": {
     "width": 2048,
@@ -58,7 +70,12 @@ export const GOWN_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.292516
-      }
+      },
+      "center": [
+        -0.000827,
+        0.772055,
+        0.00818
+      ]
     },
     "back": {
       "label": "Back",
@@ -82,7 +99,12 @@ export const GOWN_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.292811
-      }
+      },
+      "center": [
+        -0.001767,
+        0.779797,
+        0.007434
+      ]
     }
   }
 }

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
+import { garmentOfTemplate, TEMPLATE_IDS } from '../template-manifest.ts'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
   type ApiError,
@@ -46,6 +47,8 @@ export type PublicDesign = {
   displayName: string | null
   seq: number
   publishedAt: string
+  /** The garment the published version was made on (`garments.ts`). */
+  garmentId: string
   /** Our image URLs; the sleeves only when that version has them. */
   renders: Record<BasePublicRenderKind, string> & Partial<Record<SleeveRenderKind, string>>
 }
@@ -73,9 +76,14 @@ function isRenderKind(value: unknown): value is PublicRenderKind {
 }
 
 /** What drew a set of views (C2): the garment template and the atlas compiler. */
-export type RenderBuildStamp = { templateVersion: number | null; compilerVersion: number | null }
+export type RenderBuildStamp = {
+  templateId: string | null
+  templateVersion: number | null
+  compilerVersion: number | null
+}
 
 const STAMP_FIELDS = ['templateVersion', 'compilerVersion'] as const
+const STAMP_KEYS: readonly string[] = [...STAMP_FIELDS, 'templateId']
 
 function isStampVersion(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 1000
@@ -101,7 +109,7 @@ export function parseRenderUpload({ value }: { value: unknown }):
   const record = value as Record<string, unknown>
 
   for (const key of Object.keys(record)) {
-    if (key !== 'seq' && key !== 'renders' && !(STAMP_FIELDS as readonly string[]).includes(key)) {
+    if (key !== 'seq' && key !== 'renders' && !STAMP_KEYS.includes(key)) {
       return invalid(`$.${key}`, 'unknown field')
     }
   }
@@ -110,6 +118,10 @@ export function parseRenderUpload({ value }: { value: unknown }):
     if (record[key] !== undefined && !isStampVersion(record[key])) {
       return invalid(`$.${key}`, 'expected a version number')
     }
+  }
+
+  if (record.templateId !== undefined && !(typeof record.templateId === 'string' && TEMPLATE_IDS.includes(record.templateId))) {
+    return invalid('$.templateId', 'expected a known garment template')
   }
 
   if (!Number.isInteger(record.seq) || (record.seq as number) < 1) {
@@ -141,6 +153,7 @@ export function parseRenderUpload({ value }: { value: unknown }):
     seq: record.seq as number,
     renders,
     stamp: {
+      templateId: (record.templateId as string | undefined) ?? null,
       templateVersion: (record.templateVersion as number | undefined) ?? null,
       compilerVersion: (record.compilerVersion as number | undefined) ?? null,
     },
@@ -265,7 +278,7 @@ export async function uploadRenders({
   const { data: version } = design
     ? await asUser
         .from('design_versions')
-        .select('seq')
+        .select('seq, template_id:content->template->>id, template_version:content->template->>version')
         .eq('design_id', designId)
         .eq('seq', parsed.seq)
         .maybeSingle()
@@ -273,6 +286,31 @@ export async function uploadRenders({
 
   if (!design || !version) {
     const error = notFound()
+    return respond({ status: error.status, body: error.body })
+  }
+
+  // Views drawn on another garment, or another version of it, than the
+  // saved version's own template would mislabel it. A stamp without the id
+  // (a tab opened before it was sent) is still held to the version number.
+  const pinned = version as { template_id?: string | null; template_version?: string | null }
+  const versionTemplate = pinned.template_id ?? null
+  const versionTemplateVersion = pinned.template_version ? Number(pinned.template_version) : null
+  const wrongTemplate = parsed.stamp.templateId !== null && parsed.stamp.templateId !== versionTemplate
+  const wrongVersion =
+    versionTemplateVersion !== null &&
+    parsed.stamp.templateVersion !== null &&
+    parsed.stamp.templateVersion !== versionTemplateVersion
+
+  if (wrongTemplate || wrongVersion) {
+    const error = apiError({
+      code: 'invalid',
+      message: 'These views were drawn on a different garment than this version',
+      issues: [
+        wrongTemplate
+          ? { path: '$.templateId', message: `expected ${versionTemplate ?? 'the version template'}` }
+          : { path: '$.templateVersion', message: `expected ${versionTemplateVersion}` },
+      ],
+    })
     return respond({ status: error.status, body: error.body })
   }
 
@@ -322,6 +360,7 @@ export async function uploadRenders({
         status: 'ready',
         storage_path: storagePath,
         sha256: checked.image.sha256,
+        template_id: parsed.stamp.templateId,
         template_version: parsed.stamp.templateVersion,
         compiler_version: parsed.stamp.compilerVersion,
       },
@@ -472,7 +511,8 @@ export async function unpublish({
   return respond({ status: 204 })
 }
 
-export type PublishedDesign = {
+/** A live publication, as the image route needs it: no garment. */
+export type Publication = {
   designId: string
   slug: string
   title: string
@@ -482,6 +522,9 @@ export type PublishedDesign = {
   renderPaths: Map<string, string>
 }
 
+/** A live publication with its garment, for the pages that show it. */
+export type PublishedDesign = Publication & { garmentId: string }
+
 /**
  * The live publication behind `slug`, or null when it is unknown, revoked
  * or missing a base view. The one place public reads decide what is
@@ -489,13 +532,13 @@ export type PublishedDesign = {
  * three views stays public (#179); `renderPaths` holds whichever exist.
  * Throws when the database can't answer: that isn't "not published".
  */
-export async function findPublishedDesign({
+export async function findPublication({
   admin,
   slug,
 }: {
   admin: SupabaseClient
   slug: string | undefined
-}): Promise<PublishedDesign | null> {
+}): Promise<Publication | null> {
   if (!slug || !SLUG.test(slug)) {
     return null
   }
@@ -535,6 +578,40 @@ export async function findPublishedDesign({
     publishedAt: publication.published_at as string,
     renderPaths,
   }
+}
+
+/**
+ * The live publication behind `slug` with its garment, which comes from the
+ * published version's own template. Only the pages that show the garment pay
+ * for the extra read; the image route uses `findPublication`.
+ */
+export async function findPublishedDesign({
+  admin,
+  slug,
+}: {
+  admin: SupabaseClient
+  slug: string | undefined
+}): Promise<PublishedDesign | null> {
+  const publication = await findPublication({ admin, slug })
+
+  if (!publication) {
+    return null
+  }
+
+  const { data: version, error } = await admin
+    .from('design_versions')
+    .select('template_id:content->template->>id, template_version:content->template->>version')
+    .eq('design_id', publication.designId)
+    .eq('seq', publication.seq)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error('version read failed', { cause: error })
+  }
+
+  const pinned = version as { template_id?: string | null; template_version?: string | null } | null
+
+  return { ...publication, garmentId: garmentOfTemplate({ id: pinned?.template_id, version: pinned?.template_version }) }
 }
 
 /**
@@ -601,6 +678,7 @@ export function publicDesignPayload({ published }: { published: PublishedDesign 
     displayName: published.displayName,
     seq: published.seq,
     publishedAt: published.publishedAt,
+    garmentId: published.garmentId,
     renders,
   }
 }
@@ -631,10 +709,10 @@ export async function readPublicImage({
     return gone()
   }
 
-  let published: PublishedDesign | null
+  let published: Publication | null
 
   try {
-    published = await findPublishedDesign({ admin, slug })
+    published = await findPublication({ admin, slug })
   } catch (error) {
     console.error('flp public image read failed', { error })
     return Response.json(
@@ -675,4 +753,60 @@ export async function readPublicImage({
       'X-Robots-Tag': PUBLIC_ROBOTS,
     },
   })
+}
+
+/** One published design on the board (V2): only what its share page shows. */
+export type BoardEntry = {
+  slug: string
+  title: string
+  displayName: string | null
+  garmentId: string
+  votes: number
+  publishedAt: string
+  /** Our stable URL for its front view. */
+  image: string
+}
+
+/** How many designs the board shows: the most voted, over every publication. */
+export const BOARD_LIMIT = 200
+
+/**
+ * GET /public — the board: every published design with its three base views,
+ * its garment (from the version's own template) and its votes, most voted
+ * first. Anonymous, like the share pages. One query (`flp_board`), which
+ * ranks and counts in the database, so no row cap or URL length bounds it.
+ */
+export async function readBoard({ admin, respond }: { admin: SupabaseClient; respond: Respond }) {
+  try {
+    const { data, error } = await admin.rpc('flp_board', { p_limit: BOARD_LIMIT })
+
+    if (error) {
+      throw error
+    }
+
+    const rows = (data ?? []) as Array<{
+      slug: string
+      title: string
+      display_name: string | null
+      version_seq: number
+      published_at: string
+      template_id: string | null
+      template_version: string | null
+      vote_count: number
+    }>
+    const designs: BoardEntry[] = rows.map((row) => ({
+      slug: row.slug,
+      title: row.title,
+      displayName: row.display_name,
+      garmentId: garmentOfTemplate({ id: row.template_id, version: row.template_version }),
+      votes: row.vote_count,
+      publishedAt: row.published_at,
+      image: publicImagePath({ slug: row.slug, seq: row.version_seq }),
+    }))
+
+    return respond({ status: 200, body: { designs } })
+  } catch (error) {
+    console.error('flp board read failed', { error })
+    return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+  }
 }

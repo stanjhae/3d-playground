@@ -9,8 +9,20 @@ export const SLIP_V1: TemplateManifest = {
   "geometry": {
     "kind": "glb",
     "file": "/models/slip.glb",
-    "sha256": "323f90fb7ce59efe0baa80344bb825f00c6b48be8dff569e6ab7cbfe11efc17d",
-    "generator": "scripts/build-template.mjs (templates/slip.pieces.json)"
+    "sha256": "5d5468ba0b801fa18800647c8a1f15983e8c0125799ad7578898c576204dbe42",
+    "generator": "scripts/build-template.mjs (templates/slip.pieces.json)",
+    "bounds": {
+      "min": [
+        -0.233472,
+        0.287309,
+        -0.171804
+      ],
+      "max": [
+        0.246443,
+        1.65,
+        0.196466
+      ]
+    }
   },
   "atlas": {
     "width": 2048,
@@ -58,7 +70,12 @@ export const SLIP_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.35209
-      }
+      },
+      "center": [
+        0.002405,
+        0.92733,
+        0.019888
+      ]
     },
     "back": {
       "label": "Back",
@@ -82,7 +99,12 @@ export const SLIP_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.352227
-      }
+      },
+      "center": [
+        0.002944,
+        0.934105,
+        0.021387
+      ]
     }
   }
 }

@@ -68,8 +68,55 @@ export function teeOutline({ width, height }: { width: number; height: number })
   return path
 }
 
-/** Draws the front panel onto a tee shape and returns a PNG data URL. */
-function drawStill({ atlas, color, aspect }: { atlas: AtlasBuffer; color: string; aspect: number }) {
+/**
+ * Where the front panel sits in a `width` × `height` still: across the tee's
+ * body from the shoulders, or, on any other garment, the panel itself at its
+ * true shape, as large as fits with a margin.
+ */
+export function stillFrontBox({
+  tee,
+  aspect,
+  width,
+  height,
+}: {
+  tee: boolean
+  aspect: number
+  width: number
+  height: number
+}) {
+  if (tee) {
+    const bodyWidth = width * 0.6
+    return { x: width * 0.2, y: height * 0.04, width: bodyWidth, height: bodyWidth / aspect }
+  }
+
+  const fit = Math.min((width * 0.84) / aspect, height * 0.9)
+  const boxWidth = fit * aspect
+  return { x: (width - boxWidth) / 2, y: (height - fit) / 2, width: boxWidth, height: fit }
+}
+
+/** A panel outline with softened corners. */
+function panelOutline({ x, y, width, height }: { x: number; y: number; width: number; height: number }) {
+  const path = new Path2D()
+  path.roundRect(x, y, width, height, Math.min(width, height) * 0.08)
+  return path
+}
+
+/**
+ * Draws the front panel and returns a PNG data URL: onto a tee shape for the
+ * tee, and as the garment's own front panel for every other garment, cut
+ * from that garment's own print atlas.
+ */
+function drawStill({
+  atlas,
+  color,
+  aspect,
+  tee,
+}: {
+  atlas: AtlasBuffer
+  color: string
+  aspect: number
+  tee: boolean
+}) {
   const source = document.createElement('canvas')
   source.width = atlas.width
   source.height = atlas.height
@@ -84,24 +131,24 @@ function drawStill({ atlas, color, aspect }: { atlas: AtlasBuffer; color: string
     return null
   }
 
-  const outline = teeOutline({ width: STILL_WIDTH, height: STILL_HEIGHT })
+  const box = stillFrontBox({ tee, aspect, width: STILL_WIDTH, height: STILL_HEIGHT })
+  const outline = tee ? teeOutline({ width: STILL_WIDTH, height: STILL_HEIGHT }) : panelOutline(box)
   context.save()
   context.clip(outline)
   context.fillStyle = color
   context.fillRect(0, 0, STILL_WIDTH, STILL_HEIGHT)
-  // The front panel at its true shape, across the body from the shoulders.
-  const front = atlasSourceRect({ panel: 'front', width: atlas.width, height: atlas.height })
-  const bodyWidth = STILL_WIDTH * 0.6
+  // The front panel at its true shape.
+  const front = atlasSourceRect({ panel: 'front', width: atlas.width, height: atlas.height, rects: atlas.panelUv })
   context.drawImage(
     source,
     front.sourceX,
     front.sourceY,
     front.sourceWidth,
     front.sourceHeight,
-    STILL_WIDTH * 0.2,
-    STILL_HEIGHT * 0.04,
-    bodyWidth,
-    bodyWidth / aspect,
+    box.x,
+    box.y,
+    box.width,
+    box.height,
   )
   context.restore()
   context.lineWidth = 1.5
@@ -129,6 +176,7 @@ async function drawFromHead({ designId }: { designId: string }): Promise<DesignT
       atlas,
       color: baseColorOf({ document: content }),
       aspect: projected.panelAspects?.front ?? 6 / 7,
+      tee: projected.garmentId === 'tee',
     })
     return src ? { kind: 'still', src } : null
   } finally {

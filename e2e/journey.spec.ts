@@ -119,7 +119,8 @@ test('create → edit → save → publish → view signed out → unpublish →
   await expect(anonymous.getByText('Creator-supplied preview, not a certified fit or manufacturing render.')).toBeVisible()
   const image = await anonymous.request.get(payload.renders.view_front)
   expect(image.headers()['cache-control']).toBe('no-store')
-  expect(Object.keys(payload).sort()).toEqual(['displayName', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
+  expect(payload.garmentId).toBe('tee')
+  expect(Object.keys(payload).sort()).toEqual(['displayName', 'garmentId', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
 
   // Both browsers are on the same source version, and it's the one saved.
   const headSeq = await page.evaluate(async (id) => {
