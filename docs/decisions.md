@@ -2,6 +2,22 @@
 
 Decisions that change scope or behaviour for the alpha (17 November until the entry of 9 Nov 2026, then 1 December until the entry of 11 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 12 Nov 2026: acting on the first external MVP test
+
+**Decided by:** owner, on the tester's feedback (reply and status per point: `docs/tester-feedback-reply.md`).
+
+- **All feedback is in scope**, in phases:
+  1. Editor blockers: mobile layout, the real 3D tee everywhere, painting only with the Draw tool, drag to place, visible delete, undo and redo, the landing demo.
+  2. Navigation: active tabs, scroll-spy, Create split from My Studio, Vote and Rankings in the main nav.
+  3. Save privately vs publish publicly, publish later, a visible Edit.
+  4. Editor clarity: real piece outlines, Pro Tools explained, Coming soon labels, distinct preview figures.
+  5. Graphics library.
+  6. Shape editing v1.
+- **Shape editing (the tester's "Workflow 1") starts as parametric shape v1** on the tee v4 template: each sleeve's length, body length, width and neckline depth, stored in the canonical document. Pattern editing with cloth simulation and AI sketch → 3D are **not built now**. They are written up as later tiers in `docs/research/2d-to-3d.md`, and "no live AI anywhere" (`docs/claims-audit.md`) is unchanged.
+- **The graphics library becomes curated and searchable**: in-house or clearly licensed vector graphics, with categories and tags, each source recorded. It won't use a third-party icon API, which would bring licensing, CSP and quality problems.
+- **The Fashion Leader / FLV logo item is set aside** for a separate decision. The current mark stays untouched for now.
+- **Rankings** come back in scope as a tab on `/vote`, built only from real account votes. This supersedes the hidden "Top designs" sample, which stays hidden.
+
 ## 11 Nov 2026: no fixed date; the alpha ships when it meets the quality bars
 
 **Decided by:** owner.
