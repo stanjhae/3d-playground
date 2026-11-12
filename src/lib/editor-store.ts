@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import { DEFAULT_AVATAR_MEASUREMENTS } from './avatars'
+import type { AvatarMeasurements } from './avatar-geometry'
 import { garmentPanels } from './garments'
 import {
   applyCommand,
@@ -98,11 +99,7 @@ export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'left' | 'right' 
 export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
 export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
 
-export type AvatarMeasurements = {
-  height: number
-  chest: number
-  waist: number
-}
+export type { AvatarMeasurements } from './avatar-geometry'
 
 export const BASE_FINISH_PRESETS = [
   { id: 'matte', label: 'Matte', fabricId: 'cotton' },
@@ -1096,6 +1093,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         height: measurements.height ?? state.avatarMeasurements.height,
         chest: measurements.chest ?? state.avatarMeasurements.chest,
         waist: measurements.waist ?? state.avatarMeasurements.waist,
+        hip: measurements.hip ?? state.avatarMeasurements.hip,
+        build: measurements.build ?? state.avatarMeasurements.build,
       },
     }))
   },

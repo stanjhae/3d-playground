@@ -62,7 +62,7 @@ async function sceneShot({ page }: { page: Page }) {
 
 /** Try-on is opt-in on the publish step: put the tee on the first figure. */
 async function tryOn({ page }: { page: Page }) {
-  await page.getByRole('button', { name: 'Tall' }).click()
+  await page.getByRole('button', { name: 'Tall · Male', exact: true }).click()
 }
 
 async function viewFrom({ page, side }: { page: Page; side: string }) {
@@ -226,7 +226,7 @@ test('publishing with a figure tried on photographs the tee alone', async ({ pag
   await page.getByRole('button', { name: 'Publish publicly…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
   await expect(page.getByText(new RegExp(`Published v${seq}\\b`))).toBeVisible({ timeout: 120_000 })
-  await expect(page.getByRole('button', { name: 'Tall' })).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('button', { name: 'Tall · Male', exact: true })).toHaveAttribute('aria-pressed', 'false')
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   const slug = (await link.getAttribute('href'))!.split('/s/')[1]!
   const front = await publishedFront({ page, slug })

@@ -13,6 +13,7 @@ import { trackAssumption } from '../../lib/assumption-events'
 import type { DesignDocument, PanelId } from '../../lib/design-document'
 import { type DesignTool, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { surfaceGesture } from '../../lib/surface-gesture'
+import { outsideVeil, usePanelShapes } from '../../lib/panel-shape'
 import { carriesGraphic, droppedGraphic } from '../../lib/graphic-drag'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
@@ -130,11 +131,14 @@ function paintPanelSurface({
   panel,
   selected,
   rects,
+  veil = null,
 }: {
   canvas: HTMLCanvasElement
   atlas: HTMLCanvasElement
   panel: PanelId
   selected: PlaceableLayer | null
+  /** Shades what lies off the garment, so the panel shows its true shape. */
+  veil?: HTMLCanvasElement | null
   /** The document's panel rectangles (absent: the tee's). */
   rects?: DesignDocument['panelUv']
 }) {
@@ -165,6 +169,10 @@ function paintPanelSurface({
     canvas.width,
     canvas.height,
   )
+
+  if (veil) {
+    context.drawImage(veil, 0, 0, canvas.width, canvas.height)
+  }
 
   if (selected && selected.panel === panel) {
     const frame = canvasLayerFrame({
@@ -384,6 +392,8 @@ function PaintSurface({
   const panelAspect = documentState.panelAspects?.[panel] ?? DEFAULT_PANEL_ASPECT
   const canvasSize = panelCanvasSize({ aspect: panelAspect })
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
+  const shapes = usePanelShapes((state) => state.shapes)
+  const shapeSrc = usePanelShapes((state) => state.src)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -392,14 +402,21 @@ function PaintSurface({
       return
     }
 
+    const modelSrc = documentState.modelSrc
+    const triangles = modelSrc && shapeSrc === modelSrc ? shapes[panel] : undefined
+
     paintPanelSurface({
       canvas,
       atlas,
       panel,
       selected,
       rects: documentState.panelUv,
+      veil:
+        modelSrc && triangles
+          ? outsideVeil({ src: modelSrc, panel, triangles, width: canvas.width, height: canvas.height })
+          : null,
     })
-  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.panelUv, panel, selected])
+  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, panel, selected, shapeSrc, shapes])
 
   function handlePointerDown({
     event,

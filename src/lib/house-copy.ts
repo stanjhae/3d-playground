@@ -27,7 +27,7 @@ export const HOUSE_COPY = {
   wearerLeft: 'Left sleeve',
   wearerRight: 'Right sleeve',
   panelOrientationHint:
-    'Sleeves are named as worn. The back reads as you see it from behind.',
+    'Sleeves are named as worn. The back reads as you see it from behind. Shaded areas fall off the garment and won’t print.',
   sleeve: 'Sleeve',
   selectStep: 'Garment',
   colorStep: 'Color & Pattern',

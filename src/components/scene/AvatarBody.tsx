@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Group } from 'three'
 
 import {
   createProceduralAvatar,
   disposeAvatarGroup,
+  realGarmentSeat,
   type AvatarMeasurements,
 } from '../../lib/avatar-geometry'
 import { useEditorStore } from '../../lib/editor-store'
@@ -17,6 +18,9 @@ export function AvatarBody({
   measurements?: AvatarMeasurements
 }) {
   const storeMeasurements = useEditorStore((state) => state.avatarMeasurements)
+  // A real model (the @4 tee) is fitted into the worn tee's place on the body.
+  const modelFrame = useEditorStore((state) => state.document.modelFrame)
+  const realSeat = useMemo(() => (modelFrame ? realGarmentSeat({ frame: modelFrame }) : null), [modelFrame])
   const avatarMeasurements = measurementsProp ?? storeMeasurements
   const [mount, setMount] = useState<{
     root: Group
@@ -58,7 +62,13 @@ export function AvatarBody({
       <primitive object={mount.root} />
       <group position={mount.garment.position} scale={mount.garment.scale}>
         <ClothingPoseContext.Provider value="worn">
-          {children}
+          {realSeat ? (
+            <group position={realSeat.position} scale={realSeat.scale}>
+              {children}
+            </group>
+          ) : (
+            children
+          )}
         </ClothingPoseContext.Provider>
       </group>
     </group>

@@ -1,5 +1,8 @@
 import { useState } from 'react'
 
+import { Link } from '@tanstack/react-router'
+
+import { ComingSoonBadge } from '../ui/ComingSoonBadge'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import type { GarmentId } from '../../lib/design-schema'
@@ -7,7 +10,7 @@ import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { CONCEPT_FEATURES, showsGarmentInStudio } from '../../lib/concept-flags'
-import { garmentCanPaint, garmentCredit, garmentPanels, printAreas } from '../../lib/garments'
+import { garmentCanPaint, garmentCredit, garmentPanels, getGarment, printAreas } from '../../lib/garments'
 import {
   GARMENT_CATEGORIES,
   garmentCategory,
@@ -35,7 +38,7 @@ const SAMPLE_COLORS = [
 ] as const
 
 const FIT_LABEL: Partial<Record<GarmentId, string>> = {
-  tee: FLV_COPY.selectFitOversized,
+  tee: FLV_COPY.selectFitClassic,
   slip: FLV_COPY.selectFitRelaxed,
   gown: FLV_COPY.selectFitClassic,
   mixed: FLV_COPY.selectFitClassic,
@@ -45,6 +48,9 @@ const FIT_LABEL: Partial<Record<GarmentId, string>> = {
   overall: FLV_COPY.selectFitRelaxed,
   tailored: FLV_COPY.selectFitClassic,
 }
+
+/** Every fit we mean to offer; each garment has one built so far. */
+const FITS = [FLV_COPY.selectFitClassic, FLV_COPY.selectFitRelaxed, 'Oversized Fit'] as const
 
 function FormGlyph({
   garmentId,
@@ -97,6 +103,9 @@ export function SilhouetteSwitch({
   const setAvatarMeasurements = useEditorStore(
     (state) => state.setAvatarMeasurements,
   )
+  // A saved design keeps its garment (`setGarmentId` ignores a change), so
+  // say so instead of letting the picker silently do nothing.
+  const locked = useEditorStore((state) => state.cloud !== null)
   const current = resolveGarmentId({ garmentId: garmentId ?? storeId })
   const credit = garmentCredit({ garmentId: current })
   const canPaint = garmentCanPaint({ garmentId: current })
@@ -118,11 +127,22 @@ export function SilhouetteSwitch({
 
   return (
     <div className="flex w-full max-w-full flex-col gap-3">
+      {locked ? (
+        <p role="note" className="font-body text-sm text-flv-ink">
+          This design is a {getGarment({ garmentId: current }).label.toLowerCase()}, and a design keeps its garment. To
+          design something else,{' '}
+          <Link to="/create" className="text-flv-accent underline underline-offset-2">
+            start a new design
+          </Link>
+          .
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {categories.map((entry) => (
           <button
             key={entry.id}
             type="button"
+            disabled={locked && garmentCategory({ garmentId: current }) !== entry.id}
             aria-pressed={category === entry.id}
             onClick={() => {
               setCategory(entry.id)
@@ -163,13 +183,14 @@ export function SilhouetteSwitch({
               <button
                 key={garment.id}
                 type="button"
+                disabled={locked && !isCurrent}
                 aria-pressed={isCurrent ? 'true' : 'false'}
                 onClick={() => {
                   setGarmentId({ garmentId: garment.id })
                   setCategory(garmentCategory({ garmentId: garment.id }))
                 }}
                 className={cn(
-                  'relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3',
+                  'relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3 disabled:opacity-40',
                   chromeTextClass(),
                   {
                     'border-flv-accent text-flv-accent': isCurrent,
@@ -206,6 +227,31 @@ export function SilhouetteSwitch({
                 ? 'A crew-neck, short-sleeve tee with four print areas: front, back and both sleeves.'
                 : `${garmentPanels({ garmentId: selected.id }).length} print areas: ${printAreas({ garmentId: selected.id })}.`}
           </p>
+          <div className="flex flex-col gap-2">
+            <p className={chromeTextClass()}>Fit</p>
+            <RadioGroup className="flex flex-wrap gap-2" aria-label="Fit">
+              {FITS.map((fit) => {
+                const built = fit === (FIT_LABEL[selected.id] ?? FLV_COPY.selectFitClassic)
+
+                return (
+                  <button
+                    key={fit}
+                    type="button"
+                    role="radio"
+                    aria-checked={built}
+                    disabled={!built}
+                    className={cn('inline-flex min-h-10 items-center gap-2 rounded-full border px-3', chromeTextClass(), {
+                      'border-flv-accent text-flv-accent': built,
+                      'border-flv-line text-flv-muted': !built,
+                    })}
+                  >
+                    {fit}
+                    {built ? null : <ComingSoonBadge />}
+                  </button>
+                )
+              })}
+            </RadioGroup>
+          </div>
           <div className="flex flex-col gap-2">
             <p className={chromeTextClass()}>{FLV_COPY.selectAvailableColors}</p>
             <RadioGroup className="flex flex-wrap gap-2" aria-label={FLV_COPY.selectAvailableColors}>
