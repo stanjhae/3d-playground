@@ -149,6 +149,17 @@ In dev, the header names the local stack (`http://127.0.0.1:54321`) exactly. It 
 
 **Origin policy.** `/api/flp` refuses `POST`, `PATCH` and `DELETE` whose `Origin` isn't the deployment's own origin (`403 cross_origin`, see [data-model.md](data-model.md#trust-boundary)). It compares against the URL the function receives, which on Vercel is the public `https://` host. If saving fails on a new environment with `cross_origin`, a proxy in front is rewriting the host.
 
+## 4a. The prerendered landing and the app shell
+
+`pnpm build` ends with `scripts/prerender-landing.mjs`, which leaves two HTML files in `dist/`:
+
+- `index.html` is the landing as real HTML (head, JSON-LD, every section) in front of the app's `#root`. Vercel serves it for `/` from the filesystem, and the app replaces it once the live landing mounts (`src/lib/static-shell.ts`).
+- `app.html` is the plain app shell, exactly what `index.html` used to be. The catch-all rewrite in `vercel.json` serves it for every other page, and the share page (`/s/:slug`) fetches it to inject its own head (`SHELL_PATH` in `share-page.ts`). `vite preview` does the same (`vite.config.ts`).
+
+The canonical URL, social image, `robots.txt` and `sitemap.xml` use `VITE_SITE_ORIGIN` if set, otherwise Vercel's production domain, otherwise `https://beta.fashionleadervote.com` (`src/lib/site-origin.ts`). Any deployment whose `VERCEL_ENV` isn't `production` gets a `robots.txt` that disallows everything. The script fails the build if the landing makes a forbidden claim, carries an inline `style` (blocked by the CSP), loses the CSP `<meta>` or ships JSON-LD that doesn't parse.
+
+The hero poster (`public/landing/hero-tee-*.webp`) is baked from the live scene by `pnpm poster`, and the social card (`public/og-default.png`) by `pnpm og`. Re-run both when the tee or the demo design changes.
+
 ## 5. Smoke checks (about 10 minutes)
 
 On the deployed URL:

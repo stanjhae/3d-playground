@@ -13,11 +13,11 @@ The product owner gives final acceptance. #138 (asset rights) and #198 (product 
 
 ## How the site is gated
 
-- **The landing** (`src/routes/index.tsx`) is public. Since 4 Nov it depends on `VITE_FLP_CONCEPT`. With the flag off, these don't render: the Community nav link and `#community` section, the Vote stage chip and its sample ranking, the Coming soon section (model shoot, video), the Gradient pattern, non-tee silhouettes, and the Share stage's sample stills. What remains of the concepts carries a visible badge.
+- **The landing** (`src/routes/index.tsx`) is public. Since the 12 Nov rebuild it has no concept-only sections; only the Community nav link still depends on `VITE_FLP_CONCEPT`. Before that it depended on the flag: With the flag off, these don't render: the Community nav link and `#community` section, the Vote stage chip and its sample ranking, the Coming soon section (model shoot, video), the Gradient pattern, non-tee silhouettes, and the Share stage's sample stills. What remains of the concepts carries a visible badge.
 - **The studio** (`/create`, `/studio`) and pages behind sign-in need an account wherever Supabase is configured, and the terms are accepted once before them (`TermsGate`). The flag also hides non-tee garments and sample sizes in the studio (`SilhouetteSwitch.tsx`). The studio contains no marketing copy: no counts, offers or waitlist.
 - **Guest-era pages:** `/vote` and `/look/*` show "Not part of this alpha" when sign-in is required (`NotInAlpha.tsx`). The server refuses new guest looks, and guest votes answer 410 (V1). Voting is one vote per account, on a shared design's page.
 - **Pinned by tests:**
-  - `e2e/claims.spec.ts` reads every landing stage, sign-in, `/vote`, each studio step, the shared page and `/privacy`, including visible field values. It fails on measurements, sizes, fabric weights, production readiness, traction counts, early or free access, the old name, "oversized", "voting comes later" and sample creators, and on any image from `/stills/`.
+  - `e2e/claims.spec.ts` reads every landing section (FAQ answers open), sign-in, `/vote`, each studio step, the shared page and `/privacy`, including visible field values. It fails on measurements, sizes, fabric weights, production readiness, traction counts, early or free access, the old name, "oversized", "voting comes later" and sample creators, and on any image from `/stills/`.
   - `src/lib/brand-name.test.ts` keeps the old name out of the code, the auth config and the sign-in email, and pins the email's code expiry.
 
 ## The 11 mockups
@@ -42,62 +42,53 @@ The mockups are `IMG-20260915-WA00xx.jpg`, supplied by the founder (S10 in #125)
 
 Listed top to bottom, as a visitor sees them with the flag off. Copy lives in `src/lib/flv-copy.ts` unless another file is named.
 
-### Header and footer (`src/routes/__root.tsx`, `src/components/site/SiteFooter.tsx`)
+### Landing (rebuilt 12 Nov 2026)
+
+All landing copy is in `src/lib/landing-copy.ts`; the live page (`src/routes/index.tsx`) and the prerendered HTML (`src/prerender/landing.tsx`, written into `dist/index.html` by `scripts/prerender-landing.mjs`) render the same components. The prerender refuses to write a page that matches the forbidden claims (`src/lib/claims-patterns.ts`, shared with `e2e/claims.spec.ts`), and `src/lib/landing.test.ts` checks every string. Blocks marked `data-claim="concept"` must carry the Concept preview badge, which both tests check.
+
+#### Header and footer (`src/components/site/LandingHeader.tsx`, `src/components/landing/LandingFooter.tsx`)
 
 | Claim | State | Evidence |
 | --- | --- | --- |
-| Brand "FLV / Fashion Leader Vote" | Working | One name across pages, `index.html`, share cards, terms, privacy and the sign-in email (Q1). |
-| Landing nav: Product, How it works, Waitlist | Working | Anchors on the same page. |
-| "Sign in", or "My Studio" when signed in; "Join the waitlist" | Working | |
-| Other pages: Home, Create, account control | Working | |
-| Footer: "Fashion Leader Vote is an early alpha.", Privacy, Terms, Contact | Working | Contact is the alpha address (`VITE_FLP_CONTACT_EMAIL`). The footer is hidden in the studio and on shared pages. |
+| Brand "FLV / Fashion Leader Vote" | Working | One name across pages (Q1). |
+| Nav: How it works, Features, Voting, FAQ | Working | Anchors on the same page. |
+| "Sign in", or "My Studio" when signed in; "Start creating" | Working | Start creating opens My Studio, through sign-in when signed out. |
+| Footer: tagline, section links, Start creating, Join the waitlist, Privacy, Terms, Contact, Credits; "Fashion Leader Vote is an early alpha." | Working | Credits is `/third-party-notices.txt`. Other pages keep the slim `SiteFooter`. |
 
-### Hero (`src/components/landing/LandingHero.tsx`)
-
-| Claim | State | Evidence |
-| --- | --- | --- |
-| "Design fashion. See it instantly. Lead the future." | Working (slogan) | The hero 3D updates as you draw on the pad. "Lead the future" makes no measurable claim. |
-| "Draw freely, refine digitally and see every change instantly on a realistic 3D garment." | Working | Live 3D from the pad. "Realistic" is the owner's judgement (R16, #125). |
-| "Start creating →" | Working | Opens `/create?step=design` with the landing design handed over (`e2e/landing-import.spec.ts`). Needs sign-in. |
-| "Layer 1 Draw", "⚡ Live", "Real-time sync — design updates instantly.", "⚡ Live 3D Update" | Working | The pad writes strokes to the document the hero renders. |
-| "Graphics" panel, "Apply to design" | Working, with a concept badge | Curated SVGs (`graphics-library.ts`), not AI; see R1. |
-| "Layer 3 3D Preview" with view buttons | Working | |
-| "01 Three ways to create: Draw, add graphics and words, see it in 3D" | Working | In the studio. The landing itself has no words tool. |
-| "02 Four-sided design: Front, back and both sleeves" | Working | WA0008. |
-| "03 Save and share: Private by default. Share a saved version by link." | Working | WA0022. |
-
-### Flow overview and stage rail (`LandingFlowOverview.tsx`, `LandingStageRail.tsx`, `src/lib/landing-stages.ts`)
+#### Hero (`LandingSections.tsx` → `LandingHeroSection`, `HeroStage.tsx`, `HeroToolDock.tsx`)
 
 | Claim | State | Evidence |
 | --- | --- | --- |
-| "Three steps. One seamless flow. Same garment. Live at every step." | Working | The stages drive one shared hero stage. |
-| Garment: "Choose a silhouette and cut. Bring ideas to life." | Working (tee) | Neck, hem and sleeve options on the tee. |
-| Design: "Draw freely. Tech refine. See every side live." | Working | WA0008, WA0012. |
-| Preview & share: "Preview every side. Share a saved version by link." | Working | WA0022. |
+| "3D T-shirt studio · Early alpha" | Working | |
+| "Sketch it. See it in 3D. Put it to the vote." | Working | Drawing and 3D: WA0008. Voting: one vote per account on a published design (WA0028). |
+| "Draw, type or drop a graphic on a T-shirt and watch it change in 3D as you go. No pattern-making, nothing to install. Try it right here, no sign-up." | Working | Typing is in the studio; the hero pad draws and drops graphics without an account. "Realistic" is gone (R4 settled by removal). |
+| "Start creating" + "Sign in with an email code. Your sketch comes with you." | Working | A visitor who drew or dropped a graphic hands it over (`handOffLandingDesign`, `landing-handoff.ts`); My Studio offers "Create from your landing design" (`e2e/landing-import.spec.ts`). |
+| Proof row: "Front, back and both sleeves · Private until you publish · Runs in your browser" | Working | WA0008, WA0022. |
+| Pad "Draw here — it lands on the front of the tee", five inks, Front/Back/Left/Right, "Live", "Drag to turn it", "Spin it in 3D" | Working | The pad writes strokes to the document the hero renders. |
+| "Drop a graphic" (three marks) | Working, with a concept badge | Curated SVGs, not AI; see R1. |
+| Poster image | Working | Baked from the live scene by `pnpm poster`; project-made. |
 
-### Stage demos (`src/components/landing/LandingStageHost.tsx`)
-
-Visible chips: Select, Fit, Color, Design, Preview, Share. "Live 3D updates in the hero stage above."
-
-| Stage | Claim | State | Evidence |
-| --- | --- | --- | --- |
-| Select | Tops → Tee; "House silhouette with realistic 3D model"; "Open in studio to design" | Working | Only the tee is listed with the flag off. |
-| Fit | Crew, V, Crop, Long hem, Short and Long sleeve; "Neck, hem, and sleeve change the cloth — not the body." | Working | `garments.ts`, `tee-geometry.test.ts`. |
-| Color | Base colors; Solid, Stripes, Check | Working | WA0003. |
-| Color | Finish (Matte, Silk, Wool, Denim, Leather), Texture (Standard … Crinkle), Material details | Concept | Each has a badge. Material details shows the chosen ids as a plain line ("solid · standard · matte"); see R5. |
-| Design | Brush, Eraser, Fill, size, opacity, graphics with position and size, 3D preview | Working | One document across all three panels. |
-| Preview | "Preview every side", "3D try-on preview", avatars, Studio/Outdoor | Concept | Badge, plus "Visual fit simulation — not production sizing." The avatar scales visually; no measurements are shown. |
-| Share | "Share a saved version": "Private by default. Publish a saved version when you choose, and share it by link." | Working | WA0022. |
-| Share | Sample title, tags, method and visibility | Concept | Badge, plus "Sample fields. In the alpha a design stays private until you publish a saved version by link." The button opens My Studio. |
-
-### Waitlist (`src/components/landing/LandingWaitlist.tsx`, `api/waitlist.ts`)
+#### How it works (`#flow`), Features (`#features`), Voting (`#vote`)
 
 | Claim | State | Evidence |
 | --- | --- | --- |
-| "👑 Waitlist", "Join the waitlist" | Working | Posts to `/api/waitlist` (`waitlist-store.test.ts`). |
-| "Leave your email to hear when there's news. There's no invite or date yet." | Working | Promises nothing more; owner to accept (R2). |
-| "Only your email required." | Working | |
-| "Fashion Technology People Impact" | Working (decorative) | Makes no claim. |
+| "From idea to garment to crowd." 01 Idea, 02 Garment, 03 Crowd | Working | Brush, eraser, fill, words, curated graphics and PNG/JPEG uploads; four panels; publishing with a page, share card and vote button. |
+| Words: text layers in a choice of type faces, exact position and size | Working | `text-faces.ts`, `TechInspector.tsx`. |
+| Graphics: curated library or your own image | Working, with a concept badge | R1. |
+| Layers: reorder, lock, mirror, snap, undo and redo | Working | `editor-store.ts`, `PaintToolbar.tsx`. |
+| Live 3D: every side, solid/stripes/check, versions save as you go | Working | WA0003, autosave and `VersionRail.tsx`. |
+| Voting section text and illustrated share card ("By you · version 1", a Vote button with **no** count) | Working; card labelled "Illustration" | WA0022, WA0028. "Vote counts come from real accounts, never seeded." The card's Vote button toggles locally and sends nothing. |
+
+#### Honest alpha (`#alpha`), FAQ (`#faq`), final call (`#waitlist`)
+
+| Claim | State | Evidence |
+| --- | --- | --- |
+| Private by default; No password; Yours to remove; "A design studio, not a shop" | Working | `DeleteAccount.tsx`, unpublish, `PUBLIC_PREVIEW_DISCLAIMER`. |
+| Nine FAQ answers | Working | Each restates a row above; they are also the page's FAQPage structured data (`landing-seo.ts`). |
+| "Your first design is one sketch away." + Start creating | Working | |
+| Waitlist: "Leave your email to hear when there's news. There's no invite or date yet." | Working | Posts to `/api/waitlist`; wording unchanged (R2). |
+
+Removed with the rebuild: the six-stage walkthrough (Select, Fit, Color, Design, Preview, Share), the flow overview and stage rail, the Coming soon section, and the "Fashion Technology People Impact" tag.
 
 ### Sign-in and its email (`src/routes/sign-in.tsx`, `supabase/templates/email-code.html`, `supabase/config.toml`)
 
@@ -154,6 +145,10 @@ Each asks for an honest Pass or Fail from the founder on the live URL. This docu
 - **6 Nov:** UI overhaul. No new claims. The tee is no longer called oversized or drop-shouldered.
 - **11 Nov:** this refresh. See below.
 
+## Changed on 12 Nov 2026
+
+- The landing was rebuilt around one story for aspiring designers (sketch → 3D → vote), with every word in `landing-copy.ts` and a prerendered copy for search engines and first paint. See "Landing" above for each claim. "Realistic" was dropped (R4).
+
 ## Changed on 11 Nov 2026
 
 - `/vote` and `/look/*` said "Voting comes later." Account voting shipped in V1, so it now says where voting is.
@@ -179,6 +174,6 @@ The eight questions from the first audit, as the code now stands:
 - **R1. Badges on working graphics.** The hero's Graphics panel and the studio's Graphics panel carry a Concept preview badge, but both work. Keep the badges until the graphics rights are cleared (R3), then remove them?
 - **R2. Waitlist wording.** Accept "Leave your email to hear when there's news. There's no invite or date yet.", or give new wording.
 - **R3. Rights to `public/graphics/*`** (#138). They are shown on the landing and in the studio.
-- **R4. "Realistic 3D garment"** in the hero lead. Is the white-studio tee good enough to say "realistic" at the pitch (R16)?
+- ~~**R4. "Realistic 3D garment"**~~ Settled 12 Nov by removal: the rebuilt landing never says "realistic".
 - **R5. Material details.** Shows the chosen ids as a plain line ("solid · standard · matte") under a concept badge. Show proper names, or drop the line?
 - **R6. Terms wording** (#347): plain-language draft awaiting review.

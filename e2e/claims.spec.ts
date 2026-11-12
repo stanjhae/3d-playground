@@ -1,5 +1,6 @@
 import { type Page, expect, test } from '@playwright/test'
 
+import { FORBIDDEN_CLAIMS } from '../src/lib/claims-patterns'
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
 import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
@@ -16,18 +17,7 @@ test.afterAll(async () => {
   await deleteAccounts({ emails })
 })
 
-const FORBIDDEN: Array<[string, RegExp]> = [
-  ['a measurement in cm', /\b\d+\s?cm\b/i],
-  ['a garment size', /\b(XS|XL|size chart|true to size|fits like)\b/],
-  ['a fabric weight', /\b\d+\s?(gsm|oz)\b/i],
-  ['production readiness', /\b(production[- ]ready|tech pack|ready to manufacture)\b/i],
-  ['traction', /\b\d[\d,.]*\+?\s?(k\s)?(users|designers|creators|members|votes|designs created)\b/i],
-  ['an early access promise', /\b(get early access|\d+ months? free|free access)\b/i],
-  ['the old name', /Fashion Leaderboard/],
-  ['a shape the tee is not', /\boversized\b/i],
-  ['voting as a future feature', /voting comes later/i],
-  ['a sample creator', /Elise Moreau|Camille Wren|Hiro Tanaka|Noor Rahman|Jules Adler|Marta Klein|Iman Farouk|Ada Voss|Jules Hart/],
-]
+const FORBIDDEN = FORBIDDEN_CLAIMS
 
 async function expectNoClaims({ page, name }: { page: Page; name: string }) {
   // A shared design's own vote count (V1) is read from the database, not
@@ -47,18 +37,26 @@ async function expectNoClaims({ page, name }: { page: Page; name: string }) {
   expect(stills, `uncleared stills on ${name}`).toBe(0)
 }
 
-test('the landing and all its stages make no claim the alpha cannot back, and label its concepts', async ({ page }) => {
+test('the landing and all its sections make no claim the alpha cannot back, and label its concepts', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('#product-stages')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Sketch it.')
+
+  // Closed FAQ answers aren't in innerText; open them all first.
+  await page.locator('#faq details').evaluateAll((items) => items.forEach((item) => item.setAttribute('open', '')))
+
+  for (const section of ['product', 'flow', 'features', 'vote', 'alpha', 'faq', 'waitlist']) {
+    await page.locator(`#${section}`).scrollIntoViewIfNeeded()
+    await expect(page.locator(`#${section}`)).toBeVisible()
+  }
+
   await expectNoClaims({ page, name: 'landing' })
-  await expect(page.getByText('Concept preview').first()).toBeVisible()
 
-  const stages = page.locator('#product-stages > div').first().getByRole('button')
-  expect(await stages.allTextContents()).not.toContain('Vote')
+  // Every concept on the page wears its badge (docs/claims-audit.md, R1).
+  const concepts = page.locator('[data-claim="concept"]')
+  expect(await concepts.count()).toBeGreaterThan(0)
 
-  for (let stage = 0; stage < (await stages.count()); stage += 1) {
-    await stages.nth(stage).click()
-    await expectNoClaims({ page, name: `landing stage ${await stages.nth(stage).innerText()}` })
+  for (const concept of await concepts.all()) {
+    await expect(concept.getByText('Concept preview')).toBeVisible()
   }
 
   await page.goto('/sign-in')

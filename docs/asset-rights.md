@@ -25,7 +25,7 @@ Status key:
 | `tee-real.glb` | "Tshirt", ajith98adithya | CC BY 4.0 | GLB `asset.extras` (author, license, source URL); README; third-party notices. Seated, recompressed, print UVs added (an adaptation, credited as modified) | **Cleared, credit required.** New tee designs print on it (template `@4`) |
 | `tailored.glb` | "Man Black Business Suit", Style3D CG | CC BY 4.0 | Same as above. Mesh simplified (an adaptation; CC BY allows it, and the credit should say it was modified) | **Cleared, credit required** |
 
-Credits appear wherever a Style3D form is shown, all from `garments.ts`: the studio silhouette switch (`SilhouetteSwitch.tsx`), the landing stage (`LandingStageHost.tsx`, with license link), `/look/:id` and `/create` (`GownCredit.tsx`), the vote board (`LookCard.tsx` and the ranking table in `vote.tsx`), and the share description (`api/og-page.ts`, via `lookShareLine`, which keeps the credit inside the 160-character cut). The OG image itself is the baked still or thumbnail, shown alongside those credits. `public/third-party-notices.txt` (linked from `/privacy`) lists every model, its source and the changes made. Closed 11 Nov.
+Credits appear wherever a Style3D form is shown, all from `garments.ts`: the studio silhouette switch (`SilhouetteSwitch.tsx`), `/look/:id` and `/create` (`GownCredit.tsx`), the vote board (`LookCard.tsx` and the ranking table in `vote.tsx`), and the share description (`api/og-page.ts`, via `lookShareLine`, which keeps the credit inside the 160-character cut). The OG image itself is the baked still or thumbnail, shown alongside those credits. `public/third-party-notices.txt` (linked from `/privacy`) lists every model, its source and the changes made. Closed 11 Nov.
 
 ## Images and textures
 
@@ -36,7 +36,8 @@ Credits appear wherever a Style3D form is shown, all from `garments.ts`: the stu
 | `images/meadow.jpg` | 1920×1280 photograph; EXIF reads Nikon D7200 | Added in `4436995` from the archived campus app. **No code references it.** | **Removed on 4 Nov.** Unknown photographer and unused. Confirm ownership or delete. |
 | `stills/look-house-ink.png` | Rendered from the app by `scripts/bake-stills.mjs` (Puppeteer screenshots of the seed looks); tee | Script and `data/designs.json` | **Seed content needs confirmation** (see the seed looks section) |
 | `stills/look-midnight-silk.png`, `look-atelier-ivory.png`, `look-oxblood-evening.png`, `look-meadow-walk.png`, `look-slate-denim.png`, `look-wool-hour.png`, `look-blush-first.png` (gown form), `look-cotton-leather.png` (mixed form) | Same baker; these render Style3D forms | Same as above | **Cleared, credit required** (derivatives of CC BY models). **Seed content needs confirmation.** |
-| `og-default.png`, `og-default.svg` | Project-made house card | `9745253`; `bake-og.mjs` | **Cleared** |
+| `og-default.png` | Project-made social card: the landing headline and the baked hero tee, in the bundled fonts | `bake-og.mjs` (12 Nov) | **Cleared** |
+| `landing/hero-tee-*.webp` | Project-made render of the procedural tee on the house mannequin, with the Cross Flame demo marks from `public/graphics/` (R3) | `bake-landing-poster.mjs` (12 Nov) | **Cleared** (render); marks follow R3 |
 | `favicon.svg` | Project-made vector | `9745253` | **Cleared** |
 
 ## Print graphics (`public/graphics/`, `src/lib/graphics-library.ts`)
@@ -69,7 +70,7 @@ Nine looks are credited to named creators: Elise Moreau, Camille Wren, Hiro Tana
 | Location | Claim | Why |
 | --- | --- | --- |
 | `src/components/editor/AvatarRail.tsx:194`, `:234–:255` (with `house-copy.ts:27`, `:47`, `:51` "Fit" and "Reset fit") | Avatar height and chest sliders in **cm**, labelled "Fit" | Implies body measurement and fit. The PRD excludes measured fit; F05 says no physical centimetres. |
-| `src/components/landing/LandingStageHost.tsx:892–:942` | The same cm measurement sliders, plus "Reset measurements" | Same as above |
+| ~~`src/components/landing/LandingStageHost.tsx:892–:942`~~ | The same cm measurement sliders, plus "Reset measurements" | Resolved: the landing rebuild deleted this file, and the new landing has no measurements. |
 | `src/lib/house-copy.ts:38` "Size" | Checked: used only as the layer-size control label in `TechInspector.tsx:138` | No change needed. It sizes a print object, not the garment. |
 | `src/lib/fabrics.ts` presets (Cotton, Silk, Wool, Denim, Leather, and the ivory and ink variants) | Material names | These are visual finishes, not fabric guarantees. If they ship, label them "look", not material. |
 

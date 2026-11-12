@@ -10,7 +10,7 @@ describe('page titles', () => {
     ['/sign-in', 'Sign in · Fashion Leader Vote'],
     ['/privacy', 'Privacy · Fashion Leader Vote'],
     ['/look/abc', 'Look · Fashion Leader Vote'],
-    ['/', 'Fashion Leader Vote'],
+    ['/', 'Design a T-shirt in 3D · Fashion Leader Vote'],
     ['/nowhere', 'Fashion Leader Vote'],
   ])('%s', (pathname, title) => {
     expect(pageTitle({ label: routeLabel({ pathname }) })).toBe(title)

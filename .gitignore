@@ -1,6 +1,8 @@
 node_modules
 .pnpm-store
 dist
+# The landing's build-time renderer (scripts/prerender-landing.mjs)
+/.flv-prerender/
 .DS_Store
 *.local
 .tanstack

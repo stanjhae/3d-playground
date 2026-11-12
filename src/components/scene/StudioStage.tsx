@@ -446,10 +446,13 @@ export function StudioStage({
 export function StudioOrbit({
   intro = false,
   turntable = false,
+  zoom = true,
   cameraView,
 }: {
   intro?: boolean
   turntable?: boolean
+  /** Off on the landing, where the wheel scrolls the page. */
+  zoom?: boolean
   cameraView?: LandingCameraView
 }) {
   const reducedMotion = prefersReducedMotion()
@@ -491,6 +494,7 @@ export function StudioOrbit({
         autoRotateSpeed={0.35}
         enabled={enabled && !painting && !capturingAngles && !lockedView}
         enablePan={false}
+        enableZoom={zoom}
         maxDistance={6.5}
         maxPolarAngle={Math.PI / 2.05}
         minDistance={1.7}

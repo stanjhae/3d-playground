@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 import { garmentCredit, getGarment, sideViewAlt } from '../garments.ts'
+import { embeddedJson, escapeHtml, injectBeforeRoot, replaceSiteHead } from '../html-shell.ts'
 import { shareCardHead, shareCardHtml } from '../og-card.ts'
 import { type PublicLimiter, sharedLimiter } from '../rate-limit.ts'
 import type { PublicDesign } from './publication.ts'
@@ -35,35 +36,20 @@ export const SLEEVE_GRID_CLASS = 'grid grid-cols-2 gap-4 sm:mx-auto sm:w-2/3'
 
 type ShellLoader = (origin: string) => Promise<string | null>
 
+/**
+ * The plain app shell. `/index.html` is the prerendered landing, so every
+ * other page (this one included) starts from `/app.html` (docs/deploy.md).
+ */
+export const SHELL_PATH = '/app.html'
+
 /** The built app shell, fetched from this deployment's own origin. */
 async function fetchShell(origin: string) {
   try {
-    const response = await fetch(`${origin}/index.html`, { headers: { Accept: 'text/html' } })
+    const response = await fetch(`${origin}${SHELL_PATH}`, { headers: { Accept: 'text/html' } })
     return response.ok ? await response.text() : null
   } catch {
     return null
   }
-}
-
-/** JSON that can sit inside `<script type="application/json">` safely. */
-function embeddedJson({ value }: { value: unknown }) {
-  return JSON.stringify(value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026')
-    .split('\u2028')
-    .join('\\u2028')
-    .split('\u2029')
-    .join('\\u2029')
-}
-
-function escapeHtml({ value }: { value: string }) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
 
 type StaticView = { kind: keyof PublicDesign['renders']; label: string; alt: string }
@@ -131,21 +117,15 @@ export function injectShareHead({
 }) {
   const firstImageFirst = payload ? shell.replace(/<link\b[^>]*\brel="modulepreload"[^>]*>\s*/gi, '') : shell
 
-  const stripped = firstImageFirst
-    .replace(/<title>[\s\S]*?<\/title>/i, '')
-    .replace(/<meta\b[^>]*\b(?:property="og:[^"]*"|name="(?:twitter:[^"]*|description)")[^>]*>/gi, '')
-
   const extra = payload
     ? `
     <link rel="preload" as="image" href="${payload.renders.view_front}" fetchpriority="high" />
     <script type="application/json" id="${PUBLIC_PAYLOAD_ELEMENT_ID}">${embeddedJson({ value: payload })}</script>`
     : ''
 
-  const withHead = stripped.replace(/<\/head>/i, `${head}${extra}\n  </head>`)
+  const withHead = replaceSiteHead({ shell: firstImageFirst, head: `${head}${extra}` })
 
-  return payload
-    ? withHead.replace(/<div id="root"><\/div>/, `${staticShareMarkup({ payload })}<div id="root"></div>`)
-    : withHead
+  return payload ? injectBeforeRoot({ shell: withHead, html: staticShareMarkup({ payload }) }) : withHead
 }
 
 export async function handleSharePage({

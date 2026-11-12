@@ -1,5 +1,8 @@
 import { Link, useRouter, type ErrorComponentProps } from '@tanstack/react-router'
 
+import { useEffect } from 'react'
+
+import { releaseStaticShell } from '../../lib/static-shell'
 import { buttonClass, Button } from './Button'
 
 function Fallback({
@@ -28,6 +31,11 @@ function Fallback({
 /** Shown when a page fails while drawing, so it is never blank. */
 export function RouteError({ reset }: ErrorComponentProps) {
   const router = useRouter()
+
+  // A failed landing would otherwise sit hidden behind its prerendered copy.
+  useEffect(() => {
+    releaseStaticShell()
+  }, [])
 
   return (
     <Fallback

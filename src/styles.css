@@ -193,3 +193,223 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------------------------------------------- landing */
+
+/*
+ * The prerendered landing (src/lib/static-shell.ts) stands in front of the
+ * app until the live landing mounts and removes it.
+ */
+#flv-static ~ #root {
+  display: none;
+}
+
+/* Over the hero the header is clear; it settles onto paper as you scroll. */
+.flv-landing-header {
+  background-color: rgb(252 252 253 / 0.92);
+  border-bottom: 1px solid var(--color-flv-line);
+  backdrop-filter: blur(12px);
+}
+
+.flv-hero-glow {
+  background:
+    radial-gradient(48rem 32rem at 82% 30%, rgb(240 101 14 / 0.16), transparent 70%),
+    radial-gradient(40rem 28rem at 8% 0%, rgb(224 20 31 / 0.08), transparent 70%),
+    linear-gradient(180deg, #fff 0%, var(--color-flv-paper) 100%);
+}
+
+.flv-hero-grid {
+  background-image:
+    linear-gradient(to right, rgb(11 13 18 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(11 13 18 / 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 70% 60% at 60% 35%, #000 30%, transparent 75%);
+}
+
+.flv-halo {
+  background: radial-gradient(closest-side, rgb(240 101 14 / 0.22), rgb(224 20 31 / 0.06) 60%, transparent);
+  filter: blur(8px);
+}
+
+.flv-thread {
+  background-image: linear-gradient(90deg, var(--color-flv-accent), var(--color-flv-flare));
+  transform-origin: left center;
+}
+
+.flv-final-glow {
+  background:
+    radial-gradient(40rem 22rem at 50% 0%, rgb(240 101 14 / 0.35), transparent 70%),
+    radial-gradient(30rem 20rem at 0% 100%, rgb(224 20 31 / 0.3), transparent 70%);
+}
+
+.flv-rail {
+  scrollbar-width: none;
+}
+
+.flv-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.flv-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A light sweep across Start creating on hover and focus. */
+.flv-cta-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+/*
+ * Motion only for people who haven't asked for less. Headline lines rise
+ * by transform inside a clip, never from opacity 0, so the headline counts
+ * as painted at once (LCP).
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .flv-intro .flv-line {
+    overflow: hidden;
+  }
+
+  .flv-intro .flv-line > * {
+    animation: flv-line-rise 0.9s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+  }
+
+  .flv-intro .flv-rise {
+    animation: flv-soft-rise 0.8s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+  }
+
+  .flv-d1,
+  .flv-d1 > * {
+    animation-delay: 0.05s;
+  }
+  .flv-d2,
+  .flv-d2 > * {
+    animation-delay: 0.14s;
+  }
+  .flv-d3,
+  .flv-d3 > * {
+    animation-delay: 0.23s;
+  }
+  .flv-d4 {
+    animation-delay: 0.34s;
+  }
+  .flv-d5 {
+    animation-delay: 0.44s;
+  }
+  .flv-d6 {
+    animation-delay: 0.54s;
+  }
+
+  .flv-cta-sheen:hover::after,
+  .flv-cta-sheen:focus-visible::after {
+    transform: translateX(120%);
+    transition: transform 0.8s ease;
+  }
+
+  .flv-feature {
+    transition: transform 0.4s ease, border-color 0.4s ease, background-color 0.4s ease;
+  }
+
+  .flv-feature:hover {
+    transform: translateY(-4px);
+    border-color: rgb(255 255 255 / 0.22);
+    background-color: rgb(255 255 255 / 0.07);
+  }
+
+  .flv-layer {
+    transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.1, 1);
+  }
+
+  .flv-feature:hover .flv-layer-1 {
+    transform: translateX(10px);
+  }
+
+  .flv-feature:hover .flv-layer-3 {
+    transform: translateX(-10px);
+  }
+
+  .flv-share-card {
+    transition: transform 0.5s ease;
+  }
+
+  .flv-share-card:hover {
+    transform: rotate(-1deg) translateY(-4px);
+  }
+
+  /* Scroll-driven reveals where supported; elsewhere the content is simply there. */
+  @supports (animation-timeline: view()) {
+    .flv-reveal {
+      animation: flv-soft-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 28%;
+    }
+
+    .flv-thread {
+      animation: flv-draw linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 45%;
+    }
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .flv-landing-header {
+      animation: flv-header-settle linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 96px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+@keyframes flv-line-rise {
+  from {
+    transform: translateY(105%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes flv-soft-rise {
+  from {
+    transform: translateY(1.25rem);
+    opacity: 0.001;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes flv-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes flv-header-settle {
+  from {
+    background-color: rgb(252 252 253 / 0);
+    border-bottom-color: transparent;
+    backdrop-filter: blur(0);
+  }
+  to {
+    background-color: rgb(252 252 253 / 0.92);
+    border-bottom-color: var(--color-flv-line);
+    backdrop-filter: blur(12px);
+  }
+}
