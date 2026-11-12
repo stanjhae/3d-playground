@@ -131,7 +131,10 @@ export function PublicationBoard() {
               </p>
             </Link>
             <GownCredit garmentId={design.garmentId} />
-            <p className="font-body text-sm text-flv-muted">{voteCountLabel({ count: design.votes })}</p>
+            {/* Read from the database, not claimed (docs/claims-audit.md). */}
+            <p data-testid="vote-count" className="font-body text-sm text-flv-muted">
+              {voteCountLabel({ count: design.votes })}
+            </p>
           </li>
         ))}
       </ul>

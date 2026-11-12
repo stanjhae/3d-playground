@@ -50,7 +50,7 @@ const FIT_LABEL: Partial<Record<GarmentId, string>> = {
 }
 
 /** Every fit we mean to offer; each garment has one built so far. */
-const FITS = [FLV_COPY.selectFitClassic, FLV_COPY.selectFitRelaxed, 'Oversized Fit'] as const
+const FITS = [FLV_COPY.selectFitClassic, FLV_COPY.selectFitRelaxed, 'Slim Fit'] as const
 
 function FormGlyph({
   garmentId,

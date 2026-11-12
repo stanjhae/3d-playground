@@ -221,7 +221,9 @@ export function DesignCard({
         </span>
         {design.visibility === 'published' && standing ? (
           <span className="font-body text-xs font-medium text-flv-accent">
-            #{standing.rank} on the board · {voteCountLabel({ count: standing.votes })}
+            #{standing.rank} on the board ·{' '}
+            {/* Read from the database, not claimed (docs/claims-audit.md). */}
+            <span data-testid="vote-count">{voteCountLabel({ count: standing.votes })}</span>
           </span>
         ) : null}
         {mode === 'view' ? (

@@ -15,6 +15,17 @@ test.afterAll(async () => {
 })
 
 async function expectAccessible({ page, name }: { page: Page; name: string }) {
+  // Measure what people see once the page settles, not a fade-in's first
+  // frame (the hero rises from opacity 0.001). Scroll-driven reveals run on
+  // a scroll timeline and never finish, so only time-based ones are awaited.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.timeline === document.timeline && animation.effect?.getTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  )
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     // The WebGL canvas and its overlays are covered by the 2D panels.
