@@ -27,8 +27,13 @@ export function StepIntro() {
 
   return (
     <header className="flex flex-col gap-1 px-1 pt-1 pb-1">
-      <h1 className="font-display text-2xl leading-none uppercase">{intro.title}</h1>
-      <p className="font-body text-sm text-flv-muted">{intro.lead}</p>
+      <h1 className="font-display text-lg leading-none uppercase lg:text-2xl">{intro.title}</h1>
+      {/* On a phone the lead folds away, leaving the room to the garment. */}
+      <p className="hidden font-body text-sm text-flv-muted lg:block">{intro.lead}</p>
+      <details className="font-body text-sm text-flv-muted lg:hidden">
+        <summary className="min-h-9 cursor-pointer py-1">What to do here</summary>
+        <p>{intro.lead}</p>
+      </details>
     </header>
   )
 }

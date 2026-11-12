@@ -105,7 +105,7 @@ share link.
      box opens over the word; press **Esc** or click away to close it.
    - Pick **Draw**, press **Brush** and draw a mark on **Right sleeve**.
    - Watch the status next to the title: "Unsaved changes" turns into
-     **Saved to cloud** within a few seconds.
+     **Saved privately** within a few seconds.
    *Say:* "Front, back, both sleeves. It autosaves to the cloud."
 5. **History (2:15–3:15).** Scroll the left column to **History** and press
    **Show**. Point at the seeded versions, including "First pass" and the
@@ -113,10 +113,10 @@ share link.
    - Press **Save checkpoint**, name it "Live demo", press **Save**.
    - On **v3 · First pass** press **Restore**, then **Restore** in the
      confirmation. The edits from step 4 disappear; a new version marked "Current · From v3"
-     is on top and the status returns to **Saved to cloud**.
+     is on top and the status returns to **Saved privately**.
    *Say:* "Nothing is lost: restoring adds a version, it never deletes one."
 6. **Publish (3:15–4:00).** Click step **4 Preview & Publish** at the top.
-   Press **Publish…**, check the public name "Demo Studio", press **Confirm
+   Press **Publish publicly…**, check the public name "Demo Studio", press **Confirm
    publish**. It renders the five views (front, three-quarter, back and
    both sleeves; 6 s on a quiet laptop, 16 s in the 10 Nov dry run, up to about 25 s on a busy one), then says "Published version N. Anyone with the link can view it." and shows the link.
    Keep talking through the wait.
@@ -144,7 +144,7 @@ itself), and fall back to the video if it isn't back in about 30 seconds.
 | **"Offline — not saved"** or **"Save failed"** | Check the preview terminal is still running and `supabase status` is healthy. The edits stay on this device and save when the server is back. | "It keeps the work locally and saves when the connection is back." |
 | **No sign-in code in Mailpit** | Wait 10 s and refresh Mailpit; search `to:demo@example.test`. A new code can only be sent after 60 s (**Send a new code in …s**). Make sure you used the newest code. Codes expire after 10 minutes. | "The code usually takes a second; locally it goes to a test inbox." |
 | **Code rejected** | You pasted an older code. Request a new one after the 60 s timer, use the newest message. | — |
-| **Publish spins for over a minute** | Reload the publish step. If it now shows **Published** with the link, the publish landed. Otherwise press **Publish…** again; the slug survives a republish. Or show the Night Market link from the reset. If it happens every time, the preview is serving an old build: restart `pnpm preview` (pre-flight step 3). | "Here's one I published earlier." |
+| **Publish spins for over a minute** | Reload the publish step. If it now shows **Published** with the link, the publish landed. Otherwise press **Publish publicly…** again; the slug survives a republish. Or show the Night Market link from the reset. If it happens every time, the preview is serving an old build: restart `pnpm preview` (pre-flight step 3). | "Here's one I published earlier." |
 | **Page blank / server gone** | Restart `pnpm preview --port 4173` (no rebuild needed). | — |
 | **Anything still broken after 30 s** | Switch to `demo-fallback.webm` and narrate over it. Afterwards, rerun `node scripts/demo-reset.mjs` before the next run. | "Let me show you the recorded run while that recovers." |
 

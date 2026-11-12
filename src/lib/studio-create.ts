@@ -4,6 +4,7 @@ import {
 } from './canonical-document.ts'
 import type { LandingHandoff } from './landing-handoff.ts'
 import { type ImportNote, type PendingAsset, convertLegacyDesign, toColor } from './legacy-import.ts'
+import { upgradeToCurrentTemplate } from './template-upgrade.ts'
 
 /**
  * First content for a new cloud design (A05 #149): the design carried over
@@ -46,7 +47,10 @@ export function initialStudioDocument({
     }
   }
 
-  const document = converted.document
+  // The import keeps @1 (render space, as the landing drew it); a new design
+  // then moves onto the real tee, so it opens as the garment the studio shows.
+  const upgraded = upgradeToCurrentTemplate({ document: converted.document })
+  const document = upgraded.ok ? upgraded.document : converted.document
   const color = handoff.color ? toColor({ value: handoff.color }) : null
 
   if (color && document.base.kind === 'solid') {

@@ -10,12 +10,23 @@ runs:
       shell: bash
       run: |
         sudo install -d /usr/share/postgresql-common/pgdg
-        sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        # postgresql.org sometimes drops the connection mid-download (curl 56),
+        # failing jobs whose tests had passed. Retry, then try the same key
+        # from the apt repository itself.
+        key=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+        fetched=
+        for url in https://www.postgresql.org/media/keys/ACCC4CF8.asc https://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc; do
+          if sudo curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 --max-time 30 -o "$key" "$url"; then
+            fetched=1
+            break
+          fi
+        done
+        [ -n "$fetched" ] || { echo "::error::Could not download the PostgreSQL apt key"; exit 1; }
         . /etc/os-release
         echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
           | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq postgresql-client-17 age > /dev/null
+        sudo apt-get update -qq -o Acquire::Retries=3
+        sudo apt-get install -y -qq -o Acquire::Retries=3 postgresql-client-17 age > /dev/null
         echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
     - name: Versions
       shell: bash

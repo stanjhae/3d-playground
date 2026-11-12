@@ -36,6 +36,8 @@ export type DesignSummary = {
   visibility: 'private' | 'published'
   headSeq: number | null
   updatedAt: string
+  /** The public slug while published; lets My Studio find its board standing. */
+  publicationSlug?: string | null
 }
 
 export type DesignWithHead = DesignSummary & {

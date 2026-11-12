@@ -50,6 +50,7 @@ export const LANDING_COPY = {
     posterAlt:
       'A white T-shirt on a mannequin with a red gothic cross and flames printed on the front',
     noWebgl: 'This browser can’t show 3D. You can still sketch, and the studio explains what it needs.',
+    sceneFailed: 'The 3D preview couldn’t start here. Your sketch still works, and Start creating opens the full studio.',
   },
   steps: {
     eyebrow: 'How it works',
@@ -113,6 +114,7 @@ export const LANDING_COPY = {
     ],
   },
   vote: {
+    boardLink: 'See the rankings and vote',
     eyebrow: 'Voting',
     title: 'Make something.',
     titleAccent: 'Let people vote on it.',

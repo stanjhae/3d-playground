@@ -245,7 +245,8 @@ test('resizing an image scales both sides together', async ({ page }) => {
         for (let x = 0; x < width; x += 1) {
           const at = (y * width + x) * 4
 
-          if (data[at]! > 240 && data[at + 1]! < 15 && data[at + 2]! > 240) {
+          // Magenta, plain or under the off-garment shading (about 214, 5, 215).
+          if (data[at]! > 200 && data[at + 1]! < 20 && data[at + 2]! > 200) {
             left = Math.min(left, x)
             right = Math.max(right, x)
             top = Math.min(top, y)

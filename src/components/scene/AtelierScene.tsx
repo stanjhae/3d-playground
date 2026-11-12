@@ -1,3 +1,5 @@
+import { ClothDropTarget } from './ClothDropTarget'
+import { ClothTwoFinger } from './ClothTwoFinger'
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
 
@@ -150,6 +152,8 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
           <StudioOrbit intro turntable={isHouse} />
           <WebglContextWatcher />
           {isHouse ? null : <EditRenderProbe />}
+          {isHouse ? null : <ClothDropTarget />}
+          {isHouse ? null : <ClothTwoFinger />}
         </Canvas>
       </WebglGuard>
       <AtlasStatusNote />

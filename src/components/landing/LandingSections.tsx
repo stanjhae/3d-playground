@@ -357,6 +357,10 @@ export function LandingVote({ mode }: { mode: LandingMode }) {
             })}
           </ul>
           <p className="font-body text-sm text-flv-muted">{vote.fine}</p>
+          {/* The real board, not just this illustration: a plain link works prerendered too. */}
+          <a href="/vote" className="inline-flex min-h-11 items-center gap-2 font-body text-sm font-medium text-flv-accent hover:underline">
+            {vote.boardLink} <span aria-hidden>→</span>
+          </a>
         </div>
 
         <figure className="flv-reveal relative mx-auto w-full max-w-md">

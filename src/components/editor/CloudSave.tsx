@@ -114,7 +114,7 @@ export function useCloudAutosave() {
 }
 
 const LABELS: Record<SaveState['status'], string> = {
-  saved: 'Saved to cloud',
+  saved: 'Saved privately',
   unsaved: 'Unsaved changes',
   saving: 'Saving…',
   offline: 'Offline — not saved',

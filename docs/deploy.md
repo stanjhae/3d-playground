@@ -165,7 +165,7 @@ The hero poster (`public/landing/hero-tee-*.webp`) is baked from the live scene 
 On the deployed URL:
 
 1. `/sign-in`: request a code and sign in. You land on **My Studio**.
-2. Create a T-shirt, draw on the front, and type on the back. The status goes **Saved to cloud**. Reload, and the work is still there.
+2. Create a T-shirt, draw on the front, and type on the back. The status goes **Saved privately**. Reload, and the work is still there.
 3. History → Save checkpoint → edit → Restore. A new "restore" version appears.
 4. Publish → open the link in a private window. You see five views (front, three-quarter, back, then both sleeves), plus the title and public name.
 5. Paste the link into Slack or a link previewer. The OG title and image appear.

@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useRef,
   useState,
   type ChangeEvent,
   type KeyboardEvent,
@@ -18,6 +19,7 @@ import { HOUSE_COPY } from '../../lib/house-copy'
 import { type PlaceableLayer, layerMostlyOffPanel, layerVoice } from '../../lib/layer-hit'
 import { LOCKED_REASON, layerLockMessage } from '../../lib/layer-list'
 import { announce } from '../../lib/studio-announcer'
+import { revealInScroller } from '../../lib/reveal-in-scroller'
 import { INK_COLORS } from '../../lib/paint-colors'
 import { chestLineY } from '../../lib/panel-snap'
 import {
@@ -166,10 +168,21 @@ export function TechInspector() {
   const copyLayerToOpposite = useEditorStore(
     (state) => state.copyLayerToOpposite,
   )
+  const removeLayer = useEditorStore((state) => state.removeLayer)
+  const duplicateLayer = useEditorStore((state) => state.duplicateLayer)
+  const frameRef = useRef<HTMLElement | null>(null)
   const layer = layers.find((entry) => entry.id === selectedLayerId)
   const [draft, setDraft] = useState<DraftPose | null>(null)
   const pro = useStudioMode((state) => state.pro)
   const lockReasonId = useId()
+
+  // On a phone the tools scroll under the cloth: bring a fresh selection's
+  // size, angle and Remove into view.
+  useEffect(() => {
+    if (selectedLayerId && frameRef.current) {
+      revealInScroller({ element: frameRef.current })
+    }
+  }, [selectedLayerId])
 
   useEffect(() => {
     if (
@@ -272,8 +285,33 @@ export function TechInspector() {
       : (selected.color ?? INK_COLORS[0]?.value ?? '#1a1c22')
 
   return (
-    <aside className={railFrameClass()}>
+    <aside ref={frameRef} className={railFrameClass()}>
       <p className={chromeKickerClass()}>{HOUSE_COPY.inspector}</p>
+      {/* Remove and copy sit first: a placed mark is never stuck on the cloth. */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => {
+            removeLayer({ layerId: selected.id })
+            announce({ message: `${layerVoice({ layer: selected })} removed. Undo brings it back.` })
+          }}
+          className={alignButtonClass}
+        >
+          {HOUSE_COPY.removeItem}
+        </button>
+        {selected.kind !== 'pattern' ? (
+          <button
+            type="button"
+            onClick={() => {
+              duplicateLayer({ layerId: selected.id })
+            }}
+            className={alignButtonClass}
+          >
+            {HOUSE_COPY.duplicateItem}
+          </button>
+        ) : null}
+      </div>
       {selected.kind !== 'pattern' ? (
         <div className="flex flex-col gap-1">
           <button
