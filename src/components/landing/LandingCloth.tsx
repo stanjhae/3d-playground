@@ -68,7 +68,7 @@ export default function LandingCloth({
       data-engine="landing"
       className={coarsePointer ? 'pointer-events-none size-full' : 'size-full'}
     >
-      <StudioStage envMode="studio" framing="garment">
+      <StudioStage envMode="studio" framing="figure">
         <Suspense fallback={<FashionLoader />}>
           <AvatarBody>
             <Garment garmentId="tee" overrides={overrides} document={documentProp} picking={false} />
