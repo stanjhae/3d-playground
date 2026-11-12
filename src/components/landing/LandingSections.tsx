@@ -133,8 +133,11 @@ export function LandingHeroSection({
               <HeroPoster />
             </div>
           )}
-          {/* A credited model (CC BY) is named under it; today's tee is project-made. */}
-          <div className="mt-3 flex justify-center lg:absolute lg:-bottom-8 lg:right-0">
+          {/*
+            A credited model (CC BY) is named with it: under it on phones, above
+            it on desktop, where the tool dock overlaps the stage's lower edge.
+          */}
+          <div className="mt-3 flex justify-center lg:absolute lg:-top-8 lg:right-0 lg:mt-0">
             <GownCredit garmentId="tee" />
           </div>
           <div className="relative z-10 w-full max-w-md lg:absolute lg:-bottom-14 lg:-left-14 lg:w-[19rem] xl:-left-20">
