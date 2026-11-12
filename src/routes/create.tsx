@@ -537,7 +537,10 @@ function AtelierHome() {
       // The site header is sticky above the section; fill only what is left.
       section.style.setProperty(STUDIO_TOP_VAR, `${Math.max(0, Math.round(box.top + window.scrollY))}px`)
       // Below lg the scene stops where the tools start, so they never cover the tee.
-      const tools = stage ? Math.max(0, box.bottom - stage.getBoundingClientRect().bottom) : 0
+      // A camera bar riding the stage's bottom counts as tools: the tee is framed above it.
+      const bar = stage?.querySelector('[data-stage-bar]')
+      const floor = bar ? bar.getBoundingClientRect().top : stage?.getBoundingClientRect().bottom
+      const tools = floor === undefined ? 0 : Math.max(0, box.bottom - floor)
       section.style.setProperty(STUDIO_TOOLS_HEIGHT_VAR, `${Math.floor(tools)}px`)
     }
     const observer = new ResizeObserver(measure)
@@ -550,7 +553,7 @@ function AtelierHome() {
     return () => {
       observer.disconnect()
     }
-  }, [drawInFlow])
+  }, [drawInFlow, createStep, lgUp])
 
   // Nothing to edit: drawing here would reach no design and be lost.
   const cloudFailed = cloudStatus === 'missing' || cloudStatus === 'error' || cloudStatus === 'unsupported'
@@ -558,7 +561,7 @@ function AtelierHome() {
   return (
     <section ref={sectionRef} className={studioSectionClass({ drawInFlow })}>
       <div className={studioOverlayClass({ drawInFlow })}>
-        <div ref={headerRef} className={studioHeaderClass()}>
+        <div ref={headerRef} className={studioHeaderClass()} data-studio-part="header">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
             {AUTH_REQUIRED ? null : <ModeToggle mode={mode} />}
             {mode === 'design' &&
@@ -611,9 +614,7 @@ function AtelierHome() {
                 {HOUSE_COPY.lookFailed} {HOUSE_COPY.studioOpen}
               </p>
             ) : null}
-            {!lgUp && mode === 'design' && showsPreviewRails({ step: createStep }) ? (
-              <CameraPresetBar />
-            ) : null}
+
           </div>
         </div>
         {lgUp && mode === 'design' && showsPreviewRails({ step: createStep }) ? (
@@ -626,11 +627,18 @@ function AtelierHome() {
             <PaintCanvas layout="quad" />
           </div>
         ) : (
-          <div ref={stageRef} className={studioPhoneStageClass()} data-hint-keep-clear />
+          <div ref={stageRef} className={studioPhoneStageClass()} data-hint-keep-clear data-studio-part="stage">
+            {/* The camera views ride the bottom of the garment, as at lg, not a header row of their own. */}
+            {!lgUp && mode === 'design' && showsPreviewRails({ step: createStep }) ? (
+              <div data-stage-bar className="pointer-events-auto absolute inset-x-0 bottom-2 flex justify-center">
+                <CameraPresetBar />
+              </div>
+            ) : null}
+          </div>
         )}
         {mode === 'design' && !cloudFailed ? (
           <div className={studioToolColumnClass({ side: showsDesignRails({ step: createStep }) ? 'left' : 'right' })}>
-            <div className={studioPhoneToolsClass({ drawInFlow })} data-hint-keep-clear>
+            <div className={studioPhoneToolsClass({ drawInFlow })} data-hint-keep-clear data-studio-part="tools">
               <StepIntro />
               {cloudStatus === 'loaded' ? <StudioHint /> : null}
               {showsSilhouetteRail({ step: createStep }) ? (
@@ -673,7 +681,7 @@ function AtelierHome() {
                 <AvatarRail />
               ) : null}
             </div>
-            <div className={studioPhonePublishClass()}>
+            <div className={studioPhonePublishClass()} data-studio-part="publish">
               {publishError ? (
                 <p className="font-body text-sm text-flv-muted">
                   {publishError}

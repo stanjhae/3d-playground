@@ -29,8 +29,8 @@ import {
 } from '../../lib/design-document'
 import { CONCEPT_FEATURES } from '../../lib/concept-flags'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
-import type { PanelId } from '../../lib/design-document'
-import { panelTriangles, usePanelShapes } from '../../lib/panel-shape'
+import { shapesFromScene, usePanelShapes } from '../../lib/panel-shape'
+import { atlasSourceRect } from '../../lib/panel-uv'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { getCanonicalDocument, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { garmentSrc } from '../../lib/garment-parts'
@@ -310,32 +310,7 @@ function GltfGarment({
       return
     }
 
-    const shapes: Partial<Record<PanelId, number[]>> = {}
-
-    scene.traverse((object) => {
-      const mesh = object as Mesh
-
-      if (!mesh.isMesh || mesh.userData.printable === false) {
-        return
-      }
-
-      const uv1 = mesh.geometry.getAttribute('uv1')
-
-      if (!uv1) {
-        return
-      }
-
-      const index = mesh.geometry.getIndex()
-
-      for (const [panel, rect] of Object.entries(panelUv) as [PanelId, (typeof panelUv)[PanelId]][]) {
-        const triangles = panelTriangles({ uvs: uv1.array, index: index ? index.array : null, rect })
-
-        if (triangles.length > 0) {
-          shapes[panel] = [...(shapes[panel] ?? []), ...triangles]
-        }
-      }
-    })
-
+    const shapes = shapesFromScene({ scene, panelUv })
     usePanelShapes.getState().setShapes({ src, shapes })
   }, [panelUv, picking, scene, src])
 
@@ -364,6 +339,7 @@ function SeatedForm({
 }) {
   const activeStroke = useEditorStore((state) => state.activeStroke)
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
+  const panelFlash = useEditorStore((state) => state.panelFlash)
   const loadedMaps = useTexture(FABRIC_MAP_SRC)
   const lerpClock = useRef(1)
   // On-demand rendering: each change below asks for a frame.
@@ -473,10 +449,24 @@ function SeatedForm({
       0,
       0,
     )
+    // A side picked from its tab is lit for a moment: the tint lands only on
+    // that piece, since nothing else prints into its part of the atlas.
+    const flashing = picking && panelFlash && inkDocument.panelUv?.[panelFlash] ? panelFlash : null
+
+    if (flashing) {
+      const source = atlasSourceRect({ panel: flashing, width: buffer.width, height: buffer.height, rects: inkDocument.panelUv })
+      const context = canvas.getContext('2d')
+
+      if (context) {
+        context.fillStyle = 'rgba(224, 20, 31, 0.22)'
+        context.fillRect(source.sourceX, source.sourceY, source.sourceWidth, source.sourceHeight)
+      }
+    }
+
     texture.needsUpdate = true
 
     const hasInk =
-      documentHasInk({ document: inkDocument }) || Boolean(picking && activeStroke)
+      documentHasInk({ document: inkDocument }) || Boolean(picking && activeStroke) || Boolean(flashing)
 
     bindInkMap({
       meshes,
@@ -499,7 +489,7 @@ function SeatedForm({
         },
       })
     }
-  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, picking, textFaces])
+  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, panelFlash, picking, textFaces])
 
   // Nothing is on screen to be current once this form goes.
   useEffect(() => () => useAtlasBuild.setState({ build: null }), [])

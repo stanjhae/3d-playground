@@ -159,6 +159,8 @@ type EditorState = {
   designTool: DesignTool
   // Draw tool held for turning the garment instead of inking it.
   rotateView: boolean
+  /** A side picked from its tab, lit on the 3D garment for a moment. */
+  panelFlash: PanelId | null
   publishTags: string[]
   publishMethod: DesignMethod | null
   challengeId: string | null
@@ -201,6 +203,7 @@ type EditorState = {
   setCreateStep: ({ createStep }: { createStep: CreateStep }) => void
   setDesignTool: ({ designTool }: { designTool: DesignTool }) => void
   setRotateView: ({ rotateView }: { rotateView: boolean }) => void
+  flashPanel: ({ panel }: { panel: PanelId }) => void
   setPublishTags: ({ tags }: { tags: string[] }) => void
   setPublishMethod: ({
     method,
@@ -551,6 +554,10 @@ export function hasCopiedLayer() {
 /** A duplicate or paste lands this share of the panel away, down and right. */
 export const COPY_OFFSET = 0.03
 
+/** How long a side picked from its tab stays lit on the 3D garment. */
+const PANEL_FLASH_MS = 900
+let panelFlashTimer = 0
+
 function placeableLayer({ document, layerId }: { document: DesignDocument; layerId: string }) {
   const layer = document.layers.find((entry) => entry.id === layerId)
   return layer && (layer.kind === 'graphic' || layer.kind === 'text' || layer.kind === 'pattern') ? layer : null
@@ -731,6 +738,7 @@ const INITIAL_EDITOR_STATE = {
   createStep: 'select' as CreateStep,
   designTool: 'draw' as DesignTool,
   rotateView: false,
+  panelFlash: null as PanelId | null,
   publishTags: [] as string[],
   publishMethod: null as DesignMethod | null,
   challengeId: null as string | null,
@@ -1090,6 +1098,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setRotateView: ({ rotateView }) => {
     set({ rotateView })
+  },
+  flashPanel: ({ panel }) => {
+    set({ panelFlash: panel })
+    window.clearTimeout(panelFlashTimer)
+    panelFlashTimer = window.setTimeout(() => {
+      set((state) => (state.panelFlash === panel ? { panelFlash: null } : state))
+    }, PANEL_FLASH_MS)
   },
   setPublishTags: ({ tags }) => {
     set({
