@@ -24,8 +24,10 @@ Thank you for testing so carefully, and for writing everything down. This is exa
 What changed:
 - a compact step bar, with Undo/Redo on the same row as Back and Continue;
 - step descriptions folded into one line you can expand;
-- the publish panel capped at half the screen;
-- the editor frame can no longer be scrolled out of place.
+- hint cards that sit in the tools instead of over the garment;
+- the camera views riding the bottom of the garment, with publishing taking a third of the screen at most;
+- the editor frame can no longer be scrolled out of place;
+- an automated test on a phone and an iPad that fails if anything covers the garment on any step.
 
 On a standard phone the 3D view is about a third taller than before. Could you send the video, plus your phone model and browser? Then we can check that this covers exactly what you saw. *(Phase 1a)*
 
@@ -56,13 +58,16 @@ What changed:
   - you see a clear "added to the front, drag it on the garment to move it" message;
   - you can **drag graphics straight onto the garment**, onto the flat sides or the 3D model;
   - dropping somewhere that can't be printed (around the garment, the collar) says so instead of doing nothing. *(Phase 1d)*
-- **Deleting elements: bug (missing control), fixed.** Deleting was only possible with the keyboard or from the layers list. The selected element's panel now starts with **Remove** and **Duplicate**, and it scrolls into view when you select something. *(Phase 1e)*
-- **Resizing uploaded images after placing them: bug (hard to reach), fixed.** Resize and rotate handles existed only on the flat 2D view, which phones mostly don't show. Now tapping an element on the 3D garment selects it, and its size and rotation sliders are always shown, with or without Pro Tools. Pinch-to-resize on touch screens is next. *(Phase 1e)*
-- **Drawing while rotating: bug, and an important one. Fixed.** Any drag on the garment painted it, whichever tool was selected. Now the garment only gets ink when the **Draw** tool is on; with every other tool, dragging turns it. Inside Draw there's a **Rotate view** button, and switching tools or steps leaves it. *(Phase 1c)*
+- **Deleting elements: bug (missing control), fixed.** Deleting was only possible with the keyboard or from the layers list. A selected element now has a small toolbar right beside it with **Remove**, **Duplicate** and **Bring forward**, and the selected-item panel starts with Remove and Duplicate too. *(Phase 1e)*
+- **Resizing uploaded images after placing them: bug (hard to reach), fixed.** Resize and rotate handles existed only on the flat 2D view, which phones mostly don't show. Now:
+  - tapping an element on the 3D garment selects it, with its size and rotation sliders always shown;
+  - on touch screens, **pinch to resize and twist to rotate** it right on the 3D garment;
+  - on a computer, Ctrl/⌘ + scroll (or a trackpad pinch) resizes it, and Alt + scroll turns it. *(Phase 1e)*
+- **Drawing while rotating: bug, and an important one. Fixed.** Any drag on the garment painted it, whichever tool was selected. Now the garment only gets ink when the **Draw** tool is on; with every other tool, dragging turns it. Inside Draw there's a **Rotate view** button, **two fingers always turn the garment** on touch screens, and switching tools or steps leaves drawing mode. *(Phase 1c)*
 - **Bigger design area: done.**
   - Step descriptions and the step bar are much smaller on phones.
   - On desktop you can fold away the flat sides ("Hide flat sides") so the 3D garment gets the full width. *(Phases 1a and 1g)*
-- **Showing the real shape of each design surface: done.** Front, Back and the sleeves used to be plain rectangles. Each now shows the piece's actual shape, with everything that falls off the garment shaded, so you can see where a design will and won't print. *(Phase 4)*
+- **Showing the real shape of each design surface: done.** Front, Back and the sleeves used to be plain rectangles. Each now shows the piece's actual shape, with everything that falls off the garment shaded, so you can see where a design will and won't print. Each side's tab shows its shape in miniature, and picking a side lights that piece up on the 3D garment for a moment. *(Phase 4)*
 - **Pro Tools: intentional, but too subtle. Clearer now.** Pro Tools shows precision controls: brush colour, size and opacity, exact size, angle and position numbers, copy to the opposite side, and named checkpoints and versions. It doesn't change the process itself, so it was easy to miss. The switch now says what it adds, briefly, each time you turn it on. *(Phase 4)*
 - **"Coming soon" labels: done.** Fits that aren't built yet show as disabled with a "Coming soon" label. The garment picker inside an existing design, which was silently ignored, now says a design keeps its garment and links to starting a new one. *(Phase 4)*
 
@@ -157,11 +162,11 @@ Chijindu
 | 3 | Create vs My Studio the same | Fixed | PR #372, 2 |
 | 4 | Undo button | Fixed | PR #372, 1f |
 | 4 | Graphic, then click the garment | Fixed (drag onto the garment) | PR #372, 1d |
-| 4 | Deleting elements | Fixed (Remove in the selected-item panel) | PR #372, 1e |
-| 4 | Resizing uploaded images | Fixed (sliders on select); pinch next | PR #372, 1e |
-| 4 | Painting while rotating | Fixed (ink only with Draw, Rotate view) | PR #372, 1c |
+| 4 | Deleting elements | Fixed (toolbar beside the selection) | PR #372, 1e |
+| 4 | Resizing uploaded images | Fixed (pinch/twist, sliders, wheel) | PR #372, 1e |
+| 4 | Painting while rotating | Fixed (ink only with Draw, two-finger turn) | PR #372, 1c |
 | 4 | Bigger design area | Done | PR #372, 1a, 1g |
-| 4 | Real shape of each surface | Done (shaded off-garment areas) | PR #372, 4 |
+| 4 | Real shape of each surface | Done (shading, tab shapes, 3D highlight) | PR #372, 4 |
 | 4 | Pro Tools difference | Explained in the switch | PR #372, 4 |
 | 4 | Coming soon labels | Done | PR #372, 4 |
 | 5 | Save privately vs publish | Fixed | PR #372, 3 |
@@ -175,4 +180,4 @@ Chijindu
 | 7 | Searchable library, more detail | Built | Graphics PR, 5 |
 | 8 | Shape editing (Workflow 1) | Level 1 built; later levels staged | Shape PR, 6; see `docs/research/2d-to-3d.md` |
 
-**Not built yet** (from the plan, worth a follow-up): pinch-to-resize and twist-to-rotate on the 3D garment, two-finger rotate while drawing, a small toolbar beside the selected element, hint cards docked into the tools on phones, an automated "nothing covers the workspace" phone test, silhouettes on the side tabs and highlighting the chosen side on the 3D garment.
+Everything in the feedback plan is built except the Fashion Leader logo, which the owner is handling separately.
