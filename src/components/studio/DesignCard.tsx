@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
 import { type DesignThumbnail, designThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
 import { type DesignSummary, deleteDesign, updateDesign } from '../../lib/flp-api/client'
+import { voteCountLabel } from '../../lib/flp-api/votes'
 import { failureSentence } from '../../lib/flp-api/plain-messages'
 
 /**
@@ -22,8 +23,11 @@ export function DesignCard({
   onDeleted,
   onDuplicate,
   duplicating = false,
+  standing = null,
 }: {
   design: DesignSummary
+  /** Its place on the public board while published: why vote otherwise? */
+  standing?: { rank: number; votes: number } | null
   ownerId: string
   onRenamed: (title: string) => void
   onDeleted: () => void
@@ -160,6 +164,11 @@ export function DesignCard({
           {design.visibility === 'published' ? 'Published · ' : 'Private · '}
           edited {new Date(design.updatedAt).toLocaleString()}
         </span>
+        {design.visibility === 'published' && standing ? (
+          <span className="font-body text-xs font-medium text-flv-accent">
+            #{standing.rank} on the board · {voteCountLabel({ count: standing.votes })}
+          </span>
+        ) : null}
         {mode === 'view' ? (
           <span className="flex gap-2">
             <button ref={renameButton} type="button" className={smallButton} onClick={() => setMode('rename')}>

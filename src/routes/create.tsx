@@ -110,12 +110,12 @@ export const Route = createFileRoute('/create')({
       throw redirect({ to: '/sign-in', search: { returnTo: location.href } })
     }
 
-    // Signed-in work lives in owned cloud designs: start from My Studio
-    // unless a cloud design (or a board remix) is named.
+    // Signed-in work lives in owned cloud designs: with none named (nor a
+    // board remix), Create starts a new one, apart from the My Studio library.
     const search = location.search as { cloud?: string; design?: string }
 
     if (!search.cloud && !search.design) {
-      throw redirect({ to: '/studio' })
+      throw redirect({ to: '/studio', search: { new: true } })
     }
   },
   component: GuardedAtelier,
