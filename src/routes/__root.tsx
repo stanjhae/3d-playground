@@ -8,12 +8,13 @@ import {
 } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
+import { activeNav } from '../lib/active-nav'
+import { navLinkClass } from '../lib/nav-link-class'
 import { AccountControl } from '../components/auth/AccountControl'
 import { BrandMark, LandingHeader, MENU_LINK_CLASS } from '../components/site/LandingHeader'
 import { SiteFooter } from '../components/site/SiteFooter'
 import { onAccountChange, startSession, useSessionStore } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
-import { cn } from '../lib/cn'
 import { useEditorStore } from '../lib/editor-store'
 import { listDesigns } from '../lib/designs-api'
 import { listSnapshots } from '../lib/design-snapshots'
@@ -84,6 +85,7 @@ function RootShell() {
     lookIdFromPathname({ pathname: location.pathname }) ??
     leaderId
   const isLanding = location.pathname === '/'
+  const tab = activeNav({ pathname: location.pathname, search: location.search as Record<string, unknown> })
   const main = useRef<HTMLElement | null>(null)
   // The page actually on screen, unlike `location`, which moves first.
   const shownPath = useRouterState({ select: (state) => state.resolvedLocation?.pathname })
@@ -175,24 +177,23 @@ function RootShell() {
             <BrandMark />
           </Link>
           <nav aria-label="Site" className="flex items-center gap-2 font-body text-sm sm:gap-4">
-            <NavLink to="/" label="Home" active={false} />
-            <NavLink to="/create" label="Create" active={location.pathname === '/create'} />
+            <NavLink to="/" label="Home" active={tab === 'home'} />
+            <NavLink to="/create" label="Create" active={tab === 'create'} />
+            {/* Voting is the point: the board is in the main nav in every build. */}
+            <NavLink to="/vote" label="Vote" active={tab === 'vote'} />
             {AUTH_REQUIRED ? null : (
               <>
-                <NavLink to="/vote" label="Vote" active={location.pathname === '/vote'} />
                 <Link
                   to="/look/$lookId"
                   params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
-                  className={cn('inline-flex min-h-11 items-center px-1', {
-                    'text-flv-accent': location.pathname.startsWith('/look/'),
-                    'text-flv-muted hover:text-flv-accent': !location.pathname.startsWith('/look/'),
-                  })}
+                  aria-current={tab === 'look' ? 'page' : undefined}
+                  className={navLinkClass({ active: tab === 'look' })}
                 >
                   Look
                 </Link>
               </>
             )}
-            <AccountControl />
+            <AccountControl studioActive={tab === 'studio'} />
           </nav>
         </header>
       )}
@@ -220,14 +221,7 @@ function NavLink({
   active: boolean
 }) {
   return (
-    <Link
-      to={to}
-      search={{}}
-      className={cn('inline-flex min-h-11 items-center px-1', {
-        'text-flv-accent': active,
-        'text-flv-muted hover:text-flv-accent': !active,
-      })}
-    >
+    <Link to={to} search={{}} aria-current={active ? 'page' : undefined} className={navLinkClass({ active })}>
       {label}
     </Link>
   )

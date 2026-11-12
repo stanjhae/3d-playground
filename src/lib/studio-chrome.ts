@@ -65,9 +65,14 @@ export const STUDIO_TOOLS_HEIGHT_VAR = '--studio-tools-height'
  * scroll would park focused controls under the sticky header (#163).
  */
 export function studioSectionClass({ drawInFlow = false }: { drawInFlow?: boolean } = {}) {
+  // `clip`, not `hidden`: a hidden box can still be scrolled by focus or
+  // scrollIntoView, which slid the header off a phone and left the tools
+  // over the garment. A clip never scrolls. Browsers without `clip` (iOS
+  // Safari before 16) keep `hidden` rather than dropping to `visible`.
+  const overflow = 'overflow-hidden supports-[overflow:clip]:overflow-clip'
   return drawInFlow
-    ? 'relative h-[calc(100dvh_-_var(--studio-top,0px))] overflow-hidden'
-    : 'relative h-[calc(100dvh_-_var(--studio-top,0px))] min-h-[30rem] overflow-hidden'
+    ? `relative h-[calc(100dvh_-_var(--studio-top,0px))] ${overflow}`
+    : `relative h-[calc(100dvh_-_var(--studio-top,0px))] min-h-[30rem] ${overflow}`
 }
 
 /** Solid, because the steps without a Draw pane run the 3D scene behind it. */
@@ -87,8 +92,10 @@ export function studioSceneClass() {
 }
 
 /** Below lg only the scene shows here, between the header and the tools, as in `studioSceneClass`. */
-export function dualStudioGridClass() {
-  return 'grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(12rem,1fr)] pt-[var(--studio-chrome-bottom,0px)] pb-[var(--studio-tools-height,0px)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:grid-rows-[minmax(20rem,1fr)] lg:gap-3 lg:pt-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:pr-3 lg:pb-3 lg:pl-[21.25rem]'
+export function dualStudioGridClass({ flatSides = true }: { flatSides?: boolean } = {}) {
+  // With the flat sides folded away (wide screens), the garment takes the stage.
+  const columns = flatSides ? 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]' : 'lg:grid-cols-1'
+  return `grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(12rem,1fr)] pt-[var(--studio-chrome-bottom,0px)] pb-[var(--studio-tools-height,0px)] ${columns} lg:grid-rows-[minmax(20rem,1fr)] lg:gap-3 lg:pt-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:pr-3 lg:pb-3 lg:pl-[21.25rem]`
 }
 
 /**
@@ -145,7 +152,7 @@ export function studioPhoneToolsClass({ drawInFlow = false }: { drawInFlow?: boo
  * button out from under a click in progress.
  */
 export function studioPhonePublishClass() {
-  return 'pointer-events-auto flex max-h-[min(72vh,42rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-h-[70%] lg:px-0 lg:pb-0 lg:empty:hidden'
+  return 'pointer-events-auto flex max-h-[min(50vh,32rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-h-[70%] lg:px-0 lg:pb-0 lg:empty:hidden'
 }
 
 export function railFrameClass() {

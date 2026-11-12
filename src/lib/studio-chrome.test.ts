@@ -116,7 +116,8 @@ describe('studio phone chrome', () => {
     expect(studioPhonePublishClass()).toContain('lg:max-h-[70%]')
     expect(studioPhonePublishClass()).not.toContain('sticky')
     expect(studioPhonePublishClass()).toContain('overflow-y-auto')
-    expect(studioPhonePublishClass()).toContain('max-h-[min(72vh,42rem)]')
+    // Half the phone at most, so the garment stays in view while publishing.
+    expect(studioPhonePublishClass()).toContain('max-h-[min(50vh,32rem)]')
     expect(studioPhonePublishClass()).not.toContain('lg:left-6')
     expect(studioPhonePublishClass()).not.toContain('calc(50%')
   })
@@ -126,5 +127,14 @@ describe('studioSectionClass (#163)', () => {
   test('drops the min height when the Draw overlay scrolls on its own', () => {
     expect(studioSectionClass()).toContain('min-h-[30rem]')
     expect(studioSectionClass({ drawInFlow: true })).not.toContain('min-h-')
+  })
+
+  test('clips rather than hides where it can, so focus can never scroll the header away', () => {
+    for (const drawInFlow of [false, true]) {
+      const classes = studioSectionClass({ drawInFlow }).split(' ')
+      expect(classes).toContain('supports-[overflow:clip]:overflow-clip')
+      // Older Safari has no `clip`: it must still hide, never overflow.
+      expect(classes).toContain('overflow-hidden')
+    }
   })
 })

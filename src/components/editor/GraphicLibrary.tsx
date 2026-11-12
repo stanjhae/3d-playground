@@ -3,6 +3,8 @@ import { useId, useMemo, useState } from 'react'
 import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
+import { garmentPanels } from '../../lib/garments'
+import { startGraphicDrag } from '../../lib/graphic-drag'
 import {
   GRAPHIC_ASSETS,
   GRAPHIC_CATEGORIES,
@@ -30,11 +32,26 @@ export function GraphicLibrary() {
   const searchId = useId()
   const assets = useMemo(() => searchGraphics({ query, category }), [query, category])
   const trimmed = query.trim()
+  // A tap adds at once: say where it went, so nobody waits to tap the cloth.
+  // The note holds only while that graphic is still the selection: removed,
+  // undone or deselected, it goes.
+  const [added, setAdded] = useState<{ layerId: string; message: string } | null>(null)
+  const addedStillSelected = useEditorStore((state) => added !== null && state.selectedLayerId === added.layerId)
+  const garmentId = useEditorStore((state) => state.garmentId)
+  const paintPanel = useEditorStore((state) => state.paintPanel)
+  const panelLabel = (
+    garmentPanels({ garmentId }).find((panel) => panel.id === paintPanel)?.label ?? 'front'
+  ).toLowerCase()
 
   return (
     <aside className={railFrameClass()}>
       <p className={chromeKickerClass()}>{FLV_COPY.suggestionsTitle}</p>
       <p className={chromeMutedClass()}>{FLV_COPY.suggestionsApply}</p>
+      {added && addedStillSelected ? (
+        <p className="font-body text-sm text-flv-ink" role="status">
+          {added.message}
+        </p>
+      ) : null}
       {decodeError ? (
         <p className="font-body text-sm text-flv-accent" role="status">
           {decodeError}
@@ -99,9 +116,22 @@ export function GraphicLibrary() {
               <button
                 type="button"
                 title={asset.tags.length > 0 ? `${asset.label}: ${asset.tags.join(', ')}` : asset.label}
+                draggable
+                onDragStart={(event) => {
+                  startGraphicDrag({ dataTransfer: event.dataTransfer, src: asset.src })
+                }}
                 onClick={() => {
                   setDecodeError(null)
                   addGraphic({ src: asset.src })
+                  const layerId = useEditorStore.getState().selectedLayerId
+                  setAdded(
+                    layerId
+                      ? {
+                          layerId,
+                          message: `${asset.label} added to the ${panelLabel}. Drag it on the garment to move it, or resize it under Selected item.`,
+                        }
+                      : null,
+                  )
                   void decodeLayerImage({ src: asset.src }).then((buffer) => {
                     if (!buffer) {
                       setDecodeError(

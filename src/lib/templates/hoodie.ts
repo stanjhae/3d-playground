@@ -107,8 +107,8 @@ export const HOODIE_V1: TemplateManifest = {
       ]
     },
     "left": {
-      "label": "Wearer's left sleeve",
-      "renderPanel": "left",
+      "label": "Left sleeve",
+      "renderPanel": "right",
       "renderMirrorX": false,
       "mesh": "body-7 body-4",
       "uv": {
@@ -118,7 +118,7 @@ export const HOODIE_V1: TemplateManifest = {
         "v1": 0.448583
       },
       "axes": {
-        "x": "across the wearer's left sleeve as seen from the left",
+        "x": "across the left sleeve as seen from the left",
         "y": "up the garment"
       },
       "landmarks": {},
@@ -136,8 +136,8 @@ export const HOODIE_V1: TemplateManifest = {
       ]
     },
     "right": {
-      "label": "Wearer's right sleeve",
-      "renderPanel": "right",
+      "label": "Right sleeve",
+      "renderPanel": "left",
       "renderMirrorX": false,
       "mesh": "body-1 body-2",
       "uv": {
@@ -147,7 +147,7 @@ export const HOODIE_V1: TemplateManifest = {
         "v1": 0.448583
       },
       "axes": {
-        "x": "across the wearer's right sleeve as seen from the right",
+        "x": "across the right sleeve as seen from the right",
         "y": "up the garment"
       },
       "landmarks": {},
@@ -165,7 +165,7 @@ export const HOODIE_V1: TemplateManifest = {
       ]
     },
     "hood-left": {
-      "label": "Hood, wearer's left",
+      "label": "Hood, left side",
       "renderPanel": "hood-left",
       "renderMirrorX": false,
       "mesh": "body-5",
@@ -176,7 +176,7 @@ export const HOODIE_V1: TemplateManifest = {
         "v1": 0.448583
       },
       "axes": {
-        "x": "across the hood, wearer's left as seen from the left",
+        "x": "across the hood, left side as seen from the left",
         "y": "up the garment"
       },
       "landmarks": {},
@@ -194,7 +194,7 @@ export const HOODIE_V1: TemplateManifest = {
       ]
     },
     "hood-right": {
-      "label": "Hood, wearer's right",
+      "label": "Hood, right side",
       "renderPanel": "hood-right",
       "renderMirrorX": false,
       "mesh": "body-6",
@@ -205,7 +205,7 @@ export const HOODIE_V1: TemplateManifest = {
         "v1": 0.448583
       },
       "axes": {
-        "x": "across the hood, wearer's right as seen from the right",
+        "x": "across the hood, right side as seen from the right",
         "y": "up the garment"
       },
       "landmarks": {},

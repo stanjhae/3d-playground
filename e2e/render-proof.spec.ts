@@ -62,7 +62,7 @@ async function sceneShot({ page }: { page: Page }) {
 
 /** Try-on is opt-in on the publish step: put the tee on the first figure. */
 async function tryOn({ page }: { page: Page }) {
-  await page.getByRole('button', { name: 'Tall' }).click()
+  await page.getByRole('button', { name: 'Tall · Male', exact: true }).click()
 }
 
 async function viewFrom({ page, side }: { page: Page; side: string }) {
@@ -138,7 +138,7 @@ function difference({ page, one, two, type = 'image/png' }: { page: Page; one: s
 async function publish({ page }: { page: Page }) {
   await goToStep({ page, step: 'share' })
   const { seq } = await savedHead({ page })
-  await page.getByRole('button', { name: /^(Publish…|Publish latest)$/ }).click()
+  await page.getByRole('button', { name: /^(Publish publicly…|Publish latest)$/ }).click()
   await page.getByRole('button', { name: /^(Confirm publish|Publish v\d+)$/ }).click()
   await expect(page.getByText(new RegExp(`Published v${seq}\\b`))).toBeVisible({ timeout: 120_000 })
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
@@ -223,10 +223,10 @@ test('publishing with a figure tried on photographs the tee alone', async ({ pag
     .toBeGreaterThan(200)
 
   const { seq } = await savedHead({ page })
-  await page.getByRole('button', { name: 'Publish…' }).click()
+  await page.getByRole('button', { name: 'Publish publicly…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
   await expect(page.getByText(new RegExp(`Published v${seq}\\b`))).toBeVisible({ timeout: 120_000 })
-  await expect(page.getByRole('button', { name: 'Tall' })).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('button', { name: 'Tall · Male', exact: true })).toHaveAttribute('aria-pressed', 'false')
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   const slug = (await link.getAttribute('href'))!.split('/s/')[1]!
   const front = await publishedFront({ page, slug })
@@ -371,7 +371,8 @@ test('a square image looks square on the 2D panel and on the tee, and each panel
       for (let x = 0; x < width; x += 1) {
         const at = (y * width + x) * 4
 
-        if (data[at]! > 240 && data[at + 1]! < 15 && data[at + 2]! > 240) {
+        // Magenta, plain or under the off-garment shading (about 214, 5, 215).
+        if (data[at]! > 200 && data[at + 1]! < 20 && data[at + 2]! > 200) {
           left = Math.min(left, x)
           right = Math.max(right, x)
           top = Math.min(top, y)

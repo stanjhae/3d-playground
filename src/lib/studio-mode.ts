@@ -34,9 +34,30 @@ export function writeProTools({ on, storage = deviceStorage() }: { on: boolean; 
   }
 }
 
+/** Whether a wide screen shows the flat side panels beside the 3D garment. */
+export const FLAT_SIDES_KEY = 'flp-flat-sides'
+
+export function readFlatSides({ storage = deviceStorage() }: { storage?: Storage | null } = {}) {
+  try {
+    return storage?.getItem(FLAT_SIDES_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function writeFlatSides({ on, storage = deviceStorage() }: { on: boolean; storage?: Storage | null }) {
+  try {
+    storage?.setItem(FLAT_SIDES_KEY, on ? 'on' : 'off')
+  } catch {
+    // A blocked store still switches for this visit.
+  }
+}
+
 type StudioModeState = {
   pro: boolean
   setPro: ({ pro }: { pro: boolean }) => void
+  flatSides: boolean
+  setFlatSides: ({ flatSides }: { flatSides: boolean }) => void
 }
 
 export const useStudioMode = create<StudioModeState>((set) => ({
@@ -44,6 +65,11 @@ export const useStudioMode = create<StudioModeState>((set) => ({
   setPro: ({ pro }) => {
     writeProTools({ on: pro })
     set({ pro })
+  },
+  flatSides: readFlatSides(),
+  setFlatSides: ({ flatSides }) => {
+    writeFlatSides({ on: flatSides })
+    set({ flatSides })
   },
 }))
 

@@ -51,6 +51,14 @@ const VIEW_TOWARD = {
   right: [-1, 0, 0],
 }
 
+/**
+ * Sleeve panels route like the tee's (`template-manifest.ts`): canonical ids
+ * name the wearer's side, render ids the camera's, where render `left` is
+ * the wearer's right. The editor tabs, camera presets and published side
+ * views all speak render ids, so every garment means the same by them.
+ */
+const RENDER_SIDE = { left: 'right', right: 'left' }
+
 const { values } = parseArgs({
   options: {
     pieces: { type: 'string' },
@@ -306,7 +314,11 @@ async function build({ piecesFile }) {
     const right = VIEW_RIGHT[panel.view]
     const toward = VIEW_TOWARD[panel.view]
     if (!right) throw new Error(`Panel ${panel.id}: unknown view ${panel.view}`)
-    const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+    if (RENDER_SIDE[panel.id] && panel.view !== panel.id) {
+      throw new Error(`Panel ${panel.id}: the wearer's ${panel.id} sleeve is seen from the ${panel.id}, not the ${panel.view}`)
+    }
+    if (panel.renderPanel) throw new Error(`Panel ${panel.id}: renderPanel comes from the panel id, not the piece map`)
+    const box ={ minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
     const sum = { x: 0, y: 0, z: 0, count: 0 }
 
     for (const pick of panel.pieces) {
@@ -479,8 +491,9 @@ async function build({ piecesFile }) {
         panel.id,
         {
           label: panel.label,
-          // The tee keeps its render routing (wearer's left sleeve on render `right`).
-          renderPanel: panel.renderPanel ?? panel.id,
+          // Canonical sleeves are named for the wearer; render sides for the
+          // camera, where `left` is the wearer's right (as on every tee).
+          renderPanel: RENDER_SIDE[panel.id] ?? panel.id,
           // Canonical x runs toward the wearer's left on every panel; a back
           // panel is printed as seen from behind, so it renders mirrored.
           renderMirrorX: panel.view === 'back',

@@ -5,6 +5,7 @@ import { cn } from '../../lib/cn'
 import { getBoard } from '../../lib/flp-api/public-read'
 import type { BoardEntry } from '../../lib/flp-api/publication'
 import { voteCountLabel } from '../../lib/flp-api/votes'
+import { type BoardSort, boardView } from '../../lib/board-view'
 import { getGarment } from '../../lib/garments'
 import { GownCredit } from '../editor/GownCredit'
 
@@ -17,6 +18,7 @@ type Load = { state: 'loading' } | { state: 'ready'; designs: BoardEntry[] } | {
 export function PublicationBoard() {
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [garmentId, setGarmentId] = useState<string | null>(null)
+  const [sort, setSort] = useState<BoardSort>('top')
 
   useEffect(() => {
     let cancelled = false
@@ -34,17 +36,42 @@ export function PublicationBoard() {
 
   const designs = useMemo(() => (load.state === 'ready' ? load.designs : []), [load])
   const garments = useMemo(() => [...new Set(designs.map((design) => design.garmentId))], [designs])
-  const shown = garmentId ? designs.filter((design) => design.garmentId === garmentId) : designs
+  // Ranked over the whole board, so a design's place never moves with the filter.
+  const shown = useMemo(() => boardView({ designs, garmentId, sort }), [designs, garmentId, sort])
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-16">
       <header className="flex flex-col gap-2">
         <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Fashion Leader Vote</p>
-        <h1 className="font-display text-4xl">Top designs</h1>
+        <h1 className="font-display text-4xl">Vote and rankings</h1>
         <p className="font-body text-sm text-flv-muted">
-          Published designs, most voted first. Open one to see every side and vote.
+          Every published design, ranked by votes. Open one to see every side and give it your vote.
         </p>
       </header>
+
+      <div role="tablist" aria-label="Board order" className="flex gap-2">
+        {(
+          [
+            { id: 'top', label: 'Rankings', hint: 'Most voted first' },
+            { id: 'new', label: 'New', hint: 'Newest first, to vote on' },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={sort === tab.id}
+            title={tab.hint}
+            onClick={() => setSort(tab.id)}
+            className={cn('min-h-11 border-b-2 px-3 font-body text-sm', {
+              'border-flv-accent font-medium text-flv-accent': sort === tab.id,
+              'border-transparent text-flv-muted hover:text-flv-accent': sort !== tab.id,
+            })}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {garments.length > 1 ? (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by garment">
@@ -84,6 +111,12 @@ export function PublicationBoard() {
           <li key={design.slug} className="flv-panel flex flex-col gap-3 p-4">
             <Link to="/s/$slug" params={{ slug: design.slug }} className="flex flex-col gap-3">
               <div className="relative overflow-hidden rounded-xl border border-flv-line bg-flv-soft">
+                <span
+                  aria-label={`Rank ${design.rank}`}
+                  className="absolute top-2 left-2 z-10 rounded-full bg-flv-ink px-2.5 py-1 font-body text-xs font-medium text-white"
+                >
+                  #{design.rank}
+                </span>
                 <img
                   src={design.image}
                   alt={`${design.title}, front view`}
@@ -98,7 +131,10 @@ export function PublicationBoard() {
               </p>
             </Link>
             <GownCredit garmentId={design.garmentId} />
-            <p className="font-body text-sm text-flv-muted">{voteCountLabel({ count: design.votes })}</p>
+            {/* Read from the database, not claimed (docs/claims-audit.md). */}
+            <p data-testid="vote-count" className="font-body text-sm text-flv-muted">
+              {voteCountLabel({ count: design.votes })}
+            </p>
           </li>
         ))}
       </ul>

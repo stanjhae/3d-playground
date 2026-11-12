@@ -77,7 +77,8 @@ test('a palm never ends, joins or starts a pen stroke', async ({ page }) => {
   await signIn({ page, email })
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
-  await chooseTool({ page, tool: 'Graphics' })
+  // Ink only goes down with Draw on; any other tool turns the garment instead.
+  await chooseTool({ page, tool: 'Draw' })
   const canvas = panelCanvas({ page, panel: 'Front' })
   await expect(canvas).toBeVisible()
 

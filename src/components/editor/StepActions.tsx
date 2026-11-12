@@ -3,6 +3,7 @@ import { nextCreateStep, previousCreateStep } from '../../lib/create-steps'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
+import { UndoRedo } from './UndoRedo'
 
 /**
  * The step's one primary action, always in the same place. The publish step
@@ -18,6 +19,10 @@ export function StepActions() {
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2" data-hint-keep-clear>
+      {/* Undo sits with the step's buttons: one row instead of two on a phone. */}
+      <div className="mr-auto">
+        <UndoRedo />
+      </div>
       {createStep === 'select' ? null : (
         <Button variant="quiet" onClick={() => go(previousCreateStep({ step: createStep }))}>
           {HOUSE_COPY.previous}

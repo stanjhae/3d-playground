@@ -107,7 +107,7 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
       ]
     },
     "left": {
-      "label": "Wearer's left sleeve",
+      "label": "Left sleeve",
       "renderPanel": "right",
       "renderMirrorX": false,
       "mesh": "body-sleeves",
@@ -118,7 +118,7 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
         "v1": 0.262897
       },
       "axes": {
-        "x": "across the wearer's left sleeve as seen from the left",
+        "x": "across the left sleeve as seen from the left",
         "y": "up the garment"
       },
       "landmarks": {},
@@ -136,7 +136,7 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
       ]
     },
     "right": {
-      "label": "Wearer's right sleeve",
+      "label": "Right sleeve",
       "renderPanel": "left",
       "renderMirrorX": false,
       "mesh": "body-sleeves",
@@ -147,7 +147,7 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
         "v1": 0.262897
       },
       "axes": {
-        "x": "across the wearer's right sleeve as seen from the right",
+        "x": "across the right sleeve as seen from the right",
         "y": "up the garment"
       },
       "landmarks": {},

@@ -170,6 +170,8 @@ export function AvatarRail() {
                       height: avatar.heightCm,
                       chest: avatar.chestCm,
                       waist: avatar.waistCm,
+                      hip: avatar.hipCm,
+                      build: avatar.build,
                     },
                   })
                 }

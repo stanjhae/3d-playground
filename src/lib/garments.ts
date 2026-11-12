@@ -294,9 +294,14 @@ export function garmentSrc({
   return garment.src
 }
 
+/** The tee's panel order (`TEE_PANELS`); a template's other panels follow in its own order. */
+const RENDER_PANEL_ORDER = TEE_PANELS.map((panel) => panel.id)
+
 /**
- * The panels a garment prints on: the tee's house list, else its
- * template's (render panel ids, which equal canonical ids there).
+ * The panels a garment prints on, by render panel id (what the editor,
+ * camera presets and side views speak): the tee's house list, else its
+ * template's, routed like the tee's so render `left` is the wearer's right
+ * on every garment, and in the tee's order.
  */
 export function garmentPanels({
   garmentId,
@@ -310,9 +315,26 @@ export function garmentPanels({
   }
 
   const template = templateForGarment({ garmentId: garment.id })
-  return template
-    ? Object.entries(template.regions).map(([id, region]) => ({ id, label: region.label }))
-    : []
+
+  if (!template) {
+    return []
+  }
+
+  const rank = (id: string) => {
+    const at = RENDER_PANEL_ORDER.indexOf(id)
+    return at === -1 ? RENDER_PANEL_ORDER.length : at
+  }
+
+  return Object.values(template.regions)
+    .map((region) => ({ id: region.renderPanel, label: region.label }))
+    .sort((a, b) => rank(a.id) - rank(b.id))
+}
+
+/** The areas a garment prints on, in tab order: "Front · Back · Right sleeve · …". */
+export function printAreas({ garmentId }: { garmentId?: string | null }) {
+  return garmentPanels({ garmentId })
+    .map((panel) => panel.label)
+    .join(' · ')
 }
 
 /**

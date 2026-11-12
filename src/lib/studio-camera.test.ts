@@ -9,7 +9,7 @@ function expectNear({ actual, expected }: { actual: readonly number[]; expected:
 const HOODIE = {
   min: [-0.37, 0.87, -0.23] as const,
   max: [0.37, 1.65, 0.21] as const,
-  sleeves: { minusX: [-0.25, 1.2, -0.02] as const, plusX: [0.25, 1.2, -0.02] as const },
+  sleeves: { left: [-0.25, 1.2, -0.02] as const, right: [0.25, 1.2, -0.02] as const },
 }
 
 describe('modelSeat (real models)', () => {
