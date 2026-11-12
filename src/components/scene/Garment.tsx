@@ -42,6 +42,7 @@ import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { clothNormalMap } from '../../lib/fabric-normal'
 import { createClothingMesh } from '../../lib/tee-geometry'
+import { createShapeRig } from '../../lib/garment-shape'
 import { ClothingPoseContext } from './clothing-pose'
 import { SelectableMesh } from './SelectableMesh'
 
@@ -349,16 +350,30 @@ function SeatedForm({
   // Its own cache: the tee leaves pending words out.
   const [liveAtlas] = useState(() => createLiveAtlas({ enabled: LIVE_STROKE_CACHE }))
 
-  const { tree, meshes, baseMaterials } = useMemo(() => {
+  const { tree, meshes, baseMaterials, shapeRig } = useMemo(() => {
     const root = scene.clone(true)
     cloneObjectMaterials({ root })
     stampAncestorNames({ root })
     const baseMaterials = captureMeshMaterials({ root })
     const meshes = listMeshes({ root })
+    // Before the graph comes apart: the rig reads each mesh's place in it.
+    const shapeRig = createShapeRig({ root, meshes, ...(clothDetail ? { parts: {} } : {}) })
     const tree = detachChildren({ object: root })
 
-    return { tree, meshes, baseMaterials }
-  }, [scene])
+    return { tree, meshes, baseMaterials, shapeRig }
+  }, [clothDetail, scene])
+
+  // Parametric shape: the studio's slider preview while dragging, else the document's.
+  const shapePreview = useEditorStore((state) => state.shapePreview)
+  const shape = picking && shapePreview ? shapePreview : inkDocument.shape
+
+  useLayoutEffect(() => {
+    if (shapeRig.apply({ shape })) {
+      invalidate()
+    }
+  }, [invalidate, shape, shapeRig])
+
+  useEffect(() => () => shapeRig.dispose(), [shapeRig])
 
   useLayoutEffect(() => {
     for (const texture of Object.values(loadedMaps)) {

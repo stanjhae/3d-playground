@@ -4,6 +4,7 @@ import {
   panelIdsOf,
 } from './canonical-document.ts'
 import type { DesignDocument, DesignLayer, PanelId } from './design-document.ts'
+import { templateHasShape } from './garment-shape-params.ts'
 import { CURRENT_TEMPLATE, type TemplateManifest, resolveTemplate } from './template-manifest.ts'
 
 /**
@@ -306,6 +307,8 @@ export function toRenderDocument({
           : [{ meshName: 'body', color: baseColor, roughness: 0.86, metalness: 0 }],
       ...panelAspects({ manifest }),
       ...panelUvOf({ manifest }),
+      // Only a model with a shape map deforms; the validator keeps it so.
+      ...(document.shape && templateHasShape({ template: document.template }) ? { shape: { ...document.shape } } : {}),
       layers: layers.length > 0 ? layers : [{ id: 'paint-empty', kind: 'paint', visible: true, strokes: [] }],
     },
     missingAssets,

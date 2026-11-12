@@ -78,6 +78,7 @@ import { findLayer, replaceDocument, replaceDocumentUndoable } from './canonical
 import { upgradeToCurrentTemplate } from './template-upgrade'
 import { canonicalPanel, renderPanel } from './render-projection'
 import { NUDGE_MERGE_MS } from './studio-keys'
+import { clampShape, type GarmentShape, templateHasShape } from './garment-shape-params'
 import { roundPlacement } from './transform-fields'
 
 export type EditorMode = 'design' | 'atelier'
@@ -125,6 +126,11 @@ type EditorState = {
   importNotes: ImportNote[]
   /** A refused command or an over-limit document, in words (#162). */
   limitNotice: string | null
+  /**
+   * The shape a slider shows while it is dragged, before `setShape` commits
+   * it as one undo step; null when nothing is being dragged.
+   */
+  shapePreview: GarmentShape | null
   /** The owned cloud design open in the studio, if any (A05 #149). */
   cloud: CloudContext | null
   /** Bumped by every `loadCanonical`, so autosave restarts on a reload. */
@@ -326,6 +332,10 @@ type EditorState = {
   moveLayerTo: ({ layerId, toIndex }: { layerId: string; toIndex: number }) => void
   setNeck: ({ neck }: { neck: NeckId }) => void
   setStructural: ({ structural }: { structural: StructuralParams }) => void
+  /** Preview a shape on the 3D garment without touching the document. */
+  previewShape: ({ shape }: { shape: GarmentShape | null }) => void
+  /** Commit shape fields (clamped to their safe ranges) as one undo step. */
+  setShape: ({ shape }: { shape: Partial<GarmentShape> }) => void
   addPattern: ({
     patternId,
     panel,
@@ -702,6 +712,7 @@ const INITIAL_EDITOR_STATE = {
   revision: 0,
   importNotes: [] as ImportNote[],
   limitNotice: null as string | null,
+  shapePreview: null as GarmentShape | null,
   cloud: null as CloudContext | null,
   cloudLoad: 0,
   title: '',
@@ -747,6 +758,16 @@ const INITIAL_EDITOR_STATE = {
 /** The tee's canonical v2 document, for cloud saving (S04 #173). */
 export function getCanonicalDocument(): CanonicalDocument {
   return tee.stack.document
+}
+
+/** Whether the open garment's template takes shape sliders (shape v1). */
+export function canEditShape() {
+  return teeActive() && templateHasShape({ template: tee.stack.document.template })
+}
+
+/** `canEditShape`, kept current: it re-reads on every content revision. */
+export function useCanEditShape() {
+  return useEditorStore((state) => state.revision >= 0 && state.garmentId !== null && canEditShape())
 }
 
 /**
@@ -1713,6 +1734,22 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         command: { type: 'setStructural', structural: { neck } },
       }),
     )
+  },
+  previewShape: ({ shape }) => {
+    set({ shapePreview: shape ? clampShape({ shape }) : null })
+  },
+  setShape: ({ shape }) => {
+    set((state) => {
+      if (!teeActive() || !templateHasShape({ template: tee.stack.document.template })) {
+        return { shapePreview: null }
+      }
+
+      const clamped = clampShape({ shape: { ...(state.document.shape ?? {}), ...shape } })
+      const patch = Object.fromEntries(Object.keys(shape).map((field) => [field, clamped[field as keyof GarmentShape]]))
+      const step = runTeeCommand({ engine: tee, command: { type: 'setShape', shape: patch } })
+      tee = step.engine
+      return syncFromStack({ extra: { shapePreview: null, ...(step.refusal ? { limitNotice: step.refusal } : {}) } })
+    })
   },
   setStructural: ({ structural }) => {
     set(() =>

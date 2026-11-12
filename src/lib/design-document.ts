@@ -1,3 +1,4 @@
+import type { GarmentShape } from './garment-shape-params.ts'
 import {
   type Design,
   type GarmentId,
@@ -212,6 +213,8 @@ export type DesignDocument = {
   modelSrc?: string
   /** Where a template-built garment stands, for the camera (`studio-camera.ts`). */
   modelFrame?: ModelFrame
+  /** Parametric shape for the 3D model (`garment-shape.ts`); absent when neutral. */
+  shape?: GarmentShape
 }
 
 /** A real model's extent and its sleeves (by side), in metres. */

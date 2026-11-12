@@ -1,4 +1,4 @@
-import { validateCanonicalDocument } from './canonical-document.ts'
+import { readCanonicalDocument } from './canonical-document.ts'
 import { useEditorStore } from './editor-store.ts'
 import { getOwnedDesign } from './flp-api/client.ts'
 import { resolveTemplate } from './template-manifest.ts'
@@ -57,7 +57,7 @@ export async function loadCloudDesign({
   }
 
   const checked = result.data.head
-    ? validateCanonicalDocument({ value: result.data.head.content })
+    ? readCanonicalDocument({ value: result.data.head.content })
     : null
 
   if (!checked?.ok || !result.data.head) {

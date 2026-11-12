@@ -2,14 +2,17 @@ import {
   type CanonicalDocument,
   type CanonicalLayer,
   type CanonicalPanelId,
+  type CanonicalShape,
   type CanonicalStroke,
   type CanonicalTextFace,
   type Color,
   type GarmentBase,
   type ValidationIssue,
   panelIdsOf,
+  shapeOf,
   validateCanonicalDocument,
 } from './canonical-document.ts'
+import { isNeutralShape } from './garment-shape-params.ts'
 
 /**
  * Editor commands on the canonical v2 document (FLP E01 #152).
@@ -65,6 +68,12 @@ export type CanonicalCommand =
       newId: string
     }
   | { type: 'setBase'; base: GarmentBase }
+  /**
+   * Change some shape fields; the rest keep their values. A shape that comes
+   * out neutral is removed, as shapes are stored only when off neutral.
+   * Out-of-range values are refused, not clamped: the UI clamps.
+   */
+  | { type: 'setShape'; shape: Partial<CanonicalShape> }
   /** Several commands as one undo step, e.g. clearing every paint layer. */
   | { type: 'batch'; commands: CanonicalCommand[] }
 
@@ -386,6 +395,30 @@ function applyToDocument({
       target.splice(found.index + 1, 0, copy)
     } else {
       target.push(copy)
+    }
+
+    return { ok: true, document: next }
+  }
+
+  if (command.type === 'setShape') {
+    const merged = { ...shapeOf({ document: next }) }
+
+    for (const [field, value] of Object.entries(command.shape)) {
+      if (value === undefined) {
+        continue
+      }
+
+      if (!(field in merged)) {
+        return { ok: false, issues: [{ path: `$.shape.${field}`, message: 'unknown field' }] }
+      }
+
+      merged[field as keyof CanonicalShape] = value
+    }
+
+    if (isNeutralShape({ shape: merged })) {
+      delete next.shape
+    } else {
+      next.shape = merged
     }
 
     return { ok: true, document: next }

@@ -7,6 +7,7 @@ import { type AtlasBuffer, rasterizeLayers } from './paint-atlas'
 import { atlasSourceRect } from './panel-uv'
 import { toRenderDocument } from './render-projection'
 import { resolveUploadedSources } from './uploaded-images'
+import { type GarmentShape, NEUTRAL_SHAPE } from './garment-shape-params'
 
 /**
  * The picture on a My Studio card (P3). A design whose published version is
@@ -47,23 +48,66 @@ export function baseColorOf({ document }: { document: CanonicalDocument }) {
   return document.base.kind === 'solid' ? document.base.color : document.base.colors[0]
 }
 
-/** A plain crew-neck tee outline in a `width` × `height` box. */
-export function teeOutline({ width, height }: { width: number; height: number }) {
+/**
+ * The tee outline's corners, as fractions of the still, following the
+ * design's shape (shape v1): sleeves stretch from the shoulder, the hem
+ * moves, the body widens below the armpits and the neckline dips. From the
+ * front the wearer's left sleeve is on screen right. May reach past 0–1;
+ * `teeStillScale` fits it back in.
+ */
+export function teeOutlinePoints({ shape }: { shape?: GarmentShape }) {
+  const s = shape ?? NEUTRAL_SHAPE
+  const sleeve = ({ shoulder, armpit, cuffTop, cuffBottom, length }: Record<'shoulder' | 'armpit' | 'cuffTop' | 'cuffBottom', [number, number]> & { length: number }) => {
+    const reach = 1 + length
+    return {
+      top: [shoulder[0] + (cuffTop[0] - shoulder[0]) * reach, shoulder[1] + (cuffTop[1] - shoulder[1]) * reach] as [number, number],
+      bottom: [armpit[0] + (cuffBottom[0] - armpit[0]) * reach, armpit[1] + (cuffBottom[1] - armpit[1]) * reach] as [number, number],
+    }
+  }
+  const right = sleeve({ shoulder: [0.86, 0.12], armpit: [0.8, 0.33], cuffTop: [0.99, 0.34], cuffBottom: [0.83, 0.41], length: s.leftSleeveLength })
+  const left = sleeve({ shoulder: [0.14, 0.12], armpit: [0.2, 0.33], cuffTop: [0.01, 0.34], cuffBottom: [0.17, 0.41], length: s.rightSleeveLength })
+  const hem = 0.33 + 0.64 * (1 + s.bodyLength)
+  const half = 0.3 * (1 + s.bodyWidth)
+
+  return {
+    neck: { left: [0.36, 0.04], dip: [0.5, 0.13 + 0.4 * s.necklineDepth], right: [0.64, 0.04] } as const,
+    body: [
+      [0.86, 0.12],
+      right.top,
+      right.bottom,
+      [0.8, 0.33],
+      [0.5 + half, hem],
+      [0.5 - half, hem],
+      [0.2, 0.33],
+      left.bottom,
+      left.top,
+      [0.14, 0.12],
+    ] as [number, number][],
+  }
+}
+
+/** How far a shaped still shrinks (about its top centre) to fit its box. */
+export function teeStillScale({ shape }: { shape?: GarmentShape }) {
+  const { body } = teeOutlinePoints({ shape })
+  const reach = Math.max(...body.map(([x]) => Math.abs(x - 0.5))) / 0.49
+  const depth = Math.max(...body.map(([, y]) => y)) / 0.97
+  return 1 / Math.max(1, reach, depth)
+}
+
+/** A crew-neck tee outline in a `width` × `height` box, in the design's shape. */
+export function teeOutline({ width, height, shape }: { width: number; height: number; shape?: GarmentShape }) {
   const x = (fraction: number) => fraction * width
   const y = (fraction: number) => fraction * height
+  const { neck, body } = teeOutlinePoints({ shape })
   const path = new Path2D()
-  path.moveTo(x(0.36), y(0.04))
-  path.quadraticCurveTo(x(0.5), y(0.13), x(0.64), y(0.04))
-  path.lineTo(x(0.86), y(0.12))
-  path.lineTo(x(0.99), y(0.34))
-  path.lineTo(x(0.83), y(0.41))
-  path.lineTo(x(0.8), y(0.33))
-  path.lineTo(x(0.8), y(0.97))
-  path.lineTo(x(0.2), y(0.97))
-  path.lineTo(x(0.2), y(0.33))
-  path.lineTo(x(0.17), y(0.41))
-  path.lineTo(x(0.01), y(0.34))
-  path.lineTo(x(0.14), y(0.12))
+  path.moveTo(x(neck.left[0]), y(neck.left[1]))
+  // `dip` is the curve's control point; neutral is the plain crew neck.
+  path.quadraticCurveTo(x(neck.dip[0]), y(neck.dip[1]), x(neck.right[0]), y(neck.right[1]))
+
+  for (const [px, py] of body) {
+    path.lineTo(x(px), y(py))
+  }
+
   path.closePath()
   return path
 }
@@ -111,11 +155,13 @@ function drawStill({
   color,
   aspect,
   tee,
+  shape,
 }: {
   atlas: AtlasBuffer
   color: string
   aspect: number
   tee: boolean
+  shape?: GarmentShape
 }) {
   const source = document.createElement('canvas')
   source.width = atlas.width
@@ -132,7 +178,11 @@ function drawStill({
   }
 
   const box = stillFrontBox({ tee, aspect, width: STILL_WIDTH, height: STILL_HEIGHT })
-  const outline = tee ? teeOutline({ width: STILL_WIDTH, height: STILL_HEIGHT }) : panelOutline(box)
+  const outline = tee ? teeOutline({ width: STILL_WIDTH, height: STILL_HEIGHT, shape }) : panelOutline(box)
+  // A long sleeve or hem shrinks the whole still to fit, about its top centre.
+  const fit = tee ? teeStillScale({ shape }) : 1
+  context.translate((STILL_WIDTH * (1 - fit)) / 2, 0)
+  context.scale(fit, fit)
   context.save()
   context.clip(outline)
   context.fillStyle = color
@@ -177,6 +227,7 @@ async function drawFromHead({ designId }: { designId: string }): Promise<DesignT
       color: baseColorOf({ document: content }),
       aspect: projected.panelAspects?.front ?? 6 / 7,
       tee: projected.garmentId === 'tee',
+      shape: projected.shape,
     })
     return src ? { kind: 'still', src } : null
   } finally {

@@ -16,6 +16,7 @@
  * See docs/canonical-document.md.
  */
 
+import { type GarmentShape, isNeutralShape, NEUTRAL_SHAPE, SHAPE_FIELDS, SHAPE_LIMITS, templateHasShape } from './garment-shape-params.ts'
 import { currentTemplateFor, resolveTemplate, TEMPLATE_IDS } from './template-manifest.ts'
 
 export { TEMPLATE_IDS }
@@ -172,11 +173,20 @@ export type CanonicalPanel = {
   layers: CanonicalLayer[]
 }
 
+/**
+ * Parametric shape (v1): five fractions, 0 neutral, within `SHAPE_LIMITS`.
+ * Stored only when one is off neutral, and only on a template with a shape
+ * map (`templateHasShape`), so an unshaped design hashes as it always did.
+ */
+export type CanonicalShape = GarmentShape
+
 export type CanonicalDocument = {
   schemaVersion: typeof CANONICAL_SCHEMA_VERSION
   template: TemplateRef
   base: GarmentBase
   panels: Record<CanonicalPanelId, CanonicalPanel>
+  /** Left out when neutral; see `CanonicalShape`. */
+  shape?: CanonicalShape
 }
 
 /** The panels this document's template prints on, in template order. */
@@ -833,6 +843,45 @@ function checkPanels({
   }
 }
 
+function checkShape({
+  context,
+  value,
+  path,
+  template,
+}: {
+  context: Context
+  value: unknown
+  path: string
+  template: unknown
+}) {
+  const shape = checkRecord({ context, value, path, required: SHAPE_FIELDS })
+
+  if (!shape) {
+    return
+  }
+
+  for (const field of SHAPE_FIELDS) {
+    if (field in shape) {
+      checkNumber({ context, value: shape[field], path: `${path}.${field}`, ...SHAPE_LIMITS[field] })
+    }
+  }
+
+  // One form per look: a neutral shape is written as no shape.
+  if (isNeutralShape({ shape: shape as Partial<GarmentShape> })) {
+    report({ context, path, message: 'neutral; leave it out' })
+  }
+
+  const ref = template as { id?: unknown; version?: unknown } | undefined
+
+  if (
+    typeof ref?.id === 'string' &&
+    typeof ref.version === 'number' &&
+    !templateHasShape({ template: { id: ref.id, version: ref.version } })
+  ) {
+    report({ context, path, message: 'this template has no shape' })
+  }
+}
+
 /** The template's panels when its id and version resolve, else the tee's. */
 function panelIdsForValidation({ template }: { template: unknown }) {
   const ref = template as { id?: unknown; version?: unknown } | undefined
@@ -853,6 +902,7 @@ export function validateCanonicalDocument({
     value,
     path: '$',
     required: ['schemaVersion', 'template', 'base', 'panels'],
+    optional: ['shape'],
   })
 
   if (root) {
@@ -883,6 +933,10 @@ export function validateCanonicalDocument({
         panelIds: panelIdsForValidation({ template: root.template }),
       })
     }
+
+    if ('shape' in root) {
+      checkShape({ context, value: root.shape, path: '$.shape', template: root.template })
+    }
   }
 
   if (context.issues.length > 0) {
@@ -912,6 +966,50 @@ export function createEmptyCanonicalDocument({
       Object.keys(manifest.regions).map((panel) => [panel, { layers: [] }]),
     ),
   }
+}
+
+/**
+ * Bring a stored document to the current form before validating it (shape
+ * v1). Documents saved before shapes have no `shape`, which reads as
+ * neutral, so they pass through unchanged; a neutral or partial `shape`
+ * block (as an older writer or hand edit could leave) is folded to the one
+ * stored form: dropped when neutral, missing fields filled with 0. Anything
+ * else is left for the validator to refuse. Pure: returns a new object only
+ * when something changed.
+ */
+export function migrateCanonicalDocument({ value }: { value: unknown }): unknown {
+  if (!isRecord(value) || !('shape' in value)) {
+    return value
+  }
+
+  const shape = value.shape
+
+  if (shape === null || shape === undefined) {
+    const { shape: _dropped, ...rest } = value
+    return rest
+  }
+
+  if (!isRecord(shape) || Object.keys(shape).some((key) => !(SHAPE_FIELDS as readonly string[]).includes(key))) {
+    return value
+  }
+
+  if (isNeutralShape({ shape: shape as Partial<GarmentShape> })) {
+    const { shape: _dropped, ...rest } = value
+    return rest
+  }
+
+  const filled = Object.fromEntries(SHAPE_FIELDS.map((field) => [field, field in shape ? shape[field] : 0]))
+  return { ...value, shape: filled }
+}
+
+/** Migrate, then validate: how every stored document is read. */
+export function readCanonicalDocument({ value }: { value: unknown }): ValidationResult {
+  return validateCanonicalDocument({ value: migrateCanonicalDocument({ value }) })
+}
+
+/** The document's shape, neutral when it stores none. */
+export function shapeOf({ document }: { document: Pick<CanonicalDocument, 'shape'> }): CanonicalShape {
+  return document.shape ?? { ...NEUTRAL_SHAPE }
 }
 
 /**
