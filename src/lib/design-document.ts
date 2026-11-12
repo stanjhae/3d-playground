@@ -218,8 +218,8 @@ export type DesignDocument = {
 export type ModelFrame = {
   min: [number, number, number]
   max: [number, number, number]
-  /** Sleeve panel centres at −x (the wearer's right) and +x. */
-  sleeves: { minusX?: [number, number, number]; plusX?: [number, number, number] }
+  /** Sleeve panel centres by render panel, the sleeve presets' names (`left` is the wearer's right). */
+  sleeves: { left?: [number, number, number]; right?: [number, number, number] }
 }
 
 const PANEL_ID_SET = new Set<string>(PANEL_IDS)

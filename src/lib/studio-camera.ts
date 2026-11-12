@@ -123,7 +123,7 @@ export function modelSeat({
   live = false,
 }: {
   preset: CameraPresetName
-  frame: { min: Vec3; max: Vec3; sleeves: { minusX?: Vec3; plusX?: Vec3 } }
+  frame: { min: Vec3; max: Vec3; sleeves: { left?: Vec3; right?: Vec3 } }
   live?: boolean
 }): { seat: [number, number, number]; target: [number, number, number] } {
   const center: [number, number, number] = [
@@ -138,7 +138,7 @@ export function modelSeat({
   const sleeveTarget = SLEEVE_TARGETS[preset]
 
   if (sleeveTarget) {
-    const sleeve = preset === 'left' ? frame.sleeves.minusX : frame.sleeves.plusX
+    const sleeve = preset === 'left' ? frame.sleeves.left : frame.sleeves.right
     const target: [number, number, number] = sleeve ? [...sleeve] : center
     // The tee's seat for this sleeve, relative to its aim, gives the direction.
     const offset = CAMERA_PRESET_POSITIONS[preset].map((value, axis) => value - sleeveTarget[axis]!) as [number, number, number]
