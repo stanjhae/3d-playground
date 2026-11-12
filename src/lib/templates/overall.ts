@@ -80,7 +80,7 @@ export const OVERALL_V1: TemplateManifest = {
     "back": {
       "label": "Back",
       "renderPanel": "back",
-      "renderMirrorX": false,
+      "renderMirrorX": true,
       "mesh": "body body-1 body-2 body-3 body-4 body-5 body-6",
       "uv": {
         "u0": 0.477814,
@@ -89,7 +89,7 @@ export const OVERALL_V1: TemplateManifest = {
         "v1": 0.996094
       },
       "axes": {
-        "x": "across the back as seen from the back",
+        "x": "toward the wearer's left (mirrored when seen from behind)",
         "y": "up the garment"
       },
       "landmarks": {},

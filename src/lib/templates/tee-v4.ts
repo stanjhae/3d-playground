@@ -80,7 +80,7 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
     "back": {
       "label": "Back",
       "renderPanel": "back",
-      "renderMirrorX": false,
+      "renderMirrorX": true,
       "mesh": "body-back",
       "uv": {
         "u0": 0.003906,
@@ -89,7 +89,7 @@ export const TEE_CREW_SHORT_V4: TemplateManifest = {
         "v1": 0.996094
       },
       "axes": {
-        "x": "across the back as seen from the back",
+        "x": "toward the wearer's left (mirrored when seen from behind)",
         "y": "up the garment"
       },
       "landmarks": {},
