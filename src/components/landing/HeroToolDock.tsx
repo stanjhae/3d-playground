@@ -1,7 +1,6 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { cn } from '../../lib/cn'
-import { GRAPHIC_ASSETS } from '../../lib/graphics-library'
 import { LANDING_COPY } from '../../lib/landing-copy'
 import { addLandingStroke, LANDING_CAMERA_VIEWS, stampLandingGraphic } from '../../lib/landing-demo'
 import { useLandingDemoStore } from '../../lib/landing-demo-store'
@@ -25,10 +24,16 @@ export const INK_SWATCH_CLASS: Record<string, string> = {
 
 export const HERO_INKS = INK_COLORS.filter((color) => color.id in INK_SWATCH_CLASS)
 
-export const HERO_GRAPHICS = ['cross-gothic', 'flame-rise', 'logo-crown'].flatMap((id) => {
-  const asset = GRAPHIC_ASSETS.find((entry) => entry.id === id)
-  return asset ? [asset] : []
-})
+/**
+ * Three marks from the graphics library, named here rather than read from
+ * the catalogue so the landing page's first load doesn't carry it.
+ * src/lib/landing.test.ts checks they match the library.
+ */
+export const HERO_GRAPHICS = [
+  { id: 'cross-gothic', label: 'Gothic Cross' },
+  { id: 'flame-rise', label: 'Rising Flame' },
+  { id: 'logo-crown', label: 'Crown' },
+].map((graphic) => ({ ...graphic, src: `/graphics/${graphic.id}.svg` }))
 
 const VIEW_LABEL: Record<(typeof LANDING_CAMERA_VIEWS)[number], string> = {
   front: 'Front',
