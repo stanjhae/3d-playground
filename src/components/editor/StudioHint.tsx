@@ -91,6 +91,9 @@ type Decision = {
  * the control itself, it stays in the tools rail and the outline still shows
  * which control it means. Dismissed hints stay dismissed in this browser.
  */
+/** Below the studio's lg breakpoint hints dock in the tools, never float. */
+const DOCKED_BELOW_WIDTH = 1024
+
 export function StudioHint() {
   const step = useEditorStore((state) => state.createStep)
   const [dismissed, setDismissed] = useState(() => readDismissedHints({ storage: hintStorage() }))
@@ -163,8 +166,10 @@ export function StudioHint() {
           width: Math.min(288, viewport.width - 32),
           height: element.offsetHeight + 24,
         }
+        // On a phone the card stays in the tools: floating, it sat over the
+        // garment, the little room there is (tester feedback).
         const placed =
-          anchor && visible
+          anchor && visible && viewport.width >= DOCKED_BELOW_WIDTH
             ? placeHint({
                 anchor,
                 card: size,

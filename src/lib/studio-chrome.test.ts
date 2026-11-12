@@ -116,8 +116,8 @@ describe('studio phone chrome', () => {
     expect(studioPhonePublishClass()).toContain('lg:max-h-[70%]')
     expect(studioPhonePublishClass()).not.toContain('sticky')
     expect(studioPhonePublishClass()).toContain('overflow-y-auto')
-    // Half the phone at most, so the garment stays in view while publishing.
-    expect(studioPhonePublishClass()).toContain('max-h-[min(50vh,32rem)]')
+    // A third of the phone at most, so the garment keeps its share while publishing.
+    expect(studioPhonePublishClass()).toContain('max-h-[min(34vh,24rem)]')
     expect(studioPhonePublishClass()).not.toContain('lg:left-6')
     expect(studioPhonePublishClass()).not.toContain('calc(50%')
   })

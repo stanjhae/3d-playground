@@ -526,6 +526,8 @@ export function StudioOrbit({
         }
         autoRotateSpeed={0.35}
         ref={controlsRef as never}
+        // Shared through the scene, so a two-finger turn can drive it.
+        makeDefault
         enabled={orbitEnabled}
         enablePan={false}
         enableZoom={zoom}

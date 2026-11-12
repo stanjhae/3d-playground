@@ -129,7 +129,7 @@ export function studioOverlayClass({ drawInFlow }: { drawInFlow: boolean }) {
  * tee in view on short phones: the tools scroll in what is left.
  */
 export function studioPhoneStageClass() {
-  return 'min-h-48 flex-1 lg:hidden'
+  return 'relative min-h-48 flex-1 lg:hidden'
 }
 
 export function studioPhoneDrawClass() {
@@ -152,7 +152,7 @@ export function studioPhoneToolsClass({ drawInFlow = false }: { drawInFlow?: boo
  * button out from under a click in progress.
  */
 export function studioPhonePublishClass() {
-  return 'pointer-events-auto flex max-h-[min(50vh,32rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-h-[70%] lg:px-0 lg:pb-0 lg:empty:hidden'
+  return 'pointer-events-auto flex max-h-[min(34vh,24rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-h-[70%] lg:px-0 lg:pb-0 lg:empty:hidden'
 }
 
 export function railFrameClass() {
