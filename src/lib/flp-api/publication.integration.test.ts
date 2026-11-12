@@ -244,13 +244,16 @@ describe.skipIf(!env)('publication against local Supabase', () => {
           .order('kind')
       ).data
 
-    const first = await upload({ templateVersion: 2, compilerVersion: 1 })
+    const pinned = DOCUMENT.template.version
+    const first = await upload({ templateVersion: pinned, compilerVersion: 1 })
     expect(first.status).toBe(201)
     expect(await first.json()).toMatchObject({ kept: [] })
     const before = await stored()
     expect(before?.map((row) => [row.template_version, row.compiler_version])).toEqual(
-      PUBLIC_RENDER_KINDS.map(() => [2, 1]),
+      PUBLIC_RENDER_KINDS.map(() => [pinned, 1]),
     )
+    // Views stamped with another version of the template than the saved one are refused.
+    expect((await upload({ templateVersion: pinned === 1 ? 2 : 1, compilerVersion: 1 })).status).toBe(422)
 
     const { slug } = (await (
       await api({ path: `designs/${stampId}/publication`, method: 'POST', token: owner.token, body: { seq: 1 } })
@@ -258,7 +261,7 @@ describe.skipIf(!env)('publication against local Supabase', () => {
 
     // Unpublish, then publish the same version again with a new stamp.
     await api({ path: `designs/${stampId}/publication`, method: 'DELETE', token: owner.token })
-    const again = await upload({ templateVersion: 3, compilerVersion: 2 })
+    const again = await upload({ templateVersion: pinned, compilerVersion: 2 })
     expect(again.status).toBe(201)
     expect(await again.json()).toMatchObject({ kept: [...PUBLIC_RENDER_KINDS] })
     expect(await stored()).toEqual(before)

@@ -117,7 +117,14 @@ function panelAspects({ manifest }: { manifest: TemplateManifest }) {
     : {}
 }
 
-/** Where a real model stands and where its sleeves are, for the camera to fit. */
+/**
+ * Where a real model stands and where its sleeves are, for the camera to fit.
+ * Sleeves are keyed by side, not by region id: the sleeve presets name the
+ * render side (`left` is the wearer's right, at −x), while template-built
+ * regions are named for the wearer (their `left` is the wearer's left, +x,
+ * and labelled so). Placing them by position keeps each view on the sleeve
+ * its label names, whatever the template calls it.
+ */
 function modelFrameOf({ manifest }: { manifest: TemplateManifest }) {
   const bounds = manifest.geometry.bounds
 

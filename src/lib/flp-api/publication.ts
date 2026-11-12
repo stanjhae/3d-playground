@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
-import { resolveTemplate, TEMPLATE_IDS } from '../template-manifest.ts'
+import { garmentOfTemplate, TEMPLATE_IDS } from '../template-manifest.ts'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
   type ApiError,
@@ -278,7 +278,7 @@ export async function uploadRenders({
   const { data: version } = design
     ? await asUser
         .from('design_versions')
-        .select('seq, template_id:content->template->>id')
+        .select('seq, template_id:content->template->>id, template_version:content->template->>version')
         .eq('design_id', designId)
         .eq('seq', parsed.seq)
         .maybeSingle()
@@ -289,14 +289,27 @@ export async function uploadRenders({
     return respond({ status: error.status, body: error.body })
   }
 
-  // Views drawn on another garment than the version's would mislabel it.
-  const versionTemplate = (version as { template_id?: string | null }).template_id ?? null
+  // Views drawn on another garment, or another version of it, than the
+  // saved version's own template would mislabel it. A stamp without the id
+  // (a tab opened before it was sent) is still held to the version number.
+  const pinned = version as { template_id?: string | null; template_version?: string | null }
+  const versionTemplate = pinned.template_id ?? null
+  const versionTemplateVersion = pinned.template_version ? Number(pinned.template_version) : null
+  const wrongTemplate = parsed.stamp.templateId !== null && parsed.stamp.templateId !== versionTemplate
+  const wrongVersion =
+    versionTemplateVersion !== null &&
+    parsed.stamp.templateVersion !== null &&
+    parsed.stamp.templateVersion !== versionTemplateVersion
 
-  if (parsed.stamp.templateId !== null && parsed.stamp.templateId !== versionTemplate) {
+  if (wrongTemplate || wrongVersion) {
     const error = apiError({
       code: 'invalid',
       message: 'These views were drawn on a different garment than this version',
-      issues: [{ path: '$.templateId', message: `expected ${versionTemplate ?? 'the version template'}` }],
+      issues: [
+        wrongTemplate
+          ? { path: '$.templateId', message: `expected ${versionTemplate ?? 'the version template'}` }
+          : { path: '$.templateVersion', message: `expected ${versionTemplateVersion}` },
+      ],
     })
     return respond({ status: error.status, body: error.body })
   }
@@ -597,11 +610,8 @@ export async function findPublishedDesign({
   }
 
   const pinned = version as { template_id?: string | null; template_version?: string | null } | null
-  const resolved = pinned?.template_id
-    ? resolveTemplate({ id: pinned.template_id, version: Number(pinned.template_version) })
-    : null
 
-  return { ...publication, garmentId: resolved?.ok ? resolved.manifest.garmentId : 'tee' }
+  return { ...publication, garmentId: garmentOfTemplate({ id: pinned?.template_id, version: pinned?.template_version }) }
 }
 
 /**
@@ -784,20 +794,15 @@ export async function readBoard({ admin, respond }: { admin: SupabaseClient; res
       template_version: string | null
       vote_count: number
     }>
-    const designs: BoardEntry[] = rows.map((row) => {
-      const resolved = row.template_id
-        ? resolveTemplate({ id: row.template_id, version: Number(row.template_version) })
-        : null
-      return {
-        slug: row.slug,
-        title: row.title,
-        displayName: row.display_name,
-        garmentId: resolved?.ok ? resolved.manifest.garmentId : 'tee',
-        votes: row.vote_count,
-        publishedAt: row.published_at,
-        image: publicImagePath({ slug: row.slug, seq: row.version_seq }),
-      }
-    })
+    const designs: BoardEntry[] = rows.map((row) => ({
+      slug: row.slug,
+      title: row.title,
+      displayName: row.display_name,
+      garmentId: garmentOfTemplate({ id: row.template_id, version: row.template_version }),
+      votes: row.vote_count,
+      publishedAt: row.published_at,
+      image: publicImagePath({ slug: row.slug, seq: row.version_seq }),
+    }))
 
     return respond({ status: 200, body: { designs } })
   } catch (error) {

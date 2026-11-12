@@ -1,7 +1,7 @@
 import type { CanonicalDocument } from './canonical-document'
 import type { DesignSummary } from './flp-api/client'
 import { getGarment } from './garments'
-import { resolveTemplate } from './template-manifest'
+import { garmentOfTemplate } from './template-manifest'
 
 /** How My Studio orders its cards (P3). */
 export const STUDIO_SORTS = [
@@ -47,8 +47,7 @@ export function untitledTitle({ garmentId }: { garmentId: string }) {
 
 /** The garment a saved document is drawn on, from its own template. */
 export function documentGarment({ document }: { document: CanonicalDocument }): string {
-  const resolved = resolveTemplate({ id: document.template.id, version: document.template.version })
-  return resolved.ok ? resolved.manifest.garmentId : 'tee'
+  return garmentOfTemplate(document.template)
 }
 
 /**

@@ -294,6 +294,25 @@ export function currentTemplateFor({ templateId }: { templateId: string }): Temp
   return manifest
 }
 
+/**
+ * The garment a saved design is on, from its pinned template. A version this
+ * build can't open still names its garment by the template id; only a design
+ * with no template (from before templates were pinned) is a tee.
+ */
+export function garmentOfTemplate({ id, version }: { id: string | null | undefined; version: number | string | null | undefined }) {
+  if (!id) {
+    return 'tee'
+  }
+
+  const resolved = resolveTemplate({ id, version: Number(version) })
+
+  if (resolved.ok) {
+    return resolved.manifest.garmentId
+  }
+
+  return CURRENT_VERSIONS[id]?.garmentId ?? 'tee'
+}
+
 /** The template a garment prints on, if it has one. */
 export function templateForGarment({ garmentId }: { garmentId: string }) {
   return Object.values(CURRENT_VERSIONS).find((manifest) => manifest.garmentId === garmentId)

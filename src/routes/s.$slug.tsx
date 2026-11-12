@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
 import { VoteButton } from '../components/share/VoteButton'
-import { getGarment } from '../lib/garments'
+import { getGarment, sideViewAlt } from '../lib/garments'
 import { reportDesignHref } from '../lib/alpha-contact'
 import { useCopyStatus } from '../lib/copy-text'
 import { HOUSE_COPY } from '../lib/house-copy'
@@ -181,7 +181,7 @@ function SharedDesign() {
   const reportHref = reportDesignHref({ slug })
   const sleeves = SLEEVE_VIEWS.flatMap((view) => {
     const src = design.renders[view.kind]
-    return src ? [{ view, src }] : []
+    return src ? [{ view: { ...view, alt: sideViewAlt({ alt: view.alt, garmentId: design.garmentId }) }, src }] : []
   })
 
   return (
@@ -232,7 +232,9 @@ function SharedDesign() {
       ) : null}
 
       <footer className="flex flex-wrap items-center justify-between gap-3 font-body text-xs text-flv-muted">
-        <p>{PUBLIC_PREVIEW_DISCLAIMER} Shown on a fixed T-shirt template.</p>
+        <p>
+          {PUBLIC_PREVIEW_DISCLAIMER} Shown on a fixed {getGarment({ garmentId: design.garmentId }).label.toLowerCase()} template.
+        </p>
         <p className="flex gap-4">
           <a className="underline hover:text-flv-accent" href={reportHref}>
             Report this design

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-import { garmentCredit, getGarment } from '../garments.ts'
+import { garmentCredit, getGarment, sideViewAlt } from '../garments.ts'
 import { shareCardHead, shareCardHtml } from '../og-card.ts'
 import { type PublicLimiter, sharedLimiter } from '../rate-limit.ts'
 import type { PublicDesign } from './publication.ts'
@@ -107,7 +107,7 @@ function staticShareMarkup({ payload }: { payload: PublicDesign }) {
   // Older publications have no sleeve views; show only what exists.
   const sleeves = STATIC_SLEEVE_VIEWS.flatMap((view) => {
     const src = payload.renders[view.kind]
-    return src ? [item(view, src, true)] : []
+    return src ? [item({ ...view, alt: sideViewAlt({ alt: view.alt, garmentId: payload.garmentId }) }, src, true)] : []
   }).join('')
   const sleeveList = sleeves ? `<ul class="${SLEEVE_GRID_CLASS}">${sleeves}</ul>` : ''
 

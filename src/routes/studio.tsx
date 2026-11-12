@@ -55,6 +55,11 @@ export const Route = createFileRoute('/studio')({
 // Only templates this app can open are offered (F07 #142).
 const TEE = resolveTemplate(createEmptyCanonicalDocument().template)
 
+/** "a coat", "an overall dress". */
+function withArticle({ noun }: { noun: string }) {
+  return `${/^[aeiou]/.test(noun) ? 'an' : 'a'} ${noun}`
+}
+
 /** Garments a new design can start from: every one with a template. */
 function designableGarments() {
   return listRailGarments().filter((garment) => templateForGarment({ garmentId: garment.id }))
@@ -100,6 +105,7 @@ function MyStudio() {
   const [creating, setCreating] = useState(false)
   // Every garment with a template can be designed; the tee stays the default.
   const [newGarment, setNewGarment] = useState<string>('tee')
+  const newTemplate = templateForGarment({ garmentId: newGarment })
   const [createError, setCreateError] = useState<string | null>(null)
   const [listNotice, setListNotice] = useState('')
   const designsHeading = useRef<HTMLHeadingElement | null>(null)
@@ -153,12 +159,11 @@ function MyStudio() {
     setCreating(true)
     setCreateError(null)
 
-    const garmentTemplate = templateForGarment({ garmentId: newGarment })
     let document =
       fromLanding && conversion?.fromLanding
         ? conversion.document
-        : newGarment !== 'tee' && garmentTemplate
-          ? createEmptyCanonicalDocument({ templateId: garmentTemplate.id })
+        : newGarment !== 'tee' && newTemplate
+          ? createEmptyCanonicalDocument({ templateId: newTemplate.id })
           : initialStudioDocument({ handoff: null }).document
 
     // Inline images from the landing design become real uploads first; the
@@ -340,7 +345,7 @@ function MyStudio() {
           <button
             type="button"
             className={buttonClass}
-            disabled={creating || !TEE.ok}
+            disabled={creating || (conversion?.fromLanding ? !TEE.ok : !newTemplate)}
             onClick={() => (conversion?.fromLanding ? setPreviewing(true) : void create())}
           >
             {creating
@@ -349,7 +354,7 @@ function MyStudio() {
                 ? 'Create from your landing design'
                 : newGarment === 'tee'
                   ? 'Create a T-shirt'
-                  : `Create a ${getGarment({ garmentId: newGarment }).label.toLowerCase()}`}
+                  : `Create ${withArticle({ noun: getGarment({ garmentId: newGarment }).label.toLowerCase() })}`}
           </button>
           <button
             type="button"
@@ -359,9 +364,9 @@ function MyStudio() {
           >
             Start from an example
           </button>
-          {TEE.ok ? (
+          {newTemplate ? (
             <p className="font-body text-xs text-flv-muted">
-              Prints on: {Object.values(templateForGarment({ garmentId: newGarment })?.regions ?? {}).map((region) => region.label).join(', ')}
+              Prints on: {Object.values(newTemplate.regions).map((region) => region.label).join(', ')}
             </p>
           ) : null}
         </div>
