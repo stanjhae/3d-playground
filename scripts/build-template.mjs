@@ -458,10 +458,18 @@ async function build({ piecesFile }) {
           label: panel.label,
           // The tee keeps its render routing (wearer's left sleeve on render `right`).
           renderPanel: panel.renderPanel ?? panel.id,
-          renderMirrorX: false,
+          // Canonical x runs toward the wearer's left on every panel; a back
+          // panel is printed as seen from behind, so it renders mirrored.
+          renderMirrorX: panel.view === 'back',
           mesh: panel.pieces.map((pick) => pick.node).join(' '),
           uv: rects[index],
-          axes: { x: `across the ${panel.label.toLowerCase()} as seen from the ${panel.view}`, y: 'up the garment' },
+          axes: {
+            x:
+              panel.view === 'back'
+                ? "toward the wearer's left (mirrored when seen from behind)"
+                : `across the ${panel.label.toLowerCase()} as seen from the ${panel.view}`,
+            y: 'up the garment',
+          },
           landmarks: {},
           notes: [`Planar print from the ${panel.view}; ${(box.width * 100).toFixed(1)} × ${(box.height * 100).toFixed(1)} cm.`],
           surface: { stretchY: 1, panelAspect: round({ value: box.width / box.height }) },

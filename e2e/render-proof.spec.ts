@@ -1,7 +1,7 @@
 import { type Page, expect, test } from '@playwright/test'
 
 import { INK_COLORS } from '../src/lib/paint-colors'
-import { chooseTool, deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
+import { chooseTool, deleteAccounts, drawStroke, expectSaved, newEmail, newTeePanelAspect, panelCanvas, signIn } from './helpers'
 
 /**
  * What reaches the 3D garment and the published pictures, read from their
@@ -354,8 +354,8 @@ test('a square image looks square on the 2D panel and on the tee, and each panel
     (await panelCanvas({ page, panel }).boundingBox())!
   const front = await shape('Front')
   const sleeve = await shape('Right sleeve')
-  expect(front.width / front.height).toBeCloseTo(0.611, 1)
-  expect(sleeve.width / sleeve.height).toBeCloseTo(3.037, 0)
+  expect(front.width / front.height).toBeCloseTo(newTeePanelAspect({ panel: 'front' }), 1)
+  expect(sleeve.width / sleeve.height).toBeCloseTo(newTeePanelAspect({ panel: 'right' }), 1)
 
   await chooseTool({ page, tool: 'Upload' })
   await page.locator('input[type="file"]').setInputFiles({ name: 'square.png', mimeType: 'image/png', buffer: await squarePng({ page }) })
