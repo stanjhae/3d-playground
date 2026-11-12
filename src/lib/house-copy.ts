@@ -107,7 +107,7 @@ export const HOUSE_COPY = {
   design: 'Design',
   theHouse: 'The house',
   lookTitle: 'Name this look',
-  typeHint: 'Press Enter to place it on the side you’re working on, or choose Tap to place and tap the tee.',
+  typeHint: 'Press Enter to place it on the side you’re working on, or choose Tap to place and tap the garment.',
   fine: 'Fine',
   line: 'Line',
   bold: 'Bold',

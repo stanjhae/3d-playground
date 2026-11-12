@@ -56,6 +56,8 @@ export type TemplateRegion = {
   notes: readonly string[]
   /** From `@3`: how this region lies on the cloth, measured from the mesh. */
   surface?: PanelSurface
+  /** Template-built garments: where the panel sits on the model (metres), for the camera. */
+  center?: [number, number, number]
 }
 
 export type TemplateManifest = {
@@ -81,6 +83,8 @@ export type TemplateManifest = {
      */
     uvLayout?: 1 | 2
     structural?: { neck: 'crew'; hem: 'long'; sleeve: 'short' }
+    /** Template-built garments: the model's extent (metres), for the camera to fit. */
+    bounds?: { min: [number, number, number]; max: [number, number, number] }
   }
   atlas: { width: number; height: number }
   material: { color: string; roughness: number; metalness: number }
@@ -255,7 +259,11 @@ export const CURRENT_TEMPLATE = TEE_CREW_SHORT_V3
 
 export { TEE_CREW_SHORT_V4 }
 
-/** Every version that saved designs may reference. Never remove entries. */
+/**
+ * Every version that saved designs may reference. Never remove entries. New
+ * designs pin each template's highest version: the tee's @4 is the real
+ * T-shirt (templates/tee.pieces.json); @1–@3 stay procedural.
+ */
 const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
   'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3, 4: TEE_CREW_SHORT_V4 },
   hoodie: { 1: HOODIE_V1 },
@@ -268,34 +276,10 @@ const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
   tailored: { 1: TAILORED_V1 },
 }
 
-/** The version new designs pin, per template. */
-const CURRENT_VERSIONS: Record<string, TemplateManifest> = {
-  // @4: the real T-shirt (templates/tee.pieces.json). @1–@3 stay procedural.
-  'tee-crew-short': TEE_CREW_SHORT_V4,
-  hoodie: HOODIE_V1,
-  mixed: MIXED_V1,
-  slip: SLIP_V1,
-  coat: COAT_V1,
-  overall: OVERALL_V1,
-  gown: GOWN_V1,
-  suit: SUIT_V1,
-  tailored: TAILORED_V1,
-}
-
-/**
- * Tests only: make new designs on a template pin an older version (suites
- * that measure the procedural tee pin `@3`; see src/lib/testing/). Vitest
- * isolates each test file, so the pin never leaks.
- */
-export function pinCurrentTemplateForTests({ templateId, version }: { templateId: string; version: number }) {
-  const manifest = TEMPLATE_ARCHIVE[templateId]?.[version]
-
-  if (!manifest) {
-    throw new Error(`No ${templateId}@${version} to pin`)
-  }
-
-  CURRENT_VERSIONS[templateId] = manifest
-}
+/** The version new designs pin, per template: its highest. */
+const CURRENT_VERSIONS: Record<string, TemplateManifest> = Object.fromEntries(
+  Object.entries(TEMPLATE_ARCHIVE).map(([id, versions]) => [id, versions[Math.max(...Object.keys(versions).map(Number))]!]),
+)
 
 export const TEMPLATE_IDS: readonly string[] = Object.freeze(Object.keys(TEMPLATE_ARCHIVE))
 
@@ -308,6 +292,25 @@ export function currentTemplateFor({ templateId }: { templateId: string }): Temp
   }
 
   return manifest
+}
+
+/**
+ * The garment a saved design is on, from its pinned template. A version this
+ * build can't open still names its garment by the template id; only a design
+ * with no template (from before templates were pinned) is a tee.
+ */
+export function garmentOfTemplate({ id, version }: { id: string | null | undefined; version: number | string | null | undefined }) {
+  if (!id) {
+    return 'tee'
+  }
+
+  const resolved = resolveTemplate({ id, version: Number(version) })
+
+  if (resolved.ok) {
+    return resolved.manifest.garmentId
+  }
+
+  return CURRENT_VERSIONS[id]?.garmentId ?? 'tee'
 }
 
 /** The template a garment prints on, if it has one. */

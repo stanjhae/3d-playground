@@ -54,6 +54,10 @@ Legacy v1 imports (`legacy-import.ts`) still pin `@1`, because v1 placement is r
 
 ## Capture and framing (R04 #167)
 
+A real-model design (`modelFrame` on its render document) is framed by the model itself. The builder records each model's bounds and each panel's centre in its manifest. `modelSeat` (`studio-camera.ts`) seats the front, back and three-quarter views in the tee's directions, at a distance that fits the model with room around it. It aims each sleeve view at the sleeve on that side, and a sleeveless garment gets a side view instead. Live views and published stills use the same seats. Everything below describes the procedural tee (`@1`–`@3`).
+
+### The procedural tee
+
 Studio views and published stills share one camera setup, `src/lib/studio-camera.ts`. The scene (`StudioStage.tsx`) and the capture path (`capture-still.ts`) both read it. The camera is separate from canonical content: switching views never changes the document or its revision.
 
 | Part | Contract |

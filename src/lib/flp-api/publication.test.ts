@@ -33,7 +33,18 @@ describe('parseRenderUpload', () => {
       ok: true,
       seq: 3,
       renders,
-      stamp: { templateVersion: null, compilerVersion: null },
+      stamp: { templateId: null, templateVersion: null, compilerVersion: null },
+    })
+  })
+
+  test('names the garment template that drew the views', () => {
+    expect(parseRenderUpload({ value: { seq: 3, renders, templateId: 'hoodie', templateVersion: 1, compilerVersion: 1 } })).toMatchObject({
+      ok: true,
+      stamp: { templateId: 'hoodie', templateVersion: 1, compilerVersion: 1 },
+    })
+    expect(parseRenderUpload({ value: { seq: 3, renders, templateId: 'cape' } })).toMatchObject({
+      ok: false,
+      error: { body: { error: { issues: [{ path: '$.templateId' }] } } },
     })
   })
 
@@ -83,6 +94,7 @@ describe('publicImagePath', () => {
 describe('publicDesignPayload', () => {
   const published = (kinds: readonly string[]): PublishedDesign => ({
     designId: '00000000-0000-4000-8000-000000000001',
+    garmentId: 'tee',
     slug: '0123456789abcdef',
     title: 'Tee',
     displayName: null,

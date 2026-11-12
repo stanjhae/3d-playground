@@ -12,7 +12,7 @@ export const STUDIO_HINTS = [
     id: 'drawing',
     steps: ['design'],
     title: 'Draw',
-    text: 'Draw on a panel or on the tee itself. Every change shows on the tee straight away.',
+    text: 'Draw on a panel or on the garment itself. Every change shows on it straight away.',
   },
   {
     id: 'precise',

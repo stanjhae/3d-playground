@@ -42,6 +42,7 @@ import {
   publishVersion,
   readOwnerPublication,
   readPublicDesign,
+  readBoard,
   readPublicImage,
   unpublish,
   uploadRenders,
@@ -1170,6 +1171,14 @@ export async function handleFlpRequest({
 
     if (action === 'vote' && rest.length === 0) {
       return handleVote({ request, env, slug: designId })
+    }
+
+    // GET /public — the board (V2): every published design, most voted first.
+    if (!designId && request.method === 'GET') {
+      return readBoard({
+        admin: createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } }),
+        respond,
+      })
     }
 
     if (request.method !== 'GET' || (action && action !== 'image') || rest.length > 0) {

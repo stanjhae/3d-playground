@@ -5,7 +5,7 @@ import type { CreateStepId } from '../../lib/create-steps'
 const INTROS: Record<CreateStepId, { title: string; lead: string }> = {
   select: {
     title: 'Choose your garment',
-    lead: 'Start from the tee. Its front, back and both sleeves are yours to design.',
+    lead: 'Pick a garment. Its front, back and sleeves are yours to design.',
   },
   color: {
     title: 'Make it yours',
@@ -13,11 +13,11 @@ const INTROS: Record<CreateStepId, { title: string; lead: string }> = {
   },
   design: {
     title: 'Design every side',
-    lead: 'Draw, add words and graphics. Every change shows on the tee straight away.',
+    lead: 'Draw, add words and graphics. Every change shows on the garment straight away.',
   },
   share: {
     title: 'Preview and publish',
-    lead: 'Turn the tee to check every side. Publishing shares one saved version by link.',
+    lead: 'Turn the garment to check every side. Publishing shares one saved version by link.',
   },
 }
 

@@ -11,6 +11,7 @@ import {
 } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
+import type { ModelFrame } from '../../lib/design-document'
 import { useEditorStore } from '../../lib/editor-store'
 import {
   LANDING_CAMERA_POSITIONS,
@@ -23,6 +24,7 @@ import {
   CAMERA_PRESET_POSITIONS,
   captureFov,
   liveSeat,
+  modelSeat,
   presetTarget,
   stillSeat,
   STUDIO_CAMERA,
@@ -260,9 +262,12 @@ export function StudioFloor({
 export function StudioCamera({
   intro = false,
   framing = 'garment',
+  modelFrame,
 }: {
   intro?: boolean
   framing?: StageFraming
+  /** A real model's bounds; the camera fits it instead of the preset seat. */
+  modelFrame?: ModelFrame
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const aspect = useThree((state) => state.size.width / state.size.height)
@@ -275,11 +280,20 @@ export function StudioCamera({
   const moving = useRef(false)
   const freeOrbit = cameraPreset === 'orbit' && !capturingAngles
   const seatPreset = cameraPreset === 'orbit' ? 'threeQuarter' : cameraPreset
-  const presetSeat = capturingAngles
-    ? stillSeat({ preset: seatPreset, framing })
-    : liveSeat({ preset: seatPreset, framing })
+  // A real model (template-built garment) is fitted by its own size and
+  // sleeves. Only the stage showing the design passes one: other stages
+  // (a look page, the landing) frame their own garment by its preset.
+  const fitted = useMemo(
+    () => (modelFrame ? modelSeat({ preset: seatPreset, frame: modelFrame, live: !capturingAngles }) : null),
+    [capturingAngles, modelFrame, seatPreset],
+  )
+  const presetSeat = fitted
+    ? fitted.seat
+    : capturingAngles
+      ? stillSeat({ preset: seatPreset, framing })
+      : liveSeat({ preset: seatPreset, framing })
   // The sleeve views aim at their sleeve; every other preset at the garment.
-  const presetAim = presetTarget({ preset: seatPreset })
+  const presetAim = fitted ? fitted.target : presetTarget({ preset: seatPreset })
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
@@ -399,12 +413,14 @@ export function StudioStage({
   intro = false,
   envMode,
   framing = 'garment',
+  modelFrame,
 }: {
   children?: ReactNode
   picking?: boolean
   intro?: boolean
   envMode?: StudioEnvMode
   framing?: StageFraming
+  modelFrame?: ModelFrame
 }) {
   const storeEnv = useEditorStore((state) => state.studioEnv)
   const resolvedEnv = envMode ?? storeEnv
@@ -420,7 +436,7 @@ export function StudioStage({
         envMode={resolvedEnv}
       />
       <StudioFloor picking={picking} framing={framing} />
-      <StudioCamera intro={intro} framing={framing} />
+      <StudioCamera intro={intro} framing={framing} modelFrame={modelFrame} />
       <RenderOnEditorChange />
       {children}
     </>

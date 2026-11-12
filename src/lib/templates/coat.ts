@@ -9,8 +9,20 @@ export const COAT_V1: TemplateManifest = {
   "geometry": {
     "kind": "glb",
     "file": "/models/coat.glb",
-    "sha256": "19338f81ae6075b1960518da34717fa92ae01c52572e9ccc936bfee16ef00358",
-    "generator": "scripts/build-template.mjs (templates/coat.pieces.json)"
+    "sha256": "5cdda6a4c042aefd45a0f866f4366778743cf52e87d29d1858d3086391daa5d0",
+    "generator": "scripts/build-template.mjs (templates/coat.pieces.json)",
+    "bounds": {
+      "min": [
+        -0.337352,
+        0.899005,
+        -0.152969
+      ],
+      "max": [
+        0.32854,
+        1.65,
+        0.181647
+      ]
+    }
   },
   "atlas": {
     "width": 2048,
@@ -58,7 +70,12 @@ export const COAT_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.794214
-      }
+      },
+      "center": [
+        -0.003422,
+        1.22455,
+        0.029605
+      ]
     },
     "back": {
       "label": "Back",
@@ -82,7 +99,12 @@ export const COAT_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.793677
-      }
+      },
+      "center": [
+        -0.003125,
+        1.222311,
+        0.031765
+      ]
     },
     "left": {
       "label": "Wearer's left sleeve",
@@ -106,7 +128,12 @@ export const COAT_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.46004
-      }
+      },
+      "center": [
+        0.217379,
+        1.101626,
+        0.012194
+      ]
     },
     "right": {
       "label": "Wearer's right sleeve",
@@ -130,7 +157,12 @@ export const COAT_V1: TemplateManifest = {
       "surface": {
         "stretchY": 1,
         "panelAspect": 0.435207
-      }
+      },
+      "center": [
+        -0.229038,
+        1.096297,
+        0.018394
+      ]
     }
   }
 }

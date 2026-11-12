@@ -94,6 +94,65 @@ export function liveSeat({
   ]
 }
 
+type Vec3 = readonly [number, number, number]
+
+function toward({ from, to, distance }: { from: Vec3; to: Vec3; distance: number }): [number, number, number] {
+  const direction = [to[0] - from[0], to[1] - from[1], to[2] - from[2]]
+  const length = Math.hypot(direction[0]!, direction[1]!, direction[2]!) || 1
+  return [
+    from[0] + (direction[0]! / length) * distance,
+    from[1] + (direction[1]! / length) * distance,
+    from[2] + (direction[2]! / length) * distance,
+  ]
+}
+
+/** Room around a real model in its view; a little more than a still's margin. */
+const MODEL_FIT = 1.8
+/** Sleeve views come closer than the whole-garment views. */
+const MODEL_SLEEVE_FIT = 0.55
+
+/**
+ * Seat and aim for a real model (`DesignDocument.modelFrame`): the same
+ * directions as the tee's presets, at a distance that fits the model's own
+ * size, and sleeve views aimed at the model's own sleeves. Without a sleeve
+ * on that side the sleeve view falls back to a side-on view of the garment.
+ */
+export function modelSeat({
+  preset,
+  frame,
+  live = false,
+}: {
+  preset: CameraPresetName
+  frame: { min: Vec3; max: Vec3; sleeves: { minusX?: Vec3; plusX?: Vec3 } }
+  live?: boolean
+}): { seat: [number, number, number]; target: [number, number, number] } {
+  const center: [number, number, number] = [
+    (frame.min[0] + frame.max[0]) / 2,
+    (frame.min[1] + frame.max[1]) / 2,
+    (frame.min[2] + frame.max[2]) / 2,
+  ]
+  const height = frame.max[1] - frame.min[1]
+  const width = Math.max(frame.max[0] - frame.min[0], frame.max[2] - frame.min[2])
+  const half = Math.max(height, width * 1.25) / 2
+  const distance = (half / Math.tan((STUDIO_CAMERA.fov * Math.PI) / 360)) * MODEL_FIT
+  const sleeveTarget = SLEEVE_TARGETS[preset]
+
+  if (sleeveTarget) {
+    const sleeve = preset === 'left' ? frame.sleeves.minusX : frame.sleeves.plusX
+    const target: [number, number, number] = sleeve ? [...sleeve] : center
+    // The tee's seat for this sleeve, relative to its aim, gives the direction.
+    const offset = CAMERA_PRESET_POSITIONS[preset].map((value, axis) => value - sleeveTarget[axis]!) as [number, number, number]
+    const from: [number, number, number] = [target[0] + offset[0], target[1] + offset[1], target[2] + offset[2]]
+    const reach = distance * (sleeve ? MODEL_SLEEVE_FIT : 1) * (live ? LIVE_SLEEVE_PULL_BACK * 0.6 : 1)
+    return { seat: toward({ from: target, to: from, distance: reach }), target }
+  }
+
+  const tee = CAMERA_PRESET_POSITIONS[preset]
+  const offset = [tee[0] - STUDIO_CAMERA.target[0], tee[1] - STUDIO_CAMERA.target[1], tee[2] - STUDIO_CAMERA.target[2]]
+  const from: [number, number, number] = [center[0] + offset[0], center[1] + offset[1], center[2] + offset[2]]
+  return { seat: toward({ from: center, to: from, distance }), target: center }
+}
+
 /** Published stills: opaque JPEG, 4:5, centre-cropped from the canvas. */
 export const STILL_FRAME = {
   width: 480,

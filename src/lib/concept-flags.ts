@@ -2,10 +2,11 @@ import type { GarmentId } from './design-schema'
 import { templateForGarment } from './template-manifest'
 
 /**
- * FLP scope gate (E01 #152). The tee runs on the canonical v2 document;
- * everything else in the studio is a labelled concept outside the MVP
- * slice (PRD §5). `VITE_FLP_CONCEPT=true` shows concept garments in the
- * studio; remixing a concept look from the board still opens it.
+ * FLP scope gate (E01 #152). Every garment with a template runs on the
+ * canonical v2 document and is in the studio for everyone (real models
+ * everywhere). `VITE_FLP_CONCEPT=true` still shows the remaining concept
+ * pieces: the hidden house jacket and the landing's community and
+ * coming-soon sections.
  */
 export const CONCEPT_FEATURES = import.meta.env.VITE_FLP_CONCEPT === 'true'
 

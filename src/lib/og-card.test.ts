@@ -267,3 +267,22 @@ describe('shareCardHtml', () => {
     }
   })
 })
+
+describe('share card credit', () => {
+  test('a shared design credits its garment and keeps the whole disclaimer', () => {
+    const head = shareCardHead({
+      origin: 'https://example.test',
+      shared: {
+        slug: '3f9a1c22b7e04d11',
+        title: 'Hood up',
+        displayName: 'A'.repeat(40),
+        imageUrl: 'https://example.test/api/flp/public/3f9a1c22b7e04d11/image',
+        imageType: 'image/jpeg',
+        credit: 'Tailored suit by Style3D CG (modified), CC BY 4.0',
+      },
+    })
+
+    expect(head).toContain('Tailored suit by Style3D CG (modified), CC BY 4.0.')
+    expect(head).toContain('not a certified fit or manufacturing render.')
+  })
+})

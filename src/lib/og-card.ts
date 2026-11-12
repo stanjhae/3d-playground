@@ -70,9 +70,14 @@ type CardInput = {
   imageUrl: string
   imageType?: string
   pageUrl: string
+  /** Longest description kept; look cards keep 160. */
+  descriptionMax?: number
 }
 
 const SITE_NAME = 'Fashion Leader Vote'
+
+/** A shared design's card says who made it, credits its garment and keeps the whole disclaimer. */
+const SHARE_DESCRIPTION_MAX = 260
 
 export function lookCardHtml(card: CardInput) {
   return `<!doctype html>
@@ -95,13 +100,14 @@ export function lookCardHead({
   imageUrl,
   imageType = 'image/png',
   pageUrl,
+  descriptionMax = 160,
 }: CardInput) {
   const safeTitle = escapeXml({
     value: title.slice(0, 80) || 'Fashion Leader Vote',
   })
   const safeDescription = escapeXml({
     value:
-      (description ?? '').slice(0, 160) ||
+      (description ?? '').slice(0, descriptionMax) ||
       (author ? `By ${author.slice(0, 40)}` : 'The house is open.'),
   })
   const safeImage = escapeXml({ value: imageUrl })
@@ -152,6 +158,8 @@ type SharedCard = {
   displayName: string | null
   imageUrl: string
   imageType: string
+  /** The garment's CC BY credit, e.g. "Hoodie by Style3D CG, CC BY 4.0". */
+  credit?: string
 } | null
 
 export function shareCardHtml({ origin, shared }: { origin: string; shared: SharedCard }) {
@@ -179,7 +187,9 @@ function shareCard({ origin, shared }: { origin: string; shared: SharedCard }): 
     // P02 #180: say whose preview this is and what it is not.
     description: `${
       shared.displayName ? `By ${shared.displayName.slice(0, 40)} on Fashion Leader Vote.` : 'A design on Fashion Leader Vote.'
-    } ${PUBLIC_PREVIEW_DISCLAIMER}`,
+    } ${shared.credit ? `${shared.credit}. ` : ''}${PUBLIC_PREVIEW_DISCLAIMER}`,
+    // Room for the credit and the whole disclaimer (P02 #180).
+    descriptionMax: SHARE_DESCRIPTION_MAX,
     imageUrl: shared.imageUrl,
     imageType: shared.imageType,
     pageUrl: `${origin}/s/${encodeURIComponent(shared.slug)}`,

@@ -2,6 +2,7 @@ import { type SupabaseClient, createClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
+import { createEmptyCanonicalDocument } from '../canonical-document'
 import { TINY_JPEG } from '../image-fixtures'
 import { listFilesUnder } from './delete-account-runner.mjs'
 import { type Account, createAccount, withImageAsset } from './integration-harness'
@@ -147,7 +148,7 @@ describe.skipIf(!env)('publication against local Supabase', () => {
 
     expect(anonymous.status).toBe(200)
     expect(page).toMatchObject({ title: 'Shared tee', displayName: 'Ada', seq: 1 })
-    expect(Object.keys(page).sort()).toEqual(['displayName', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
+    expect(Object.keys(page).sort()).toEqual(['displayName', 'garmentId', 'publishedAt', 'renders', 'seq', 'slug', 'title'])
     expect(Object.keys(page.renders).sort()).toEqual([...PUBLIC_RENDER_KINDS].sort())
     expect(JSON.stringify(page)).not.toContain('panels')
     expect(page.renders.view_front).toBe(`/api/flp/public/${publication.slug}/image?seq=1`)
@@ -243,13 +244,16 @@ describe.skipIf(!env)('publication against local Supabase', () => {
           .order('kind')
       ).data
 
-    const first = await upload({ templateVersion: 2, compilerVersion: 1 })
+    const pinned = DOCUMENT.template.version
+    const first = await upload({ templateVersion: pinned, compilerVersion: 1 })
     expect(first.status).toBe(201)
     expect(await first.json()).toMatchObject({ kept: [] })
     const before = await stored()
     expect(before?.map((row) => [row.template_version, row.compiler_version])).toEqual(
-      PUBLIC_RENDER_KINDS.map(() => [2, 1]),
+      PUBLIC_RENDER_KINDS.map(() => [pinned, 1]),
     )
+    // Views stamped with another version of the template than the saved one are refused.
+    expect((await upload({ templateVersion: pinned === 1 ? 2 : 1, compilerVersion: 1 })).status).toBe(422)
 
     const { slug } = (await (
       await api({ path: `designs/${stampId}/publication`, method: 'POST', token: owner.token, body: { seq: 1 } })
@@ -257,7 +261,7 @@ describe.skipIf(!env)('publication against local Supabase', () => {
 
     // Unpublish, then publish the same version again with a new stamp.
     await api({ path: `designs/${stampId}/publication`, method: 'DELETE', token: owner.token })
-    const again = await upload({ templateVersion: 3, compilerVersion: 2 })
+    const again = await upload({ templateVersion: pinned, compilerVersion: 2 })
     expect(again.status).toBe(201)
     expect(await again.json()).toMatchObject({ kept: [...PUBLIC_RENDER_KINDS] })
     expect(await stored()).toEqual(before)
@@ -268,6 +272,52 @@ describe.skipIf(!env)('publication against local Supabase', () => {
       request: new Request(`http://localhost/api/flp/public/${slug}/image?seq=1`),
     })
     expect(front.status).toBe(200)
+  })
+
+  test('views name the garment they were drawn on, and must match the version', async () => {
+    const owner = await createAccount({ admin, env: serverEnv, label: 'pub-template' })
+    owners.push(owner)
+    const created = await api({
+      path: 'designs',
+      method: 'POST',
+      token: owner.token,
+      body: { mutationKey: crypto.randomUUID(), title: 'Hoodie', content: createEmptyCanonicalDocument({ templateId: 'hoodie' }) },
+    })
+    expect(created.status).toBe(201)
+    const hoodieId = ((await created.json()) as { designId: string }).designId
+    const upload = (templateId: string) =>
+      api({
+        path: `designs/${hoodieId}/renders`,
+        method: 'POST',
+        token: owner.token,
+        body: { seq: 1, renders: RENDERS, templateId, templateVersion: 1, compilerVersion: 1 },
+      })
+
+    // A hoodie version's views drawn on the tee would mislabel it.
+    expect((await upload('tee-crew-short')).status).toBe(422)
+    expect((await upload('hoodie')).status).toBe(201)
+
+    const rows = (
+      await admin.from('render_artifacts').select('template_id').eq('design_id', hoodieId)
+    ).data
+    expect(rows?.map((row) => row.template_id)).toEqual(PUBLIC_RENDER_KINDS.map(() => 'hoodie'))
+
+    // Published, it is on the board and its share payload under its garment.
+    const published = await api({ path: `designs/${hoodieId}/publication`, method: 'POST', token: owner.token, body: { seq: 1 } })
+    expect(published.ok).toBe(true)
+    const { slug } = (await published.json()) as { slug: string }
+
+    const board = await handleFlpRequest({ env: serverEnv, request: new Request('http://localhost/api/flp/public') })
+    expect(board.status).toBe(200)
+    const { designs } = (await board.json()) as { designs: Array<{ slug: string; garmentId: string; votes: number; image: string }> }
+    expect(designs.find((design) => design.slug === slug)).toMatchObject({
+      garmentId: 'hoodie',
+      votes: 0,
+      image: `/api/flp/public/${slug}/image?seq=1`,
+    })
+
+    const page = await handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost/api/flp/public/${slug}`) })
+    expect(await page.json()).toMatchObject({ slug, garmentId: 'hoodie' })
   })
 
   describe('sleeve views (#179)', () => {

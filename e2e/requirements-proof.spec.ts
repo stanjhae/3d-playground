@@ -523,16 +523,23 @@ test('the preview offers every camera side, and History says what it keeps', asy
   }
 })
 
-test('the T-shirt is the only template on offer, and the server refuses any other', async ({ page }) => {
+test('every garment with a template is on offer, the T-shirt first, and the server refuses an unknown template', async ({ page }) => {
   const email = newEmail({ label: 'template' })
   emails.push(email)
   await signIn({ page, email })
 
   const main = page.getByRole('main')
+  const garment = main.getByRole('combobox', { name: 'Garment' })
   await expect(main.getByRole('button', { name: /^Create/ })).toHaveCount(1)
   await expect(main.getByRole('button', { name: 'Create a T-shirt' })).toBeVisible()
-  await expect(main.getByRole('combobox')).toHaveCount(0)
-  await expect(main.getByRole('radio')).toHaveCount(0)
+  await expect(garment).toHaveValue('tee')
+  await expect(garment.getByRole('option', { name: 'Hoodie' })).toHaveCount(1)
+  await expect(garment.getByRole('option', { name: 'Overall dress' })).toHaveCount(1)
+
+  // The button names the chosen garment, with the right article.
+  await garment.selectOption('overall')
+  await expect(main.getByRole('button', { name: 'Create an overall dress' })).toBeVisible()
+  await garment.selectOption('tee')
 
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
@@ -540,7 +547,7 @@ test('the T-shirt is the only template on offer, and the server refuses any othe
   // New tees pin the real T-shirt.
   expect(head.content.template).toEqual({ id: 'tee-crew-short', version: 4 })
 
-  expect(await createFromHead({ page, head, template: { id: 'gown', version: 1 } })).toMatchObject({ status: 422 })
+  expect(await createFromHead({ page, head, template: { id: 'cape', version: 1 } })).toMatchObject({ status: 422 })
 })
 
 test('a design on a template version this app cannot open says so, offers nothing to edit, and offers the way back', async ({ page }) => {

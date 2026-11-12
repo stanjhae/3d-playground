@@ -315,6 +315,21 @@ export function garmentPanels({
     : []
 }
 
+/**
+ * Whether the side views of a garment show sleeves. A template-built garment
+ * without sleeve panels (a gown, a slip) shows its sides instead; garments
+ * without a template are tee-shaped and have them.
+ */
+export function garmentHasSleeves({ garmentId }: { garmentId?: string | null }) {
+  const template = templateForGarment({ garmentId: getGarment({ garmentId }).id })
+  return !template || 'left' in template.regions || 'right' in template.regions
+}
+
+/** A side view's alt text: "wearer's right sleeve", or "… side" without sleeves. */
+export function sideViewAlt({ alt, garmentId }: { alt: string; garmentId?: string | null }) {
+  return garmentHasSleeves({ garmentId }) ? alt : alt.replace(/ sleeve$/, ' side')
+}
+
 export function garmentCanPaint({
   garmentId,
 }: {

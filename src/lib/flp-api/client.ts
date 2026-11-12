@@ -332,7 +332,7 @@ export function uploadRenders({
   designId: string
   seq: number
   renders: Array<{ kind: PublicRenderKind; data: string }>
-  stamp?: { templateVersion: number; compilerVersion: number }
+  stamp?: { templateId: string; templateVersion: number; compilerVersion: number }
   fetchImpl?: typeof fetch
 }) {
   return call<{ seq: number; kinds: PublicRenderKind[]; kept?: PublicRenderKind[] }>({
