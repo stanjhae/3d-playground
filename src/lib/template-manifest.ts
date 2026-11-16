@@ -2,6 +2,7 @@ import type { CanonicalPanelId, TemplateId } from './canonical-document.ts'
 import type { PanelId, PanelSurface } from './design-document.ts'
 import { HOODIE_V1 } from './templates/hoodie.ts'
 import { TEE_CREW_SHORT_V4 } from './templates/tee-v4.ts'
+import { TEE_CREW_SHORT_V5 } from './templates/tee-v5.ts'
 import { MIXED_V1 } from './templates/mixed.ts'
 import { SLIP_V1 } from './templates/slip.ts'
 import { COAT_V1 } from './templates/coat.ts'
@@ -257,7 +258,7 @@ export const TEE_CREW_SHORT_V3: TemplateManifest = Object.freeze({
  */
 export const CURRENT_TEMPLATE = TEE_CREW_SHORT_V3
 
-export { TEE_CREW_SHORT_V4 }
+export { TEE_CREW_SHORT_V4, TEE_CREW_SHORT_V5 }
 
 /**
  * Every version that saved designs may reference. Never remove entries. New
@@ -265,7 +266,7 @@ export { TEE_CREW_SHORT_V4 }
  * T-shirt (templates/tee.pieces.json); @1–@3 stay procedural.
  */
 const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
-  'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3, 4: TEE_CREW_SHORT_V4 },
+  'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3, 4: TEE_CREW_SHORT_V4, 5: TEE_CREW_SHORT_V5 },
   hoodie: { 1: HOODIE_V1 },
   mixed: { 1: MIXED_V1 },
   slip: { 1: SLIP_V1 },

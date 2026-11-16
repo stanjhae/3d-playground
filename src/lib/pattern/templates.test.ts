@@ -4,7 +4,7 @@ import { createEmptyCanonicalDocument, validateCanonicalDocument } from '../cano
 import { serializeCanonicalValue, sha256Hex } from '../canonical-hash'
 import { bodyColliders } from '../cloth/colliders'
 import { simulateCloth } from '../cloth/solver'
-import { TEMPLATE_IDS, currentTemplateFor } from '../template-manifest'
+import { TEMPLATE_IDS, currentTemplateFor, resolveTemplate } from '../template-manifest'
 import { clothFromPattern } from './build-cloth'
 import { hashPattern } from './pattern-hash'
 import { PATTERN_TEMPLATE_KEYS, patternTemplateFor, templateHasPattern } from './templates'
@@ -18,6 +18,7 @@ import { validateGeometry } from './validate-geometry'
  */
 const PINNED: Record<string, [string, string]> = {
   'tee-crew-short@4': ['sha256:aa71694dfba4361d5197c0bfa8e083611f42b601aec501ec23cbaddd5aad791a', 'a73e50a157945d49'],
+  'tee-crew-short@5': ['sha256:34bed812b0021336b151985a2233976555a91d7be7b94918d724dfa2b21e8545', '7b1afaeb9fa8bf76'],
   'hoodie@1': ['sha256:1f8de4e04d3425414556de1267298f837cb79720645e1f078f772f70f3e51a2a', '5fac893bb7f38b00'],
   'coat@1': ['sha256:26fd930d043100a2fd8930718cbdd7cdeea5444bbbe22b839a948b945115c5fb', '474342b408af5cd3'],
   'suit@1': ['sha256:ac4972c87e8e61d3e275ef500eb422cbeb9b0555e16a8da15cc4bc999102bc98', 'd663ffcb98f91ac0'],
@@ -39,7 +40,9 @@ describe('pattern templates', () => {
       const manifest = currentTemplateFor({ templateId: id })
       return `${manifest.id}@${manifest.version}`
     })
-    expect([...PATTERN_TEMPLATE_KEYS].sort()).toEqual(current.sort())
+    // Every current version, plus older ones designs already started on.
+    expect(current.filter((key) => !PATTERN_TEMPLATE_KEYS.includes(key))).toEqual([])
+    expect(PATTERN_TEMPLATE_KEYS.filter((key) => !current.includes(key))).toEqual(['tee-crew-short@4'])
     expect(templateHasPattern({ templateId: 'tee-crew-short', templateVersion: 3 })).toBe(false)
     expect(patternTemplateFor({ templateId: 'tee-crew-short', templateVersion: 3 })).toBeNull()
   })
@@ -52,14 +55,15 @@ describe('pattern templates', () => {
   })
 
   test.each(PATTERN_TEMPLATE_KEYS)('%s is a valid document pattern that can be sewn, inside its frames', (key) => {
-    const { templateId, template } = load(key)
-    const document = { ...createEmptyCanonicalDocument({ templateId: templateId as never }), pattern: template.pattern }
+    const { templateId, templateVersion, template } = load(key)
+    const document = { ...createEmptyCanonicalDocument({ templateId: templateId as never, version: templateVersion }), pattern: template.pattern }
     const result = validateCanonicalDocument({ value: document })
     expect(result.ok ? [] : result.issues).toEqual([])
     expect(validateGeometry({ pattern: template.pattern, frames: template.frames })).toEqual([])
 
     // Frames keep the print panel's proportions.
-    const manifest = currentTemplateFor({ templateId })
+    const resolved = resolveTemplate({ id: templateId, version: Number(key.split('@')[1]) })
+    const manifest = resolved.ok ? resolved.manifest : currentTemplateFor({ templateId })
 
     for (const [panel, frame] of Object.entries(template.frames)) {
       const aspect = manifest.regions[panel]?.surface?.panelAspect

@@ -28,16 +28,20 @@ function upper({ spec, sleeve, fabric, lift }: { spec: BodiceSpec; sleeve?: { le
   return { front, back, pieces: [...body.pieces, ...arms.pieces], seams: [...body.seams, ...arms.seams] }
 }
 
+const teeRecipe: Recipe = {
+  patternVersion: 1,
+  build: () =>
+    upper({
+      spec: { hemHalf: 255, armpitHalf: 255, armpitY: 440, shoulderHalf: 175, shoulderY: 640, neckHalf: 78, neckY: 680, frontNeckDip: 90, backNeckDip: 25, ...SHIRT_NECK },
+      sleeve: { length: 245, cuffHalf: 175, capHeight: 65 },
+      fabric: 'jersey',
+    }),
+}
+
 const RECIPES: Record<string, Recipe> = {
-  'tee-crew-short@4': {
-    patternVersion: 1,
-    build: () =>
-      upper({
-        spec: { hemHalf: 255, armpitHalf: 255, armpitY: 440, shoulderHalf: 175, shoulderY: 640, neckHalf: 78, neckY: 680, frontNeckDip: 90, backNeckDip: 25, ...SHIRT_NECK },
-        sleeve: { length: 245, cuffHalf: 175, capHeight: 65 },
-        fabric: 'jersey',
-      }),
-  },
+  'tee-crew-short@4': teeRecipe,
+  // The same tee, its sleeve panels wrapped all round: wider sleeve frames.
+  'tee-crew-short@5': teeRecipe,
 
   'hoodie@1': {
     patternVersion: 1,

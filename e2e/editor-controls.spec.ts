@@ -109,7 +109,9 @@ async function handles({ page, layer, panel = 'Front' }: { page: Page; layer: La
   const size = await locator.evaluate((node) => ({ width: (node as HTMLCanvasElement).width, height: (node as HTMLCanvasElement).height }))
   // The panel draws an uploaded image as the editor's own "graphic" kind.
   const kind = layer.kind === 'image' ? 'graphic' : layer.kind
-  const surface = Object.values(currentTemplateFor({ templateId: 'tee-crew-short' }).regions).find((region) => region.renderPanel === PANEL_KEY[panel])!.surface
+  // As the app projects it: a template-built garment's surface carries its own atlas rectangle.
+  const region = Object.values(currentTemplateFor({ templateId: 'tee-crew-short' }).regions).find((entry) => entry.renderPanel === PANEL_KEY[panel])!
+  const surface = { ...region.surface, uv: { ...region.uv } }
   const frame = canvasLayerFrame({ layer: { ...layer, kind, surface, panel: PANEL_KEY[panel] } as unknown as PlaceableLayer, ...size })
   const pixels = {
     body: { x: frame.x, y: frame.y },

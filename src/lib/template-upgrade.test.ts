@@ -44,14 +44,14 @@ function teeOn({ version }: { version: number }) {
 }
 
 describe('upgradeToCurrentTemplate', () => {
-  it('moves an @1 tee onto the real @4 tee, keeping every mark on its side of the body', () => {
+  it('moves an @1 tee onto the current real tee, keeping every mark on its side of the body', () => {
     const result = upgradeToCurrentTemplate({ document: teeOn({ version: 1 }) })
 
     expect(result.ok && result.changed).toBe(true)
     expect(canUpgradeTemplate({ document: teeOn({ version: 1 }) })).toBe(true)
     if (!result.ok) return
 
-    expect(result.document.template).toEqual({ id: 'tee-crew-short', version: 4 })
+    expect(result.document.template).toEqual({ id: 'tee-crew-short', version: 5 })
     // The front never mirrored: unchanged.
     expect(result.document.panels.front!.layers[0]).toMatchObject({ x: 0.3, rotation: 0.4 })
     // @1 stored the back in render space; @4 mirrors it, so the content flips back.
@@ -60,8 +60,8 @@ describe('upgradeToCurrentTemplate', () => {
     expect(ink?.kind === 'paint' ? ink.strokes[0]!.points : null).toEqual([0.9, 0.2, 0.75, 0.4])
   })
 
-  it('re-pins @2 and @3 with their stored placements unchanged (their back already mirrors)', () => {
-    for (const version of [2, 3]) {
+  it('re-pins @2, @3 and @4 with their stored placements unchanged (their back already mirrors)', () => {
+    for (const version of [2, 3, 4]) {
       const source = teeOn({ version })
       const result = upgradeToCurrentTemplate({ document: source })
 
@@ -72,7 +72,7 @@ describe('upgradeToCurrentTemplate', () => {
   })
 
   it('leaves a design already on the newest version alone', () => {
-    const document = teeOn({ version: 4 })
+    const document = teeOn({ version: 5 })
 
     expect(upgradeToCurrentTemplate({ document })).toEqual({ ok: true, document, changed: false })
     expect(canUpgradeTemplate({ document })).toBe(false)
