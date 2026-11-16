@@ -53,6 +53,9 @@ async function chooseInk({ page, name }: { page: Page; name: string }) {
 
 async function sceneShot({ page }: { page: Page }) {
   await page.waitForTimeout(2_000)
+  // The "still loading" note sits over the scene; on a slow runner it can
+  // still be showing, and would be photographed with the cloth.
+  await expect(page.getByRole('status').filter({ hasText: /still loading/ })).toHaveCount(0, { timeout: 20_000 })
   // The middle of the scene only: side rails sit over the canvas's edges, and
   // the camera views float over its bottom.
   const box = (await page.locator('canvas[data-engine]').boundingBox())!
