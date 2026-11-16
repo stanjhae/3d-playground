@@ -1,4 +1,4 @@
-import type { Mesh, Object3D } from 'three'
+import { ShapeUtils, Vector2, type Mesh, type Object3D } from 'three'
 import { create } from 'zustand'
 
 import type { DesignDocument, PanelId } from './design-document'
@@ -159,5 +159,281 @@ export function shapesFromScene({
     }
   })
 
+  // Front and back are symmetrical pieces; sleeves keep their own shape.
+  for (const panel of Object.keys(shapes) as PanelId[]) {
+    shapes[panel] = cleanPanelShape({ triangles: shapes[panel]!, symmetric: panel === 'front' || panel === 'back' })
+  }
+
   return shapes
+}
+
+// --- Clean outlines ------------------------------------------------------------
+
+const GRID = 96
+
+/** Fills a GRID × GRID mask (row 0 at the hem) from panel-space triangles. */
+function rasterise(triangles: readonly number[]): Float32Array {
+  const mask = new Float32Array(GRID * GRID)
+
+  for (let t = 0; t + 5 < triangles.length; t += 6) {
+    const [ax, ay, bx, by, cx, cy] = triangles.slice(t, t + 6) as [number, number, number, number, number, number]
+    const minX = Math.max(0, Math.floor(Math.min(ax, bx, cx) * GRID))
+    const maxX = Math.min(GRID - 1, Math.ceil(Math.max(ax, bx, cx) * GRID))
+    const minY = Math.max(0, Math.floor(Math.min(ay, by, cy) * GRID))
+    const maxY = Math.min(GRID - 1, Math.ceil(Math.max(ay, by, cy) * GRID))
+    const area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+
+    if (Math.abs(area) < 1e-12) {
+      continue
+    }
+
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const px = (x + 0.5) / GRID
+        const py = (y + 0.5) / GRID
+        const w0 = ((bx - px) * (cy - py) - (by - py) * (cx - px)) / area
+        const w1 = ((cx - px) * (ay - py) - (cy - py) * (ax - px)) / area
+        const w2 = 1 - w0 - w1
+
+        if (w0 >= -1e-6 && w1 >= -1e-6 && w2 >= -1e-6) {
+          mask[y * GRID + x] = 1
+        }
+      }
+    }
+  }
+
+  return mask
+}
+
+function blur(mask: Float32Array): Float32Array {
+  const out = new Float32Array(mask.length)
+
+  for (let y = 0; y < GRID; y += 1) {
+    for (let x = 0; x < GRID; x += 1) {
+      let sum = 0
+      let count = 0
+
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const nx = x + dx
+          const ny = y + dy
+
+          if (nx >= 0 && ny >= 0 && nx < GRID && ny < GRID) {
+            sum += mask[ny * GRID + nx]!
+            count += 1
+          }
+        }
+      }
+
+      out[y * GRID + x] = sum / count
+    }
+  }
+
+  return out
+}
+
+type Pt = [number, number]
+
+/** Closed outlines of the mask at level 0.5 (marching squares), in panel space. */
+function contours(mask: Float32Array): Pt[][] {
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= GRID || y >= GRID ? 0 : mask[y * GRID + x]!)
+  const key = (p: Pt) => `${p[0].toFixed(5)},${p[1].toFixed(5)}`
+  const next = new Map<string, Pt>()
+  // Just off 0.5: mirroring makes many samples exactly 0.5, and an outline
+  // point landing on a sample would be shared by four cells and break the chain.
+  const level = 0.4987
+  const lerp = (a: number, b: number) => (level - a) / (b - a || 1e-9)
+
+  // Cells span sample centres; a one-cell border closes every outline.
+  for (let y = -1; y < GRID; y += 1) {
+    for (let x = -1; x < GRID; x += 1) {
+      const v0 = at(x, y)
+      const v1 = at(x + 1, y)
+      const v2 = at(x + 1, y + 1)
+      const v3 = at(x, y + 1)
+      const code = (v0 >= level ? 1 : 0) | (v1 >= level ? 2 : 0) | (v2 >= level ? 4 : 0) | (v3 >= level ? 8 : 0)
+
+      if (code === 0 || code === 15) {
+        continue
+      }
+
+      const sx = (x + 0.5) / GRID
+      const sy = (y + 0.5) / GRID
+      const s = 1 / GRID
+      const bottom: Pt = [sx + lerp(v0, v1) * s, sy]
+      const right: Pt = [sx + s, sy + lerp(v1, v2) * s]
+      const top: Pt = [sx + lerp(v3, v2) * s, sy + s]
+      const left: Pt = [sx, sy + lerp(v0, v3) * s]
+      // Segments run with the inside on their right.
+      const segments: [Pt, Pt][] = (
+        {
+          1: [[left, bottom]],
+          2: [[bottom, right]],
+          3: [[left, right]],
+          4: [[right, top]],
+          5: [[left, top], [right, bottom]],
+          6: [[bottom, top]],
+          7: [[left, top]],
+          8: [[top, left]],
+          9: [[top, bottom]],
+          10: [[top, right], [bottom, left]],
+          11: [[top, right]],
+          12: [[right, left]],
+          13: [[right, bottom]],
+          14: [[bottom, left]],
+        } as Record<number, [Pt, Pt][]>
+      )[code]!
+
+      for (const [from, to] of segments) {
+        next.set(key(from), to)
+      }
+    }
+  }
+
+  const loops: Pt[][] = []
+  const seen = new Set<string>()
+
+  for (const [startKey, firstTo] of next) {
+    if (seen.has(startKey)) {
+      continue
+    }
+
+    const loop: Pt[] = []
+    let current: Pt | undefined = firstTo
+    seen.add(startKey)
+    loop.push(startKey.split(',').map(Number) as Pt)
+
+    while (current) {
+      const k = key(current)
+
+      if (k === startKey || seen.has(k)) {
+        break
+      }
+
+      seen.add(k)
+      loop.push(current)
+      current = next.get(k)
+    }
+
+    if (loop.length > 2) {
+      loops.push(loop)
+    }
+  }
+
+  return loops
+}
+
+function area(loop: readonly Pt[]) {
+  let sum = 0
+
+  for (let i = 0; i < loop.length; i += 1) {
+    const [x0, y0] = loop[i]!
+    const [x1, y1] = loop[(i + 1) % loop.length]!
+    sum += x0 * y1 - x1 * y0
+  }
+
+  return sum / 2
+}
+
+/** Ramer–Douglas–Peucker on a closed loop. */
+function simplify(loop: Pt[], epsilon: number): Pt[] {
+  const reduce = (points: Pt[]): Pt[] => {
+    if (points.length < 3) {
+      return points
+    }
+
+    const [ax, ay] = points[0]!
+    const [bx, by] = points[points.length - 1]!
+    const length = Math.hypot(bx - ax, by - ay) || 1e-9
+    let worst = 0
+    let index = 0
+
+    for (let i = 1; i < points.length - 1; i += 1) {
+      const [px, py] = points[i]!
+      const distance = Math.abs((bx - ax) * (ay - py) - (ax - px) * (by - ay)) / length
+
+      if (distance > worst) {
+        worst = distance
+        index = i
+      }
+    }
+
+    return worst > epsilon ? [...reduce(points.slice(0, index + 1)).slice(0, -1), ...reduce(points.slice(index))] : [points[0]!, points[points.length - 1]!]
+  }
+
+  const half = Math.floor(loop.length / 2)
+  const first = reduce(loop.slice(0, half + 1))
+  const second = reduce([...loop.slice(half), loop[0]!])
+  return [...first.slice(0, -1), ...second.slice(0, -1)]
+}
+
+/** Chaikin corner cutting: a few passes round off the steps. */
+function smooth(loop: Pt[], passes: number): Pt[] {
+  let points = loop
+
+  for (let pass = 0; pass < passes; pass += 1) {
+    const out: Pt[] = []
+
+    for (let i = 0; i < points.length; i += 1) {
+      const [x0, y0] = points[i]!
+      const [x1, y1] = points[(i + 1) % points.length]!
+      out.push([x0 * 0.75 + x1 * 0.25, y0 * 0.75 + y1 * 0.25], [x0 * 0.25 + x1 * 0.75, y0 * 0.25 + y1 * 0.75])
+    }
+
+    points = out
+  }
+
+  return points
+}
+
+/**
+ * A panel's printable shape as a clean outline: the mesh's print triangles
+ * follow the 3D tee's folds, so their edge is ragged. Rasterised, softened,
+ * mirrored about the centre line for a front or back (`symmetric`), traced,
+ * simplified and rounded, then handed back as triangles in the same form,
+ * so the veil and the tab icons draw it unchanged (founder review, 16 Nov).
+ */
+export function cleanPanelShape({ triangles, symmetric }: { triangles: readonly number[]; symmetric: boolean }): number[] {
+  if (triangles.length < 6) {
+    return [...triangles]
+  }
+
+  let mask = blur(blur(rasterise(triangles)))
+
+  if (symmetric) {
+    const mirrored = new Float32Array(mask.length)
+
+    for (let y = 0; y < GRID; y += 1) {
+      for (let x = 0; x < GRID; x += 1) {
+        mirrored[y * GRID + x] = (mask[y * GRID + x]! + mask[y * GRID + (GRID - 1 - x)]!) / 2
+      }
+    }
+
+    mask = mirrored
+  }
+
+  // Traced with the inside on the right, outer outlines run clockwise
+  // (negative area) and holes counter-clockwise: take the largest outer one.
+  const outer = contours(mask)
+    .filter((loop) => area(loop) < 0)
+    .sort((a, b) => area(a) - area(b))[0]
+
+  if (!outer) {
+    return [...triangles]
+  }
+
+  const outline = [...outer].reverse()
+
+  const clean = smooth(simplify(outline, 0.004), 3)
+  const contour = clean.map(([x, y]) => new Vector2(x, y))
+  const faces = ShapeUtils.triangulateShape(contour, [])
+  const out: number[] = []
+
+  for (const [a, b, c] of faces) {
+    for (const vertex of [a!, b!, c!]) {
+      out.push(clean[vertex]![0], clean[vertex]![1])
+    }
+  }
+
+  return out.length > 0 ? out : [...triangles]
 }

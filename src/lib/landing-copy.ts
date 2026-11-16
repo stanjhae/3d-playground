@@ -39,7 +39,14 @@ export const LANDING_COPY = {
     secondary: 'See how it works',
     proof: ['Front, back and both sleeves', 'Private until you publish', 'Runs in your browser'],
     padLabel: 'Draw here',
-    padHint: 'It lands on the front of the tee.',
+    /** Where the pad's ink lands, by the side picked below it. */
+    padHint: {
+      front: 'It lands on the front of the tee.',
+      back: 'It lands on the back of the tee.',
+      left: 'It lands on the left sleeve.',
+      right: 'It lands on the right sleeve.',
+    },
+    graphicsHint: 'Tap one, or drag it onto the tee.',
     inkLabel: 'Ink',
     graphicsLabel: 'Drop a graphic',
     viewsLabel: 'Turn it',
