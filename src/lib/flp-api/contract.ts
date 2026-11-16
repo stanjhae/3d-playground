@@ -36,6 +36,10 @@ export const API_ERROR_STATUS = {
   rate_limited: 429,
   /** An operator took the design down after a report (P2); publishing waits until they clear it. */
   taken_down: 403,
+  /** The account hasn't accepted the terms in force (P1). */
+  terms_required: 403,
+  /** A vote on the voter's own design (docs/abuse.md). */
+  own_design: 409,
 } as const
 
 export type ApiErrorCode = keyof typeof API_ERROR_STATUS
@@ -93,13 +97,23 @@ export type DesignDetails = {
   updatedAt: string
 }
 
-/** POST /profile — the name shown on published designs; null clears it. */
+/**
+ * POST /profile — the name shown on published designs (null clears it),
+ * and/or the public profile: a handle and whether the page is shown. Send
+ * `handle` and `profilePublic` together.
+ */
 export type ProfileRequest = {
-  displayName: string | null
+  displayName?: string | null
+  handle?: string | null
+  profilePublic?: boolean
 }
 
 export type ProfileResponse = {
   displayName: string | null
+  /** The profile's handle (`/u/:handle`), or null if none chosen. */
+  handle: string | null
+  /** Whether `/u/:handle` is shown to everyone. */
+  profilePublic: boolean
   /** The terms version this account accepted, or null if none yet (P1). */
   termsVersion: string | null
   termsAcceptedAt: string | null
@@ -123,6 +137,31 @@ export type DeleteAccountRequest = {
 export type VoteState = {
   count: number
   voted: boolean
+  /**
+   * When the caller voted but their account is too new for the vote to
+   * count yet: the time it starts counting (docs/abuse.md).
+   */
+  countsFrom?: string
+}
+
+/** POST /public/:slug/report — why the design is reported. */
+export const REPORT_REASONS = ['copyright', 'offensive', 'spam', 'other'] as const
+export type ReportReason = (typeof REPORT_REASONS)[number]
+
+export type ReportRequest = {
+  reason: ReportReason
+  note?: string
+}
+
+/** GET /public?window= — which votes a ranking counts. */
+export const BOARD_WINDOWS = ['week', 'month', 'all'] as const
+export type BoardWindow = (typeof BOARD_WINDOWS)[number]
+
+/** A handle: 3–24 lower-case letters, digits or single hyphens. */
+export const HANDLE_PATTERN = /^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/
+
+export function isHandle(value: string) {
+  return HANDLE_PATTERN.test(value) && !value.includes('--')
 }
 
 export type VersionResponse = {
@@ -564,11 +603,43 @@ export function parseUpdateDesignRequest({ value }: { value: unknown }) {
 export function parseProfileRequest({ value }: { value: unknown }) {
   return parseFields<ProfileRequest>({
     value,
-    required: ['displayName'],
-    check: (record) =>
-      record.displayName === null || record.displayName === ''
+    required: [],
+    optional: ['displayName', 'handle', 'profilePublic'],
+    check: (record) => [
+      ...(record.displayName === undefined && record.handle === undefined && record.profilePublic === undefined
+        ? [{ path: '$', message: 'expected a displayName, or a handle and profilePublic' }]
+        : []),
+      ...((record.handle === undefined) !== (record.profilePublic === undefined)
+        ? [{ path: '$', message: 'expected handle and profilePublic together' }]
+        : []),
+      ...(record.displayName === undefined || record.displayName === null || record.displayName === ''
         ? []
-        : textIssue({ value: record.displayName, path: '$.displayName', max: 40 }),
+        : textIssue({ value: record.displayName, path: '$.displayName', max: 40 })),
+      ...(record.handle === undefined || record.handle === null || record.handle === ''
+        ? []
+        : typeof record.handle === 'string' && isHandle(record.handle.trim().toLowerCase())
+          ? []
+          : [{ path: '$.handle', message: 'expected 3 to 24 letters, digits or single hyphens' }]),
+      ...(record.profilePublic === undefined || typeof record.profilePublic === 'boolean'
+        ? []
+        : [{ path: '$.profilePublic', message: 'expected true or false' }]),
+    ],
+  })
+}
+
+export function parseReportRequest({ value }: { value: unknown }) {
+  return parseFields<ReportRequest>({
+    value,
+    required: ['reason'],
+    optional: ['note'],
+    check: (record) => [
+      ...(typeof record.reason === 'string' && (REPORT_REASONS as readonly string[]).includes(record.reason)
+        ? []
+        : [{ path: '$.reason', message: `expected one of ${REPORT_REASONS.join(', ')}` }]),
+      ...(record.note === undefined || record.note === ''
+        ? []
+        : textIssue({ value: record.note, path: '$.note', max: 500 })),
+    ],
   })
 }
 

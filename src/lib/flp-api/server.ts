@@ -28,6 +28,7 @@ import {
   parseCreateDesignRequest,
   parseDeleteAccountRequest,
   parseProfileRequest,
+  parseReportRequest,
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
   parseUpdateDesignRequest,
@@ -43,6 +44,7 @@ import {
   readOwnerPublication,
   readPublicDesign,
   readBoard,
+  readPublicProfile,
   readPublicImage,
   unpublish,
   uploadRenders,
@@ -96,8 +98,12 @@ export const RATE_LIMITS = {
   publish: 10,
   details: 30,
   vote: 30,
+  report: 5,
   ai: AI_LIMITS.perMinute,
 } as const
+
+/** Reports per account per day, on top of the per-minute limit. */
+export const REPORT_DAILY_LIMIT = 30
 
 export type RateBucket = keyof typeof RATE_LIMITS
 
@@ -119,6 +125,8 @@ export const RATE_OUTAGE_POLICY: Record<RateBucket, OutagePolicy> = {
   publish: 'refuse',
   details: 'allow',
   vote: 'allow',
+  // One open report per account and design caps what a missed limit costs.
+  report: 'allow',
   // Each sketch costs real money: no limiter, no sketch.
   ai: 'refuse',
 }
@@ -840,7 +848,7 @@ async function handleProfile({
   if (request.method === 'GET') {
     const { data, error } = await asUser
       .from('profiles')
-      .select('display_name, terms_version, terms_accepted_at')
+      .select('display_name, handle, profile_public, terms_version, terms_accepted_at')
       .maybeSingle()
 
     // A failed read must not look like "no public name" (#150).
@@ -868,19 +876,43 @@ async function handleProfile({
     return fromError({ error: parsed.error })
   }
 
-  const { data, error } = await admin
-    .rpc('flp_set_display_name', { p_owner_id: userId, p_display_name: parsed.request.displayName })
-    .single<ProfileRow>()
+  let row: ProfileRow | null = null
 
-  if (error) {
-    return writeFailed({ fn: 'flp_set_display_name', error })
+  if (parsed.request.displayName !== undefined) {
+    const { data, error } = await admin
+      .rpc('flp_set_display_name', { p_owner_id: userId, p_display_name: parsed.request.displayName })
+      .single<ProfileRow>()
+
+    if (error) {
+      return writeFailed({ fn: 'flp_set_display_name', error })
+    }
+
+    row = data
   }
 
-  return json({ status: 200, body: profileResponse({ row: data }) })
+  if (parsed.request.profilePublic !== undefined) {
+    const { data, error } = await admin
+      .rpc('flp_set_public_profile', {
+        p_owner_id: userId,
+        p_handle: parsed.request.handle ?? null,
+        p_public: parsed.request.profilePublic,
+      })
+      .single<ProfileRow>()
+
+    if (error) {
+      return writeFailed({ fn: 'flp_set_public_profile', error })
+    }
+
+    row = data
+  }
+
+  return json({ status: 200, body: profileResponse({ row }) })
 }
 
 type ProfileRow = {
   display_name: string | null
+  handle: string | null
+  profile_public: boolean
   terms_version: string | null
   terms_accepted_at: string | null
 }
@@ -888,6 +920,8 @@ type ProfileRow = {
 function profileResponse({ row }: { row: ProfileRow | null }): ProfileResponse {
   return {
     displayName: row?.display_name ?? null,
+    handle: row?.handle ?? null,
+    profilePublic: row?.profile_public ?? false,
     termsVersion: row?.terms_version ?? null,
     termsAcceptedAt: row?.terms_accepted_at ?? null,
   }
@@ -1040,16 +1074,112 @@ async function handleVote({
     }
   }
 
+  // Voting takes the current terms, like the studio; reading the count doesn't.
+  if (request.method === 'POST' && user) {
+    const terms = await termsRefusal({ admin, userId: user.userId, message: 'Accept the current terms to vote' })
+
+    if (terms) {
+      return terms
+    }
+  }
+
   const fn = request.method === 'POST' ? 'flp_cast_vote' : request.method === 'DELETE' ? 'flp_retract_vote' : 'flp_vote_state'
   const args = write ? { p_voter_id: user!.userId, p_slug: slug } : { p_slug: slug, p_voter_id: user?.userId ?? null }
   const { data, error } = await admin.rpc(fn, args).single<{ vote_count: number; voted: boolean }>()
 
   if (error) {
+    if (error.code === 'FL409') {
+      return fromError({ error: apiError({ code: 'own_design', message: 'You can’t vote for your own design' }) })
+    }
+
     return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn, error })
   }
 
   const state: VoteState = { count: data.vote_count, voted: data.voted }
+
+  // A new account's vote is kept but counts later (docs/abuse.md): say when.
+  if (data.voted && user) {
+    const { data: from } = await admin.rpc('flp_votes_count_from', { p_voter_id: user.userId })
+
+    if (typeof from === 'string' && Date.parse(from) > Date.now()) {
+      state.countsFrom = new Date(from).toISOString()
+    }
+  }
+
   return json({ status: 200, body: state })
+}
+
+/** A 403 unless the account accepted the terms in force (P1). */
+async function termsRefusal({ admin, userId, message }: { admin: SupabaseClient; userId: string; message: string }) {
+  const { data, error } = await admin
+    .from('profiles')
+    .select('terms_version')
+    .eq('owner_id', userId)
+    .maybeSingle<{ terms_version: string | null }>()
+
+  if (error) {
+    console.error('flp terms read failed', { code: error.code })
+    return internalError()
+  }
+
+  return data?.terms_version === TERMS_VERSION
+    ? null
+    : fromError({ error: apiError({ code: 'terms_required', message }) })
+}
+
+/**
+ * POST /public/:slug/report — the caller reports a live design: a reason
+ * and an optional note, read by an operator (`scripts/moderation.mjs
+ * reports`). Reporting again while a report is open changes nothing.
+ */
+async function handleReport({ request, env, slug }: { request: Request; env: FlpServerEnv; slug: string | undefined }) {
+  if (request.method !== 'POST') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const admin = createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const user = await verifiedUser({ request, admin })
+
+  if (!user) {
+    return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  if (!slug || !SLUG.test(slug)) {
+    return designUnavailable()
+  }
+
+  const limited =
+    (await rateLimited({ admin, userId: user.userId, bucket: 'report', env })) ??
+    (await rateLimited({ admin, userId: user.userId, bucket: 'report', env, name: 'report-day', limit: REPORT_DAILY_LIMIT, windowSeconds: 86_400 }))
+
+  if (limited) {
+    return limited
+  }
+
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseReportRequest({ value: body.value })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  const { error } = await admin.rpc('flp_report_publication', {
+    p_reporter_id: user.userId,
+    p_slug: slug,
+    p_reason: parsed.request.reason,
+    p_note: parsed.request.note?.trim() || null,
+  })
+
+  if (error) {
+    return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn: 'flp_report_publication', error })
+  }
+
+  return json({ status: 202, body: { reported: true } })
 }
 
 /**
@@ -1257,10 +1387,24 @@ export async function handleFlpRequest({
       return handleVote({ request, env, slug: designId })
     }
 
-    // GET /public — the board (V2): every published design, most voted first.
+    if (action === 'report' && rest.length === 0) {
+      return handleReport({ request, env, slug: designId })
+    }
+
+    // GET /public — the board (V2), ranked by window and garment.
     if (!designId && request.method === 'GET') {
       return readBoard({
         admin: createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } }),
+        respond,
+        search: new URL(request.url).searchParams,
+      })
+    }
+
+    // GET /public/u/:handle — a public profile.
+    if (designId === 'u' && action && rest.length === 0 && request.method === 'GET') {
+      return readPublicProfile({
+        admin: createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } }),
+        handle: action,
         respond,
       })
     }

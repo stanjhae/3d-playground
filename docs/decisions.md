@@ -2,6 +2,17 @@
 
 Decisions that change scope or behaviour for the alpha (17 November until the entry of 9 Nov 2026, then 1 December until the entry of 11 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 16 Nov 2026: rankings by period and garment, opt-in profiles, vote rules and reports
+
+**Decided by:** owner, approving the roadmap after the founder's call briefing.
+
+- **Rankings** on `/vote` count votes cast this week, this month or ever, and can be ranked within one garment.
+- **Vote rules:** no votes on your own design; voting takes the current terms of use; a new account's vote is kept but counts once the account is a day old. Nobody is refused for being new (`docs/abuse.md`).
+- **Public profiles are opt-in.** Each account may choose a handle (3–24 letters, digits or single hyphens) and turn on a page at `/u/:handle` listing its published designs. While off, the page doesn't exist and the board shows no link.
+- **Reports are stored**, signed in, with a reason and an optional note, for operators to work through (`scripts/moderation.mjs reports`). Signed out, reporting stays an email, so people without accounts can still report.
+- **Comments and follows** follow in their own change, behind `VITE_COMMUNITY`, off until there are enough designers to need them and someone to moderate them.
+- The terms gain a line that votes are your own (no extra accounts, no buying or trading votes). It spells out the existing "one person per account" rule, so the terms version is unchanged and nobody is asked to accept again.
+
 ## 16 Nov 2026: build Workflow 1 in full (pattern editing, cloth drape, AI assist)
 
 **Decided by:** owner. This reverses the 12 Nov line that pattern editing and AI sketch → 3D are "not built now".

@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '../terms.ts'
 import { type SupabaseClient, createClient } from '@supabase/supabase-js'
 
 import type { CanonicalDocument } from '../canonical-document'
@@ -37,6 +38,15 @@ export async function createAccount({
   }
 
   return { id: created.data.user.id, email, token: signedIn.data.session.access_token, client }
+}
+
+/** Records that the account accepted the terms in force, as voting needs. */
+export async function acceptTermsFor({ admin, account }: { admin: SupabaseClient; account: Account }) {
+  const { error } = await admin.rpc('flp_accept_terms', { p_owner_id: account.id, p_version: TERMS_VERSION })
+
+  if (error) {
+    throw error
+  }
 }
 
 /** Points every image layer at `assetId`. */

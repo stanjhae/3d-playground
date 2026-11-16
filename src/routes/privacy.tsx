@@ -51,7 +51,15 @@ function Privacy() {
             If you publish a design: the version you chose, five pictures of it, its name and the public name you
             entered.
           </li>
-          <li>Your votes on shared designs, one per design, linked to your account.</li>
+          <li>
+            Your votes on shared designs, one per design, linked to your account. A new account’s votes start counting
+            once the account is a day old.
+          </li>
+          <li>
+            If you turn on a public profile: the handle you choose. Your profile page shows that handle, your public
+            name and your published designs with their votes, until you turn it off.
+          </li>
+          <li>Reports you send about a design: which design, the reason and any note, linked to your account.</li>
           <li>Which version of the terms of use you accepted, and when.</li>
           <li>
             To stop any one visitor flooding the site: a scrambled form of your device’s network address, never the
@@ -119,7 +127,9 @@ function Privacy() {
       <div id="report" className={sectionClass}>
         <h2 className={headingClass}>Reporting a design</h2>
         <p className={textClass}>
-          Every shared design page has a “Report this design” link. Reports go to {contact}, and a design that breaks
+          Every shared design page has a “Report this design” link. Signed in, a report goes to the people who run the
+          site, who alone can read it; the design’s owner never sees who reported it. Signed out, reports go to {contact}.
+          A design that breaks
           the rules is unpublished and can’t be published again unless the decision is reversed. Its owner keeps the
           design itself. A note of the decision is kept: which link, why, who decided and when.
         </p>

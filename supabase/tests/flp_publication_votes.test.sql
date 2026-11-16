@@ -1,6 +1,9 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
+-- Test accounts are minutes old; count their votes at once (see seed.sql).
+update public.vote_rules set min_account_age = interval '0';
+
 select plan(25);
 
 insert into auth.users (id, email) values

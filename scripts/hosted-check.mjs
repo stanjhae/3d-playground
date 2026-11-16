@@ -295,7 +295,11 @@ await check({
       const response = await api(path, { method: route.method })
       const body = await json(response)
 
-      if (route.scope === 'public') {
+      if (route.scope === 'public' && !route.path(PLACEHOLDER).includes(PLACEHOLDER.slug)) {
+        // A listing (the board) has no slug to miss: it answers.
+        expect(response.status === 200, `${routeLabel(route)} signed out is ${response.status}, not 200`)
+        note(`| \`${routeLabel(route)}\` | none | 200 |`)
+      } else if (route.scope === 'public') {
         expect(response.status === 404, `${routeLabel(route)} for an unknown slug is ${response.status}, not 404`)
         expect(response.headers.get('cache-control') === 'no-store', `${routeLabel(route)} 404 is cacheable`)
         note(`| \`${routeLabel(route)}\` | none | 404, no-store |`)
@@ -670,9 +674,11 @@ await check({
 await check({
   id: 'account-votes',
   issues: [125],
-  title: 'One vote per account; signed-out readers see the count, never who voted (V1)',
+  title: 'One vote per account, never on your own design; a new account\'s vote counts after a day; signed-out readers see the count, never who voted (V1)',
   run: async ({ note }) => {
     const { a, b, fixture } = await setUp()
+    // Voting takes the terms, like the studio.
+    await as({ token: b.token, path: 'terms', method: 'POST', body: { version: TERMS_VERSION } })
     // unpublish-404 took the fixture down; publish it again.
     const published = await republish({ a, fixture })
     expect(published.status < 300, `republishing answered ${published.status}`)
@@ -681,24 +687,35 @@ await check({
     const anonymousWrite = await vote(undefined, 'POST')
     expect(anonymousWrite.status === 401, `a signed-out vote answered ${anonymousWrite.status}`)
 
-    for (const step of ['first', 'again']) {
-      const cast = await json(await vote(b.token, 'POST'))
-      expect(cast?.count === 1 && cast.voted === true, `${step} vote gave ${JSON.stringify(cast)}`)
-    }
+    const own = await vote(a.token, 'POST')
+    const ownBody = await json(own)
+    expect(own.status === 409 && ownBody?.error?.code === 'own_design', `voting on your own design answered ${own.status} ${ownBody?.error?.code}`)
+
+    // b is minutes old: where the project holds new accounts' votes (24 h on
+    // hosted projects), the vote is kept with a time it starts counting.
+    const first = await json(await vote(b.token, 'POST'))
+    const counted = first?.countsFrom ? 0 : 1
+    expect(first?.voted === true && first.count === counted, `the first vote gave ${JSON.stringify(first)}`)
+    const again = await json(await vote(b.token, 'POST'))
+    expect(again?.voted === true && again.count === counted, `voting again gave ${JSON.stringify(again)}`)
 
     const anonymous = await vote(undefined)
     const anonymousText = await anonymous.text()
     expect(anonymous.status === 200, `the signed-out count answered ${anonymous.status}`)
-    expect(JSON.parse(anonymousText).count === 1, `the signed-out count is ${anonymousText}`)
+    expect(JSON.parse(anonymousText).count === counted, `the signed-out count is ${anonymousText}`)
     expect(!anonymousText.includes(b.id), 'the signed-out count names the voter')
     const owner = await json(await vote(a.token))
-    expect(owner?.count === 1 && owner.voted === false, `the owner sees ${JSON.stringify(owner)}`)
+    expect(owner?.count === counted && owner.voted === false && !owner.countsFrom, `the owner sees ${JSON.stringify(owner)}`)
 
     const retracted = await json(await vote(b.token, 'DELETE'))
     expect(retracted?.count === 0 && retracted.voted === false, `retracting gave ${JSON.stringify(retracted)}`)
     const recast = await json(await vote(b.token, 'POST'))
-    expect(recast?.count === 1, `voting after retracting gave ${JSON.stringify(recast)}`)
-    note('signed out: 401 to vote, count only to read; voting twice keeps one vote; retract and vote again work')
+    expect(recast?.count === counted, `voting after retracting gave ${JSON.stringify(recast)}`)
+    note(
+      `signed out: 401 to vote, count only to read; own design: 409; voting twice keeps one vote; retract and vote again work; ${
+        counted ? 'a new account\'s vote counts at once here' : `a new account's vote is held until ${first.countsFrom}`
+      }`,
+    )
   },
 })
 
@@ -707,7 +724,7 @@ await check({
   issues: [195],
   title: 'A takedown unpublishes at once and blocks republishing until the hold is cleared; votes survive (P2)',
   run: async ({ note }) => {
-    const { admin, a, fixture } = await setUp()
+    const { admin, a, b, fixture } = await setUp()
     await takeDownPublication({ admin, slug: fixture.slug, reason: 'Hosted check', heldBy: 'hosted-check' })
 
     const page = await api(`/api/flp/public/${fixture.slug}`)
@@ -728,8 +745,9 @@ await check({
 
     const again = await republish({ a, fixture })
     expect(again.status < 300, `republishing after the hold was cleared answered ${again.status}`)
-    const votes = await json(await as({ path: `public/${fixture.slug}/vote` }))
-    expect(votes?.count === 1, `the vote did not survive the takedown: ${JSON.stringify(votes)}`)
+    // b's vote may be held (a new account), so ask b whether it is still there.
+    const votes = await json(await as({ token: b.token, path: `public/${fixture.slug}/vote` }))
+    expect(votes?.voted === true, `the vote did not survive the takedown: ${JSON.stringify(votes)}`)
     note('takedown: payload 404, republish 403 taken_down; cleared: still down until the owner republishes; vote kept')
   },
 })

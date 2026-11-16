@@ -74,6 +74,7 @@ function Terms() {
           <li>No one else’s logos, trademarks or artwork without permission.</li>
           <li>Nothing illegal, hateful, harassing, sexually explicit or violent, and nothing about a real person without their consent.</li>
           <li>No attempts to break, overload or get around the limits of the service, or to reach other people’s accounts.</li>
+          <li>Votes are your own: no voting through extra accounts, and no buying, selling or trading votes. Votes that look arranged can be removed.</li>
         </ul>
         <p className={textClass}>
           A design that breaks these rules can be unpublished or removed, and an account that keeps breaking them can be

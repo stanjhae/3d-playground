@@ -7,8 +7,12 @@ import {
   activeHolds,
   clearModerationHold,
   moderationStatus,
+  openReports,
+  resolveReport,
+  reviewVotes,
   slugFromReport,
   takeDownPublication,
+  votersOf,
 } from '../src/lib/flp-api/moderation.ts'
 
 /**
@@ -19,6 +23,13 @@ import {
  *   … node scripts/moderation.mjs takedown <slug or link> --reason "…" --by "<your name>" [--confirm]
  *   … node scripts/moderation.mjs clear <slug or link> --by "<your name>" [--confirm]
  *   … node scripts/moderation.mjs list
+ *   … node scripts/moderation.mjs reports
+ *   … node scripts/moderation.mjs dismiss|action <report id> --by "<your name>"
+ *   … node scripts/moderation.mjs votes <slug or link>
+ *
+ * reports lists open reports, oldest first; dismiss and action close one
+ * (action after a takedown or a word with the owner). votes lists signs
+ * of one person voting through several accounts (docs/abuse.md).
  *
  * takedown unpublishes now and stops the owner publishing that design
  * again; clear lets them publish again (it does not republish). Both are
@@ -38,9 +49,9 @@ const [command, target] = positionals
 const url = process.env.SUPABASE_URL
 const secretKey = process.env.SUPABASE_SECRET_KEY
 const usage =
-  'Usage: SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs status|takedown|clear|list [<slug or link>] [--reason "…"] [--by "…"] [--confirm]'
+  'Usage: SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs status|takedown|clear|list|reports|dismiss|action|votes [<slug, link or report id>] [--reason "…"] [--by "…"] [--confirm]'
 
-if (!url || !secretKey || !['status', 'takedown', 'clear', 'list'].includes(command ?? '')) {
+if (!url || !secretKey || !['status', 'takedown', 'clear', 'list', 'reports', 'dismiss', 'action', 'votes'].includes(command ?? '')) {
   console.error(usage)
   process.exit(1)
 }
@@ -72,11 +83,44 @@ try {
     process.exit(0)
   }
 
+  if (command === 'reports') {
+    const reports = await openReports({ admin })
+    console.log(
+      reports.length
+        ? reports.map((report) => `${report.id}  ${report.createdAt}  ${report.slug}  ${report.reason}${report.note ? `: ${report.note}` : ''}`).join('\n')
+        : 'No open reports.',
+    )
+    process.exit(0)
+  }
+
+  if (command === 'dismiss' || command === 'action') {
+    if (!target || !flags.by?.trim()) {
+      console.error(`${command} needs a report id and --by.`)
+      process.exit(1)
+    }
+
+    await resolveReport({ admin, id: target, status: command === 'dismiss' ? 'dismissed' : 'actioned', resolvedBy: flags.by })
+    console.log(`Report ${target} ${command === 'dismiss' ? 'dismissed' : 'marked actioned'}.`)
+    process.exit(0)
+  }
+
   const slug = slugFromReport({ value: target ?? '' })
 
   if (!slug) {
     console.error(`"${target ?? ''}" is not a share link or slug (16 hex characters).`)
     process.exit(1)
+  }
+
+  if (command === 'votes') {
+    const { ownerId, voters } = await votersOf({ admin, slug })
+    const review = reviewVotes({ ownerId, voters })
+    console.log(`${slug}: ${review.total} votes, ${review.flagged.length} with signs worth a look`)
+
+    for (const voter of review.flagged) {
+      console.log(`  ${voter.voterId}  account ${voter.accountCreatedAt}  voted ${voter.votedAt}  ${voter.flags.join(', ')}`)
+    }
+
+    process.exit(0)
   }
 
   const before = await moderationStatus({ admin, slug })

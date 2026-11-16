@@ -175,3 +175,142 @@ export async function activeHolds({ admin }: { admin: SupabaseClient }): Promise
 
   return data.map(holdFromRow)
 }
+
+// ---------------------------------------------------------------------------
+// Reports (`public.publication_reports`, 20261122090000)
+// ---------------------------------------------------------------------------
+
+export type OpenReport = {
+  id: string
+  slug: string
+  reason: string
+  note: string | null
+  createdAt: string
+}
+
+/** Reports still open, oldest first: the queue an operator works through. */
+export async function openReports({ admin }: { admin: SupabaseClient }): Promise<OpenReport[]> {
+  const { data, error } = await admin
+    .from('publication_reports')
+    .select('id, slug, reason, note, created_at')
+    .eq('status', 'open')
+    .order('created_at', { ascending: true })
+    .returns<Array<{ id: string; slug: string; reason: string; note: string | null; created_at: string }>>()
+
+  if (error) {
+    throw new ModerationError('Reports could not be listed', 'failed')
+  }
+
+  return data.map((row) => ({ id: row.id, slug: row.slug, reason: row.reason, note: row.note, createdAt: row.created_at }))
+}
+
+/** Closes a report: `dismissed` (nothing wrong) or `actioned` (taken down, or the owner told). */
+export async function resolveReport({
+  admin,
+  id,
+  status,
+  resolvedBy,
+}: {
+  admin: SupabaseClient
+  id: string
+  status: 'dismissed' | 'actioned'
+  resolvedBy: string
+}) {
+  const { error } = await admin.rpc('flp_resolve_report', { p_id: id, p_status: status, p_operator: resolvedBy })
+
+  if (error) {
+    throw failure({ error, notFound: new ModerationError(`No open report has the id ${id}`, 'not_found') })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Vote review: signs of one person voting through several accounts
+// ---------------------------------------------------------------------------
+
+export type VoterRecord = {
+  voterId: string
+  accountCreatedAt: string
+  votedAt: string
+  /** Owners of every design this account voted for, this one's owner included. */
+  votedOwners: readonly string[]
+}
+
+export type VoteFlag = 'same-hour-accounts' | 'votes-only-this-owner' | 'voted-on-signup'
+
+const HOUR_MS = 3_600_000
+
+/**
+ * What looks like vote-ring behaviour among a design's voters. Signs, not
+ * proof: an operator reads them with the accounts' emails before acting.
+ * - same-hour-accounts: three or more voters whose accounts were made
+ *   within the same hour;
+ * - votes-only-this-owner: the account voted for nobody else;
+ * - voted-on-signup: the vote came within ten minutes of the account.
+ */
+export function reviewVotes({ ownerId, voters }: { ownerId: string; voters: readonly VoterRecord[] }) {
+  const created = voters.map((voter) => Date.parse(voter.accountCreatedAt))
+  const flags = new Map<string, Set<VoteFlag>>(voters.map((voter) => [voter.voterId, new Set<VoteFlag>()]))
+
+  voters.forEach((voter, index) => {
+    const sameHour = created.filter((time) => Math.abs(time - created[index]!) <= HOUR_MS).length
+
+    if (sameHour >= 3) flags.get(voter.voterId)!.add('same-hour-accounts')
+    if (voter.votedOwners.length > 0 && voter.votedOwners.every((owner) => owner === ownerId)) {
+      flags.get(voter.voterId)!.add('votes-only-this-owner')
+    }
+    if (Date.parse(voter.votedAt) - created[index]! <= 10 * 60_000) flags.get(voter.voterId)!.add('voted-on-signup')
+  })
+
+  const flagged = voters.filter((voter) => flags.get(voter.voterId)!.size > 0)
+  return {
+    total: voters.length,
+    flagged: flagged.map((voter) => ({ ...voter, flags: [...flags.get(voter.voterId)!].sort() })),
+  }
+}
+
+/** Reads a design's voters for `reviewVotes`. Operators only. */
+export async function votersOf({ admin, slug }: { admin: SupabaseClient; slug: string }) {
+  const publication = await admin.from('publications').select('owner_id').eq('slug', slug).maybeSingle<{ owner_id: string }>()
+
+  if (publication.error || !publication.data) {
+    throw new ModerationError(`No publication has the link ${slug}`, 'not_found')
+  }
+
+  const votes = await admin
+    .from('publication_votes')
+    .select('voter_id, created_at')
+    .eq('slug', slug)
+    .returns<Array<{ voter_id: string; created_at: string }>>()
+
+  if (votes.error) {
+    throw new ModerationError('Votes could not be read', 'failed')
+  }
+
+  const voterIds = votes.data.map((vote) => vote.voter_id)
+  const theirVotes = voterIds.length
+    ? await admin
+        .from('publication_votes')
+        .select('voter_id, publications!inner(owner_id)')
+        .in('voter_id', voterIds)
+        .returns<Array<{ voter_id: string; publications: { owner_id: string } }>>()
+    : { data: [], error: null }
+
+  if (theirVotes.error) {
+    throw new ModerationError('Votes could not be read', 'failed')
+  }
+
+  const voters: VoterRecord[] = []
+
+  for (const vote of votes.data) {
+    const user = await admin.auth.admin.getUserById(vote.voter_id)
+
+    voters.push({
+      voterId: vote.voter_id,
+      accountCreatedAt: user.data.user?.created_at ?? vote.created_at,
+      votedAt: vote.created_at,
+      votedOwners: theirVotes.data.filter((row) => row.voter_id === vote.voter_id).map((row) => row.publications.owner_id),
+    })
+  }
+
+  return { ownerId: publication.data.owner_id, voters }
+}

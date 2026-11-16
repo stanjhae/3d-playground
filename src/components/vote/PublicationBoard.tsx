@@ -2,42 +2,51 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
 import { cn } from '../../lib/cn'
+import { BOARD_WINDOWS, type BoardWindow } from '../../lib/flp-api/contract'
 import { getBoard } from '../../lib/flp-api/public-read'
 import type { BoardEntry } from '../../lib/flp-api/publication'
 import { voteCountLabel } from '../../lib/flp-api/votes'
-import { type BoardSort, boardView } from '../../lib/board-view'
+import { BOARD_WINDOW_LABEL, type BoardSort, boardView } from '../../lib/board-view'
 import { getGarment } from '../../lib/garments'
 import { GownCredit } from '../editor/GownCredit'
 
 type Load = { state: 'loading' } | { state: 'ready'; designs: BoardEntry[] } | { state: 'failed' }
 
 /**
- * The board (V2): every published design, most voted first, filterable by
- * garment. Each card opens the design's share page, where people vote.
+ * The board (V2): every published design, ranked by counted votes this week,
+ * this month or of all time, and within one garment when filtered. Each card
+ * opens the design's share page, where people vote.
  */
 export function PublicationBoard() {
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [garmentId, setGarmentId] = useState<string | null>(null)
   const [sort, setSort] = useState<BoardSort>('top')
+  const [window, setWindow] = useState<BoardWindow>('all')
+  // Every garment seen on the board, so the filter keeps its chips while filtered.
+  const [garments, setGarments] = useState<string[]>([])
+  // "New" lists everything newest first, whatever the window.
+  const shownWindow = sort === 'top' ? window : 'all'
 
   useEffect(() => {
     let cancelled = false
+    setLoad({ state: 'loading' })
 
-    void getBoard().then((result) => {
-      if (!cancelled) {
-        setLoad(result.ok ? { state: 'ready', designs: result.data } : { state: 'failed' })
+    void getBoard({ window: shownWindow, garmentId }).then((result) => {
+      if (cancelled) return
+      setLoad(result.ok ? { state: 'ready', designs: result.data } : { state: 'failed' })
+
+      if (result.ok) {
+        setGarments((known) => [...new Set([...known, ...result.data.map((design) => design.garmentId)])])
       }
     })
 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [shownWindow, garmentId])
 
   const designs = useMemo(() => (load.state === 'ready' ? load.designs : []), [load])
-  const garments = useMemo(() => [...new Set(designs.map((design) => design.garmentId))], [designs])
-  // Ranked over the whole board, so a design's place never moves with the filter.
-  const shown = useMemo(() => boardView({ designs, garmentId, sort }), [designs, garmentId, sort])
+  const shown = useMemo(() => boardView({ designs, sort }), [designs, sort])
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-16">
@@ -45,7 +54,8 @@ export function PublicationBoard() {
         <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Fashion Leader Vote</p>
         <h1 className="font-display text-4xl">Vote and rankings</h1>
         <p className="font-body text-sm text-flv-muted">
-          Every published design, ranked by votes. Open one to see every side and give it your vote.
+          Every published design, ranked by votes. Open one to see every side and give it your vote. A new
+          account’s vote counts once the account is a day old.
         </p>
       </header>
 
@@ -73,7 +83,26 @@ export function PublicationBoard() {
         ))}
       </div>
 
-      {garments.length > 1 ? (
+      {sort === 'top' ? (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Ranking period">
+          {BOARD_WINDOWS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={window === id}
+              onClick={() => setWindow(id)}
+              className={cn('min-h-9 rounded-full border px-3 font-body text-xs', {
+                'border-flv-ink bg-flv-ink text-white': window === id,
+                'border-flv-line text-flv-muted hover:text-flv-accent': window !== id,
+              })}
+            >
+              {BOARD_WINDOW_LABEL[id]}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {garments.length > 0 ? (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by garment">
           {[null, ...garments].map((id) => (
             <button
@@ -96,7 +125,10 @@ export function PublicationBoard() {
       {load.state === 'failed' ? (
         <p className="font-body text-sm text-flv-muted">The board isn’t available right now. Try again shortly.</p>
       ) : null}
-      {load.state === 'ready' && designs.length === 0 ? (
+      {load.state === 'ready' && designs.length === 0 && (garmentId || shownWindow !== 'all') ? (
+        <p className="font-body text-sm text-flv-muted">No designs here for this {garmentId ? 'garment' : 'period'} yet.</p>
+      ) : null}
+      {load.state === 'ready' && designs.length === 0 && !garmentId && shownWindow === 'all' ? (
         <p className="font-body text-sm text-flv-muted">
           Nothing is published yet. Publish a design from{' '}
           <Link to="/studio" className="underline">
@@ -126,14 +158,24 @@ export function PublicationBoard() {
               </div>
               <h2 className="font-display text-2xl text-flv-ink [overflow-wrap:anywhere]">{design.title}</h2>
               <p className="font-body text-sm text-flv-muted">
-                {design.displayName ? `By ${design.displayName} · ` : ''}
+                {design.displayName && !design.ownerHandle ? `By ${design.displayName} · ` : ''}
                 {getGarment({ garmentId: design.garmentId }).label}
               </p>
             </Link>
+            {design.ownerHandle ? (
+              <Link
+                to="/u/$handle"
+                params={{ handle: design.ownerHandle }}
+                className="font-body text-sm text-flv-muted underline-offset-2 hover:text-flv-accent hover:underline"
+              >
+                By {design.displayName ?? `@${design.ownerHandle}`}
+              </Link>
+            ) : null}
             <GownCredit garmentId={design.garmentId} />
             {/* Read from the database, not claimed (docs/claims-audit.md). */}
             <p data-testid="vote-count" className="font-body text-sm text-flv-muted">
               {voteCountLabel({ count: design.votes })}
+              {sort === 'top' && shownWindow !== 'all' ? ` ${BOARD_WINDOW_LABEL[shownWindow].toLowerCase()}` : ''}
             </p>
           </li>
         ))}

@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import { TINY_JPEG } from '../image-fixtures'
 import type { VoteState } from './contract'
-import { type Account, createAccount, withImageAsset } from './integration-harness'
+import { type Account, acceptTermsFor, createAccount, withImageAsset } from './integration-harness'
 import { PUBLIC_RENDER_KINDS } from './publication'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
 
@@ -90,6 +90,10 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
     a = await createAccount({ admin, env: serverEnv, label: 'vote-a' })
     b = await createAccount({ admin, env: serverEnv, label: 'vote-b' })
 
+    for (const account of [owner, a, b]) {
+      await acceptTermsFor({ admin, account })
+    }
+
     const created = await ok<{ designId: string }>({
       path: 'designs',
       method: 'POST',
@@ -122,6 +126,30 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
 
     expect((await vote({ method: 'DELETE', token: b.token })).body).toEqual({ count: 1, voted: false })
     expect((await vote({ method: 'DELETE', token: b.token })).body).toEqual({ count: 1, voted: false })
+  })
+
+  test('nobody votes for their own design', async () => {
+    const response = await api({ path: `public/${slug}/vote`, method: 'POST', token: owner.token })
+    expect(response.status).toBe(409)
+    expect(((await response.json()) as { error: { code: string } }).error.code).toBe('own_design')
+    expect((await vote({ token: owner.token })).body).toEqual({ count: 1, voted: false })
+  })
+
+  test('voting takes the current terms; reading does not', async () => {
+    const newcomer = await createAccount({ admin, env: serverEnv, label: 'vote-terms' })
+
+    try {
+      const refused = await api({ path: `public/${slug}/vote`, method: 'POST', token: newcomer.token })
+      expect(refused.status).toBe(403)
+      expect(((await refused.json()) as { error: { code: string } }).error.code).toBe('terms_required')
+      expect((await vote({ token: newcomer.token })).status).toBe(200)
+
+      await acceptTermsFor({ admin, account: newcomer })
+      expect((await vote({ method: 'POST', token: newcomer.token })).body).toEqual({ count: 2, voted: true })
+      expect((await vote({ method: 'DELETE', token: newcomer.token })).body).toEqual({ count: 1, voted: false })
+    } finally {
+      await admin.auth.admin.deleteUser(newcomer.id)
+    }
   })
 
   test('a stale token reads as signed out', async () => {
@@ -159,6 +187,7 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
     const limits = { vote: 1 }
     // A fresh account, so earlier tests' requests are not in its window.
     const voter = await createAccount({ admin, env: serverEnv, label: 'vote-limit' })
+    await acceptTermsFor({ admin, account: voter })
 
     try {
       const first = await api({ path: `public/${slug}/vote`, method: 'POST', token: voter.token, limits })
@@ -178,6 +207,7 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
   test("deleting the voter's account removes their vote", async () => {
     const before = (await vote({})).body.count
     const voter = await createAccount({ admin, env: serverEnv, label: 'vote-leaver' })
+    await acceptTermsFor({ admin, account: voter })
     expect((await vote({ method: 'POST', token: voter.token })).body.count).toBe(before + 1)
 
     await admin.auth.admin.deleteUser(voter.id)
