@@ -42,7 +42,7 @@ Set in the database (`20261122090000_flp_rankings_profiles_reports.sql`), so the
 - **One vote per account and design**, as before.
 - **No votes on your own design.** The API answers 409 `own_design`, and the button says "You can't vote for your own design."
 - **Voting takes the current terms of use.** The share page offers "Accept and vote" the first time; reading counts never needs them.
-- **A new account's vote counts once the account is a day old.** The vote is kept from the start and starts counting by itself; the button tells the voter when. Nobody is refused for being new. The age lives in `vote_rules.min_account_age` (24 hours). `supabase/seed.sql` sets it to zero for local and CI databases only, because test accounts are minutes old; hosted projects never run the seed.
+- **A new account's vote counts once the account is a day old.** The vote is kept from the start and starts counting by itself; the button tells the voter when. Nobody is refused for being new. The age lives in `vote_rules.min_account_age` (24 hours), the same on local and CI databases. Tests age their accounts instead: `setAccountAge` in `src/lib/flp-api/integration-harness.ts` (accounts are two days old unless a test asks for a young one) and `localSql` in the e2e helpers.
 - Rankings count votes cast this week (7 days), this month (30 days) or ever, through `flp_counted_votes`, with the rules above.
 
 ### Reviewing votes

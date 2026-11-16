@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { GOLDEN_DOCUMENT } from '../canonical-fixtures'
 import { TINY_JPEG } from '../image-fixtures'
 import type { VoteState } from './contract'
-import { type Account, acceptTermsFor, createAccount, withImageAsset } from './integration-harness'
+import { type Account, acceptTermsFor, createAccount, setAccountAge, withImageAsset } from './integration-harness'
 import { PUBLIC_RENDER_KINDS } from './publication'
 import { type FlpServerEnv, flpServerEnv, handleFlpRequest } from './server'
 
@@ -147,6 +147,28 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
       await acceptTermsFor({ admin, account: newcomer })
       expect((await vote({ method: 'POST', token: newcomer.token })).body).toEqual({ count: 2, voted: true })
       expect((await vote({ method: 'DELETE', token: newcomer.token })).body).toEqual({ count: 1, voted: false })
+    } finally {
+      await admin.auth.admin.deleteUser(newcomer.id)
+    }
+  })
+
+  test("a new account's vote is kept, held, and counts once the account is a day old", async () => {
+    const newcomer = await createAccount({ admin, env: serverEnv, label: 'vote-young', young: true })
+    await acceptTermsFor({ admin, account: newcomer })
+
+    try {
+      const before = (await vote({})).body.count
+      const held = (await vote({ method: 'POST', token: newcomer.token })).body
+      expect(held.voted).toBe(true)
+      expect(held.count).toBe(before)
+      expect(Date.parse(held.countsFrom!) - Date.now()).toBeGreaterThan(23 * 3_600_000)
+      // Read back the same way, and the count signed out doesn't move.
+      expect((await vote({ token: newcomer.token })).body.countsFrom).toBe(held.countsFrom)
+      expect((await vote({})).body.count).toBe(before)
+
+      setAccountAge({ id: newcomer.id, age: '25 hours' })
+      expect((await vote({ token: newcomer.token })).body).toEqual({ count: before + 1, voted: true })
+      expect((await vote({})).body.count).toBe(before + 1)
     } finally {
       await admin.auth.admin.deleteUser(newcomer.id)
     }

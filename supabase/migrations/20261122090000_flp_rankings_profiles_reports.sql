@@ -1,7 +1,8 @@
 -- FLP V2: rankings by window and garment, opt-in public profiles, vote
 -- rules, and reports.
 --
--- Vote rules (docs/abuse.md):
+-- Vote rules (docs/abuse.md), the same on every database, local and CI
+-- included (tests make their accounts old enough):
 --   * nobody votes for their own design (FL409, the "conflict" error);
 --   * a vote counts once the voter's account is `min_account_age` old
 --     (24 hours on hosted projects). Younger accounts may still vote; the
@@ -60,13 +61,24 @@ as $$
     and (p_since is null or pv.created_at >= p_since);
 $$;
 
-create or replace function public.flp_vote_state(p_slug text, p_voter_id uuid default null)
-returns table (vote_count integer, voted boolean)
+-- The vote state gains `counts_from`: when the caller voted but their
+-- account is too new for it to count, the time it will. Changing a
+-- function's columns means dropping it, and the cast and retract that
+-- return it with it.
+drop function public.flp_cast_vote(uuid, text);
+drop function public.flp_retract_vote(uuid, text);
+drop function public.flp_vote_state(text, uuid);
+
+create function public.flp_vote_state(p_slug text, p_voter_id uuid default null)
+returns table (vote_count integer, voted boolean, counts_from timestamptz)
 language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
+declare
+  v_voted boolean;
+  v_from timestamptz;
 begin
   if not exists (
     select 1 from public.publications
@@ -75,18 +87,26 @@ begin
     raise exception 'publication not found' using errcode = 'FL404';
   end if;
 
+  v_voted := p_voter_id is not null and exists (
+    select 1 from public.publication_votes
+    where slug = p_slug and voter_id = p_voter_id
+  );
+
+  if v_voted then
+    v_from := public.flp_votes_count_from(p_voter_id);
+  end if;
+
   return query
   select
     public.flp_counted_votes(p_slug),
-    p_voter_id is not null and exists (
-      select 1 from public.publication_votes
-      where slug = p_slug and voter_id = p_voter_id
-    );
+    v_voted,
+    case when v_from > now() then v_from end;
 end;
 $$;
 
-create or replace function public.flp_cast_vote(p_voter_id uuid, p_slug text)
-returns table (vote_count integer, voted boolean)
+-- Idempotent: voting again keeps the one vote. Never on your own design.
+create function public.flp_cast_vote(p_voter_id uuid, p_slug text)
+returns table (vote_count integer, voted boolean, counts_from timestamptz)
 language plpgsql
 security definer
 set search_path = ''
@@ -106,6 +126,36 @@ begin
   return query select * from public.flp_vote_state(p_slug, p_voter_id);
 end;
 $$;
+
+-- Idempotent: retracting without a vote changes nothing.
+create function public.flp_retract_vote(p_voter_id uuid, p_slug text)
+returns table (vote_count integer, voted boolean, counts_from timestamptz)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.flp_require_owner(p_voter_id);
+  perform public.flp_lock_live_publication(p_slug);
+
+  delete from public.publication_votes
+  where slug = p_slug and voter_id = p_voter_id;
+
+  return query select * from public.flp_vote_state(p_slug, p_voter_id);
+end;
+$$;
+
+revoke all on function
+  public.flp_vote_state(text, uuid),
+  public.flp_cast_vote(uuid, text),
+  public.flp_retract_vote(uuid, text)
+from public, anon, authenticated;
+
+grant execute on function
+  public.flp_vote_state(text, uuid),
+  public.flp_cast_vote(uuid, text),
+  public.flp_retract_vote(uuid, text)
+to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Public profiles (opt-in)
@@ -250,12 +300,24 @@ as $$
     p.published_at,
     v.content -> 'template' ->> 'id',
     v.content -> 'template' ->> 'version',
-    public.flp_counted_votes(p.slug, p_since),
+    coalesce(counted.n, 0)::integer,
     case when pr.profile_public then pr.handle end
   from public.publications p
   join public.design_versions v
     on v.design_id = p.design_id and v.seq = p.version_seq
   left join public.profiles pr on pr.owner_id = p.owner_id
+  -- Counted votes for every publication in one pass; the same rules as
+  -- flp_counted_votes, which the share page uses for one design.
+  left join (
+    select pv.slug, count(*) as n
+    from public.publication_votes pv
+    join public.publications vp on vp.slug = pv.slug
+    join auth.users u on u.id = pv.voter_id
+    where pv.voter_id <> vp.owner_id
+      and coalesce(u.created_at, '-infinity') <= now() - (select min_account_age from public.vote_rules)
+      and (p_since is null or pv.created_at >= p_since)
+    group by pv.slug
+  ) counted on counted.slug = p.slug
   where p.status = 'published'
     and p.title is not null
     -- A design saved before templates were pinned is a tee (garmentOfTemplate).

@@ -2,7 +2,7 @@ import { type APIRequestContext, expect, test } from '@playwright/test'
 
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
-import { deleteAccounts, expectNoCspViolations, expectSaved, newEmail, signIn, watchCsp } from './helpers'
+import { deleteAccounts, expectNoCspViolations, expectSaved, localSql, newEmail, signIn, watchCsp } from './helpers'
 
 /**
  * Account votes on a shared design (V1): signed out the page offers
@@ -75,10 +75,16 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
   await firstVote
   const voted = visitor.getByRole('button', { name: 'Voted', exact: true })
   await expect(voted).toHaveAttribute('aria-pressed', 'true')
-  await expect(count).toHaveText('1 vote')
+  // A minutes-old account's vote is kept but not counted yet, and it says when it will be.
+  await expect(count).toHaveText('0 votes')
+  await expect(visitor.getByText(/Your vote is saved\. It counts once your account is a day old, in about 2[34] hours\./)).toBeVisible()
+
+  // A day later (made so here), it counts, with nothing more to do.
+  localSql({ sql: `update auth.users set created_at = now() - interval '25 hours' where email = '${voter}'` })
 
   // Kept across a reload, and seen by someone signed out.
   await visitor.reload()
+  await expect(visitor.getByText(/Your vote is saved/)).toHaveCount(0)
   await expect(voted).toBeVisible()
   await expect(count).toHaveText('1 vote')
   const stranger = await browser.newContext()

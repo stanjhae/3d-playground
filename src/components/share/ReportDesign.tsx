@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { reportDesignHref } from '../../lib/alpha-contact'
 import { useSessionStore } from '../../lib/auth/session-store'
@@ -26,6 +26,14 @@ export function ReportDesign({ slug }: { slug: string }) {
   const [note, setNote] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const formId = useId()
+  const formRef = useRef<HTMLFormElement | null>(null)
+
+  // Opening the form takes focus to its first choice, once.
+  const opened = stage === 'open'
+
+  useEffect(() => {
+    if (opened) formRef.current?.querySelector('input')?.focus({ preventScroll: true })
+  }, [opened])
 
   // Signed out (a rights holder may have no account), reporting is by email.
   if (status !== 'signed-in') {
@@ -38,7 +46,7 @@ export function ReportDesign({ slug }: { slug: string }) {
 
   if (stage === 'closed') {
     return (
-      <button type="button" className="underline hover:text-flv-accent" aria-expanded={false} aria-controls={formId} onClick={() => setStage('open')}>
+      <button type="button" className="underline hover:text-flv-accent" onClick={() => setStage('open')}>
         Report this design
       </button>
     )
@@ -55,6 +63,7 @@ export function ReportDesign({ slug }: { slug: string }) {
   return (
     <form
       id={formId}
+      ref={formRef}
       aria-label="Report this design"
       className="flex w-full max-w-md flex-col gap-2 rounded-xl border border-flv-line bg-white p-3 text-flv-ink"
       onSubmit={async (event) => {

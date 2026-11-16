@@ -1085,7 +1085,7 @@ async function handleVote({
 
   const fn = request.method === 'POST' ? 'flp_cast_vote' : request.method === 'DELETE' ? 'flp_retract_vote' : 'flp_vote_state'
   const args = write ? { p_voter_id: user!.userId, p_slug: slug } : { p_slug: slug, p_voter_id: user?.userId ?? null }
-  const { data, error } = await admin.rpc(fn, args).single<{ vote_count: number; voted: boolean }>()
+  const { data, error } = await admin.rpc(fn, args).single<{ vote_count: number; voted: boolean; counts_from: string | null }>()
 
   if (error) {
     if (error.code === 'FL409') {
@@ -1095,15 +1095,11 @@ async function handleVote({
     return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn, error })
   }
 
-  const state: VoteState = { count: data.vote_count, voted: data.voted }
-
   // A new account's vote is kept but counts later (docs/abuse.md): say when.
-  if (data.voted && user) {
-    const { data: from } = await admin.rpc('flp_votes_count_from', { p_voter_id: user.userId })
-
-    if (typeof from === 'string' && Date.parse(from) > Date.now()) {
-      state.countsFrom = new Date(from).toISOString()
-    }
+  const state: VoteState = {
+    count: data.vote_count,
+    voted: data.voted,
+    ...(data.counts_from ? { countsFrom: new Date(data.counts_from).toISOString() } : {}),
   }
 
   return json({ status: 200, body: state })
@@ -1190,13 +1186,11 @@ async function handleReport({ request, env, slug }: { request: Request; env: Flp
 async function handleAiSketch({
   request,
   admin,
-  asUser,
   userId,
   env,
 }: {
   request: Request
   admin: SupabaseClient
-  asUser: SupabaseClient
   userId: string
   env: FlpServerEnv
 }) {
@@ -1204,14 +1198,10 @@ async function handleAiSketch({
     return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
   }
 
-  const { data: profile, error: profileError } = await asUser.from('profiles').select('terms_version').maybeSingle<{ terms_version: string | null }>()
+  const terms = await termsRefusal({ admin, userId, message: 'Accept the current terms to use the assist' })
 
-  if (profileError) {
-    return internalError()
-  }
-
-  if (profile?.terms_version !== TERMS_VERSION) {
-    return json({ status: 403, body: { error: { code: 'terms', message: 'Accept the current terms to use the assist' } } })
+  if (terms) {
+    return terms
   }
 
   const daily = await rateLimited({ admin, userId, bucket: 'ai', env, name: 'ai-day', limit: env.ai.dailyLimit, windowSeconds: 86_400 })
@@ -1494,7 +1484,7 @@ export async function handleFlpRequest({
   }
 
   if (collection === 'ai') {
-    return handleAiSketch({ request, admin, asUser, userId: user.userId, env })
+    return handleAiSketch({ request, admin, userId: user.userId, env })
   }
 
   if (collection === 'pattern-meshes') {

@@ -164,6 +164,23 @@ export function isHandle(value: string) {
   return HANDLE_PATTERN.test(value) && !value.includes('--')
 }
 
+/**
+ * A handle from a URL path segment, lower-cased, or null when it isn't one.
+ * A malformed escape (`%ZZ`) is just not a handle, never an error.
+ */
+export function handleFromPath(segment: string) {
+  let decoded: string
+
+  try {
+    decoded = decodeURIComponent(segment)
+  } catch {
+    return null
+  }
+
+  const normal = decoded.trim().toLowerCase()
+  return isHandle(normal) ? normal : null
+}
+
 export type VersionResponse = {
   designId: string
   seq: number

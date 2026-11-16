@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
 import { garmentOfTemplate, TEMPLATE_IDS, templateForGarment } from '../template-manifest.ts'
-import { BOARD_WINDOWS, type BoardWindow, isHandle } from './contract.ts'
+import { BOARD_WINDOWS, type BoardWindow, handleFromPath } from './contract.ts'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
   type ApiError,
@@ -916,9 +916,9 @@ export async function readPublicProfile({
   respond: Respond
 }) {
   const notFound = () => respond({ status: 404, body: { error: { code: 'not_found', message: 'This profile is not available' } } })
-  const normal = decodeURIComponent(handle).trim().toLowerCase()
+  const normal = handleFromPath(handle)
 
-  if (!isHandle(normal)) {
+  if (!normal) {
     return notFound()
   }
 

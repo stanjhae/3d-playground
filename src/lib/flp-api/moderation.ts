@@ -299,16 +299,20 @@ export async function votersOf({ admin, slug }: { admin: SupabaseClient; slug: s
     throw new ModerationError('Votes could not be read', 'failed')
   }
 
+  // Accounts in batches of 20 at a time rather than one after another.
   const voters: VoterRecord[] = []
 
-  for (const vote of votes.data) {
-    const user = await admin.auth.admin.getUserById(vote.voter_id)
+  for (let start = 0; start < votes.data.length; start += 20) {
+    const batch = votes.data.slice(start, start + 20)
+    const users = await Promise.all(batch.map((vote) => admin.auth.admin.getUserById(vote.voter_id)))
 
-    voters.push({
-      voterId: vote.voter_id,
-      accountCreatedAt: user.data.user?.created_at ?? vote.created_at,
-      votedAt: vote.created_at,
-      votedOwners: theirVotes.data.filter((row) => row.voter_id === vote.voter_id).map((row) => row.publications.owner_id),
+    batch.forEach((vote, index) => {
+      voters.push({
+        voterId: vote.voter_id,
+        accountCreatedAt: users[index]!.data.user?.created_at ?? vote.created_at,
+        votedAt: vote.created_at,
+        votedOwners: theirVotes.data.filter((row) => row.voter_id === vote.voter_id).map((row) => row.publications.owner_id),
+      })
     })
   }
 

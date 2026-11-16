@@ -7,6 +7,7 @@ import {
   apiErrorFromDatabase,
   checkpointLabelIssues,
   parseCreateDesignRequest,
+  handleFromPath,
   isHandle,
   parseProfileRequest,
   parseReportRequest,
@@ -267,6 +268,14 @@ describe('design details requests (A06 #150)', () => {
   test('handles are 3 to 24 letters, digits or single hyphens', () => {
     expect(['abc', 'a-b-c', 'studio-2026', 'x'.repeat(24)].every(isHandle)).toBe(true)
     expect(['ab', '-abc', 'abc-', 'a--b', 'ABC', 'a_b', 'x'.repeat(25)].some(isHandle)).toBe(false)
+  })
+
+  test('a handle from a path is decoded and lower-cased; a malformed escape is just not a handle', () => {
+    expect(handleFromPath('Atelier-A')).toBe('atelier-a')
+    expect(handleFromPath('atelier%2Da')).toBe('atelier-a')
+    expect(handleFromPath('%ZZ')).toBeNull()
+    expect(handleFromPath('%E0%A4%A')).toBeNull()
+    expect(handleFromPath('a b')).toBeNull()
   })
 
   test('a report names a known reason and may carry a short note', () => {

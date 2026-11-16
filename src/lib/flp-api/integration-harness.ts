@@ -1,5 +1,6 @@
-import { TERMS_VERSION } from '../terms.ts'
 import { type SupabaseClient, createClient } from '@supabase/supabase-js'
+
+import { TERMS_VERSION } from '../terms.ts'
 
 import type { CanonicalDocument } from '../canonical-document'
 import type { FlpServerEnv } from './server'
@@ -11,14 +12,50 @@ import type { FlpServerEnv } from './server'
 
 export type Account = { id: string; email: string; token: string; client: SupabaseClient }
 
+/**
+ * Sets when an account was made, so votes follow the hosted rule (a vote
+ * counts once the account is a day old) without waiting. Local stack only:
+ * it runs SQL in the Supabase database container.
+ */
+export function setAccountAge({ id, age }: { id: string; age: string }) {
+  if (!/^[0-9a-f-]{36}$/.test(id) || !/^\d+ (minutes|hours|days)$/.test(age)) {
+    throw new Error('setAccountAge takes an account id and an age like "2 days"')
+  }
+
+  // Node's own module, loaded at run time: the app's types have no Node.
+  const { execFileSync } = (
+    globalThis as unknown as {
+      process: { getBuiltinModule: (id: 'node:child_process') => { execFileSync: (file: string, args: string[]) => unknown } }
+    }
+  ).process.getBuiltinModule('node:child_process')
+
+  execFileSync('docker', [
+    'exec',
+    'supabase_db_3d-playground',
+    'psql',
+    '-U',
+    'postgres',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-qc',
+    `update auth.users set created_at = now() - interval '${age}' where id = '${id}'`,
+  ])
+}
+
+/**
+ * A signed-in test account. It is two days old unless `young`, so its
+ * votes count at once, as an established account's would.
+ */
 export async function createAccount({
   admin,
   env,
   label,
+  young = false,
 }: {
   admin: SupabaseClient
   env: FlpServerEnv
   label: string
+  young?: boolean
 }): Promise<Account> {
   const email = `it-${label}-${crypto.randomUUID()}@example.test`
   const password = `pw-${crypto.randomUUID()}`
@@ -26,6 +63,10 @@ export async function createAccount({
 
   if (created.error || !created.data.user) {
     throw created.error ?? new Error('user not created')
+  }
+
+  if (!young) {
+    setAccountAge({ id: created.data.user.id, age: '2 days' })
   }
 
   const client = createClient(env.url, env.publishableKey, {
