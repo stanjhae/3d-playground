@@ -13,6 +13,11 @@
 //   panel's viewer; its print UVs are a planar projection seen from there,
 //   so a mark reads the right way round from where you look at it. The
 //   inner layer of a two-sided shell faces away and never prints.
+// - A sleeve panel may wrap (`"wrap": true`): instead of a flat view from
+//   the side, its print area is the whole sleeve unrolled around its own
+//   axis, seam on the inner side against the body, so filling the sleeve
+//   covers it all round (founder review, 16 Nov). Only the outer layer
+//   prints. Near the outer face it maps as the flat view did.
 // - Panels are packed into the atlas at one shared scale, so a mark of the
 //   same size reads the same size on every panel.
 // - Every other vertex gets print UVs of (-1, -1), which the ink shader
@@ -297,6 +302,63 @@ function keptPiece({ pick, pieces, indices, world }) {
   return null
 }
 
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+const scale3 = (a, k) => [a[0] * k, a[1] * k, a[2] * k]
+const norm = (a) => {
+  const length = Math.hypot(a[0], a[1], a[2]) || 1
+  return scale3(a, 1 / length)
+}
+
+/**
+ * A sleeve's own frame for wrapping: its axis (the main direction of its
+ * vertices, shoulder to cuff), the outer face's direction (`out`, toward the
+ * panel's viewer) and the across direction (`across`, the viewer's right),
+ * and its mean radius. `project` unrolls a point to (around, up the sleeve).
+ */
+function wrapFrame({ points, toward, right }) {
+  const centre = [0, 0, 0]
+  for (const point of points) for (let k = 0; k < 3; k += 1) centre[k] += point[k] / points.length
+
+  // Principal axis by power iteration on the covariance.
+  const cov = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  for (const point of points) {
+    const d = sub(point, centre)
+    for (let i = 0; i < 3; i += 1) for (let j = 0; j < 3; j += 1) cov[i * 3 + j] += d[i] * d[j]
+  }
+  let axis = norm([toward[0] + 0.1, -1, toward[2] + 0.1])
+  for (let iteration = 0; iteration < 64; iteration += 1) {
+    axis = norm([0, 1, 2].map((i) => cov[i * 3] * axis[0] + cov[i * 3 + 1] * axis[1] + cov[i * 3 + 2] * axis[2]))
+  }
+  // Shoulder to cuff: away from the body's centre line, the side the viewer stands.
+  if (dot(axis, toward) < 0) axis = scale3(axis, -1)
+
+  const out = norm(sub(toward, scale3(axis, dot(toward, axis))))
+  let across = sub(right, scale3(axis, dot(right, axis)))
+  across = norm(sub(across, scale3(out, dot(across, out))))
+  let radius = 0
+  for (const point of points) {
+    const d = sub(point, centre)
+    const radial = sub(d, scale3(axis, dot(d, axis)))
+    radius += Math.hypot(radial[0], radial[1], radial[2]) / points.length
+  }
+
+  return {
+    radial: (point) => {
+      const d = sub(point, centre)
+      return norm(sub(d, scale3(axis, dot(d, axis))))
+    },
+    angle: (point) => {
+      const d = sub(point, centre)
+      return Math.atan2(dot(d, across), dot(d, out))
+    },
+    project: (point) => {
+      const d = sub(point, centre)
+      return [Math.atan2(dot(d, across), dot(d, out)) * radius, -dot(d, axis)]
+    },
+  }
+}
+
 async function build({ piecesFile }) {
   const spec = JSON.parse(readFileSync(piecesFile, 'utf8'))
   const io = await createIo()
@@ -307,6 +369,8 @@ async function build({ piecesFile }) {
   // 1. Which triangles print, on which panel, and where they project.
   const plans = []
   const boxes = []
+  /** Per panel: a vertex's print position (planar, or unrolled for a wrapped sleeve). */
+  const projectors = []
   /** Where each panel sits on the garment (the mean of its printed vertices), for the camera. */
   const centers = []
 
@@ -320,6 +384,33 @@ async function build({ piecesFile }) {
     if (panel.renderPanel) throw new Error(`Panel ${panel.id}: renderPanel comes from the panel id, not the piece map`)
     const box ={ minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
     const sum = { x: 0, y: 0, z: 0, count: 0 }
+    const point = (world, vertex) => [world[vertex * 3], world[vertex * 3 + 1], world[vertex * 3 + 2]]
+    let frame = null
+
+    // A wrapped sleeve measures its own axis from all of its piece's vertices.
+    if (panel.wrap) {
+      const points = []
+      for (const pick of panel.pieces) {
+        const node = nodes.get(pick.node)
+        if (!node) throw new Error(`Panel ${panel.id}: no mesh node ${pick.node}`)
+        for (const primitive of node.getMesh().listPrimitives()) {
+          const world = worldPositions({ primitive, matrix: node.getWorldMatrix() })
+          const indices = primitive.getIndices().getArray()
+          const pieces = pieceOfTriangle({ primitive })
+          const keep = keptPiece({ pick, pieces, indices, world })
+          for (let triangle = 0; triangle < pieces.length; triangle += 1) {
+            if (keep !== null && pieces[triangle] !== keep) continue
+            for (const vertex of indices.slice(triangle * 3, triangle * 3 + 3)) points.push(point(world, vertex))
+          }
+        }
+      }
+      frame = wrapFrame({ points, toward, right })
+    }
+
+    const project = frame
+      ? (world, vertex) => frame.project(point(world, vertex))
+      : (world, vertex) => [world[vertex * 3] * right[0] + world[vertex * 3 + 1] * right[1] + world[vertex * 3 + 2] * right[2], world[vertex * 3 + 1]]
+    projectors.push(project)
 
     for (const pick of panel.pieces) {
       const node = nodes.get(pick.node)
@@ -336,13 +427,22 @@ async function build({ piecesFile }) {
           if (keep !== null && pieces[triangle] !== keep) continue
           const [a, b, c] = indices.slice(triangle * 3, triangle * 3 + 3)
           const normal = faceNormal({ world, a, b, c })
-          const facing = normal[0] * toward[0] + normal[1] * toward[1] + normal[2] * toward[2]
-          if (facing < FACING_MIN) continue
+
+          if (frame) {
+            // The outer layer only, and not a triangle the seam runs through.
+            const mid = [0, 1, 2].map((k) => (world[a * 3 + k] + world[b * 3 + k] + world[c * 3 + k]) / 3)
+            if (dot(normal, frame.radial(mid)) < FACING_MIN) continue
+            const angles = [a, b, c].map((vertex) => frame.angle(point(world, vertex)))
+            if (Math.max(...angles) - Math.min(...angles) > Math.PI) continue
+          } else {
+            const facing = normal[0] * toward[0] + normal[1] * toward[1] + normal[2] * toward[2]
+            if (facing < FACING_MIN) continue
+          }
+
           printed[triangle] = 1
 
           for (const vertex of [a, b, c]) {
-            const px = world[vertex * 3] * right[0] + world[vertex * 3 + 1] * right[1] + world[vertex * 3 + 2] * right[2]
-            const py = world[vertex * 3 + 1]
+            const [px, py] = project(world, vertex)
             box.minX = Math.min(box.minX, px)
             box.maxX = Math.max(box.maxX, px)
             box.minY = Math.min(box.minY, py)
@@ -437,11 +537,9 @@ async function build({ piecesFile }) {
             if (panel === -1) {
               printUv.push(UNPRINTED, UNPRINTED)
             } else {
-              const right = VIEW_RIGHT[spec.panels[panel].view]
               const box = boxes[panel]
               const rect = rects[panel]
-              const px = world[vertex * 3] * right[0] + world[vertex * 3 + 1] * right[1] + world[vertex * 3 + 2] * right[2]
-              const py = world[vertex * 3 + 1]
+              const [px, py] = projectors[panel](world, vertex)
               printUv.push(
                 rect.u0 + ((px - box.minX) / (box.width || 1)) * (rect.u1 - rect.u0),
                 rect.v0 + ((py - box.minY) / (box.height || 1)) * (rect.v1 - rect.v0),
@@ -507,7 +605,11 @@ async function build({ piecesFile }) {
             y: 'up the garment',
           },
           landmarks: {},
-          notes: [`Planar print from the ${panel.view}; ${(box.width * 100).toFixed(1)} × ${(box.height * 100).toFixed(1)} cm.`],
+          notes: [
+            panel.wrap
+              ? `Wrapped all round the sleeve, seam on the inner side; ${(box.width * 100).toFixed(1)} × ${(box.height * 100).toFixed(1)} cm.`
+              : `Planar print from the ${panel.view}; ${(box.width * 100).toFixed(1)} × ${(box.height * 100).toFixed(1)} cm.`,
+          ],
           surface: { stretchY: 1, panelAspect: round({ value: box.width / box.height }) },
           center: centers[index],
         },

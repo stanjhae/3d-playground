@@ -1,0 +1,57 @@
+{
+  "$comment": "Tee @5: the @4 model (already seated and named) with sleeves wrapped all round (founder review, 16 Nov). @4 stays as it is.",
+  "templateId": "tee-crew-short",
+  "version": 5,
+  "garmentId": "tee",
+  "glb": "public/models/tee-real.glb",
+  "out": "public/models/tee-real-v5.glb",
+  "manifest": "src/lib/templates/tee-v5.ts",
+  "atlas": 2048,
+  "color": "#ffffff",
+  "panels": [
+    {
+      "id": "front",
+      "label": "Front",
+      "view": "front",
+      "pieces": [
+        {
+          "node": "body-front"
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "view": "back",
+      "pieces": [
+        {
+          "node": "body-back"
+        }
+      ]
+    },
+    {
+      "id": "left",
+      "label": "Left sleeve",
+      "view": "left",
+      "pieces": [
+        {
+          "node": "body-sleeves",
+          "piece": "+x"
+        }
+      ],
+      "wrap": true
+    },
+    {
+      "id": "right",
+      "label": "Right sleeve",
+      "view": "right",
+      "pieces": [
+        {
+          "node": "body-sleeves",
+          "piece": "-x"
+        }
+      ],
+      "wrap": true
+    }
+  ]
+}

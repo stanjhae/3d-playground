@@ -34,6 +34,8 @@ export function createDrapeClient({
   let worker: WorkerLike | null = null
   let job = 0
   let pending: { job: number; reject: (error: Error) => void } | null = null
+  /** The drape running now: asking for the same pattern again joins it rather than cancelling it. */
+  let inflight: { key: string; promise: Promise<DrapedMesh>; listeners: Set<(fraction: number) => void> } | null = null
   /** How many drapes actually ran (the e2e checks a reload runs none). */
   let runs = 0
 
@@ -42,6 +44,7 @@ export function createDrapeClient({
     worker = null
     pending?.reject(new DrapeCancelled())
     pending = null
+    inflight = null
   }
 
   async function keyFor(pattern: CanonicalPattern, build: ColliderBuild) {
@@ -72,10 +75,6 @@ export function createDrapeClient({
       build?: ColliderBuild
       onProgress?: (fraction: number) => void
     }): Promise<DrapedMesh> {
-      job += 1
-      const mine = job
-      // Anything still running is now stale.
-      stop()
       const key = await keyFor(pattern, build)
       const hit = cache.get(key)
 
@@ -83,16 +82,26 @@ export function createDrapeClient({
         return hit
       }
 
-      // A newer request arrived while hashing.
-      if (mine !== job) {
-        throw new DrapeCancelled()
+      // Two views of one garment (or a publish) asking for the same drape share it.
+      if (inflight?.key === key) {
+        if (onProgress) {
+          inflight.listeners.add(onProgress)
+        }
+
+        return inflight.promise
       }
 
+      job += 1
+      const mine = job
+      // A drape of anything else is now stale.
+      stop()
       runs += 1
       const current = spawn()
       worker = current
+      const listeners = new Set<(fraction: number) => void>(onProgress ? [onProgress] : [])
+      const report = (fraction: number) => listeners.forEach((listener) => listener(fraction))
 
-      return new Promise<DrapedMesh>((resolve, reject) => {
+      const promise = new Promise<DrapedMesh>((resolve, reject) => {
         pending = { job: mine, reject }
 
         current.onmessage = (event) => {
@@ -103,7 +112,7 @@ export function createDrapeClient({
           }
 
           if (message.type === 'progress') {
-            onProgress?.(message.fraction)
+            report(message.fraction)
             return
           }
 
@@ -125,7 +134,7 @@ export function createDrapeClient({
             cache.delete(cache.keys().next().value!)
           }
 
-          onProgress?.(1)
+          report(1)
           resolve(message.mesh)
         }
 
@@ -137,6 +146,18 @@ export function createDrapeClient({
 
         current.postMessage({ type: 'drape', job: mine, pattern, build })
       })
+
+      inflight = { key, promise, listeners }
+      // Settled either way, it's no longer the one running.
+      void promise.then(
+        () => {
+          if (inflight?.promise === promise) inflight = null
+        },
+        () => {
+          if (inflight?.promise === promise) inflight = null
+        },
+      )
+      return promise
     },
 
     /** Ends any drape, including one still being prepared. */

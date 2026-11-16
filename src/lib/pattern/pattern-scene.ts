@@ -67,8 +67,10 @@ export function patternPrintUv({
       continue
     }
 
-    const u = (piece.panelOrigin[0] + mesh.flat[i * 2]!) / frame.width
-    const v = (piece.panelOrigin[1] + mesh.flat[i * 2 + 1]!) / frame.height
+    // Cloth grown past its frame (a lengthened sleeve) takes the frame's
+    // edge: a print never spills into another panel's part of the atlas.
+    const u = Math.min(1, Math.max(0, (piece.panelOrigin[0] + mesh.flat[i * 2]!) / frame.width))
+    const v = Math.min(1, Math.max(0, (piece.panelOrigin[1] + mesh.flat[i * 2 + 1]!) / frame.height))
     out[i * 2] = rect.u0 + u * (rect.u1 - rect.u0)
     out[i * 2 + 1] = rect.v0 + v * (rect.v1 - rect.v0)
   }

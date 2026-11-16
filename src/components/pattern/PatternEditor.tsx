@@ -55,10 +55,6 @@ export default function PatternEditor() {
   const drag = useRef<Drag | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const pattern = preview ?? stored
-  const frames = useMemo(() => {
-    const basis = stored?.basis
-    return basis ? patternTemplateFor({ templateId: basis.templateId, templateVersion: basis.templateVersion })?.frames : undefined
-  }, [stored?.basis])
   const sheet = useMemo(() => (pattern ? layoutSheet({ pattern }) : null), [pattern])
 
   // A stored change (undo, another tab) drops any stale preview.
@@ -70,7 +66,9 @@ export default function PatternEditor() {
 
   /** Commit if it can be sewn; else snap back and say why. */
   function commit(next: CanonicalPattern, what: string) {
-    const check = checkEdit({ pattern: next, frames })
+    // Cloth may grow past its print frame (prints stop at the frame's edge),
+    // so only whether it can be sewn decides.
+    const check = checkEdit({ pattern: next })
     setPreview(null)
 
     if (!check.ok) {
@@ -277,7 +275,7 @@ export default function PatternEditor() {
         </ul>
       ) : null}
 
-      <QuickEdits pattern={stored} frames={frames} onPreview={setPreview} onCommit={commit} />
+      <QuickEdits pattern={stored} onPreview={setPreview} onCommit={commit} />
 
       {AI_ASSIST ? (
         <Suspense fallback={null}>
@@ -317,12 +315,10 @@ export default function PatternEditor() {
 /** Named, bounded edits: each slider measures from the pattern as it was picked up. */
 function QuickEdits({
   pattern,
-  frames,
   onPreview,
   onCommit,
 }: {
   pattern: CanonicalPattern
-  frames: Parameters<typeof checkEdit>[0]['frames']
   onPreview: (pattern: CanonicalPattern | null) => void
   onCommit: (pattern: CanonicalPattern, what: string) => void
 }) {
@@ -337,7 +333,7 @@ function QuickEdits({
         const finish = (mm: number) => {
           const base = active?.base ?? pattern
           setActive(null)
-          const result = quickEdit({ pattern: base, id: edit.id, mm, frames })
+          const result = quickEdit({ pattern: base, id: edit.id, mm })
 
           // A refused edit is still handed over, so the editor can say why.
           onCommit(result.ok ? result.pattern : result.attempted, `${edit.label} ${mm > 0 ? '+' : ''}${mm} mm`)
@@ -363,7 +359,7 @@ function QuickEdits({
                 const mm = Number.parseInt(event.target.value, 10)
                 const base = active?.base ?? pattern
                 setActive({ id: edit.id, mm, base })
-                const result = quickEdit({ pattern: base, id: edit.id, mm, frames })
+                const result = quickEdit({ pattern: base, id: edit.id, mm })
                 onPreview(result.ok ? result.pattern : null)
               }}
               onPointerUp={(event) => finish(Number.parseInt((event.target as HTMLInputElement).value, 10))}

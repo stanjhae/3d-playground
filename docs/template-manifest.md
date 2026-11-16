@@ -122,6 +122,15 @@ A downloaded garment becomes a template with `scripts/build-template.mjs` and a 
 
 Every garment but the hidden house jacket now has a template; front and back take all of a garment's cloth pieces (the facing test keeps them apart), and sleeves their own nodes. A board look on one of these garments opens in the studio with its cloth colour; its marks and art stay on the original.
 
+## `tee-crew-short@5`: sleeves printed all the way round (16 Nov)
+
+`@4` printed each sleeve as a flat view from its side: only triangles facing that side took ink, so the underside and the front and back of a sleeve stayed blank whatever you filled (founder review, 16 Nov). `@5` is the same model (`public/models/tee-real-v5.glb`, built from `@4`'s GLB by `templates/tee-v5.pieces.json`) with `"wrap": true` on both sleeve panels:
+
+- **How it maps.** `scripts/build-template.mjs` finds each sleeve's own axis from its vertices and unrolls the sleeve around it. The seam is on the inner side, against the body, so a fill covers it all round. Only the outer layer prints, so no ink lands inside the sleeve.
+- **Same placement, wider panel.** Near the outer face it maps as the flat view did, so a mark in the middle of a sleeve panel stays where it was. The sleeve panels are now wider than they are long: 33.9 × 24.2 cm and 31.3 × 26.0 cm unrolled, against about 14 × 24 cm flat.
+- **Versions.** New designs pin `@5`. Designs on `@4` keep their look; the template upgrade re-pins them with their placements unchanged. `@4`'s GLB is untouched (`glb-templates.test.ts`).
+- **Pattern templates and shape.** The pattern template has a `@5` entry too, with the same pattern and wider sleeve frames. Shape v1 already applies to `@4` and later.
+
 ## Pattern templates (Workflow 1, pattern v1)
 
 Each garment's current template version has a **pattern template**: the sewing pattern a design starts from in Pattern mode, plus a fixed print frame per panel (`src/lib/pattern/templates.ts`). A design records the one it used in `pattern.basis` (`docs/canonical-document.md`).

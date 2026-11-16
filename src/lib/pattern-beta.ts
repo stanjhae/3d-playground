@@ -13,6 +13,7 @@ export const PATTERN_BETA = import.meta.env.VITE_PATTERN_BETA === 'true'
  */
 export const PATTERN_TEMPLATE_VERSIONS: readonly string[] = [
   'tee-crew-short@4',
+  'tee-crew-short@5',
   'hoodie@1',
   'coat@1',
   'suit@1',

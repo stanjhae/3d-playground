@@ -5,7 +5,7 @@ import { landingRenderDocument } from './landing-real-tee'
 
 describe('landingRenderDocument', () => {
   it('draws the hero on the real tee model, with or without a sketch', () => {
-    expect(landingRenderDocument({}).modelSrc).toBe('/models/tee-real.glb')
+    expect(landingRenderDocument({}).modelSrc).toBe('/models/tee-real-v5.glb')
 
     const sketched = landingRenderDocument({
       document: {
@@ -22,7 +22,7 @@ describe('landingRenderDocument', () => {
       } as never,
     })
 
-    expect(sketched.modelSrc).toBe('/models/tee-real.glb')
+    expect(sketched.modelSrc).toBe('/models/tee-real-v5.glb')
     expect(landingRenderDocument({
       document: {
         ...createEmptyDocument({ garmentId: 'tee' }),

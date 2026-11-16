@@ -8,6 +8,7 @@ import { toRenderDocument } from '../render-projection'
 import { resolveTemplate, TEE_CREW_SHORT_V3, templateForGarment, type TemplateManifest } from '../template-manifest'
 import { HOODIE_V1 } from './hoodie'
 import { TEE_CREW_SHORT_V4 } from './tee-v4'
+import { TEE_CREW_SHORT_V5 } from './tee-v5'
 import { COAT_V1 } from './coat'
 import { GOWN_V1 } from './gown'
 import { MIXED_V1 } from './mixed'
@@ -35,7 +36,7 @@ function glbJson({ bytes }: { bytes: Uint8Array }) {
 
 const TEMPLATES: Array<{ manifest: TemplateManifest; panels: string[] }> = [
   { manifest: HOODIE_V1, panels: ['front', 'back', 'left', 'right', 'hood-left', 'hood-right'] },
-  { manifest: TEE_CREW_SHORT_V4, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: TEE_CREW_SHORT_V5, panels: ['front', 'back', 'left', 'right'] },
   { manifest: MIXED_V1, panels: ['front', 'back', 'left', 'right'] },
   { manifest: COAT_V1, panels: ['front', 'back', 'left', 'right'] },
   { manifest: SUIT_V1, panels: ['front', 'back', 'left', 'right'] },
@@ -209,5 +210,26 @@ describe.each(TEMPLATES)('$manifest.id@$manifest.version (real model)', ({ manif
     expect(render.panelUv?.[route]).toEqual(manifest.regions[panel]!.uv)
     // Each panel prints in its own rectangle, whatever its render id.
     expect(render.layers.find((layer) => layer.id === 'mark')).toMatchObject({ panel: route })
+  })
+})
+
+describe('tee-crew-short@4, kept for the designs pinned to it', () => {
+  test('still resolves, and its GLB is unchanged', async () => {
+    expect(resolveTemplate({ id: 'tee-crew-short', version: 4 })).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V4 })
+    const digest = await crypto.subtle.digest('SHA-256', await readBytes({ path: `public${TEE_CREW_SHORT_V4.geometry.file}` }))
+    const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+    expect(sha256).toBe(TEE_CREW_SHORT_V4.geometry.sha256)
+  })
+
+  test('@5 wraps each sleeve all round where @4 printed it flat from the side', () => {
+    for (const panel of ['left', 'right'] as const) {
+      expect(TEE_CREW_SHORT_V4.regions[panel]!.notes[0]).toMatch(/^Planar print/)
+      expect(TEE_CREW_SHORT_V5.regions[panel]!.notes[0]).toMatch(/^Wrapped all round/)
+      // Unrolled, a sleeve is wider than it is long.
+      expect(TEE_CREW_SHORT_V5.regions[panel]!.surface!.panelAspect).toBeGreaterThan(1)
+    }
+
+    expect(TEE_CREW_SHORT_V5.regions.front!.renderPanel).toBe(TEE_CREW_SHORT_V4.regions.front!.renderPanel)
+    expect(TEE_CREW_SHORT_V5.regions.left!.renderPanel).toBe(TEE_CREW_SHORT_V4.regions.left!.renderPanel)
   })
 })

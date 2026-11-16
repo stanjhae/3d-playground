@@ -82,6 +82,21 @@ describe('rendering a pattern', () => {
     expect(back.panel).toBe('back')
   })
 
+  test("cloth grown past its frame prints at the frame's edge, never in another panel", () => {
+    const document = { ...tee(), pattern: template().pattern }
+    const render = toRenderDocument({ document }).document
+    const mesh: Pick<DrapedMesh, 'flat' | 'pieceOf' | 'pieceIds'> = {
+      // Far below the front's frame, and far to its right.
+      flat: Float32Array.from([0, -5000, 5000, 0]),
+      pieceOf: Uint16Array.from([0, 0]),
+      pieceIds: ['front'],
+    }
+    const uv = patternPrintUv({ mesh, render: render.pattern!, panelUv: render.panelUv! })
+    const rect = render.panelUv!.front
+    expect(uv[1]).toBeCloseTo(rect.v0, 6)
+    expect(uv[2]).toBeCloseTo(rect.u1, 6)
+  })
+
   test("the drape stands where the model stands: its collar at the model's top", () => {
     const seat = patternSeat({ pattern: template().pattern })
     const resolved = resolveTemplate({ id: 'tee-crew-short', version: 4 })
