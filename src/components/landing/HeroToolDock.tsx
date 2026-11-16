@@ -2,7 +2,7 @@ import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { cn } from '../../lib/cn'
 import { LANDING_COPY } from '../../lib/landing-copy'
-import { addLandingStroke, LANDING_CAMERA_VIEWS, stampLandingGraphic } from '../../lib/landing-demo'
+import { addLandingStroke, LANDING_CAMERA_VIEWS, LANDING_VIEW_PANEL, padToPanel, stampLandingGraphic } from '../../lib/landing-demo'
 import { useLandingDemoStore } from '../../lib/landing-demo-store'
 import { INK_COLORS } from '../../lib/paint-colors'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
@@ -42,6 +42,9 @@ const VIEW_LABEL: Record<(typeof LANDING_CAMERA_VIEWS)[number], string> = {
   right: 'Right',
 }
 
+/** What a dragged graphic carries: its library path. */
+export const GRAPHIC_DRAG_TYPE = 'application/x-flv-graphic'
+
 const chip =
   'inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border font-body text-xs transition-colors'
 
@@ -59,6 +62,9 @@ export function HeroToolDock({ live }: { live: boolean }) {
   const requestScene = useLandingDemoStore((state) => state.requestScene)
   const points = useRef<{ x: number; y: number }[]>([])
   const drawing = useRef(false)
+  // Ink and graphics land on the side being shown (the wearer's sides).
+  const view = cameraView ?? 'front'
+  const panel = LANDING_VIEW_PANEL[view]
 
   function toUv(event: ReactPointerEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
@@ -110,10 +116,22 @@ export function HeroToolDock({ live }: { live: boolean }) {
     canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
 
     if (stroke.length > 0) {
-      apply((previous) =>
-        addLandingStroke({ document: previous, points: stroke, color: ink, width: 18 / 400, tool: 'brush', panel: 'front' }),
-      )
+      const rect = canvas.getBoundingClientRect()
+      const padAspect = rect.width / Math.max(1, rect.height)
+      apply((previous) => {
+        // The pad's own proportions on the panel, so a circle stays a circle.
+        const panelAspect = previous.panelAspects?.[panel] ?? 1
+        const placed = stroke.map((point) => padToPanel({ ...point, padAspect, panelAspect }))
+        return addLandingStroke({ document: previous, points: placed, color: ink, width: 18 / 400, tool: 'brush', panel })
+      })
     }
+  }
+
+  function dropGraphic(src: string, at?: { x: number; y: number; padAspect: number }) {
+    apply((previous) => {
+      const point = at ? padToPanel({ x: at.x, y: at.y, padAspect: at.padAspect, panelAspect: previous.panelAspects?.[panel] ?? 1 }) : null
+      return stampLandingGraphic({ document: previous, src, panel, ...(point ? { x: point.x, y: point.y } : {}) })
+    })
   }
 
   const padClass =
@@ -123,14 +141,27 @@ export function HeroToolDock({ live }: { live: boolean }) {
     <div className="flv-dock flv-panel flex w-full flex-col gap-3 p-3 sm:p-4" data-hero-dock>
       <div className="flex items-baseline justify-between gap-2">
         <p className="font-display text-sm text-flv-ink">{COPY.padLabel}</p>
-        <p className="font-body text-xs text-flv-muted">{COPY.padHint}</p>
+        <p className="font-body text-xs text-flv-muted" aria-live="polite">
+          {COPY.padHint[view]}
+        </p>
       </div>
       {live ? (
         <canvas
-          aria-label="Sketch pad: draw on the front of the tee"
+          aria-label={`Sketch pad: ${COPY.padHint[view]}`}
           width={300}
           height={112}
           className={cn(padClass, 'cursor-crosshair')}
+          onDragOver={(event) => {
+            if (event.dataTransfer.types.includes(GRAPHIC_DRAG_TYPE)) event.preventDefault()
+          }}
+          onDrop={(event) => {
+            const src = event.dataTransfer.getData(GRAPHIC_DRAG_TYPE)
+
+            if (!src) return
+            event.preventDefault()
+            const rect = event.currentTarget.getBoundingClientRect()
+            dropGraphic(src, { ...toUv(event as unknown as ReactPointerEvent<HTMLCanvasElement>), padAspect: rect.width / Math.max(1, rect.height) })
+          }}
           onPointerDown={(event) => {
             drawing.current = true
             event.currentTarget.setPointerCapture(event.pointerId)
@@ -193,17 +224,27 @@ export function HeroToolDock({ live }: { live: boolean }) {
       </div>
 
       <div className="flex items-center gap-2 border-t border-flv-line pt-3" data-claim="concept">
-        <p className="font-body text-xs text-flv-muted">{COPY.graphicsLabel}</p>
+        <p className="font-body text-xs text-flv-muted" title={COPY.graphicsHint}>
+          {COPY.graphicsLabel}
+          <span className="sr-only"> {COPY.graphicsHint}</span>
+        </p>
         <div className="flex gap-1.5">
           {HERO_GRAPHICS.map((asset) => (
             <button
               key={asset.id}
               type="button"
               aria-label={`Add ${asset.label}`}
-              onClick={() => apply((previous) => stampLandingGraphic({ document: previous, src: asset.src, panel: 'front' }))}
+              title={COPY.graphicsHint}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.setData(GRAPHIC_DRAG_TYPE, asset.src)
+                event.dataTransfer.effectAllowed = 'copy'
+                requestScene()
+              }}
+              onClick={() => dropGraphic(asset.src)}
               className="inline-flex size-11 items-center justify-center rounded-lg border border-flv-line bg-white p-1.5 hover:border-flv-accent"
             >
-              <img src={asset.src} alt="" width={32} height={32} className="size-8 object-contain" />
+              <img src={asset.src} alt="" width={32} height={32} draggable={false} className="pointer-events-none size-8 object-contain" />
             </button>
           ))}
         </div>

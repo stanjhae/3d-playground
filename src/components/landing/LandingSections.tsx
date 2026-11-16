@@ -126,21 +126,22 @@ export function LandingHeroSection({
           </ul>
         </div>
 
-        <div className="flv-rise flv-d3 relative flex flex-col items-center gap-4 lg:block">
+        <div className="flv-rise flv-d3 relative flex flex-col items-center gap-4">
           <div aria-hidden className="flv-halo pointer-events-none absolute inset-[8%] -z-10 rounded-full" />
           {stage ?? (
-            <div className="relative mx-auto aspect-square w-full max-w-[36rem] overflow-hidden rounded-[2rem] border border-flv-line bg-white shadow-[0_40px_80px_-30px_rgb(11_13_18_/0.35)]">
+            <div className="relative mx-auto aspect-square w-full max-w-[36rem] overflow-hidden lg:max-w-[min(30rem,62vh)] rounded-[2rem] border border-flv-line bg-white shadow-[0_40px_80px_-30px_rgb(11_13_18_/0.35)]">
               <HeroPoster />
             </div>
           )}
           {/*
             A credited model (CC BY) is named with it: under it on phones, above
-            it on desktop, where the tool dock overlaps the stage's lower edge.
+            it on desktop. The tool dock sits under the stage, never over the
+            tee, so whatever you draw stays in sight (founder review, 16 Nov).
           */}
           <div className="mt-3 flex justify-center lg:absolute lg:-top-8 lg:right-0 lg:mt-0">
             <GownCredit garmentId="tee" />
           </div>
-          <div className="relative z-10 w-full max-w-md lg:absolute lg:-bottom-14 lg:-left-14 lg:w-[19rem] xl:-left-20">
+          <div className="relative z-10 mx-auto w-full max-w-md lg:max-w-[30rem]">
             <HeroToolDock live={mode === 'live'} />
           </div>
           <p className="pointer-events-none absolute top-5 right-5 z-10 hidden items-center gap-1.5 rounded-full bg-white/85 px-3 py-1.5 font-body text-xs text-flv-muted shadow-sm backdrop-blur [@media(pointer:fine)]:lg:inline-flex">

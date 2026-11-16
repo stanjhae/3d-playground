@@ -327,14 +327,42 @@ export const LANDING_CAMERA_VIEWS = [
 
 export type LandingCameraView = (typeof LANDING_CAMERA_VIEWS)[number]
 
+/**
+ * The render panel each view draws on. Views are the wearer's sides; the
+ * tee's render panels name sleeves by mesh side, so the wearer's left sleeve
+ * is render panel `right` (template v4, checked in landing.test.ts).
+ */
+export const LANDING_VIEW_PANEL: Record<LandingCameraView, PanelId> = {
+  front: 'front',
+  back: 'back',
+  left: 'right',
+  right: 'left',
+}
+
+/**
+ * A point on the wide sketch pad, placed on a panel without stretching:
+ * the pad fills the panel's width (or height, for a wider panel) and keeps
+ * its own proportions, centred. `padAspect` and `panelAspect` are width / height.
+ */
+export function padToPanel({ x, y, padAspect, panelAspect }: { x: number; y: number; padAspect: number; panelAspect: number }) {
+  if (padAspect >= panelAspect) {
+    const height = panelAspect / padAspect
+    return { x, y: 0.5 + (y - 0.5) * height }
+  }
+
+  const width = padAspect / panelAspect
+  return { x: 0.5 + (x - 0.5) * width, y }
+}
+
 export const LANDING_CAMERA_POSITIONS: Record<
   LandingCameraView,
   readonly [number, number, number]
 > = {
   front: [0, 1.48, 4.1],
   back: [0.15, 1.48, -4.05],
-  left: [-4.1, 1.48, 0],
-  right: [4.1, 1.48, 0],
+  // Sides are the wearer's, as on the studio's tabs: Left shows the left sleeve (+x).
+  left: [4.1, 1.48, 0],
+  right: [-4.1, 1.48, 0],
 }
 
 export function cameraViewAzimuth({
@@ -347,11 +375,11 @@ export function cameraViewAzimuth({
   }
 
   if (view === 'left') {
-    return -Math.PI / 2
+    return Math.PI / 2
   }
 
   if (view === 'right') {
-    return Math.PI / 2
+    return -Math.PI / 2
   }
 
   return 0

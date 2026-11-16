@@ -910,7 +910,7 @@ export function PaintCanvas({
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
   const typeDraft = useEditorStore((state) => state.typeDraft)
-  const setPaintPanel = useEditorStore((state) => state.setPaintPanel)
+  const showPanel = useEditorStore((state) => state.showPanel)
   const flashPanel = useEditorStore((state) => state.flashPanel)
   const layerImages = useLayerImages({ document: documentState })
   // Words draw in a fallback until their face loads, then redraw (#155).
@@ -1012,7 +1012,8 @@ export function PaintCanvas({
           flashPanel({ panel })
         }
 
-        setPaintPanel({ paintPanel: panel })
+        // A new side also turns the 3D view to it.
+        showPanel({ panel })
       },
     }
   }
@@ -1039,7 +1040,7 @@ export function PaintCanvas({
               type="button"
               aria-pressed={paintPanel === panel.id}
               onClick={() => {
-                setPaintPanel({ paintPanel: panel.id })
+                showPanel({ panel: panel.id })
                 // Show which piece of the garment that is.
                 flashPanel({ panel: panel.id })
               }}

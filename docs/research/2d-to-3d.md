@@ -8,11 +8,15 @@ The owner chose to build Tiers 2 and 3 in full: in-browser simulation, all garme
 
 | Phase | What | State |
 | --- | --- | --- |
-| 0a | The `pattern` block reader (`docs/canonical-document.md`) | In review |
-| 1 | Pattern geometry: Béziers, mirroring, sewability checks, meshing, placement, edit operators | In review |
-| 2 | The XPBD cloth solver in a Web Worker | In review |
-| 0b | Pattern templates for all nine garments | Next |
-| 3–6 | Rendering, stored meshes, the Pattern (beta) editor, the AI assist | Planned |
+| 0a | The `pattern` block reader (`docs/canonical-document.md`) | Built (#378) |
+| 1–2 | Pattern geometry, and the XPBD cloth solver in a Web Worker | Built (#379) |
+| 0b | Pattern templates for all nine garments | Built (#380) |
+| 3 | Rendering a draped pattern in the studio, with prints through each piece's frame | Built (#381) |
+| 4 | Stored draped meshes and the publish gate (a database migration) | Built (#382) |
+| 5 | The Pattern (beta) editor, behind `VITE_PATTERN_BETA` | Built (#383) |
+| 6 | The AI suggestion, behind `VITE_AI_ASSIST` and `FLP_AI_ASSIST` | Built (#384) |
+
+Both flags are off until the owner turns them on (`docs/deploy.md`).
 
 **Spike S1 (tee drape), measured.** A four-piece tee: front, back, a sleeve and its mirror, ten seams.
 - At 25 mm spacing it has about 1,560 particles and 2,850 triangles. It settles in about 3 s of simulated time, which took 0.4–0.6 s in node on a desktop.
@@ -23,7 +27,9 @@ The owner chose to build Tiers 2 and 3 in full: in-browser simulation, all garme
   - The mannequin's hands are colliders, so a sleeve longer than the arm gathers at the wrist.
 - Damping climbs once the drape has formed, and the cloth counts as settled when no more than 0.5% of particles still move. That handles contact jitter, for example a long hem between the legs.
 
-Still to measure: phones (the target is under 6 s for a tee), and the tailored garments (spike S2, with the templates).
+Still to measure: drape time on a real phone (the target is under 6 s for a tee). Desktop node figures for all nine garments are 0.4–1.0 s (#380).
+
+**Spike S2 (tailored garments), result.** Coats, suits and the tailored coat drape and settle. Their fronts are one deep-V piece instead of overlapping lapels, because overlapping fronts would need cloth-to-cloth collision. Two-piece outfits (a shirt over a skirt, a jacket over trousers) keep their outer layer 8 mm clear of the inner one instead.
 
 ## Where we are
 

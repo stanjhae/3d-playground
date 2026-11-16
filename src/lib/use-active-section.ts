@@ -11,10 +11,19 @@ const BAND = { top: 0.2, bottom: 0.4 } as const
 export function sectionInBand({
   sections,
   viewportHeight,
+  atEnd = false,
 }: {
   sections: readonly { id: string; top: number; bottom: number }[]
   viewportHeight: number
+  /** Scrolled as far as the page goes: a last section that's on screen wins, though it can't reach the band. */
+  atEnd?: boolean
 }) {
+  const last = sections[sections.length - 1]
+
+  if (atEnd && last && last.top < viewportHeight && last.bottom > 0) {
+    return last.id
+  }
+
   const top = viewportHeight * BAND.top
   const bottom = viewportHeight * BAND.bottom
   let best: string | null = null
@@ -57,6 +66,7 @@ export function useActiveSection({ ids }: { ids: readonly string[] }) {
             return { id: element.id, top: box.top, bottom: box.bottom }
           }),
           viewportHeight: window.innerHeight,
+          atEnd: window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2,
         }),
       )
     }

@@ -16,6 +16,7 @@ import { onClothHold } from '../../lib/cloth-pointer'
 import { useEditorStore } from '../../lib/editor-store'
 import {
   LANDING_CAMERA_POSITIONS,
+  LANDING_VIEW_PANEL,
   studioEnvAppearance,
   type LandingCameraView,
   type StudioEnvMode,
@@ -29,6 +30,7 @@ import {
   presetTarget,
   stillSeat,
   STUDIO_CAMERA,
+  type CameraPresetName,
   type StageFraming,
 } from '../../lib/studio-camera'
 
@@ -406,10 +408,22 @@ function LandingCameraSeat({
     | undefined
 
   useLayoutEffect(() => {
-    // The studio's own seats for a real model, so Left and Right find its
-    // sleeves as the studio's views do (render `left` is the wearer's right).
-    const fitted = modelFrame ? modelSeat({ preset: cameraView, frame: modelFrame, live: true }) : null
-    const seat = fitted?.seat ?? LANDING_CAMERA_POSITIONS[cameraView]
+    // The studio's own seats for a real model. The landing's Left and Right
+    // are the wearer's sides; the studio's sleeve seats are named by render
+    // panel (render `left` is the wearer's right), hence the mapping.
+    const fitted = modelFrame ? modelSeat({ preset: LANDING_VIEW_PANEL[cameraView] as CameraPresetName, frame: modelFrame, live: true }) : null
+    let seat = fitted?.seat ?? LANDING_CAMERA_POSITIONS[cameraView]
+
+    // The studio's sleeve seats sit behind the sleeve, so most of what shows
+    // is the back. On the landing a sleeve is looked at from the front, on
+    // its own side, at the same distance, so Left reads as the left sleeve.
+    if (fitted && (cameraView === 'left' || cameraView === 'right')) {
+      const [tx, ty, tz] = fitted.target
+      const distance = Math.hypot(fitted.seat[0] - tx, fitted.seat[1] - ty, fitted.seat[2] - tz)
+      const side = cameraView === 'left' ? 1 : -1
+      seat = [tx + side * distance * 0.66, ty + distance * 0.12, tz + distance * 0.74]
+    }
+
     const target = fitted?.target ?? STUDIO_CAMERA.target
     camera.position.set(seat[0], seat[1], seat[2])
     camera.lookAt(target[0], target[1], target[2])

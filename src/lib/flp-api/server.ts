@@ -60,6 +60,8 @@ import {
 import { TERMS_VERSION } from '../terms.ts'
 import { deleteAccountAndFiles } from './account-deletion.mjs'
 import { handlePatternMeshes } from './pattern-meshes.ts'
+import { AI_LIMITS, type AiEnv, aiEnv, parseAiRequest, sketchToOps } from './ai-sketch.ts'
+import { patternTemplateFor } from '../pattern/templates.ts'
 
 /**
  * FLP design API (S03 #172) behind `/api/flp/*`. The server is the trust
@@ -78,6 +80,10 @@ export type FlpServerEnv = {
   secretKey: string
   /** Per-minute overrides (tests); defaults are `RATE_LIMITS`. */
   rateLimits?: Partial<Record<RateBucket, number>>
+  /** The AI assist's settings; absent or null, `/ai/*` is 404 (Workflow 1, Tier 3). */
+  ai?: AiEnv | null
+  /** Tests stub the Anthropic API here. */
+  aiFetch?: typeof fetch
 }
 
 /**
@@ -90,6 +96,7 @@ export const RATE_LIMITS = {
   publish: 10,
   details: 30,
   vote: 30,
+  ai: AI_LIMITS.perMinute,
 } as const
 
 export type RateBucket = keyof typeof RATE_LIMITS
@@ -112,6 +119,8 @@ export const RATE_OUTAGE_POLICY: Record<RateBucket, OutagePolicy> = {
   publish: 'refuse',
   details: 'allow',
   vote: 'allow',
+  // Each sketch costs real money: no limiter, no sketch.
+  ai: 'refuse',
 }
 
 const RATE_WINDOW_SECONDS = 60
@@ -167,7 +176,7 @@ export function flpServerEnv(
   const secretKey = source.SUPABASE_SECRET_KEY
 
   return url && publishableKey && secretKey
-    ? { url, publishableKey, secretKey }
+    ? { url, publishableKey, secretKey, ai: aiEnv(source) }
     : null
 }
 
@@ -1043,6 +1052,68 @@ async function handleVote({
   return json({ status: 200, body: state })
 }
 
+/**
+ * POST /ai/sketch — the AI assist (`ai-sketch.ts`). Signed in, current
+ * terms accepted, 5 a minute and the daily limit per account; refused when
+ * the limiter can't answer, since each call costs money.
+ */
+async function handleAiSketch({
+  request,
+  admin,
+  asUser,
+  userId,
+  env,
+}: {
+  request: Request
+  admin: SupabaseClient
+  asUser: SupabaseClient
+  userId: string
+  env: FlpServerEnv
+}) {
+  if (request.method !== 'POST' || !env.ai) {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const { data: profile, error: profileError } = await asUser.from('profiles').select('terms_version').maybeSingle<{ terms_version: string | null }>()
+
+  if (profileError) {
+    return internalError()
+  }
+
+  if (profile?.terms_version !== TERMS_VERSION) {
+    return json({ status: 403, body: { error: { code: 'terms', message: 'Accept the current terms to use the assist' } } })
+  }
+
+  const daily = await rateLimited({ admin, userId, bucket: 'ai', env, name: 'ai-day', limit: env.ai.dailyLimit, windowSeconds: 86_400 })
+
+  if (daily) {
+    return daily
+  }
+
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseAiRequest(body.value)
+
+  if (!parsed.ok) {
+    return fromError({ error: apiError({ code: 'invalid', message: parsed.message }) })
+  }
+
+  const template = patternTemplateFor({ templateId: parsed.request.template.id, templateVersion: parsed.request.template.version })
+
+  if (!template) {
+    return fromError({ error: apiError({ code: 'invalid', message: 'This garment has no pattern to edit' }) })
+  }
+
+  const result = await sketchToOps({ request: parsed.request, template, env: env.ai, fetchImpl: env.aiFetch })
+  return result.ok
+    ? json({ status: 200, body: result.body })
+    : json({ status: result.status, body: { error: { code: result.code, message: result.message } } })
+}
+
 /** Which limit a mutation counts against; reads are not limited. */
 function rateBucket({
   method,
@@ -1063,6 +1134,10 @@ function rateBucket({
     return 'upload'
   }
 
+  if (collection === 'ai') {
+    return 'ai'
+  }
+
   if (action === 'renders' || action === 'publication') {
     return 'publish'
   }
@@ -1080,11 +1155,19 @@ async function rateLimited({
   userId,
   bucket,
   env,
+  limit,
+  windowSeconds = RATE_WINDOW_SECONDS,
+  name = bucket,
 }: {
   admin: SupabaseClient
   userId: string
   bucket: RateBucket
   env: FlpServerEnv
+  /** Overrides the bucket's per-window limit. */
+  limit?: number
+  windowSeconds?: number
+  /** The stored bucket name, when one policy covers two windows. */
+  name?: string
 }) {
   // A limiter that stays slow after a retry is an outage: its bucket's policy decides.
   const { data, error } = await limiterCall({
@@ -1092,9 +1175,9 @@ async function rateLimited({
       admin
         .rpc('flp_take_token', {
           p_owner_id: userId,
-          p_bucket: bucket,
-          p_limit: env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
-          p_window_seconds: RATE_WINDOW_SECONDS,
+          p_bucket: name,
+          p_limit: limit ?? env.rateLimits?.[bucket] ?? RATE_LIMITS[bucket],
+          p_window_seconds: windowSeconds,
         })
         .abortSignal(AbortSignal.timeout(LIMIT_TIMEOUT_MS)),
   })
@@ -1207,6 +1290,11 @@ export async function handleFlpRequest({
     if (designId) {
       return fromError({ error: apiError({ code: 'not_found', message: 'Not found' }) })
     }
+  } else if (collection === 'ai') {
+    // Off unless the server enables it: then it doesn't exist at all.
+    if (!env.ai || designId !== 'sketch' || action || rest.length > 0) {
+      return fromError({ error: apiError({ code: 'not_found', message: 'Not found' }) })
+    }
   } else if (collection === 'pattern-meshes') {
     // `/pattern-meshes` and `/pattern-meshes/finalize` only.
     if ((designId && designId !== 'finalize') || action || rest.length > 0) {
@@ -1259,6 +1347,10 @@ export async function handleFlpRequest({
 
   if (collection === 'assets') {
     return handleAssetRequest({ request, admin, asUser, userId: user.userId, assetId: designId, action })
+  }
+
+  if (collection === 'ai') {
+    return handleAiSketch({ request, admin, asUser, userId: user.userId, env })
   }
 
   if (collection === 'pattern-meshes') {

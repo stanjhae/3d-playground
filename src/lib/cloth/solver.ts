@@ -1,4 +1,4 @@
-import type { Capsule } from './colliders'
+import type { Capsule } from './colliders.ts'
 
 /**
  * A "small steps" XPBD cloth solver (Macklin et al. 2019): many short
