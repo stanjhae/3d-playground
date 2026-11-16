@@ -17,6 +17,7 @@
  */
 
 import { type GarmentShape, isNeutralShape, NEUTRAL_SHAPE, SHAPE_FIELDS, SHAPE_LIMITS, templateHasShape } from './garment-shape-params.ts'
+import { type CanonicalPattern, checkPattern } from './pattern/pattern-document.ts'
 import { currentTemplateFor, resolveTemplate, TEMPLATE_IDS } from './template-manifest.ts'
 
 export { TEMPLATE_IDS }
@@ -187,6 +188,12 @@ export type CanonicalDocument = {
   panels: Record<CanonicalPanelId, CanonicalPanel>
   /** Left out when neutral; see `CanonicalShape`. */
   shape?: CanonicalShape
+  /**
+   * Pattern mode (pattern v1): the garment as sewing-pattern pieces, draped
+   * into the 3D garment. Present only on a design that uses it, and never
+   * alongside `shape`: entering pattern mode folds the shape into the pieces.
+   */
+  pattern?: CanonicalPattern
 }
 
 /** The panels this document's template prints on, in template order. */
@@ -902,7 +909,7 @@ export function validateCanonicalDocument({
     value,
     path: '$',
     required: ['schemaVersion', 'template', 'base', 'panels'],
-    optional: ['shape'],
+    optional: ['shape', 'pattern'],
   })
 
   if (root) {
@@ -936,6 +943,20 @@ export function validateCanonicalDocument({
 
     if ('shape' in root) {
       checkShape({ context, value: root.shape, path: '$.shape', template: root.template })
+    }
+
+    if ('pattern' in root) {
+      if ('shape' in root) {
+        report({ context, path: '$.pattern', message: 'a pattern replaces the shape; store one or the other' })
+      }
+
+      checkPattern({
+        value: root.pattern,
+        path: '$.pattern',
+        panels: isRecord(root.panels) ? Object.keys(root.panels) : [],
+        templateId: (root.template as { id?: unknown } | undefined)?.id,
+        report: (path, message) => report({ context, path, message }),
+      })
     }
   }
 
