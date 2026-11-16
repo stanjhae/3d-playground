@@ -1,13 +1,13 @@
-# Reply to the first external MVP test (12 Nov 2026)
+# Reply to the founder's MVP review (12 Nov 2026)
 
-A partner tested the alpha on a phone and on a desktop as a first-time user, and sent detailed feedback in eight areas. This file has a ready-to-send reply. It answers each point and says whether the behaviour is **intentional**, a **bug** (with the plan phase that fixes it) or **planned**.
+The founder tested the alpha on a phone and on a desktop from the point of view of a brand-new user, before it goes to outside testers, and sent detailed feedback in eight areas. This file has a ready-to-send reply. It answers each point and says whether the behaviour is **intentional**, a **bug** (with the plan phase that fixes it) or **planned**.
 
-**Notes for the owner before sending:**
+**Notes before sending:**
 
 - The phase numbers refer to the internal feedback plan: 1 editor blockers, 2 navigation, 3 save and publish, 4 editor clarity, 5 graphics library, 6 shape editing v1, 7 these documents. You may want to drop them from the message you send.
 - Nothing here promises a date or anything `docs/claims-audit.md` doesn't allow. In particular there is **no live AI** anywhere in the product, and the reply doesn't say otherwise.
-- We haven't seen the two videos the tester mentioned yet. Two answers (mobile overlap, landing demo) say what we found and fixed, and ask for the videos plus device and browser to confirm.
-- Phases 1–4 are built (PR #372), and so are the graphics library (phase 5) and shape editing v1 (phase 6), each in its own PR. Send this once they're live, or soften "fixed" to "fixed, going live soon".
+- We haven't seen the two videos the founder mentioned yet. Two answers (mobile overlap, landing demo) say what we found and fixed, and ask for the videos plus device and browser to confirm.
+- Everything below is merged and live on beta (PRs #372–#376, 12–13 Nov), checked signed in on beta. Only the logo is left, which is being handled separately.
 
 ---
 
@@ -15,7 +15,7 @@ A partner tested the alpha on a phone and on a desktop as a first-time user, and
 
 Hi,
 
-Thank you for testing so carefully, and for writing everything down. This is exactly the first-time-user view we can't get ourselves. None of the points read as too many: almost all of them are real, and several turned out to be bugs we hadn't caught. Most are already fixed. Below I go through them in your order and say for each one whether it was intentional, a bug or planned, and what changed.
+Thank you for going through it so carefully as a brand-new user would, and for writing everything down. That's exactly the view I can't get myself. None of the points read as too many: almost all of them were real, and several turned out to be bugs I hadn't caught. They're all fixed and live on beta now, apart from the logo. Below I go through them in your order and say for each one whether it was intentional, a bug or planned, and what changed.
 
 ### 1. Mobile: elements overlapping the workspace
 
@@ -108,13 +108,13 @@ You're right that the MVP follows your **Workflow 2** today: pick an existing 3D
 
 **Is it technically realistic?** Yes, in stages. It's a much bigger build than Workflow 2, but none of it is out of reach. We see three levels:
 
-1. **Shape controls on our existing garments (next step).** Adjust the real 3D T-shirt directly:
+1. **Shape controls on our existing garments (live now on the T-shirt).** Adjust the real 3D T-shirt directly:
    - each sleeve's length on its own, so one sleeve can be longer than the other;
    - body length and cropping;
    - width, from fitted to boxy;
    - neckline depth.
 
-   Your prints and drawings stay attached as the shape changes. This is a contained addition to the current editor, and a first version is built. *(Phase 6)*
+   Your prints and drawings stay attached as the shape changes. This was a contained addition to the current editor, and a first version is live: try the sliders on the Garment step. *(Phase 6)*
 2. **Editing the garment's pattern in 2D.** This is how real garments are made. The garment is described as flat 2D pattern pieces (front, back, sleeves) sewn together. Change a piece's outline in 2D, for an asymmetric cut, a new neckline or a different silhouette, and the 3D garment is rebuilt from the pieces by simulating the fabric.
 
    This is the full version of Workflow 1, including drawing new outlines. It needs a new core (a pattern editor and fabric simulation), so it's a larger, later stage. Our editor already treats the flat 2D design as the source of truth, which is the right foundation for it.
@@ -142,7 +142,7 @@ A beginner never has to touch the advanced layers, and an ambitious designer can
 
 I've written a more detailed technical comparison of the three levels if you want to go deeper. Happy to walk through it together.
 
-Thank you again. This was incredibly useful, and it's the reason the first wider testers will get a much better product. I'll send an update as the fixes land.
+Thank you again. This was incredibly useful, and it means the first testers we invite will get a much better product. Everything above is live on beta, so do try it again before we send it out.
 
 Best,
 Chijindu
@@ -180,4 +180,4 @@ Chijindu
 | 7 | Searchable library, more detail | Built | Graphics PR, 5 |
 | 8 | Shape editing (Workflow 1) | Level 1 built; later levels staged | Shape PR, 6; see `docs/research/2d-to-3d.md` |
 
-Everything in the feedback plan is built except the Fashion Leader logo, which the owner is handling separately.
+Everything in the feedback plan is built and live except the Fashion Leader logo, which is being handled separately.
