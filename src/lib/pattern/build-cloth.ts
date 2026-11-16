@@ -1,53 +1,57 @@
-import type { Capsule, Vec3 } from '../cloth/colliders'
-import type { ClothInput } from '../cloth/solver'
-import { type Point2, triangulatePiece } from './triangulate'
+import type { Capsule } from '../cloth/colliders.ts'
+import type { ClothInput } from '../cloth/solver.ts'
+import { type FlatOutline, flattenOutline, polylineLength } from './bezier.ts'
+import { expandPieces } from './mirror.ts'
+import type { CanonicalPattern, PatternFabric } from './pattern-document.ts'
+import { type Placement, placementFor } from './place.ts'
+import { type Point2, triangulatePiece } from './triangulate.ts'
 
 /**
- * Turns flat pattern pieces into a cloth the solver can drape: each
- * piece is meshed, placed around the body, and its seams become stitches
- * between matching outline samples.
+ * Turns a pattern into a cloth the solver can drape: each piece is
+ * meshed, placed around the body, and each seam becomes stitches between
+ * matching samples on its two sides.
  */
-export type OutlinePoint = { id: string; x: number; y: number }
 
-export type Placement = (point: Point2) => Vec3
+/** Stretch and bend compliance per fabric (lower is stiffer). Stretch below 1e-7 goes unstable (spike S1). */
+export const FABRICS: Record<PatternFabric, { stretch: number; bend: number }> = {
+  jersey: { stretch: 2e-6, bend: 3e-5 },
+  woven: { stretch: 1e-6, bend: 1e-5 },
+  fleece: { stretch: 1.5e-6, bend: 6e-6 },
+  denim: { stretch: 6e-7, bend: 3e-6 },
+  satin: { stretch: 1e-6, bend: 6e-5 },
+  firm: { stretch: 5e-7, bend: 1.5e-6 },
+}
+
+export const DEFAULT_SPACING_MM = 25
 
 export type ClothPiece = {
   id: string
-  /** Millimetres, counter-clockwise, as drawn on the pattern. */
-  outline: readonly OutlinePoint[]
+  /** The flattened outline, millimetres, counter-clockwise. */
+  flat: FlatOutline
+  /** Outline point ids, in order (`flat.corners` gives their indices). */
+  pointIds: readonly string[]
   place: Placement
-  /** Fabric stiffness: lower is stiffer. */
-  stretchCompliance?: number
-  bendCompliance?: number
+  stretchCompliance: number
+  bendCompliance: number
 }
 
 export type SeamSide = { piece: string; from: string; to: string }
 
-/** Two runs sewn together. Both run counter-clockwise on their piece, so `a.from` meets `b.to`. */
+/** Both sides run counter-clockwise on their piece, so `a.from` meets `b.to`. */
 export type ClothSeam = { id: string; a: SeamSide; b: SeamSide }
 
 export type BuiltCloth = {
   input: ClothInput
-  /** Per particle: which piece, and its flat position in millimetres. */
+  /** Per particle: which piece (index into `pieceIds`), and its flat position in millimetres. */
   pieceOf: Uint16Array
   flat: Float64Array
   triangles: Uint32Array
   pieceIds: string[]
 }
 
-function runLength(points: readonly Point2[]) {
-  let total = 0
-
-  for (let i = 1; i < points.length; i += 1) {
-    total += Math.hypot(points[i]![0] - points[i - 1]![0], points[i]![1] - points[i - 1]![1])
-  }
-
-  return total
-}
-
 /** `count + 1` points evenly spaced along a polyline, ends included. */
 function sampleRun(points: readonly Point2[], count: number): Point2[] {
-  const total = runLength(points)
+  const total = polylineLength(points)
   const out: Point2[] = [points[0]!]
   let segment = 1
   let walked = 0
@@ -69,7 +73,7 @@ function sampleRun(points: readonly Point2[], count: number): Point2[] {
     const a = points[segment - 1]!
     const b = points[segment]!
     const len = Math.hypot(b[0] - a[0], b[1] - a[1])
-    const t = len > 0 ? (target - walked) / len : 0
+    const t = len > 0 ? Math.min(1, (target - walked) / len) : 0
     out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
   }
 
@@ -77,21 +81,16 @@ function sampleRun(points: readonly Point2[], count: number): Point2[] {
   return out
 }
 
-/** The outline points from `from` to `to`, going counter-clockwise. */
-function runPoints(outline: readonly OutlinePoint[], from: string, to: string): Point2[] {
-  const start = outline.findIndex((p) => p.id === from)
-  const end = outline.findIndex((p) => p.id === to)
-
-  if (start < 0 || end < 0) {
-    throw new Error(`Seam point ${start < 0 ? from : to} is not on the piece`)
-  }
-
+/** The flattened outline from corner `start` to corner `end`, counter-clockwise, ends included. */
+function between(flat: FlatOutline, start: number, end: number): Point2[] {
+  const first = flat.corners[start]!
+  const last = flat.corners[end]!
   const out: Point2[] = []
 
-  for (let i = start; ; i = (i + 1) % outline.length) {
-    out.push([outline[i]!.x, outline[i]!.y])
+  for (let i = first; ; i = (i + 1) % flat.points.length) {
+    out.push(flat.points[i]!)
 
-    if (i === end) {
+    if (i === last && out.length > 1) {
       break
     }
   }
@@ -103,22 +102,33 @@ export function buildCloth({
   pieces,
   seams,
   colliders,
-  spacing = 25,
+  spacing = DEFAULT_SPACING_MM,
 }: {
   pieces: readonly ClothPiece[]
   seams: readonly ClothSeam[]
   colliders: readonly Capsule[]
   spacing?: number
 }): BuiltCloth {
+  const byId = new Map(pieces.map((piece) => [piece.id, piece]))
+  const cornerOf = (piece: ClothPiece, id: string) => {
+    const index = piece.pointIds.indexOf(id)
+
+    if (index < 0) {
+      throw new Error(`Seam point ${id} is not on ${piece.id}`)
+    }
+
+    return index
+  }
+
   // One sample count per seam, shared by both sides so stitches pair up.
   const seamCounts = new Map<string, number>()
 
   for (const seam of seams) {
-    const pa = pieces.find((p) => p.id === seam.a.piece)!
-    const pb = pieces.find((p) => p.id === seam.b.piece)!
-    const la = runLength(runPoints(pa.outline, seam.a.from, seam.a.to))
-    const lb = runLength(runPoints(pb.outline, seam.b.from, seam.b.to))
-    seamCounts.set(seam.id, Math.max(2, Math.round((la + lb) / 2 / spacing)))
+    const lengths = [seam.a, seam.b].map((side) => {
+      const piece = byId.get(side.piece)!
+      return polylineLength(between(piece.flat, cornerOf(piece, side.from), cornerOf(piece, side.to)))
+    })
+    seamCounts.set(seam.id, Math.max(2, Math.round((lengths[0]! + lengths[1]!) / 2 / spacing)))
   }
 
   const positions: number[] = []
@@ -128,64 +138,61 @@ export function buildCloth({
   const links: number[] = []
   const rest: number[] = []
   const compliance: number[] = []
-  /** Seam id + side → particle indices from `from` to `to`. */
+  /** `seam:side` → particle indices from `from` to `to`. */
   const seamParticles = new Map<string, number[]>()
 
   pieces.forEach((piece, pieceIndex) => {
-    const breaks: { index: number; seam?: { id: string; side: 'a' | 'b'; to: string } }[] = []
+    const seamStarts = new Map<number, { key: string; end: number; count: number }[]>()
+    const breakSet = new Set<number>()
 
     for (const seam of seams) {
-      for (const side of ['a', 'b'] as const) {
-        const s = seam[side]
+      for (const sideName of ['a', 'b'] as const) {
+        const side = seam[sideName]
 
-        if (s.piece !== piece.id) {
+        if (side.piece !== piece.id) {
           continue
         }
 
-        breaks.push({ index: piece.outline.findIndex((p) => p.id === s.from), seam: { id: seam.id, side, to: s.to } })
-        breaks.push({ index: piece.outline.findIndex((p) => p.id === s.to) })
+        const start = cornerOf(piece, side.from)
+        const end = cornerOf(piece, side.to)
+        breakSet.add(start)
+        breakSet.add(end)
+        const list = seamStarts.get(start) ?? []
+        list.push({ key: `${seam.id}:${sideName}`, end, count: seamCounts.get(seam.id)! })
+        seamStarts.set(start, list)
       }
     }
 
-    const breakIndices = [...new Set(breaks.map((b) => b.index))].sort((a, b) => a - b)
+    const breaks = [...breakSet].sort((a, b) => a - b)
+    const cornerCount = piece.pointIds.length
 
-    if (breakIndices.length === 0) {
-      breakIndices.push(0)
+    if (breaks.length === 0) {
+      breaks.push(0)
     }
 
-    // Walk the outline run by run, sampling each.
     const boundary: Point2[] = []
-    const runs: { seamKey?: string; startAt: number; count: number }[] = []
+    const runs: { key: string; startAt: number; count: number }[] = []
 
-    for (let r = 0; r < breakIndices.length; r += 1) {
-      const startIndex = breakIndices[r]!
-      const endIndex = breakIndices[(r + 1) % breakIndices.length]!
-      const from = piece.outline[startIndex]!.id
-      const to = piece.outline[endIndex]!.id
-      const seamBreak = breaks.find((b) => b.index === startIndex && b.seam && b.seam.to === to)
-      let samples: Point2[]
+    for (let r = 0; r < breaks.length; r += 1) {
+      const start = breaks[r]!
+      const end = breaks[(r + 1) % breaks.length]!
+      const seamRun = seamStarts.get(start)?.find((entry) => entry.end === end)
 
-      if (seamBreak?.seam) {
-        samples = sampleRun(runPoints(piece.outline, from, to), seamCounts.get(seamBreak.seam.id)!)
-      } else {
-        // A free edge keeps its corners: sample each straight part on its own.
-        // With a single break the run is the whole outline, round to the start.
-        const pts: Point2[] =
-          breakIndices.length === 1
-            ? [...piece.outline.slice(startIndex), ...piece.outline.slice(0, startIndex + 1)].map((p) => [p.x, p.y] as const)
-            : runPoints(piece.outline, from, to)
-
-        samples = [pts[0]!]
-
-        for (let i = 1; i < pts.length; i += 1) {
-          const part = sampleRun([pts[i - 1]!, pts[i]!], Math.max(1, Math.round(runLength([pts[i - 1]!, pts[i]!]) / spacing)))
-          samples.push(...part.slice(1))
-        }
+      if (seamRun) {
+        const samples = sampleRun(between(piece.flat, start, end), seamRun.count)
+        runs.push({ key: seamRun.key, startAt: boundary.length, count: samples.length })
+        boundary.push(...samples.slice(0, -1))
+        continue
       }
 
-      runs.push({ seamKey: seamBreak?.seam ? `${seamBreak.seam.id}:${seamBreak.seam.side}` : undefined, startAt: boundary.length, count: samples.length })
-      // The run's last point is the next run's first.
-      boundary.push(...samples.slice(0, -1))
+      // A free edge keeps its corners: each corner-to-corner part is sampled on its own.
+      const stop = breaks.length === 1 ? start + cornerCount : end <= start ? end + cornerCount : end
+
+      for (let c = start; c < stop; c += 1) {
+        const part = between(piece.flat, c % cornerCount, (c + 1) % cornerCount)
+        const samples = sampleRun(part, Math.max(1, Math.round(polylineLength(part) / spacing)))
+        boundary.push(...samples.slice(0, -1))
+      }
     }
 
     const mesh = triangulatePiece({ outline: boundary, spacing })
@@ -199,22 +206,15 @@ export function buildCloth({
     }
 
     for (const run of runs) {
-      if (!run.seamKey) {
-        continue
-      }
-
       const indices: number[] = []
 
       for (let k = 0; k < run.count; k += 1) {
         indices.push(base + ((run.startAt + k) % boundary.length))
       }
 
-      seamParticles.set(run.seamKey, indices)
+      seamParticles.set(run.key, indices)
     }
 
-    // Stiffer than 1e-7 goes unstable with one pass per substep (spike S1).
-    const stretch = piece.stretchCompliance ?? 1e-6
-    const bend = piece.bendCompliance ?? 2e-5
     const edgeTris = new Map<string, number[]>()
 
     for (let t = 0; t < mesh.triangles.length; t += 3) {
@@ -241,22 +241,34 @@ export function buildCloth({
 
     // Stretch links first, then bending, each in a fixed order.
     const keys = [...edgeTris.keys()].sort()
+    const bendPairs = new Set<string>()
 
     for (const key of keys) {
       const [i, j] = key.split(',').map(Number) as [number, number]
       links.push(base + i, base + j)
       rest.push(flatDistance(i, j))
-      compliance.push(stretch)
+      compliance.push(piece.stretchCompliance)
     }
 
     for (const key of keys) {
       const opposite = edgeTris.get(key)!
 
-      if (opposite.length === 2) {
-        links.push(base + opposite[0]!, base + opposite[1]!)
-        rest.push(flatDistance(opposite[0]!, opposite[1]!))
-        compliance.push(bend)
+      if (opposite.length !== 2) {
+        continue
       }
+
+      const [i, j] = opposite[0]! < opposite[1]! ? [opposite[0]!, opposite[1]!] : [opposite[1]!, opposite[0]!]
+      const pair = `${i},${j}`
+
+      // Skip a bend link that duplicates an edge or another bend link.
+      if (edgeTris.has(pair) || bendPairs.has(pair)) {
+        continue
+      }
+
+      bendPairs.add(pair)
+      links.push(base + i, base + j)
+      rest.push(flatDistance(i, j))
+      compliance.push(piece.bendCompliance)
     }
   })
 
@@ -289,4 +301,31 @@ export function buildCloth({
     triangles: Uint32Array.from(triangles),
     pieceIds: pieces.map((p) => p.id),
   }
+}
+
+/** The cloth for a stored pattern: mirrors drawn, curves flattened, pieces placed. */
+export function clothFromPattern({
+  pattern,
+  colliders,
+  spacing = DEFAULT_SPACING_MM,
+}: {
+  pattern: CanonicalPattern
+  colliders: readonly Capsule[]
+  spacing?: number
+}): BuiltCloth {
+  const pieces: ClothPiece[] = expandPieces({ pattern }).map((piece) => {
+    const flat = flattenOutline({ outline: piece.outline })
+    const fabric = FABRICS[piece.fabric ?? 'jersey']
+
+    return {
+      id: piece.id,
+      flat,
+      pointIds: piece.outline.map((point) => point.id),
+      place: placementFor({ place: piece.place, outline: flat.points }),
+      stretchCompliance: fabric.stretch,
+      bendCompliance: fabric.bend,
+    }
+  })
+
+  return buildCloth({ pieces, seams: pattern.seams, colliders, spacing })
 }

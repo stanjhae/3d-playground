@@ -131,7 +131,7 @@ describe('what a pattern may hold', () => {
     expect(issues(withPattern((p) => (p.seams[0].a.to = 'cuffL')))).toEqual(['$.pattern.seams[0].a.to: not a point on this piece'])
     expect(issues(withPattern((p) => (p.seams[0].a.to = 'hemR')))).toEqual(['$.pattern.seams[0].a: a seam runs between two different points'])
     expect(issues(withPattern((p) => (p.seams[0].b = { ...p.seams[0].a })))).toEqual(['$.pattern.seams[0]: a seam joins two different edges'])
-    expect(issues(withPattern((p) => (p.seams[1].id = 'sideR')))).toEqual(['$.pattern.seams[1].id: duplicate id sideR'])
+    expect(issues(withPattern((p) => (p.seams[1].id = 'sideL')))).toEqual(['$.pattern.seams[1].id: duplicate id sideL'])
     expect(issues(withPattern((p) => (p.seams[0].kind = 'glue')))).toEqual(['$.pattern.seams[0].kind: expected one of sew, ease'])
   })
 

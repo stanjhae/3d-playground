@@ -2,6 +2,22 @@
 
 Decisions that change scope or behaviour for the alpha (17 November until the entry of 9 Nov 2026, then 1 December until the entry of 11 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 16 Nov 2026: build Workflow 1 in full (pattern editing, cloth drape, AI assist)
+
+**Decided by:** owner. This reverses the 12 Nov line that pattern editing and AI sketch → 3D are "not built now".
+
+- **Tier 2 is built.** Garments become 2D sewing-pattern pieces that are sewn and draped by a cloth simulation. The plan and measurements are in `docs/research/2d-to-3d.md`.
+  - **The simulation runs in the browser**, in a Web Worker.
+  - **All nine garments** get pattern templates. A garment that can't be draped convincingly shows Pattern mode as "Coming soon" rather than holding up the others.
+  - **Pattern mode is an opt-in beta** on the Garment step. Workflow 2 and the shape sliders stay the default, and only designs that use Pattern mode store a pattern.
+- **Tier 3, the AI assist, is built behind flags and stays off** until the owner turns it on. It runs server-side, and it returns bounded edits, never raw outlines. "No live AI anywhere" (`docs/claims-audit.md`) holds while it's off.
+- **Design rules:**
+  1. **Prints never move.** Each panel has a fixed frame in millimetres from its pattern template. Reshaping a piece only changes which part of the frame the cloth covers.
+  2. **The stored mesh is the source of truth.** The solver repeats on one engine, but share pages, publishing, thumbnails and reloads load the stored mesh rather than re-simulating.
+  3. **Meshes are stored by pattern hash** in their own table, so autosave pruning is unaffected and an edit that leaves the pattern alone reuses its mesh.
+  4. **A design has a shape or a pattern, never both.** Entering Pattern mode folds the shape into the pieces.
+  5. **The reader ships before the writer.** The pattern block is readable a release before any studio writes it (`docs/release.md`).
+
 ## 12 Nov 2026: acting on the founder's MVP review
 
 **Decided by:** owner, on the founder's feedback (reply and status per point: `docs/tester-feedback-reply.md`).

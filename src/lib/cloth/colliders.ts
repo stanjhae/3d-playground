@@ -26,7 +26,15 @@ const TORSO_DEPTH = 0.34
 
 export type ColliderBuild = 'male' | 'female' | 'neutral'
 
-function arm(sign: 1 | -1): Capsule {
+/** +x is the wearer's left, as everywhere in the studio. */
+export type BodySide = 'left' | 'right'
+
+function sideSign(side: BodySide) {
+  return side === 'left' ? 1 : -1
+}
+
+function arm(side: BodySide): Capsule {
+  const sign = sideSign(side)
   const dirX = sign * Math.sin(ARM_DROP)
   const dirY = -Math.cos(ARM_DROP)
   const start = 0.05
@@ -35,7 +43,7 @@ function arm(sign: 1 | -1): Capsule {
   const sy = SHOULDER_Y + dirY * start
 
   return {
-    name: sign > 0 ? 'arm-right' : 'arm-left',
+    name: `arm-${side}`,
     a: [sx, sy, 0],
     b: [sx + dirX * length, sy + dirY * length, 0],
     r: 0.042,
@@ -43,13 +51,25 @@ function arm(sign: 1 | -1): Capsule {
   }
 }
 
+/** The hand: a long sleeve gathers at the wrist instead of sliding off. */
+function hand(side: BodySide): Capsule {
+  const sign = sideSign(side)
+  const dirX = sign * Math.sin(ARM_DROP)
+  const dirY = -Math.cos(ARM_DROP)
+  const reach = 0.05 + 0.5 + 0.08
+  const at: Vec3 = [sign * SLEEVE_PIVOT_X + dirX * reach, SHOULDER_Y + dirY * reach, 0]
+  return { name: `hand-${side}`, a: at, b: at, r: 0.05, s: [0.8, 1.2, 0.6] }
+}
+
 /** The arm's axis, for wrapping a sleeve around it before the drape. */
-export function armAxis(sign: 1 | -1) {
+export function armAxis(side: BodySide) {
+  const sign = sideSign(side)
   const dirX = sign * Math.sin(ARM_DROP)
   const dirY = -Math.cos(ARM_DROP)
 
   return {
     origin: [sign * SLEEVE_PIVOT_X, SHOULDER_Y, 0] as Vec3,
+    /** Down the arm. */
     dir: [dirX, dirY, 0] as Vec3,
     /** Away from the body, square to the arm. */
     out: [sign * Math.cos(ARM_DROP), Math.sin(ARM_DROP), 0] as Vec3,
@@ -59,14 +79,18 @@ export function armAxis(sign: 1 | -1) {
 export const BODY_LANDMARKS = {
   shoulderY: SHOULDER_Y,
   shoulderX: SLEEVE_PIVOT_X,
+  hipY: 0.92,
+  neckY: 1.44,
+  headY: 1.72,
+  legX: 0.078,
 } as const
 
 export function bodyColliders({ build = 'neutral' }: { build?: ColliderBuild } = {}): Capsule[] {
   const torsoX = build === 'female' ? 0.9 : build === 'male' ? 1.04 : 1
   const shoulderSpan = 0.13 * (build === 'female' ? 0.86 : build === 'male' ? 1.08 : 1)
   const capsules: Capsule[] = [
-    { name: 'leg-left', a: [-0.078, 0.1, 0], b: [-0.078, 0.84, 0], r: 0.056, s: [1, 1, 1] },
-    { name: 'leg-right', a: [0.078, 0.1, 0], b: [0.078, 0.84, 0], r: 0.056, s: [1, 1, 1] },
+    { name: 'leg-left', a: [0.078, 0.1, 0], b: [0.078, 0.84, 0], r: 0.056, s: [1, 1, 1] },
+    { name: 'leg-right', a: [-0.078, 0.1, 0], b: [-0.078, 0.84, 0], r: 0.056, s: [1, 1, 1] },
     { name: 'hips', a: [0, 0.86, 0], b: [0, 0.98, 0], r: 0.15, s: [1, 1, TORSO_DEPTH] },
     { name: 'torso', a: [0, 1.02, 0], b: [0, 1.32, 0], r: 0.17, s: [torsoX, 1, TORSO_DEPTH] },
     {
@@ -78,8 +102,10 @@ export function bodyColliders({ build = 'neutral' }: { build?: ColliderBuild } =
     },
     { name: 'neck', a: [0, 1.44, 0], b: [0, 1.62, 0], r: 0.048, s: [1, 1, 1] },
     { name: 'head', a: [0, 1.72, 0.01], b: [0, 1.72, 0.01], r: 0.105, s: [0.95, 1.15, 1] },
-    arm(-1),
-    arm(1),
+    arm('right'),
+    arm('left'),
+    hand('right'),
+    hand('left'),
   ]
 
   if (build === 'female') {

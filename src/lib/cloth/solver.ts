@@ -48,6 +48,12 @@ export type ClothResult = {
 
 const GRAVITY = -9.81
 const SETTLE_SPEED = 0.006
+/** Settled when no more than this share of particles still moves (contact jitter). */
+const SETTLE_RESTLESS = 0.005
+/** A particle pushed out of the body can't fling across the room. */
+const MAX_SPEED = 3
+/** Once the drape has formed, damping climbs to this to quiet contact jitter. */
+const FINAL_DAMPING = 60
 
 export function simulateCloth(input: ClothInput, options: ClothOptions = {}): ClothResult {
   const hz = options.substepsPerSecond ?? 600
@@ -86,11 +92,16 @@ export function simulateCloth(input: ClothInput, options: ClothOptions = {}): Cl
 
   for (; step < maxSteps; step += 1) {
     const t = step * dt
-    const rampT = t < ramp ? t / ramp : 1
-    const g = GRAVITY * (0.2 + 0.8 * rampT)
-    // Stitches start loose and close as the drape begins.
-    const stitchAlpha = (rampT < 1 ? 1e-3 * (1 - rampT) * (1 - rampT) + 1e-8 : 1e-8) / (dt * dt)
-    const damp = 1 - damping * dt
+    // First the seams close with almost no weight on the cloth, so a heavy
+    // garment can't slide off the shoulders before it's sewn; then gravity
+    // comes in.
+    const sewT = t < ramp ? t / ramp : 1
+    const rampT = t < ramp * 0.5 ? 0 : t < ramp * 1.5 ? (t - ramp * 0.5) / ramp : 1
+    const g = GRAVITY * (0.05 + 0.95 * rampT)
+    const stitchAlpha = (sewT < 1 ? 1e-3 * (1 - sewT) * (1 - sewT) + 1e-8 : 1e-8) / (dt * dt)
+    // Damping holds until the drape has formed, then climbs to calm it.
+    const settleRamp = t < ramp * 4 ? 0 : Math.min(1, (t - ramp * 4) / (ramp * 4))
+    const damp = 1 - (damping + (FINAL_DAMPING - damping) * settleRamp) * dt
 
     for (let i = 0; i < n; i += 1) {
       const o = i * 3
@@ -133,15 +144,34 @@ export function simulateCloth(input: ClothInput, options: ClothOptions = {}): Cl
     }
 
     let maxSpeed2 = 0
+    let restless = 0
+    const settle2 = SETTLE_SPEED * SETTLE_SPEED
+    const cap2 = MAX_SPEED * MAX_SPEED
 
-    for (let o = 0; o < x.length; o += 1) {
-      const speed = ((x[o]! - prev[o]!) / dt) * damp
-      v[o] = speed
+    for (let o = 0; o < x.length; o += 3) {
+      let vx = ((x[o]! - prev[o]!) / dt) * damp
+      let vy = ((x[o + 1]! - prev[o + 1]!) / dt) * damp
+      let vz = ((x[o + 2]! - prev[o + 2]!) / dt) * damp
+      let s2 = vx * vx + vy * vy + vz * vz
 
-      const s2 = speed * speed
+      if (s2 > cap2) {
+        const k = MAX_SPEED / Math.sqrt(s2)
+        vx *= k
+        vy *= k
+        vz *= k
+        s2 = cap2
+      }
+
+      v[o] = vx
+      v[o + 1] = vy
+      v[o + 2] = vz
 
       if (s2 > maxSpeed2) {
         maxSpeed2 = s2
+      }
+
+      if (s2 > settle2) {
+        restless += 1
       }
     }
 
@@ -151,7 +181,7 @@ export function simulateCloth(input: ClothInput, options: ClothOptions = {}): Cl
       }
     }
 
-    if (rampT >= 1 && maxSpeed2 < SETTLE_SPEED * SETTLE_SPEED) {
+    if (rampT >= 1 && restless <= n * SETTLE_RESTLESS) {
       settledFor += dt
 
       if (settledFor >= 0.25) {
