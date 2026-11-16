@@ -140,7 +140,7 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
   await visitor.goto('/vote')
   await card.getByRole('link', { name: /^By / }).click()
   await expect(visitor).toHaveURL(new RegExp(`/u/${handle}$`))
-  await expect(visitor.getByText(`@${handle}`, { exact: false })).toBeVisible()
+  await expect(visitor.getByRole('heading', { level: 1 })).toContainText(handle)
   await expect(visitor.locator(`a[href="/s/${slug}"]`)).toBeVisible()
 
   // The voter reports the design; reporting again changes nothing.
