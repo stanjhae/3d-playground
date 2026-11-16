@@ -1,6 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
+import { AI_ASSIST } from '../lib/ai-assist'
 import { CONTACT_EMAIL } from '../lib/alpha-contact'
+import { PATTERN_BETA } from '../lib/pattern-beta'
 
 /** What the alpha stores and how to remove it (Q10 #195). */
 
@@ -37,6 +39,9 @@ function Privacy() {
           <li>Your email address, to send sign-in codes. There are no passwords.</li>
           <li>Your designs and their saved history, private to your account.</li>
           <li>Images you upload into a design, checked and stored privately.</li>
+          {PATTERN_BETA ? (
+            <li>For designs that use Pattern (beta), the draped 3D garment, stored privately with your uploads.</li>
+          ) : null}
           <li>Unsaved changes, kept only in this browser until they reach your account.</li>
           <li>
             If you join the waitlist: the email address you enter, kept only to tell you when there’s news. It isn’t
@@ -88,6 +93,17 @@ function Privacy() {
           error tracking service, where they are kept for up to 90 days.
         </p>
       </div>
+
+      {AI_ASSIST ? (
+        <div className={sectionClass}>
+          <h2 className={headingClass}>AI suggestions</h2>
+          <p className={textClass}>
+            If you use AI suggestion (beta), the sketch and words you give it, and the garment’s pattern, are sent to
+            Anthropic, whose Claude model suggests changes. They aren’t stored by this site. Anthropic handles them under
+            its commercial terms, which don’t allow training on them. Nothing is sent unless you choose Suggest.
+          </p>
+        </div>
+      ) : null}
 
       <div className={sectionClass}>
         <h2 className={headingClass}>Removing your data</h2>

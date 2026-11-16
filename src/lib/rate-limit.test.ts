@@ -188,6 +188,6 @@ describe('outage policies', () => {
       share_page: 'allow',
       public_read: 'allow',
     })
-    expect(RATE_OUTAGE_POLICY).toEqual({ save: 'allow', upload: 'allow', publish: 'refuse', details: 'allow', vote: 'allow' })
+    expect(RATE_OUTAGE_POLICY).toEqual({ save: 'allow', upload: 'allow', publish: 'refuse', details: 'allow', vote: 'allow', ai: 'refuse' })
   })
 })

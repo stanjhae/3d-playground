@@ -31,8 +31,9 @@ function storageFor({ url }: { url: string }) {
   return { cookies: [], origins: [{ origin: new URL(url).origin, localStorage: [{ name: 'flp-pro-tools', value: 'on' }] }] }
 }
 
-// Pattern (beta) is off in production until the owner turns it on; the suite drives it.
-const appEnv = { VITE_FLP_REQUIRE_AUTH: 'true', VITE_FLP_CONTACT_EMAIL: 'alpha@example.test', VITE_PATTERN_BETA: 'true' }
+// Pattern (beta) and the AI suggestion are off in production until the owner turns them on; the suite drives
+// them (the AI route itself is mocked in the browser, so no request leaves for Anthropic).
+const appEnv = { VITE_FLP_REQUIRE_AUTH: 'true', VITE_FLP_CONTACT_EMAIL: 'alpha@example.test', VITE_PATTERN_BETA: 'true', VITE_AI_ASSIST: 'true' }
 
 const devServer = ({ port }: { port: number }) => ({
   command: `pnpm dev --port ${port} --strictPort`,
