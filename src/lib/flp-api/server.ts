@@ -59,6 +59,7 @@ import {
 } from '../rate-limit.ts'
 import { TERMS_VERSION } from '../terms.ts'
 import { deleteAccountAndFiles } from './account-deletion.mjs'
+import { handlePatternMeshes } from './pattern-meshes.ts'
 
 /**
  * FLP design API (S03 #172) behind `/api/flp/*`. The server is the trust
@@ -1058,7 +1059,7 @@ function rateBucket({
     return null
   }
 
-  if (collection === 'assets') {
+  if (collection === 'assets' || collection === 'pattern-meshes') {
     return 'upload'
   }
 
@@ -1206,6 +1207,11 @@ export async function handleFlpRequest({
     if (designId) {
       return fromError({ error: apiError({ code: 'not_found', message: 'Not found' }) })
     }
+  } else if (collection === 'pattern-meshes') {
+    // `/pattern-meshes` and `/pattern-meshes/finalize` only.
+    if ((designId && designId !== 'finalize') || action || rest.length > 0) {
+      return fromError({ error: apiError({ code: 'not_found', message: 'Not found' }) })
+    }
   } else if (
     collection !== 'designs' ||
     // Only `/designs/:id/versions/:seq` has a fourth segment.
@@ -1253,6 +1259,16 @@ export async function handleFlpRequest({
 
   if (collection === 'assets') {
     return handleAssetRequest({ request, admin, asUser, userId: user.userId, assetId: designId, action })
+  }
+
+  if (collection === 'pattern-meshes') {
+    const body = request.method === 'POST' ? await readJson({ request }) : null
+
+    if (body && !body.ok) {
+      return fromError({ error: body.error })
+    }
+
+    return handlePatternMeshes({ request, body: body?.value, admin, asUser, userId: user.userId, action: designId, respond })
   }
 
   // Publication (P01–P05, #179–#183): renders and the public pointer.

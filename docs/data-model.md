@@ -220,6 +220,21 @@ Code: `src/lib/flp-api/publication.ts`, the studio panel `src/components/editor/
 - Public images, the public payload and the share page are sent with `Cache-Control: no-store` (#183), so unpublishing takes effect immediately for every viewer and CDN. Images someone already downloaded can't be recalled (PRD §6.3).
 - The public page is static views only; read-only 3D (PRD S3) would need the published texture.
 
+## Draped pattern meshes (Workflow 1, pattern v1)
+
+A design in Pattern mode is its sewing pattern draped by the studio's cloth solver (`docs/canonical-document.md`). The settled mesh is stored once per owner, pattern hash and solver version in `pattern_meshes` (migration `20261120090000_flp_pattern_meshes`):
+
+- **Columns:** `owner_id`, `pattern_hash` (`hashPattern`), `solver_version`, `status` (`pending` or `ready`), `storage_path`, and `sha256` and `byte_size` once ready. Owners read their own rows; only the service role writes.
+- **The file** is FLPM v1 (`src/lib/pattern/mesh-codec.ts`, about 40 KB for a tee, 1 MiB at most) at `<owner>/meshes/<hash>-s<solver>.flpm` in the private `design-assets` bucket. The bucket now also takes `application/octet-stream`. Image assets are still checked byte by byte on finalize. Meshes are removed with the account, like every upload.
+- **API:**
+  - `POST /pattern-meshes { patternHash, solverVersion }` returns the ready mesh, or reserves an upload.
+  - `POST /pattern-meshes/finalize` checks the upload is an FLPM file naming this pattern and solver, within size, and marks it ready. Otherwise it removes the file and returns 422.
+  - `GET /pattern-meshes?hash=&solver=` returns a signed read URL.
+  - Writes count against the `upload` rate limit.
+- **Quota:** 300 meshes per account (`FL429`).
+- **When the studio stores one:** when a drape has been left unchanged for 30 s, and always before publishing. Loading a saved design fetches its stored mesh before draping.
+- **Publishing:** a version whose content has a pattern publishes only once its mesh is stored. Otherwise the request gets 422 with `$.pattern: no draped mesh`. The public page shows the published views, which are captured from the drape, so it never simulates.
+
 ## History, checkpoints and restore (S07 #176, S08 #177)
 
 No migration: history reads `design_versions` as the user, and checkpoints and restores use the existing `flp_save_version` and `flp_restore_version`.
