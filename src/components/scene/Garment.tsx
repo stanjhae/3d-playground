@@ -40,7 +40,8 @@ import { ATLAS_COMPILER_VERSION, artworkState, useAtlasBuild } from '../../lib/a
 import { createLiveAtlas } from '../../lib/paint-atlas'
 import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { useTextFacesVersion } from '../../lib/text-faces'
-import { clothNormalMap } from '../../lib/fabric-normal'
+import { detailNormalMap } from '../../lib/fabric-detail'
+import { FABRIC_MAP_SRC } from '../../lib/fabric-maps'
 import { createClothingMesh } from '../../lib/tee-geometry'
 import { createShapeRig } from '../../lib/garment-shape'
 import { ClothingPoseContext } from './clothing-pose'
@@ -50,14 +51,6 @@ const PatternGarment = lazy(() => import('./PatternGarment'))
 
 const DRACO_DECODER_PATH = '/draco/'
 const DEFAULT_GARMENT_SRC = garmentSrc({ garmentId: 'gown' })
-
-const FABRIC_MAP_SRC = {
-  'cotton-weave': '/fabrics/cotton-weave.png',
-  'silk-shine': '/fabrics/silk-shine.png',
-  'wool-nap': '/fabrics/wool-nap.png',
-  'denim-twill': '/fabrics/denim-twill.png',
-  'leather-grain': '/fabrics/leather-grain.png',
-} as const
 
 useGLTF.setDecoderPath(DRACO_DECODER_PATH)
 
@@ -360,6 +353,9 @@ export function SeatedForm({
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
   const panelFlash = useEditorStore((state) => state.panelFlash)
   const loadedMaps = useTexture(FABRIC_MAP_SRC)
+  // The studio's Surface choice; anywhere else, each fabric's own relief.
+  const storeSurface = useEditorStore((state) => state.surface)
+  const surface = picking ? storeSurface : 'preset'
   const lerpClock = useRef(1)
   // On-demand rendering: each change below asks for a frame.
   const invalidate = useThree((state) => state.invalidate)
@@ -409,14 +405,21 @@ export function SeatedForm({
       overrides,
       maps: loadedMaps as Record<string, Texture>,
       animate: picking,
+      surface,
     })
 
     // After the overrides, which can swap a mesh's material for a new one.
+    // The built tee is knit; a chosen fabric's own relief (or none) wins.
     if (clothDetail) {
       for (const mesh of meshes) {
         for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-          if (material instanceof MeshStandardMaterial && !material.normalMap) {
-            material.normalMap = clothNormalMap()
+          if (
+            material instanceof MeshStandardMaterial &&
+            !material.normalMap &&
+            material.userData.detailId === undefined &&
+            surface !== 'none'
+          ) {
+            material.normalMap = detailNormalMap({ id: 'knit' })
             material.needsUpdate = true
           }
         }
@@ -425,7 +428,7 @@ export function SeatedForm({
 
     lerpClock.current = picking ? 0 : 1
     invalidate()
-  }, [baseMaterials, clothDetail, invalidate, loadedMaps, meshes, overrides, picking])
+  }, [baseMaterials, clothDetail, invalidate, loadedMaps, meshes, overrides, picking, surface])
 
   useLayoutEffect(() => {
     if (typeof document === 'undefined') {
