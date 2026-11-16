@@ -61,6 +61,16 @@ export function normalizeCanonicalDocument({
   return normalizeValue({ value: document }) as CanonicalDocument
 }
 
+/** Any part of a document in its stored form (a pattern block, say), as JSON. */
+export function serializeCanonicalValue({ value }: { value: unknown }) {
+  return JSON.stringify(normalizeValue({ value }))
+}
+
+export async function sha256Hex({ text }: { text: string }) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
 export function serializeCanonicalDocument({
   document,
 }: {
