@@ -309,6 +309,24 @@ create unique index publication_reports_open_once
 create unique index publication_reports_comment_open_once
   on public.publication_reports (comment_id, reporter_id) where status = 'open' and comment_id is not null;
 
+-- What every report must carry: a known reason and at most a short note.
+create function public.flp_check_report(p_reason text, p_note text)
+returns void
+language plpgsql
+immutable
+set search_path = ''
+as $$
+begin
+  if p_reason is null or p_reason not in ('copyright', 'offensive', 'spam', 'other') then
+    raise exception 'reason must be copyright, offensive, spam or other' using errcode = 'FL422';
+  end if;
+
+  if p_note is not null and char_length(btrim(p_note)) > 500 then
+    raise exception 'note must be at most 500 characters' using errcode = 'FL422';
+  end if;
+end;
+$$;
+
 create function public.flp_report_comment(
   p_reporter_id uuid,
   p_slug text,
@@ -332,13 +350,7 @@ begin
     raise exception 'comment not found' using errcode = 'FL404';
   end if;
 
-  if p_reason is null or p_reason not in ('copyright', 'offensive', 'spam', 'other') then
-    raise exception 'reason must be copyright, offensive, spam or other' using errcode = 'FL422';
-  end if;
-
-  if p_note is not null and char_length(btrim(p_note)) > 500 then
-    raise exception 'note must be at most 500 characters' using errcode = 'FL422';
-  end if;
+  perform public.flp_check_report(p_reason, p_note);
 
   insert into public.publication_reports (slug, comment_id, reporter_id, reason, note)
   values (p_slug, p_comment_id, p_reporter_id, p_reason, nullif(btrim(p_note), ''))
@@ -346,7 +358,8 @@ begin
 end;
 $$;
 
--- The design report's conflict target changed with its index.
+-- The design report's conflict target changed with its index, and its
+-- checks are now shared with comment reports.
 create or replace function public.flp_report_publication(
   p_reporter_id uuid,
   p_slug text,
@@ -362,13 +375,7 @@ begin
   perform public.flp_require_owner(p_reporter_id);
   perform public.flp_lock_live_publication(p_slug);
 
-  if p_reason is null or p_reason not in ('copyright', 'offensive', 'spam', 'other') then
-    raise exception 'reason must be copyright, offensive, spam or other' using errcode = 'FL422';
-  end if;
-
-  if p_note is not null and char_length(btrim(p_note)) > 500 then
-    raise exception 'note must be at most 500 characters' using errcode = 'FL422';
-  end if;
+  perform public.flp_check_report(p_reason, p_note);
 
   insert into public.publication_reports (slug, reporter_id, reason, note)
   values (p_slug, p_reporter_id, p_reason, nullif(btrim(p_note), ''))
@@ -381,6 +388,7 @@ $$;
 -- ---------------------------------------------------------------------------
 
 revoke all on function
+  public.flp_check_report(text, text),
   public.flp_author_label(uuid),
   public.flp_list_comments(text, uuid, integer),
   public.flp_add_comment(uuid, text, text),

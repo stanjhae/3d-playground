@@ -1,5 +1,4 @@
-import { useSessionStore } from './auth/session-store.ts'
-import { type FlpResult, call } from './flp-api/client.ts'
+import { call, publicRead } from './flp-api/client.ts'
 import type { DesignComment, FollowState } from './flp-api/contract.ts'
 import type { BoardEntry } from './flp-api/publication.ts'
 
@@ -11,27 +10,6 @@ export const COMMUNITY = import.meta.env.VITE_COMMUNITY === 'true'
 
 const commentsPath = ({ slug }: { slug: string }) => `public/${encodeURIComponent(slug)}/comments`
 const followPath = ({ handle }: { handle: string }) => `public/u/${encodeURIComponent(handle)}/follow`
-
-/** Reads without a session when signed out, so the page never asks to sign in to read. */
-async function publicRead<T>({ path, fetchImpl = fetch }: { path: string; fetchImpl?: typeof fetch }): Promise<FlpResult<T>> {
-  if (useSessionStore.getState().status === 'signed-in') {
-    return call<T>({ path, fetchImpl })
-  }
-
-  try {
-    const response = await fetchImpl(`/api/flp/${path}`)
-
-    if (response.ok) {
-      return { ok: true, data: (await response.json()) as T }
-    }
-
-    return response.status === 404
-      ? { ok: false, code: 'not_found', message: 'This isn’t available' }
-      : { ok: false, code: 'internal', message: 'This could not load' }
-  } catch {
-    return { ok: false, code: 'network', message: 'Could not reach the server' }
-  }
-}
 
 export function getComments({ slug, fetchImpl }: { slug: string; fetchImpl?: typeof fetch }) {
   return publicRead<{ comments: DesignComment[] }>({ path: commentsPath({ slug }), fetchImpl })

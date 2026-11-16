@@ -26,7 +26,8 @@ import {
   type VersionSummary,
   apiError,
   apiErrorFromDatabase,
-  isHandle,
+  handleFromPath,
+  isUuid,
   parseAcceptTermsRequest,
   parseCreateDesignRequest,
   parseDeleteAccountRequest,
@@ -1121,8 +1122,6 @@ async function handleVote({
   return json({ status: 200, body: state })
 }
 
-const COMMENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-
 type CommentRow = {
   id: string
   body: string
@@ -1162,7 +1161,7 @@ async function handleComments({
     return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
   }
 
-  if (!slug || !SLUG.test(slug) || (commentId && !COMMENT_ID.test(commentId))) {
+  if (!slug || !SLUG.test(slug) || (commentId && !isUuid(commentId))) {
     return designUnavailable()
   }
 
@@ -1248,9 +1247,9 @@ async function handleFollow({ request, env, handle }: { request: Request; env: F
   }
 
   const notFound = () => fromError({ error: apiError({ code: 'not_found', message: 'This profile is not available' }) })
-  const normal = decodeURIComponent(handle).trim().toLowerCase()
+  const normal = handleFromPath(handle)
 
-  if (!isHandle(normal)) {
+  if (!normal) {
     return notFound()
   }
 
