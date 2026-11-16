@@ -2,6 +2,29 @@
 
 **Status:** research note, 12 Nov 2026. Written for the founder's MVP review, which asked whether users could change a garment's shape, cut and proportions in 2D and have the 3D garment follow. That is the founder's "Workflow 1". Nothing here is a product claim, and `docs/claims-audit.md` still applies, including "no live AI anywhere".
 
+## Status, 16 Nov 2026: Tier 2 is being built
+
+The owner chose to build Tiers 2 and 3 in full: in-browser simulation, all garments, Pattern mode as an opt-in beta, and the AI assist behind flags. The decision and its design rules are in `docs/decisions.md` (16 Nov). The phases are:
+
+| Phase | What | State |
+| --- | --- | --- |
+| 0a | The `pattern` block reader (`docs/canonical-document.md`) | In review |
+| 1 | Pattern geometry: Béziers, mirroring, sewability checks, meshing, placement, edit operators | In review |
+| 2 | The XPBD cloth solver in a Web Worker | In review |
+| 0b | Pattern templates for all nine garments | Next |
+| 3–6 | Rendering, stored meshes, the Pattern (beta) editor, the AI assist | Planned |
+
+**Spike S1 (tee drape), measured.** A four-piece tee: front, back, a sleeve and its mirror, ten seams.
+- At 25 mm spacing it has about 1,560 particles and 2,850 triangles. It settles in about 3 s of simulated time, which took 0.4–0.6 s in node on a desktop.
+- The seams weld shut, no particle ends inside the body, and the same pattern drapes bit-for-bit the same twice.
+- Stretch compliance below 1e-7 goes unstable with one constraint pass per substep, so fabrics sit between 5e-7 (firm) and 2e-6 (jersey).
+- Two things were needed for edits at their limits:
+  - The seams close under almost no gravity before the weight comes in. Without that, a long, flared garment slid off the shoulders.
+  - The mannequin's hands are colliders, so a sleeve longer than the arm gathers at the wrist.
+- Damping climbs once the drape has formed, and the cloth counts as settled when no more than 0.5% of particles still move. That handles contact jitter, for example a long hem between the legs.
+
+Still to measure: phones (the target is under 6 s for a tee), and the tailored garments (spike S2, with the templates).
+
 ## Where we are
 
 The alpha follows **Workflow 2**: one fixed 3D garment per template, decorated by a 2D print document.

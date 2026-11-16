@@ -31,8 +31,8 @@ export function fixtureTeePattern(): CanonicalPattern {
         label: 'Front',
         panelOrigin: [340, 40],
         outline: bodice(590),
-        roles: { hem: ['hemL', 'hemR'], neck: ['neckR', 'neckC', 'neckL'] },
-        place: { anchor: 'front', wrap: 'plane', offset: [0, 0, 100], rot: 0 },
+        roles: { hem: ['hemL', 'hemR'], side: ['hemL', 'hemR'], armhole: ['armR', 'armL'], neck: ['neckR', 'neckC', 'neckL'] },
+        place: { anchor: 'front', wrap: 'plane', offset: [0, -640, 100], rot: 0 },
       },
       {
         id: 'back',
@@ -40,8 +40,8 @@ export function fixtureTeePattern(): CanonicalPattern {
         label: 'Back',
         panelOrigin: [340, 40],
         outline: bodice(655),
-        roles: { hem: ['hemL', 'hemR'] },
-        place: { anchor: 'back', wrap: 'plane', offset: [0, 0, 100], rot: 0 },
+        roles: { hem: ['hemL', 'hemR'], side: ['hemL', 'hemR'], armhole: ['armR', 'armL'] },
+        place: { anchor: 'back', wrap: 'plane', offset: [0, -640, 100], rot: 0 },
       },
       {
         id: 'sleeveR',
@@ -56,7 +56,7 @@ export function fixtureTeePattern(): CanonicalPattern {
           { id: 'capL', x: -215, y: 180 },
         ],
         roles: { cuff: ['cuffL', 'cuffR'] },
-        place: { anchor: 'arm-right', wrap: 'cylinder', offset: [0, 30, 0], rot: 0 },
+        place: { anchor: 'arm-right', wrap: 'cylinder', offset: [0, 30, 12], rot: 0 },
         fabric: 'jersey',
       },
       {
@@ -65,20 +65,22 @@ export function fixtureTeePattern(): CanonicalPattern {
         label: 'Left sleeve',
         panelOrigin: [240, 20],
         mirrorOf: 'sleeveR',
-        place: { anchor: 'arm-left', wrap: 'cylinder', offset: [0, 30, 0], rot: 0 },
+        place: { anchor: 'arm-left', wrap: 'cylinder', offset: [0, 30, 12], rot: 0 },
       },
     ],
+    // Front piece +x and back piece −x are the wearer's left (+x). On both
+    // sleeves the capR half faces the front.
     seams: [
-      { id: 'sideR', kind: 'sew', a: { piece: 'front', from: 'hemR', to: 'armR' }, b: { piece: 'back', from: 'armL', to: 'hemL' } },
-      { id: 'sideL', kind: 'sew', a: { piece: 'front', from: 'armL', to: 'hemL' }, b: { piece: 'back', from: 'hemR', to: 'armR' } },
-      { id: 'shoulderR', kind: 'sew', a: { piece: 'front', from: 'shR', to: 'neckR' }, b: { piece: 'back', from: 'neckL', to: 'shL' } },
-      { id: 'shoulderL', kind: 'sew', a: { piece: 'front', from: 'neckL', to: 'shL' }, b: { piece: 'back', from: 'shR', to: 'neckR' } },
-      { id: 'capFrontR', kind: 'ease', a: { piece: 'front', from: 'armR', to: 'shR' }, b: { piece: 'sleeveR', from: 'capMid', to: 'capL' } },
-      { id: 'capBackR', kind: 'ease', a: { piece: 'back', from: 'shL', to: 'armL' }, b: { piece: 'sleeveR', from: 'capR', to: 'capMid' } },
-      { id: 'capFrontL', kind: 'ease', a: { piece: 'front', from: 'shL', to: 'armL' }, b: { piece: 'sleeveL', from: 'capR', to: 'capMid' } },
-      { id: 'capBackL', kind: 'ease', a: { piece: 'back', from: 'armR', to: 'shR' }, b: { piece: 'sleeveL', from: 'capMid', to: 'capL' } },
+      { id: 'sideL', kind: 'sew', a: { piece: 'front', from: 'hemR', to: 'armR' }, b: { piece: 'back', from: 'armL', to: 'hemL' } },
+      { id: 'sideR', kind: 'sew', a: { piece: 'front', from: 'armL', to: 'hemL' }, b: { piece: 'back', from: 'hemR', to: 'armR' } },
+      { id: 'shoulderL', kind: 'sew', a: { piece: 'front', from: 'shR', to: 'neckR' }, b: { piece: 'back', from: 'neckL', to: 'shL' } },
+      { id: 'shoulderR', kind: 'sew', a: { piece: 'front', from: 'neckL', to: 'shL' }, b: { piece: 'back', from: 'shR', to: 'neckR' } },
+      { id: 'capFrontL', kind: 'ease', a: { piece: 'front', from: 'armR', to: 'shR' }, b: { piece: 'sleeveL', from: 'capMid', to: 'capR' } },
+      { id: 'capBackL', kind: 'ease', a: { piece: 'back', from: 'shL', to: 'armL' }, b: { piece: 'sleeveL', from: 'capL', to: 'capMid' } },
+      { id: 'capFrontR', kind: 'ease', a: { piece: 'front', from: 'shL', to: 'armL' }, b: { piece: 'sleeveR', from: 'capR', to: 'capMid' } },
+      { id: 'capBackR', kind: 'ease', a: { piece: 'back', from: 'armR', to: 'shR' }, b: { piece: 'sleeveR', from: 'capMid', to: 'capL' } },
       { id: 'underR', kind: 'sew', a: { piece: 'sleeveR', from: 'cuffR', to: 'capR' }, b: { piece: 'sleeveR', from: 'capL', to: 'cuffL' } },
-      { id: 'underL', kind: 'sew', a: { piece: 'sleeveL', from: 'cuffR', to: 'capR' }, b: { piece: 'sleeveL', from: 'capL', to: 'cuffL' } },
+      { id: 'underL', kind: 'sew', a: { piece: 'sleeveL', from: 'capR', to: 'cuffR' }, b: { piece: 'sleeveL', from: 'cuffL', to: 'capL' } },
     ],
   }
 }
