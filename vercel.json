@@ -76,7 +76,8 @@
       "includeFiles": "src/lib/**"
     },
     "api/flp.ts": {
-      "includeFiles": "src/lib/**"
+      "includeFiles": "src/lib/**",
+      "maxDuration": 45
     },
     "api/og-share.ts": {
       "includeFiles": "src/lib/**"

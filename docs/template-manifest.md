@@ -121,3 +121,24 @@ A downloaded garment becomes a template with `scripts/build-template.mjs` and a 
 | `slip@1`, `overall@1`, `gown@1` | front, back | `public/models/slip.glb`, `overall.glb`, `garment-print.glb` |
 
 Every garment but the hidden house jacket now has a template; front and back take all of a garment's cloth pieces (the facing test keeps them apart), and sleeves their own nodes. A board look on one of these garments opens in the studio with its cloth colour; its marks and art stay on the original.
+
+## Pattern templates (Workflow 1, pattern v1)
+
+Each garment's current template version has a **pattern template**: the sewing pattern a design starts from in Pattern mode, plus a fixed print frame per panel (`src/lib/pattern/templates.ts`). A design records the one it used in `pattern.basis` (`docs/canonical-document.md`).
+
+| Template | Pieces |
+| --- | --- |
+| `tee-crew-short@4` | Front, back, two set-in sleeves |
+| `hoodie@1` | Front, back, two sleeves, two hood halves (`hood-left`, `hood-right`) |
+| `coat@1`, `suit@1`, `tailored@1` | A deep-V front, back, two sleeves. The suit adds trousers: a front and a back across both legs |
+| `mixed@1` | A shirt over a two-piece skirt |
+| `slip@1`, `overall@1`, `gown@1` | Front and back: straps and a V, a square bib, or a fitted floor-length bodice |
+
+- **Built from families.** Templates are built from pattern families (`src/lib/pattern/families.ts`: bodice, set-in sleeve, hood, skirt, trousers), not from baked files. A shipped `patternVersion` must never change, so `templates.test.ts` pins each one by the hash of its pattern and of its frames. If a change to a family moves a pinned hash, give that garment a new `patternVersion` and keep the old one, as template versions are kept.
+- **Frames.** Each panel's pieces are laid into one frame in millimetres: stacked top to bottom, centred, and sized to the GLB panel's aspect (`surface.panelAspect`). Panel-normalised prints keep their proportions on the cloth. A back panel's frame is mirrored, so it reads as seen through the body, as the back panel does today.
+- **The drape body** is a dress form built from the mannequin's shapes (`src/lib/cloth/colliders.ts`):
+  - The hips are wider than the waist, and the shoulders reach the arms.
+  - Shoulders and hips hold cloth with high friction.
+  - A skirt or trouser waistband can't sag more than 1.5 cm.
+  - Upper garments worn over skirts or trousers sit 8 mm out.
+- **Simplified for the beta.** Coats and suits have a one-piece deep-V front instead of overlapping lapels (spike S2): overlapping fronts would need cloth-to-cloth collision.

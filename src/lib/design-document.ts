@@ -1,4 +1,5 @@
 import type { GarmentShape } from './garment-shape-params.ts'
+import type { CanonicalPattern } from './pattern/pattern-document.ts'
 import {
   type Design,
   type GarmentId,
@@ -215,6 +216,18 @@ export type DesignDocument = {
   modelFrame?: ModelFrame
   /** Parametric shape for the 3D model (`garment-shape.ts`); absent when neutral. */
   shape?: GarmentShape
+  /**
+   * Pattern mode: the garment is these pieces sewn and draped (`PatternGarment`),
+   * printed through each piece's frame. Absent when the design has no pattern.
+   */
+  pattern?: PatternRender
+}
+
+/** What the renderer needs to drape and print a pattern (frames come from its template). */
+export type PatternRender = {
+  pattern: CanonicalPattern
+  /** Canonical panel → the render panel whose atlas rectangle it prints in. */
+  renderPanels: Record<string, PanelId>
 }
 
 /** A real model's extent and its sleeves (by side), in metres. */

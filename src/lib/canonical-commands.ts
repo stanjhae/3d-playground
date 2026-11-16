@@ -1,3 +1,4 @@
+import type { CanonicalPattern } from './pattern/pattern-document.ts'
 import {
   type CanonicalDocument,
   type CanonicalLayer,
@@ -74,6 +75,8 @@ export type CanonicalCommand =
    * Out-of-range values are refused, not clamped: the UI clamps.
    */
   | { type: 'setShape'; shape: Partial<CanonicalShape> }
+  /** Pattern mode: a pattern replaces the shape; null leaves Pattern mode. */
+  | { type: 'setPattern'; pattern: CanonicalPattern | null }
   /** Several commands as one undo step, e.g. clearing every paint layer. */
   | { type: 'batch'; commands: CanonicalCommand[] }
 
@@ -395,6 +398,18 @@ function applyToDocument({
       target.splice(found.index + 1, 0, copy)
     } else {
       target.push(copy)
+    }
+
+    return { ok: true, document: next }
+  }
+
+  if (command.type === 'setPattern') {
+    if (command.pattern) {
+      next.pattern = structuredClone(command.pattern)
+      // One or the other: the shape was folded into the pattern.
+      delete next.shape
+    } else {
+      delete next.pattern
     }
 
     return { ok: true, document: next }

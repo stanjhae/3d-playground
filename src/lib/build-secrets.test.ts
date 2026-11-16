@@ -44,6 +44,9 @@ describe('built bundle', () => {
     test.each(Object.entries(files).map(([file, text]) => [file.replace('../../dist/', ''), text]))('%s', (_, text) => {
       expect(text).not.toContain('service_role')
       expect(text).not.toMatch(/sb_secret_[\w-]{8,}/)
+      // The AI assist's key stays on the server (Workflow 1, Tier 3).
+      expect(text).not.toMatch(/sk-ant-[\w-]{8,}/)
+      expect(text).not.toContain('ANTHROPIC_API_KEY')
       expect(jwtRoles(text)).not.toContain('service_role')
 
       if (secret) {

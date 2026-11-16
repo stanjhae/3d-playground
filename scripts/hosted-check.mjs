@@ -274,6 +274,7 @@ await check({
       })
       expect(!text.includes('service_role') && !roles.includes('service_role'), `${src} mentions service_role`)
       expect(!/sb_secret_[\w-]{8,}/.test(text), `${src} contains an sb_secret_ key`)
+      expect(!/sk-ant-[\w-]{8,}/.test(text), `${src} contains an Anthropic key`)
       expect(!SECRET_KEY || !text.includes(SECRET_KEY), `${src} contains the SUPABASE_SECRET_KEY value`)
     }
 
