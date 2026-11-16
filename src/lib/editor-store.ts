@@ -194,6 +194,12 @@ type EditorState = {
   }) => void
   reset: () => void
   setPaintPanel: ({ paintPanel }: { paintPanel: PanelId }) => void
+  /**
+   * Picking a side in the 2D editor: it becomes the side being drawn on and
+   * the 3D view turns to it (founder review, 16 Nov). Only a change of side
+   * turns it, so the view can still be turned by hand while drawing.
+   */
+  showPanel: ({ panel }: { panel: PanelId }) => void
   setPaintTool: ({ paintTool }: { paintTool: EditorPaintTool }) => void
   setPaintColor: ({ paintColor }: { paintColor: string }) => void
   setPaintWidth: ({ paintWidth }: { paintWidth: number }) => void
@@ -1058,6 +1064,14 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setPaintPanel: ({ paintPanel }) => {
     set({ paintPanel })
+  },
+  showPanel: ({ panel }) => {
+    set((state) =>
+      state.paintPanel === panel && state.cameraPreset === panel
+        ? state
+        : // Camera presets are named by render panel, as `paintPanel` is.
+          { paintPanel: panel, ...(state.paintPanel !== panel && !state.capturingAngles ? { cameraPreset: panel as CameraPreset } : {}) },
+    )
   },
   setPaintTool: ({ paintTool }) => {
     set({ paintTool })

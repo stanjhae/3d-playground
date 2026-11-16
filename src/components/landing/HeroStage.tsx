@@ -4,9 +4,10 @@ import { detectWebgl, webglTestMode } from '../scene/webgl-status'
 import { cn } from '../../lib/cn'
 import { heroSceneTrigger, readHeroSceneSignals, whenIdle } from '../../lib/hero-scene-gate'
 import { LANDING_COPY } from '../../lib/landing-copy'
-import { landingClothOverrides } from '../../lib/landing-demo'
+import { LANDING_VIEW_PANEL, landingClothOverrides, stampLandingGraphic } from '../../lib/landing-demo'
 import { LANDING_TEE_COLOR, landingDemoDocument, useLandingDemoStore } from '../../lib/landing-demo-store'
 import { HeroPoster } from './HeroPoster'
+import { GRAPHIC_DRAG_TYPE } from './HeroToolDock'
 
 const LandingCloth = lazy(() => import('./LandingCloth'))
 const COPY = LANDING_COPY.hero
@@ -39,6 +40,7 @@ export function HeroStage() {
   const cameraView = useLandingDemoStore((state) => state.cameraView)
   const wantsScene = useLandingDemoStore((state) => state.wantsScene)
   const requestScene = useLandingDemoStore((state) => state.requestScene)
+  const apply = useLandingDemoStore((state) => state.apply)
   const [webgl] = useState(() => {
     if (webglTestMode({ search: window.location.search, dev: import.meta.env.DEV }) === 'none') return false
     return detectWebgl({ createCanvas: () => window.document.createElement('canvas') })
@@ -73,9 +75,24 @@ export function HeroStage() {
   return (
     <div
       ref={box}
-      className="flv-stage relative mx-auto aspect-square w-full max-w-[36rem] overflow-hidden rounded-[2rem] border border-flv-line bg-white shadow-[0_40px_80px_-30px_rgb(11_13_18_/0.35)]"
+      className="flv-stage relative mx-auto aspect-square w-full max-w-[36rem] overflow-hidden lg:max-w-[min(30rem,62vh)] rounded-[2rem] border border-flv-line bg-white shadow-[0_40px_80px_-30px_rgb(11_13_18_/0.35)]"
       onPointerDown={() => {
         if (trigger !== 'never') requestScene()
+      }}
+      // A graphic dragged from the tools lands on the side the tee is showing.
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes(GRAPHIC_DRAG_TYPE)) {
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'copy'
+        }
+      }}
+      onDrop={(event) => {
+        const src = event.dataTransfer.getData(GRAPHIC_DRAG_TYPE)
+
+        if (!src) return
+        event.preventDefault()
+        const panel = LANDING_VIEW_PANEL[useLandingDemoStore.getState().cameraView ?? 'front']
+        apply((previous) => stampLandingGraphic({ document: previous, src, panel }))
       }}
     >
       <HeroPoster className={cn('transition-opacity duration-700', { 'opacity-0': ready })} />

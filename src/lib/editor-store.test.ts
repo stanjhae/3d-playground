@@ -722,4 +722,19 @@ describe('useEditorStore', () => {
       original.src,
     )
   })
+
+  test('picking a side in 2D turns the 3D view to it, once', () => {
+    const store = useEditorStore.getState()
+    store.showPanel({ panel: 'back' })
+    expect(useEditorStore.getState()).toMatchObject({ paintPanel: 'back', cameraPreset: 'back' })
+
+    // Turned by hand afterwards: drawing on the same side leaves the view alone.
+    useEditorStore.getState().setCameraPreset({ cameraPreset: 'threeQuarter' })
+    useEditorStore.getState().showPanel({ panel: 'back' })
+    expect(useEditorStore.getState().cameraPreset).toBe('threeQuarter')
+
+    // Camera presets are named by render panel, as the sides are.
+    useEditorStore.getState().showPanel({ panel: 'left' })
+    expect(useEditorStore.getState().cameraPreset).toBe('left')
+  })
 })

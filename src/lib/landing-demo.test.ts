@@ -8,6 +8,8 @@ import {
   colorWithOpacity,
   garmentCategory,
   LANDING_CAMERA_POSITIONS,
+  LANDING_VIEW_PANEL,
+  padToPanel,
   landingClothOverrides,
   latestLandingGraphicId,
   listGarmentsByCategory,
@@ -23,6 +25,7 @@ import {
   SHOOT_PRESETS,
   VIDEO_SCENES,
 } from './landing-demo'
+import { resolveTemplate } from './template-manifest'
 
 describe('landing-demo', () => {
   test('maps garments into marketing categories', () => {
@@ -119,8 +122,11 @@ describe('landing-demo', () => {
   test('maps camera views to azimuth and known seats', () => {
     expect(cameraViewAzimuth({ view: 'front' })).toBe(0)
     expect(cameraViewAzimuth({ view: 'back' })).toBe(Math.PI)
-    expect(cameraViewAzimuth({ view: 'left' })).toBe(-Math.PI / 2)
-    expect(cameraViewAzimuth({ view: 'right' })).toBe(Math.PI / 2)
+    // The wearer's sides: Left looks at the left sleeve, at +x.
+    expect(cameraViewAzimuth({ view: 'left' })).toBe(Math.PI / 2)
+    expect(cameraViewAzimuth({ view: 'right' })).toBe(-Math.PI / 2)
+    expect(LANDING_CAMERA_POSITIONS.left[0]).toBeGreaterThan(0)
+    expect(LANDING_CAMERA_POSITIONS.right[0]).toBeLessThan(0)
     expect(LANDING_CAMERA_POSITIONS.front[2]).toBeGreaterThan(0)
     expect(LANDING_CAMERA_POSITIONS.back[2]).toBeLessThan(0)
   })
@@ -219,5 +225,26 @@ describe('landing-demo', () => {
     expect(colorWithOpacity({ color: '#ff00aa', opacity: 1 })).toBe('#ff00aaff')
     expect(colorWithOpacity({ color: '#ff00aa', opacity: 0 })).toBe('#ff00aa00')
     expect(colorWithOpacity({ color: '#abc', opacity: 0.5 })).toBe('#aabbcc80')
+  })
+})
+
+describe('drawing on a side of the landing tee', () => {
+  test("each view draws on its own panel, sleeves by the wearer's side", () => {
+    const resolved = resolveTemplate({ id: 'tee-crew-short', version: 4 })
+    expect(resolved.ok).toBe(true)
+
+    if (resolved.ok) {
+      for (const view of ['front', 'back', 'left', 'right'] as const) {
+        expect(LANDING_VIEW_PANEL[view]).toBe(resolved.manifest.regions[view]!.renderPanel)
+      }
+    }
+  })
+
+  test('the pad keeps its proportions on a panel of any shape', () => {
+    // A 2.4:1 pad on a 0.6:1 sleeve: full width, a centred band of the height.
+    expect(padToPanel({ x: 0, y: 0, padAspect: 2.4, panelAspect: 0.6 })).toEqual({ x: 0, y: 0.375 })
+    expect(padToPanel({ x: 1, y: 1, padAspect: 2.4, panelAspect: 0.6 })).toEqual({ x: 1, y: 0.625 })
+    // A panel wider than the pad: full height, a centred band of the width.
+    expect(padToPanel({ x: 0, y: 0.5, padAspect: 1, panelAspect: 2 })).toEqual({ x: 0.25, y: 0.5 })
   })
 })

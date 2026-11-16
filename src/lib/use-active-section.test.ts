@@ -20,4 +20,15 @@ describe('sectionInBand', () => {
   it('marks nothing above the first section', () => {
     expect(sectionInBand({ viewportHeight: 800, sections: [{ id: 'flow', top: 900, bottom: 1700 }] })).toBeNull()
   })
+
+  it('marks the last section at the end of the page, though it never reaches the band', () => {
+    const sections = [
+      { id: 'vote', top: -400, bottom: 420 },
+      { id: 'faq', top: 420, bottom: 760 },
+    ]
+    expect(sectionInBand({ viewportHeight: 800, sections })).toBe('vote')
+    expect(sectionInBand({ viewportHeight: 800, sections, atEnd: true })).toBe('faq')
+    // Not while it's still below the screen.
+    expect(sectionInBand({ viewportHeight: 800, sections: [sections[0]!, { id: 'faq', top: 900, bottom: 1200 }], atEnd: true })).toBe('vote')
+  })
 })
