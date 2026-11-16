@@ -176,7 +176,10 @@ function applyOne(pattern: Mutable, raw: PatternOp) {
   }
 }
 
-export type OpsResult = { ok: true; pattern: CanonicalPattern } | { ok: false; issues: GeometryIssue[] }
+export type OpsResult =
+  | { ok: true; pattern: CanonicalPattern }
+  /** `attempted` is the edit as it would have been, for saying why it can't be sewn. */
+  | { ok: false; issues: GeometryIssue[]; attempted: CanonicalPattern }
 
 /**
  * Applies the ops in order to a copy, clamping each to its bounds. The
@@ -198,7 +201,7 @@ export function applyPatternOps({
   }
 
   const issues = validateGeometry({ pattern: next, frames })
-  return issues.length > 0 ? { ok: false, issues } : { ok: true, pattern: next }
+  return issues.length > 0 ? { ok: false, issues, attempted: next } : { ok: true, pattern: next }
 }
 
 /** Whether a value is a well-formed op (for the AI's output and stored edits). */

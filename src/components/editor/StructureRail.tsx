@@ -1,9 +1,12 @@
+import { lazy, Suspense } from 'react'
+
 import { cn } from '../../lib/cn'
 import { nextCreateStep } from '../../lib/create-steps'
-import { useCanEditShape, useEditorStore } from '../../lib/editor-store'
+import { useCanEditShape, useEditorStore, usePatternAvailable } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { garmentStructural } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
+import { PatternSwitch } from '../pattern/PatternSwitch'
 import { ShapeRail } from './ShapeRail'
 import {
   chromeKickerClass,
@@ -13,6 +16,8 @@ import {
   railFrameClass,
 } from '../../lib/studio-chrome'
 
+const PatternEditor = lazy(() => import('../pattern/PatternEditor'))
+
 export function StructureRail() {
   const garmentId = useEditorStore((state) => state.garmentId)
   const structural = useEditorStore((state) => state.document.structural)
@@ -21,6 +26,24 @@ export function StructureRail() {
   const setCreateStep = useEditorStore((state) => state.setCreateStep)
   const fields = garmentStructural({ garmentId })
   const shaped = useCanEditShape()
+  const patternable = usePatternAvailable()
+  const inPattern = useEditorStore((state) => Boolean(state.document.pattern))
+
+  // Pattern (beta): the switch, then the pattern editor in place of the sliders.
+  if (patternable) {
+    return (
+      <div className="flex flex-col gap-3">
+        <PatternSwitch />
+        {inPattern ? (
+          <Suspense fallback={<p className={chromeMutedClass()}>Opening the pattern…</p>}>
+            <PatternEditor />
+          </Suspense>
+        ) : shaped ? (
+          <ShapeRail />
+        ) : null}
+      </div>
+    )
+  }
 
   // A model with a shape map gets sliders in place of the crew/v, crop/long toggles.
   if (shaped) {

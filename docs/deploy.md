@@ -114,6 +114,7 @@ Set these per environment (Preview = staging, Production = production). **Never 
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser | Project publishable (anon) key |
 | `VITE_FLP_REQUIRE_AUTH` | Browser and server | `true`. `api/designs.ts` also reads it: with Supabase configured, the legacy guest board refuses new looks and votes unless this is `false` (#144). |
 | `VITE_FLP_CONCEPT` | Browser | `false` (non-tee concept features stay off) |
+| `VITE_PATTERN_BETA` | Browser | Unset or `false`: Pattern (beta) is off, and nothing writes a pattern. Set `true` to show the "Pattern (beta)" switch on the Garment step (Workflow 1). Turn it on only after a release with the pattern reader has been deployed for a release cycle (`docs/release.md`), and after migration `20261120090000_flp_pattern_meshes` is pushed. It takes effect on the next build. |
 | `VITE_FLP_CONTACT_EMAIL` | Browser | The alpha contact address, required: a Vercel build fails without it. It's shown on `/privacy` and in "Report this design". |
 | `SUPABASE_URL` | Server only | Same as `VITE_SUPABASE_URL` |
 | `SUPABASE_PUBLISHABLE_KEY` | Server only | Same publishable key |
