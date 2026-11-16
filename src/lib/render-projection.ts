@@ -309,6 +309,14 @@ export function toRenderDocument({
       ...panelUvOf({ manifest }),
       // Only a model with a shape map deforms; the validator keeps it so.
       ...(document.shape && templateHasShape({ template: document.template }) ? { shape: { ...document.shape } } : {}),
+      ...(document.pattern
+        ? {
+            pattern: {
+              pattern: document.pattern,
+              renderPanels: Object.fromEntries(Object.entries(manifest.regions).map(([panel, region]) => [panel, region.renderPanel])),
+            },
+          }
+        : {}),
       layers: layers.length > 0 ? layers : [{ id: 'paint-empty', kind: 'paint', visible: true, strokes: [] }],
     },
     missingAssets,

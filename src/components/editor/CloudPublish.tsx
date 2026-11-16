@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { buttonClass } from '../ui/Button'
 import { atlasStamp, useAtlasBuild, waitForCurrentAtlas } from '../../lib/atlas-status'
+import { waitForDrape } from '../../lib/pattern-drape-status'
 import { hashCanonicalDocument } from '../../lib/canonical-hash'
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
 import { cn } from '../../lib/cn'
@@ -158,6 +159,21 @@ export function CloudPublish() {
             : 'Some artwork on this design could not load, so it wouldn’t publish correctly. Reload the page, then publish again.',
         )
         return
+      }
+
+      // A Pattern (beta) garment is photographed only once it has draped.
+      if (editor.document.pattern) {
+        const drape = await waitForDrape()
+
+        if (drape !== 'ready') {
+          setBusy(null)
+          setMessage(
+            drape === 'failed'
+              ? 'This pattern couldn’t be draped, so it can’t be published yet. Undo the last change, or try another.'
+              : 'The garment is still draping. Wait a moment, then publish again.',
+          )
+          return
+        }
       }
 
       const stills = await captureAngleStills({

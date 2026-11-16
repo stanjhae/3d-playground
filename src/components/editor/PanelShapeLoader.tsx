@@ -23,7 +23,10 @@ export function PanelShapeLoader({
   const { scene } = useGLTF(modelSrc)
 
   useEffect(() => {
-    if (usePanelShapes.getState().src !== modelSrc) {
+    const current = usePanelShapes.getState().src
+
+    // A draped pattern's own shapes win over the model's.
+    if (current !== modelSrc && !current?.startsWith('pattern:')) {
       usePanelShapes.getState().setShapes({ src: modelSrc, shapes: shapesFromScene({ scene, panelUv }) })
     }
   }, [modelSrc, panelUv, scene])

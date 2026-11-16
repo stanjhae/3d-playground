@@ -1,6 +1,6 @@
 import { useGLTF, useTexture } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   CanvasTexture,
   Color,
@@ -45,6 +45,8 @@ import { createClothingMesh } from '../../lib/tee-geometry'
 import { createShapeRig } from '../../lib/garment-shape'
 import { ClothingPoseContext } from './clothing-pose'
 import { SelectableMesh } from './SelectableMesh'
+
+const PatternGarment = lazy(() => import('./PatternGarment'))
 
 const DRACO_DECODER_PATH = '/draco/'
 const DEFAULT_GARMENT_SRC = garmentSrc({ garmentId: 'gown' })
@@ -225,6 +227,30 @@ export function Garment({
     document: documentProp,
   })
   const resolvedId = resolveGarmentId({ garmentId })
+  const modelSrc =
+    inkDocument.modelSrc ??
+    src ??
+    garmentSrc({
+      garmentId,
+      structural: inkDocument.structural,
+    })
+
+  // Pattern mode: the pieces are draped in the cloth worker (its own chunk).
+  // The template's model stands in until the first drape lands.
+  if (inkDocument.pattern && inkDocument.panelUv) {
+    const model = <GltfGarment src={modelSrc} inkDocument={inkDocument} overrides={overrides} picking={picking} />
+
+    return (
+      <Suspense fallback={model}>
+        <PatternGarment
+          inkDocument={inkDocument as DesignDocument & { pattern: NonNullable<DesignDocument['pattern']> }}
+          overrides={overrides}
+          picking={picking}
+          fallback={model}
+        />
+      </Suspense>
+    )
+  }
 
   // Tee documents on @1–@3 are built by code; @4 and other templates load their model.
   if (resolvedId === 'tee' && !inkDocument.modelSrc) {
@@ -239,14 +265,7 @@ export function Garment({
 
   return (
     <GltfGarment
-      src={
-        inkDocument.modelSrc ??
-        src ??
-        garmentSrc({
-          garmentId,
-          structural: inkDocument.structural,
-        })
-      }
+      src={modelSrc}
       inkDocument={inkDocument}
       overrides={overrides}
       picking={picking}
@@ -324,7 +343,7 @@ function GltfGarment({
   )
 }
 
-function SeatedForm({
+export function SeatedForm({
   scene,
   inkDocument,
   overrides,
