@@ -7,6 +7,7 @@ import { simulateCloth } from '../cloth/solver'
 import { TEMPLATE_IDS, currentTemplateFor } from '../template-manifest'
 import { clothFromPattern } from './build-cloth'
 import { hashPattern } from './pattern-hash'
+import { PATTERN_TEMPLATE_VERSIONS } from '../pattern-beta'
 import { PATTERN_TEMPLATE_KEYS, patternTemplateFor, templateHasPattern } from './templates'
 import { validateGeometry } from './validate-geometry'
 
@@ -40,6 +41,8 @@ describe('pattern templates', () => {
       return `${manifest.id}@${manifest.version}`
     })
     expect([...PATTERN_TEMPLATE_KEYS].sort()).toEqual(current.sort())
+    // The switch's light list says the same.
+    expect([...PATTERN_TEMPLATE_VERSIONS].sort()).toEqual([...PATTERN_TEMPLATE_KEYS].sort())
     expect(templateHasPattern({ templateId: 'tee-crew-short', templateVersion: 3 })).toBe(false)
     expect(patternTemplateFor({ templateId: 'tee-crew-short', templateVersion: 3 })).toBeNull()
   })

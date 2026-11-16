@@ -1,3 +1,4 @@
+import { patternAvailable } from './pattern-beta'
 import type { CanonicalPattern } from './pattern/pattern-document'
 import { create } from 'zustand'
 
@@ -778,6 +779,11 @@ export function canEditShape() {
 /** `canEditShape`, kept current: it re-reads on every content revision. */
 export function useCanEditShape() {
   return useEditorStore((state) => state.revision >= 0 && state.garmentId !== null && canEditShape())
+}
+
+/** Whether Pattern (beta) is on for this build and the open garment has a pattern template. */
+export function usePatternAvailable() {
+  return useEditorStore((state) => state.revision >= 0 && teeActive() && patternAvailable({ template: tee.stack.document.template }))
 }
 
 /**
