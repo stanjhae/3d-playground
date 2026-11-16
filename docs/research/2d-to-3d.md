@@ -1,6 +1,6 @@
 # Research: from decorating a garment to designing its shape (2D → 3D)
 
-**Status:** research note, 12 Nov 2026. Written for the first external MVP test, which asked whether users could change a garment's shape, cut and proportions in 2D and have the 3D garment follow. That is the tester's "Workflow 1". Nothing here is a product claim, and `docs/claims-audit.md` still applies, including "no live AI anywhere".
+**Status:** research note, 12 Nov 2026. Written for the founder's MVP review, which asked whether users could change a garment's shape, cut and proportions in 2D and have the 3D garment follow. That is the founder's "Workflow 1". Nothing here is a product claim, and `docs/claims-audit.md` still applies, including "no live AI anywhere".
 
 ## Where we are
 
