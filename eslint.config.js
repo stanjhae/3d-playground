@@ -8,6 +8,7 @@ export default tseslint.config(
     ignores: [
       'dist',
       'archive',
+      '.bake',
       '.idea',
       // Vendored Draco decoder.
       'public',

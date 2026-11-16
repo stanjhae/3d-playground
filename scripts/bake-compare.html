@@ -1,0 +1,133 @@
+<!doctype html>
+<!--
+  A dev-only page (never built) that shows a baked GLB next to the shipped
+  model for the same template, front and back, each printed with a test
+  atlas drawn from its own manifest: one colour, letter and grid per panel,
+  an arrow up the garment, so a panel in the wrong place, upside down or
+  mirrored shows at a glance. Unprinted cloth stays grey.
+
+    pnpm bake:pattern --template tee-crew-short --version 5
+    pnpm dev, then open /scripts/bake-compare.html?recipe=tee-crew-short@5
+
+  See docs/template-manifest.md, "Baked from a pattern".
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bake comparison</title>
+    <style>
+      body { margin: 0; background: #f4f1ec; font: 14px/1.4 system-ui, sans-serif; color: #222; }
+      #grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; }
+      figure { margin: 0; background: #fff; border-radius: 6px; overflow: hidden; }
+      figcaption { padding: 6px 10px; border-bottom: 1px solid #eee; }
+      canvas { display: block; width: 100%; aspect-ratio: 3 / 4; }
+      #status { padding: 8px 16px; }
+    </style>
+  </head>
+  <body>
+    <div id="status">Loading…</div>
+    <div id="grid"></div>
+    <script type="module">
+      import * as THREE from 'three'
+      import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+      import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+      import { resolveTemplate } from '/src/lib/template-manifest.ts'
+
+      const COLORS = { front: '#d9534f', back: '#2f4b7c', left: '#e8a93b', right: '#3f9b6e' }
+      const recipe = new URLSearchParams(location.search).get('recipe') ?? 'tee-crew-short@5'
+      const [id, version] = recipe.split('@')
+      const shipped = resolveTemplate({ id, version: Number(version) })
+      const baked = (await import(/* @vite-ignore */ `/.bake/${recipe}/${id}-v${version}.ts`))
+      const bakedManifest = Object.values(baked)[0]
+
+      const draco = new DRACOLoader().setDecoderPath('/draco/')
+      const loader = new GLTFLoader().setDRACOLoader(draco)
+
+      /** A test atlas from a manifest: each region's rectangle filled, lettered and gridded. */
+      function testAtlas(manifest) {
+        const size = 1024
+        const canvas = document.createElement('canvas')
+        canvas.width = canvas.height = size
+        const g = canvas.getContext('2d')
+        g.fillStyle = '#c8c8c8'
+        g.fillRect(0, 0, size, size)
+
+        for (const [panel, region] of Object.entries(manifest.regions)) {
+          const { u0, u1, v0, v1 } = region.uv
+          const x = u0 * size
+          const y = (1 - v1) * size
+          const w = (u1 - u0) * size
+          const h = (v1 - v0) * size
+          g.fillStyle = COLORS[panel] ?? '#888'
+          g.fillRect(x, y, w, h)
+          g.strokeStyle = 'rgba(255,255,255,0.55)'
+          g.lineWidth = 2
+          for (let k = 1; k < 8; k += 1) {
+            g.beginPath(); g.moveTo(x + (w * k) / 8, y); g.lineTo(x + (w * k) / 8, y + h); g.stroke()
+            g.beginPath(); g.moveTo(x, y + (h * k) / 8); g.lineTo(x + w, y + (h * k) / 8); g.stroke()
+          }
+          g.fillStyle = '#fff'
+          g.font = `bold ${Math.min(w, h) * 0.32}px system-ui`
+          g.textAlign = 'center'
+          g.textBaseline = 'middle'
+          g.fillText(`${panel[0].toUpperCase()}↑`, x + w / 2, y + h / 2)
+          // A corner tab at the panel's top left, canonical x = 0.
+          g.fillStyle = '#111'
+          g.fillRect(x, y, w * 0.12, h * 0.12)
+        }
+
+        const texture = new THREE.CanvasTexture(canvas)
+        texture.channel = 1
+        texture.colorSpace = THREE.SRGBColorSpace
+        return texture
+      }
+
+      async function load(manifest, file) {
+        const gltf = await loader.loadAsync(file)
+        const map = testAtlas(manifest)
+        gltf.scene.traverse((child) => {
+          if (child.isMesh) child.material = new THREE.MeshStandardMaterial({ map, roughness: 0.85, side: THREE.DoubleSide })
+        })
+        return gltf.scene
+      }
+
+      function view({ title, model, manifest, back }) {
+        const figure = document.createElement('figure')
+        const caption = document.createElement('figcaption')
+        caption.textContent = title
+        const canvas = document.createElement('canvas')
+        figure.append(caption, canvas)
+        document.getElementById('grid').append(figure)
+        const width = 480
+        const height = 640
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
+        renderer.setPixelRatio(1)
+        renderer.setSize(width, height, false)
+        renderer.setClearColor('#ffffff')
+        const scene = new THREE.Scene()
+        scene.add(new THREE.HemisphereLight('#ffffff', '#666666', 2.2))
+        const sun = new THREE.DirectionalLight('#ffffff', 1.6)
+        sun.position.set(1, 2, back ? -3 : 3)
+        scene.add(sun)
+        scene.add(model)
+        const { min, max } = manifest.geometry.bounds
+        const centre = new THREE.Vector3((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2)
+        const span = Math.max(max[0] - min[0], (max[1] - min[1]) * 0.75)
+        const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 20)
+        camera.position.set(centre.x, centre.y, centre.z + (back ? -1 : 1) * span * 2.4)
+        camera.lookAt(centre)
+        renderer.render(scene, camera)
+      }
+
+      if (!shipped.ok) throw new Error(`${recipe} is not in the template archive`)
+      for (const back of [false, true]) {
+        const side = back ? 'back' : 'front'
+        view({ title: `${recipe} shipped (${shipped.manifest.geometry.file}), ${side}`, model: await load(shipped.manifest, shipped.manifest.geometry.file), manifest: shipped.manifest, back })
+        view({ title: `${recipe} baked from the recipe, ${side}`, model: await load(bakedManifest, bakedManifest.geometry.file), manifest: bakedManifest, back })
+      }
+      document.getElementById('status').textContent = `${recipe}: shipped ${shipped.manifest.geometry.sha256.slice(0, 8)} vs baked ${bakedManifest.geometry.sha256.slice(0, 8)}`
+      document.body.dataset.ready = 'true'
+    </script>
+  </body>
+</html>
