@@ -66,8 +66,9 @@ export function serializeCanonicalValue({ value }: { value: unknown }) {
   return JSON.stringify(normalizeValue({ value }))
 }
 
-export async function sha256Hex({ text }: { text: string }) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+export async function sha256Hex({ text, bytes }: { text?: string; bytes?: Uint8Array }) {
+  const data = bytes ?? new TextEncoder().encode(text ?? '')
+  const digest = await crypto.subtle.digest('SHA-256', data as BufferSource)
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 

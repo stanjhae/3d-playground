@@ -1,3 +1,5 @@
+import { patternAvailable } from './pattern-beta'
+import type { CanonicalPattern } from './pattern/pattern-document'
 import { create } from 'zustand'
 
 import { DEFAULT_AVATAR_MEASUREMENTS } from './avatars'
@@ -336,6 +338,15 @@ type EditorState = {
   previewShape: ({ shape }: { shape: GarmentShape | null }) => void
   /** Commit shape fields (clamped to their safe ranges) as one undo step. */
   setShape: ({ shape }: { shape: Partial<GarmentShape> }) => void
+  /**
+   * Pattern mode (beta): start it from the template's pattern, the shape
+   * folded in, as one undo step. False when the template has none.
+   */
+  enablePattern: () => Promise<boolean>
+  /** Commit a pattern edit (already checked to sew) as one undo step. */
+  setPattern: ({ pattern }: { pattern: CanonicalPattern }) => boolean
+  /** Leave Pattern mode: the garment goes back to its model, unshaped. */
+  disablePattern: () => void
   addPattern: ({
     patternId,
     panel,
@@ -768,6 +779,11 @@ export function canEditShape() {
 /** `canEditShape`, kept current: it re-reads on every content revision. */
 export function useCanEditShape() {
   return useEditorStore((state) => state.revision >= 0 && state.garmentId !== null && canEditShape())
+}
+
+/** Whether Pattern (beta) is on for this build and the open garment has a pattern template. */
+export function usePatternAvailable() {
+  return useEditorStore((state) => state.revision >= 0 && teeActive() && patternAvailable({ template: tee.stack.document.template }))
 }
 
 /**
@@ -1750,6 +1766,34 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       tee = step.engine
       return syncFromStack({ extra: { shapePreview: null, ...(step.refusal ? { limitNotice: step.refusal } : {}) } })
     })
+  },
+  enablePattern: async () => {
+    if (!teeActive() || tee.stack.document.pattern) {
+      return false
+    }
+
+    const { startPattern } = await import('./pattern/start-pattern')
+    const pattern = startPattern({ document: tee.stack.document })
+    return pattern ? get().setPattern({ pattern }) : false
+  },
+  setPattern: ({ pattern }) => {
+    if (!teeActive()) {
+      return false
+    }
+
+    const step = runTeeCommand({ engine: tee, command: { type: 'setPattern', pattern } })
+    tee = step.engine
+    set(syncFromStack({ extra: { shapePreview: null, ...(step.refusal ? { limitNotice: step.refusal } : {}) } }))
+    return step.changed && !step.refusal && !step.issues
+  },
+  disablePattern: () => {
+    if (!teeActive() || !tee.stack.document.pattern) {
+      return
+    }
+
+    const step = runTeeCommand({ engine: tee, command: { type: 'setPattern', pattern: null } })
+    tee = step.engine
+    set(syncFromStack())
   },
   setStructural: ({ structural }) => {
     set(() =>

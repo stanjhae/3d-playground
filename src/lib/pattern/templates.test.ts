@@ -7,6 +7,7 @@ import { simulateCloth } from '../cloth/solver'
 import { TEMPLATE_IDS, currentTemplateFor, resolveTemplate } from '../template-manifest'
 import { clothFromPattern } from './build-cloth'
 import { hashPattern } from './pattern-hash'
+import { PATTERN_TEMPLATE_VERSIONS } from '../pattern-beta'
 import { PATTERN_TEMPLATE_KEYS, patternTemplateFor, templateHasPattern } from './templates'
 import { validateGeometry } from './validate-geometry'
 
@@ -43,6 +44,8 @@ describe('pattern templates', () => {
     // Every current version, plus older ones designs already started on.
     expect(current.filter((key) => !PATTERN_TEMPLATE_KEYS.includes(key))).toEqual([])
     expect(PATTERN_TEMPLATE_KEYS.filter((key) => !current.includes(key))).toEqual(['tee-crew-short@4'])
+    // The switch's light list says the same.
+    expect([...PATTERN_TEMPLATE_VERSIONS].sort()).toEqual([...PATTERN_TEMPLATE_KEYS].sort())
     expect(templateHasPattern({ templateId: 'tee-crew-short', templateVersion: 3 })).toBe(false)
     expect(patternTemplateFor({ templateId: 'tee-crew-short', templateVersion: 3 })).toBeNull()
   })

@@ -16,6 +16,7 @@ import { FashionLoader } from './FashionLoader'
 import { Garment } from './Garment'
 import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
 import { AtlasStatusNote } from './AtlasStatusNote'
+import { PatternDrapeChip } from './PatternDrapeChip'
 import { WebglContextWatcher, WebglGuard } from './WebglGuard'
 
 function HouseCaption({
@@ -157,6 +158,7 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
         </Canvas>
       </WebglGuard>
       <AtlasStatusNote />
+      <PatternDrapeChip />
     </div>
   )
 }

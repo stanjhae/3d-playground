@@ -1,3 +1,4 @@
+import { waitForDrape } from './pattern-drape-status'
 import type {
   AngleCameraPreset,
   CameraPreset,
@@ -227,6 +228,8 @@ export async function captureAngleStills({
   const stills: string[] = []
 
   setCapturingAngles({ capturingAngles: true })
+  // Never photograph a pattern mid-drape (no wait when there is none).
+  await waitForDrape()
 
   try {
     for (const cameraPreset of presets) {

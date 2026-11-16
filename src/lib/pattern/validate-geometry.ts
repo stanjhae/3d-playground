@@ -169,7 +169,7 @@ export function describeGeometryIssue({ issue, labelOf }: { issue: GeometryIssue
       return `${labelOf(issue.piece)} reaches past its print area.`
     case 'seam-length': {
       const diff = Math.abs(issue.aMm - issue.bMm)
-      return `A seam's two sides differ by ${(diff / 10).toFixed(1)} cm; they can differ by ${(issue.allowedMm / 10).toFixed(1)} cm at most.`
+      return `A seam’s two sides differ by ${(diff / 10).toFixed(1)} cm; they can differ by ${(issue.allowedMm / 10).toFixed(1)} cm at most.`
     }
   }
 }
