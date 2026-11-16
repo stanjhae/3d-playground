@@ -115,6 +115,20 @@ describe('the drape client', () => {
     await expect(second).rejects.toBeInstanceOf(DrapeCancelled)
   })
 
+  test('asking again for the same pattern joins the running drape instead of cancelling it', async () => {
+    const { spawn, spawned } = fakeWorkers()
+    const client = createDrapeClient({ spawn })
+    const progress: number[] = []
+    const first = client.drape({ pattern: fixtureTeePattern() })
+    const second = client.drape({ pattern: fixtureTeePattern(), onProgress: (fraction) => progress.push(fraction) })
+
+    const [a, b] = await Promise.all([first, second])
+    expect(a).toBe(b)
+    expect(spawned).toHaveLength(1)
+    expect(client.runs).toBe(1)
+    expect(progress).toEqual([0.5, 1])
+  })
+
   test('a stored mesh is used without draping', async () => {
     const { spawn, spawned } = fakeWorkers()
     const client = createDrapeClient({ spawn })

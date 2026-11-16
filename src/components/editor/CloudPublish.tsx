@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { buttonClass } from '../ui/Button'
 import { atlasStamp, useAtlasBuild, waitForCurrentAtlas } from '../../lib/atlas-status'
-import { waitForDrape } from '../../lib/pattern-drape-status'
 import { hashCanonicalDocument } from '../../lib/canonical-hash'
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
 import { cn } from '../../lib/cn'
@@ -161,26 +160,19 @@ export function CloudPublish() {
         return
       }
 
-      // A Pattern (beta) garment is photographed only once it has draped.
+      // A Pattern (beta) garment publishes only once its drape is made and
+      // stored: the public views must match it (the server checks).
       if (editor.document.pattern) {
-        const drape = await waitForDrape()
+        const { drapeAndStore } = await import('../../lib/pattern/store-current-drape')
+        const drape = await drapeAndStore({ pattern: getCanonicalDocument().pattern! })
 
-        if (drape !== 'ready') {
+        if (drape !== 'stored') {
           setBusy(null)
           setMessage(
-            drape === 'failed'
-              ? 'This pattern couldn’t be draped, so it can’t be published yet. Undo the last change, or try another.'
-              : 'The garment is still draping. Wait a moment, then publish again.',
+            drape === 'timeout'
+              ? 'The garment is still draping. Wait a moment, then publish again.'
+              : 'The draped garment couldn’t be made or saved. Check your connection, undo the last change if it persists, then publish again.',
           )
-          return
-        }
-
-        // The public views must match a stored drape; the server checks.
-        const { storeCurrentDrape } = await import('../../lib/pattern/store-current-drape')
-
-        if (!(await storeCurrentDrape({ pattern: getCanonicalDocument().pattern! }))) {
-          setBusy(null)
-          setMessage('The draped garment couldn’t be saved. Check your connection, then publish again.')
           return
         }
       }
