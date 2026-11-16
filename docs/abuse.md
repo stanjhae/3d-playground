@@ -27,7 +27,9 @@ Signed-out limits apply on Vercel deployments (`VERCEL_ENV` set) or where `FLP_R
 | `publish` | 10 per min per account | renders, publish, unpublish | **Refuse** (503). Publishing puts content in front of the public; a refused publish loses nothing and can be retried. |
 | `details` | 30 per min per account | rename, delete, public name | **Allow**. Cheap, and blocking a rename or delete helps no one. |
 | `vote` | 30 per min per account | cast or retract a vote (V1) | **Allow**. A vote is one per account and can be taken back, so a missed limit costs little. |
-| `report` | 5 per min and 30 per day per account | `POST /api/flp/public/:slug/report` | **Allow**. One open report per account and design caps what a missed limit can store. |
+| `report` | 5 per min and 30 per day per account | `POST /api/flp/public/:slug/report` | **Allow**. One open report per account and design (or comment) caps what a missed limit can store. |
+| `comment` | 6 per min and 60 per day per account | `POST /api/flp/public/:slug/comments` (community) | **Refuse** (503). A comment is public text, like a publish. |
+| `follow` | 30 per min per account | follow or unfollow (community) | **Allow**. One row per pair, and it can be undone. |
 
 "Fails" means the database returned an error, gave no answer within 1.5 s twice in a row, or (signed out, on a deployment) the server has no Supabase settings. A call that gets no answer (a timeout or a dropped connection) is tried once more before the policy applies, so one slow moment doesn't refuse a publish; an error the database answers with isn't retried. A refused publish shows "This isn't available right now", and the studio doesn't retry it on its own. Each failure is logged as `flp request limit check failed` or `flp rate limit check failed`.
 
@@ -74,6 +76,16 @@ SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs action <rep
 ```
 
 `action` is for a report that led to a takedown or a word with the owner. Take the design down with the commands below first.
+
+## Comments (community)
+
+Off until `VITE_COMMUNITY` and `FLP_COMMUNITY` are on (`docs/deploy.md`). Then, signed in and with the current terms, anyone can comment on a shared design (1–500 characters). The author can delete their comment and the design's owner can hide any comment on their design. Signed-in readers can report a comment, which lands in the same queue as design reports (`reports` shows `comment <id>`). To hide one for everyone:
+
+```bash
+SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs hide-comment <comment id> --by "<your name>"
+```
+
+Hidden comments are kept, with who hid them, and are removed with the design or the author's account. Follows show only a count: nobody can see who follows whom, and only public profiles can be followed.
 
 ## Takedowns
 

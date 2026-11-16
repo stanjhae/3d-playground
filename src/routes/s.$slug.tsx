@@ -1,8 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
 import { ReportDesign } from '../components/share/ReportDesign'
+import { COMMUNITY } from '../lib/community'
 import { VoteButton } from '../components/share/VoteButton'
 import { getGarment, sideViewAlt } from '../lib/garments'
 import { useCopyStatus } from '../lib/copy-text'
@@ -19,6 +20,9 @@ import { STATIC_SHARE_ELEMENT_ID, takeEmbeddedPublicDesign } from '../lib/public
  * views of the published version. No editing, source or history. Voting
  * (V1) needs an account; signed out, the page offers sign-in.
  */
+
+// Comments load only where the community is on, and after the views.
+const Comments = COMMUNITY ? lazy(() => import('../components/share/Comments')) : null
 
 export const Route = createFileRoute('/s/$slug')({
   component: SharedDesign,
@@ -228,6 +232,12 @@ function SharedDesign() {
             <ViewTile key={view.kind} view={view} src={src} title={design.title} lazy />
           ))}
         </ul>
+      ) : null}
+
+      {Comments ? (
+        <Suspense fallback={null}>
+          <Comments slug={design.slug} />
+        </Suspense>
       ) : null}
 
       <footer className="flex flex-wrap items-center justify-between gap-3 font-body text-xs text-flv-muted">

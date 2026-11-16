@@ -183,6 +183,8 @@ export async function activeHolds({ admin }: { admin: SupabaseClient }): Promise
 export type OpenReport = {
   id: string
   slug: string
+  /** Set when the report is about one comment on the design. */
+  commentId: string | null
   reason: string
   note: string | null
   createdAt: string
@@ -192,16 +194,32 @@ export type OpenReport = {
 export async function openReports({ admin }: { admin: SupabaseClient }): Promise<OpenReport[]> {
   const { data, error } = await admin
     .from('publication_reports')
-    .select('id, slug, reason, note, created_at')
+    .select('id, slug, comment_id, reason, note, created_at')
     .eq('status', 'open')
     .order('created_at', { ascending: true })
-    .returns<Array<{ id: string; slug: string; reason: string; note: string | null; created_at: string }>>()
+    .returns<Array<{ id: string; slug: string; comment_id: string | null; reason: string; note: string | null; created_at: string }>>()
 
   if (error) {
     throw new ModerationError('Reports could not be listed', 'failed')
   }
 
-  return data.map((row) => ({ id: row.id, slug: row.slug, reason: row.reason, note: row.note, createdAt: row.created_at }))
+  return data.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    commentId: row.comment_id,
+    reason: row.reason,
+    note: row.note,
+    createdAt: row.created_at,
+  }))
+}
+
+/** Hides a comment for everyone (community). The text is kept for the record. */
+export async function hideCommentAsOperator({ admin, commentId, hiddenBy }: { admin: SupabaseClient; commentId: string; hiddenBy: string }) {
+  const { error } = await admin.rpc('flp_hide_comment_operator', { p_comment_id: commentId, p_operator: hiddenBy })
+
+  if (error) {
+    throw failure({ error, notFound: new ModerationError(`No comment has the id ${commentId}`, 'not_found') })
+  }
 }
 
 /** Closes a report: `dismissed` (nothing wrong) or `actioned` (taken down, or the owner told). */

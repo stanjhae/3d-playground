@@ -6,6 +6,7 @@ import {
   ModerationError,
   activeHolds,
   clearModerationHold,
+  hideCommentAsOperator,
   moderationStatus,
   openReports,
   resolveReport,
@@ -26,6 +27,7 @@ import {
  *   … node scripts/moderation.mjs reports
  *   … node scripts/moderation.mjs dismiss|action <report id> --by "<your name>"
  *   … node scripts/moderation.mjs votes <slug or link>
+ *   … node scripts/moderation.mjs hide-comment <comment id> --by "<your name>"
  *
  * reports lists open reports, oldest first; dismiss and action close one
  * (action after a takedown or a word with the owner). votes lists signs
@@ -49,9 +51,9 @@ const [command, target] = positionals
 const url = process.env.SUPABASE_URL
 const secretKey = process.env.SUPABASE_SECRET_KEY
 const usage =
-  'Usage: SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs status|takedown|clear|list|reports|dismiss|action|votes [<slug, link or report id>] [--reason "…"] [--by "…"] [--confirm]'
+  'Usage: SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs status|takedown|clear|list|reports|dismiss|action|votes|hide-comment [<slug, link, report or comment id>] [--reason "…"] [--by "…"] [--confirm]'
 
-if (!url || !secretKey || !['status', 'takedown', 'clear', 'list', 'reports', 'dismiss', 'action', 'votes'].includes(command ?? '')) {
+if (!url || !secretKey || !['status', 'takedown', 'clear', 'list', 'reports', 'dismiss', 'action', 'votes', 'hide-comment'].includes(command ?? '')) {
   console.error(usage)
   process.exit(1)
 }
@@ -87,7 +89,7 @@ try {
     const reports = await openReports({ admin })
     console.log(
       reports.length
-        ? reports.map((report) => `${report.id}  ${report.createdAt}  ${report.slug}  ${report.reason}${report.note ? `: ${report.note}` : ''}`).join('\n')
+        ? reports.map((report) => `${report.id}  ${report.createdAt}  ${report.slug}${report.commentId ? ` comment ${report.commentId}` : ''}  ${report.reason}${report.note ? `: ${report.note}` : ''}`).join('\n')
         : 'No open reports.',
     )
     process.exit(0)
@@ -101,6 +103,17 @@ try {
 
     await resolveReport({ admin, id: target, status: command === 'dismiss' ? 'dismissed' : 'actioned', resolvedBy: flags.by })
     console.log(`Report ${target} ${command === 'dismiss' ? 'dismissed' : 'marked actioned'}.`)
+    process.exit(0)
+  }
+
+  if (command === 'hide-comment') {
+    if (!target || !flags.by?.trim()) {
+      console.error('hide-comment needs a comment id and --by.')
+      process.exit(1)
+    }
+
+    await hideCommentAsOperator({ admin, commentId: target, hiddenBy: flags.by })
+    console.log(`Comment ${target} hidden.`)
     process.exit(0)
   }
 

@@ -898,6 +898,29 @@ export async function readBoard({
   }
 }
 
+/**
+ * The Following list (community): live designs by the designers the viewer
+ * follows, while their profiles are public, newest first.
+ */
+export async function readFollowingBoard({
+  admin,
+  viewerId,
+  respond,
+}: {
+  admin: SupabaseClient
+  viewerId: string
+  respond: Respond
+}) {
+  const { data, error } = await admin.rpc('flp_following_board', { p_viewer_id: viewerId, p_limit: BOARD_LIMIT })
+
+  if (error) {
+    console.error('flp following read failed', { code: error.code })
+    return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+  }
+
+  return respond({ status: 200, body: { designs: ((data ?? []) as BoardRow[]).map(boardEntry) } })
+}
+
 /** A public profile (`/u/:handle`): its name and live designs, most voted first. */
 export type PublicProfile = {
   handle: string

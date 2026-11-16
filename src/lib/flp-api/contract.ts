@@ -151,6 +151,41 @@ export type ReportReason = (typeof REPORT_REASONS)[number]
 export type ReportRequest = {
   reason: ReportReason
   note?: string
+  /** Reports one comment on the design rather than the design (community). */
+  commentId?: string
+}
+
+/** A comment on a published design (community, behind `VITE_COMMUNITY`). */
+export type DesignComment = {
+  id: string
+  body: string
+  createdAt: string
+  /** The author's public name, if any. */
+  authorName: string | null
+  /** The author's handle while their profile is public. */
+  authorHandle: string | null
+  /** The viewer wrote it. */
+  mine: boolean
+  /** The viewer may hide it: theirs, or on their design. */
+  canHide: boolean
+}
+
+export type CommentRequest = {
+  body: string
+}
+
+/** Followers of a public profile, and whether the viewer follows it. */
+export type FollowState = {
+  followers: number
+  following: boolean
+  /** The profile is the viewer's own. */
+  own: boolean
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+export function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID.test(value)
 }
 
 /** GET /public?window= — which votes a ranking counts. */
@@ -648,8 +683,9 @@ export function parseReportRequest({ value }: { value: unknown }) {
   return parseFields<ReportRequest>({
     value,
     required: ['reason'],
-    optional: ['note'],
+    optional: ['note', 'commentId'],
     check: (record) => [
+      ...(record.commentId === undefined || isUuid(record.commentId) ? [] : [{ path: '$.commentId', message: 'expected a comment id' }]),
       ...(typeof record.reason === 'string' && (REPORT_REASONS as readonly string[]).includes(record.reason)
         ? []
         : [{ path: '$.reason', message: `expected one of ${REPORT_REASONS.join(', ')}` }]),
@@ -657,6 +693,14 @@ export function parseReportRequest({ value }: { value: unknown }) {
         ? []
         : textIssue({ value: record.note, path: '$.note', max: 500 })),
     ],
+  })
+}
+
+export function parseCommentRequest({ value }: { value: unknown }) {
+  return parseFields<CommentRequest>({
+    value,
+    required: ['body'],
+    check: (record) => textIssue({ value: record.body, path: '$.body', max: 500 }),
   })
 }
 

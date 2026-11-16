@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
+import { useSessionStore } from '../../lib/auth/session-store'
 import { cn } from '../../lib/cn'
+import { COMMUNITY, getFollowingBoard } from '../../lib/community'
 import { BOARD_WINDOWS, type BoardWindow } from '../../lib/flp-api/contract'
 import { getBoard } from '../../lib/flp-api/public-read'
 import type { BoardEntry } from '../../lib/flp-api/publication'
@@ -20,7 +22,9 @@ type Load = { state: 'loading' } | { state: 'ready'; designs: BoardEntry[] } | {
 export function PublicationBoard() {
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [garmentId, setGarmentId] = useState<string | null>(null)
-  const [sort, setSort] = useState<BoardSort>('top')
+  const [sort, setSort] = useState<BoardSort | 'following'>('top')
+  const signedIn = useSessionStore((state) => state.status === 'signed-in')
+  const following = sort === 'following'
   const [window, setWindow] = useState<BoardWindow>('all')
   // Every garment seen on the board, so the filter keeps its chips while filtered.
   const [garments, setGarments] = useState<string[]>([])
@@ -31,11 +35,15 @@ export function PublicationBoard() {
     let cancelled = false
     setLoad({ state: 'loading' })
 
-    void getBoard({ window: shownWindow, garmentId }).then((result) => {
+    const read = following
+      ? getFollowingBoard().then((result) => (result.ok ? { ok: true as const, data: result.data.designs } : { ok: false as const }))
+      : getBoard({ window: shownWindow, garmentId })
+
+    void read.then((result) => {
       if (cancelled) return
       setLoad(result.ok ? { state: 'ready', designs: result.data } : { state: 'failed' })
 
-      if (result.ok) {
+      if (result.ok && !following) {
         setGarments((known) => [...new Set([...known, ...result.data.map((design) => design.garmentId)])])
       }
     })
@@ -43,10 +51,11 @@ export function PublicationBoard() {
     return () => {
       cancelled = true
     }
-  }, [shownWindow, garmentId])
+  }, [shownWindow, garmentId, following])
 
   const designs = useMemo(() => (load.state === 'ready' ? load.designs : []), [load])
-  const shown = useMemo(() => boardView({ designs, sort }), [designs, sort])
+  // Following is already newest first.
+  const shown = useMemo(() => boardView({ designs, sort: following ? 'top' : sort }), [designs, sort, following])
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-16">
@@ -64,6 +73,7 @@ export function PublicationBoard() {
           [
             { id: 'top', label: 'Rankings', hint: 'Most voted first' },
             { id: 'new', label: 'New', hint: 'Newest first, to vote on' },
+            ...(COMMUNITY && signedIn ? [{ id: 'following', label: 'Following', hint: 'Designers you follow, newest first' } as const] : []),
           ] as const
         ).map((tab) => (
           <button
@@ -102,7 +112,7 @@ export function PublicationBoard() {
         </div>
       ) : null}
 
-      {garments.length > 0 ? (
+      {garments.length > 0 && !following ? (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by garment">
           {[null, ...garments].map((id) => (
             <button
@@ -125,10 +135,15 @@ export function PublicationBoard() {
       {load.state === 'failed' ? (
         <p className="font-body text-sm text-flv-muted">The board isn’t available right now. Try again shortly.</p>
       ) : null}
-      {load.state === 'ready' && designs.length === 0 && (garmentId || shownWindow !== 'all') ? (
+      {load.state === 'ready' && designs.length === 0 && following ? (
+        <p className="font-body text-sm text-flv-muted">
+          Nothing here yet. Follow designers from their profile pages to see their new designs here.
+        </p>
+      ) : null}
+      {load.state === 'ready' && designs.length === 0 && !following && (garmentId || shownWindow !== 'all') ? (
         <p className="font-body text-sm text-flv-muted">No designs here for this {garmentId ? 'garment' : 'period'} yet.</p>
       ) : null}
-      {load.state === 'ready' && designs.length === 0 && !garmentId && shownWindow === 'all' ? (
+      {load.state === 'ready' && designs.length === 0 && !following && !garmentId && shownWindow === 'all' ? (
         <p className="font-body text-sm text-flv-muted">
           Nothing is published yet. Publish a design from{' '}
           <Link to="/studio" className="underline">
@@ -143,12 +158,14 @@ export function PublicationBoard() {
           <li key={design.slug} className="flv-panel flex flex-col gap-3 p-4">
             <Link to="/s/$slug" params={{ slug: design.slug }} className="flex flex-col gap-3">
               <div className="relative overflow-hidden rounded-xl border border-flv-line bg-flv-soft">
-                <span
-                  aria-label={`Rank ${design.rank}`}
-                  className="absolute top-2 left-2 z-10 rounded-full bg-flv-ink px-2.5 py-1 font-body text-xs font-medium text-white"
-                >
-                  #{design.rank}
-                </span>
+                {following ? null : (
+                  <span
+                    aria-label={`Rank ${design.rank}`}
+                    className="absolute top-2 left-2 z-10 rounded-full bg-flv-ink px-2.5 py-1 font-body text-xs font-medium text-white"
+                  >
+                    #{design.rank}
+                  </span>
+                )}
                 <img
                   src={design.image}
                   alt={`${design.title}, front view`}

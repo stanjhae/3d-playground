@@ -116,6 +116,8 @@ Set these per environment (Preview = staging, Production = production). **Never 
 | `VITE_FLP_CONCEPT` | Browser | `false` (non-tee concept features stay off) |
 | `VITE_PATTERN_BETA` | Browser | Unset or `false`: Pattern (beta) is off, and nothing writes a pattern. Set `true` to show the "Pattern (beta)" switch on the Garment step (Workflow 1). Turn it on only after a release with the pattern reader has been deployed for a release cycle (`docs/release.md`), and after migration `20261120090000_flp_pattern_meshes` is pushed. It takes effect on the next build. |
 | `VITE_AI_ASSIST` | Browser | Unset or `false`. `true` shows "AI suggestion (beta)" in the pattern editor. It needs the three server values below too. |
+| `VITE_COMMUNITY` | Browser | Unset or `false`. `true` shows comments on share pages, a Follow button on public profiles and a Following tab on `/vote`. Set it together with `FLP_COMMUNITY`, after migration `20261123090000_flp_comments_follows` is pushed, and only once someone is ready to moderate (`docs/abuse.md`). It takes effect on the next build. |
+| `FLP_COMMUNITY` | Server | Unset or `false`: the comment, follow and Following routes answer 404. `true` turns them on. |
 | `FLP_AI_ASSIST` | Server | Unset or `false`: `POST /api/flp/ai/sketch` is 404. `true`, with a key, turns it on. |
 | `ANTHROPIC_API_KEY` | Server only | The Anthropic API key for the AI suggestion. **Never** give it a `VITE_` prefix: the build would ship it to browsers. `build-secrets.test.ts` and `hosted:check` fail on an `sk-ant-` value in the bundle. |
 | `FLP_AI_MODEL` | Server | Optional. Default `claude-opus-5-5` (low effort, refusal fallbacks on). |

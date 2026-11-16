@@ -16,6 +16,8 @@ import {
   type DesignDetails,
   LIBRARY_ASSET_PREFIX,
   MAX_CONTENT_BYTES,
+  type DesignComment,
+  type FollowState,
   type ProfileResponse,
   type VoteState,
   type VersionDetail,
@@ -24,10 +26,12 @@ import {
   type VersionSummary,
   apiError,
   apiErrorFromDatabase,
+  isHandle,
   parseAcceptTermsRequest,
   parseCreateDesignRequest,
   parseDeleteAccountRequest,
   parseProfileRequest,
+  parseCommentRequest,
   parseReportRequest,
   parseRestoreVersionRequest,
   parseSaveVersionRequest,
@@ -44,6 +48,7 @@ import {
   readOwnerPublication,
   readPublicDesign,
   readBoard,
+  readFollowingBoard,
   readPublicProfile,
   readPublicImage,
   unpublish,
@@ -86,6 +91,8 @@ export type FlpServerEnv = {
   ai?: AiEnv | null
   /** Tests stub the Anthropic API here. */
   aiFetch?: typeof fetch
+  /** Comments and follows (`FLP_COMMUNITY=true`); off, their routes are 404. */
+  community?: boolean
 }
 
 /**
@@ -99,8 +106,13 @@ export const RATE_LIMITS = {
   details: 30,
   vote: 30,
   report: 5,
+  comment: 6,
+  follow: 30,
   ai: AI_LIMITS.perMinute,
 } as const
+
+/** Comments per account per day, on top of the per-minute limit. */
+export const COMMENT_DAILY_LIMIT = 60
 
 /** Reports per account per day, on top of the per-minute limit. */
 export const REPORT_DAILY_LIMIT = 30
@@ -127,6 +139,10 @@ export const RATE_OUTAGE_POLICY: Record<RateBucket, OutagePolicy> = {
   vote: 'allow',
   // One open report per account and design caps what a missed limit costs.
   report: 'allow',
+  // A comment is public text, like a publish: no limiter, no comment.
+  comment: 'refuse',
+  // A follow is one row per pair and can be undone.
+  follow: 'allow',
   // Each sketch costs real money: no limiter, no sketch.
   ai: 'refuse',
 }
@@ -184,7 +200,7 @@ export function flpServerEnv(
   const secretKey = source.SUPABASE_SECRET_KEY
 
   return url && publishableKey && secretKey
-    ? { url, publishableKey, secretKey, ai: aiEnv(source) }
+    ? { url, publishableKey, secretKey, ai: aiEnv(source), community: source.FLP_COMMUNITY === 'true' }
     : null
 }
 
@@ -1105,6 +1121,175 @@ async function handleVote({
   return json({ status: 200, body: state })
 }
 
+const COMMENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+type CommentRow = {
+  id: string
+  body: string
+  created_at: string
+  author_name: string | null
+  author_handle: string | null
+  mine: boolean
+  can_hide: boolean
+}
+
+/**
+ * /public/:slug/comments (community): GET lists them, signed out too;
+ * POST adds one (signed in, current terms, 6 a minute and 60 a day);
+ * DELETE /comments/:id hides one, for its author or the design's owner.
+ */
+async function handleComments({
+  request,
+  env,
+  slug,
+  commentId,
+}: {
+  request: Request
+  env: FlpServerEnv
+  slug: string | undefined
+  commentId: string | undefined
+}) {
+  const admin = createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const method = request.method
+
+  if ((commentId ? method !== 'DELETE' : method !== 'GET' && method !== 'POST')) {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const user = await verifiedUser({ request, admin })
+
+  if (method !== 'GET' && !user) {
+    return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  if (!slug || !SLUG.test(slug) || (commentId && !COMMENT_ID.test(commentId))) {
+    return designUnavailable()
+  }
+
+  if (method === 'POST') {
+    const limited =
+      (await rateLimited({ admin, userId: user!.userId, bucket: 'comment', env })) ??
+      (await rateLimited({ admin, userId: user!.userId, bucket: 'comment', env, name: 'comment-day', limit: COMMENT_DAILY_LIMIT, windowSeconds: 86_400 }))
+
+    if (limited) {
+      return limited
+    }
+
+    const terms = await termsRefusal({ admin, userId: user!.userId, message: 'Accept the current terms to comment' })
+
+    if (terms) {
+      return terms
+    }
+
+    const body = await readJson({ request })
+
+    if (!body.ok) {
+      return fromError({ error: body.error })
+    }
+
+    const parsed = parseCommentRequest({ value: body.value })
+
+    if (!parsed.ok) {
+      return fromError({ error: parsed.error })
+    }
+
+    const { error } = await admin.rpc('flp_add_comment', { p_author_id: user!.userId, p_slug: slug, p_body: parsed.request.body })
+
+    if (error) {
+      return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn: 'flp_add_comment', error })
+    }
+  }
+
+  if (method === 'DELETE') {
+    const { error } = await admin.rpc('flp_hide_comment', { p_actor_id: user!.userId, p_slug: slug, p_comment_id: commentId })
+
+    if (error) {
+      return error.code === 'FL404'
+        ? fromError({ error: apiError({ code: 'not_found', message: 'This comment is not available' }) })
+        : writeFailed({ fn: 'flp_hide_comment', error })
+    }
+  }
+
+  const { data, error } = await admin.rpc('flp_list_comments', { p_slug: slug, p_viewer_id: user?.userId ?? null })
+
+  if (error) {
+    return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn: 'flp_list_comments', error })
+  }
+
+  const comments: DesignComment[] = ((data ?? []) as CommentRow[]).map((row) => ({
+    id: row.id,
+    body: row.body,
+    createdAt: row.created_at,
+    authorName: row.author_name,
+    authorHandle: row.author_handle,
+    mine: row.mine,
+    canHide: row.can_hide,
+  }))
+
+  return json({ status: method === 'POST' ? 201 : 200, body: { comments } })
+}
+
+/**
+ * /public/u/:handle/follow (community): GET reads the follower count and
+ * whether the caller follows; POST follows and DELETE unfollows, signed in.
+ */
+async function handleFollow({ request, env, handle }: { request: Request; env: FlpServerEnv; handle: string }) {
+  const admin = createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const method = request.method
+
+  if (!['GET', 'POST', 'DELETE'].includes(method)) {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const user = await verifiedUser({ request, admin })
+
+  if (method !== 'GET' && !user) {
+    return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  const notFound = () => fromError({ error: apiError({ code: 'not_found', message: 'This profile is not available' }) })
+  const normal = decodeURIComponent(handle).trim().toLowerCase()
+
+  if (!isHandle(normal)) {
+    return notFound()
+  }
+
+  if (method !== 'GET') {
+    const limited = await rateLimited({ admin, userId: user!.userId, bucket: 'follow', env })
+
+    if (limited) {
+      return limited
+    }
+  }
+
+  const { data, error } =
+    method === 'GET'
+      ? await admin.rpc('flp_follow_state', { p_handle: normal, p_viewer_id: user?.userId ?? null }).single<FollowState>()
+      : await admin.rpc('flp_set_follow', { p_follower_id: user!.userId, p_handle: normal, p_follow: method === 'POST' }).single<FollowState>()
+
+  if (error) {
+    if (error.code === 'FL409') {
+      return fromError({ error: apiError({ code: 'conflict', message: 'You can’t follow yourself' }) })
+    }
+
+    return error.code === 'FL404' ? notFound() : writeFailed({ fn: 'flp_set_follow', error })
+  }
+
+  return json({ status: 200, body: { followers: data.followers, following: data.following, own: data.own } satisfies FollowState })
+}
+
+/** GET /public/following (community): designs by the people the caller follows, newest first. */
+async function handleFollowingBoard({ request, env }: { request: Request; env: FlpServerEnv }) {
+  const admin = createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const user = await verifiedUser({ request, admin })
+
+  if (!user) {
+    return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  return readFollowingBoard({ admin, viewerId: user.userId, respond })
+}
+
 /** A 403 unless the account accepted the terms in force (P1). */
 async function termsRefusal({ admin, userId, message }: { admin: SupabaseClient; userId: string; message: string }) {
   const { data, error } = await admin
@@ -1164,15 +1349,23 @@ async function handleReport({ request, env, slug }: { request: Request; env: Flp
     return fromError({ error: parsed.error })
   }
 
-  const { error } = await admin.rpc('flp_report_publication', {
+  const { commentId } = parsed.request
+
+  if (commentId && !env.community) {
+    return designUnavailable()
+  }
+
+  const fn = commentId ? 'flp_report_comment' : 'flp_report_publication'
+  const { error } = await admin.rpc(fn, {
     p_reporter_id: user.userId,
     p_slug: slug,
+    ...(commentId ? { p_comment_id: commentId } : {}),
     p_reason: parsed.request.reason,
     p_note: parsed.request.note?.trim() || null,
   })
 
   if (error) {
-    return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn: 'flp_report_publication', error })
+    return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn, error })
   }
 
   return json({ status: 202, body: { reported: true } })
@@ -1379,6 +1572,21 @@ export async function handleFlpRequest({
 
     if (action === 'report' && rest.length === 0) {
       return handleReport({ request, env, slug: designId })
+    }
+
+    // Comments and follows exist only where the server turns them on.
+    if (env.community) {
+      if (action === 'comments' && rest.length <= 1) {
+        return handleComments({ request, env, slug: designId, commentId: rest[0] })
+      }
+
+      if (designId === 'u' && action && rest.length === 1 && rest[0] === 'follow') {
+        return handleFollow({ request, env, handle: action })
+      }
+
+      if (designId === 'following' && !action && request.method === 'GET') {
+        return handleFollowingBoard({ request, env })
+      }
     }
 
     // GET /public — the board (V2), ranked by window and garment.

@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { AI_ASSIST } from '../lib/ai-assist'
 import { CONTACT_EMAIL } from '../lib/alpha-contact'
+import { COMMUNITY } from '../lib/community'
 import { PATTERN_BETA } from '../lib/pattern-beta'
 
 /** What the alpha stores and how to remove it (Q10 #195). */
@@ -60,6 +61,15 @@ function Privacy() {
             name and your published designs with their votes, until you turn it off.
           </li>
           <li>Reports you send about a design: which design, the reason and any note, linked to your account.</li>
+          {COMMUNITY ? (
+            <>
+              <li>
+                Comments you post on shared designs, shown to anyone with the design’s link beside your public name or
+                handle, until you delete them.
+              </li>
+              <li>Which designers you follow. Others see how many people follow a designer, never who.</li>
+            </>
+          ) : null}
           <li>Which version of the terms of use you accepted, and when.</li>
           <li>
             To stop any one visitor flooding the site: a scrambled form of your device’s network address, never the
