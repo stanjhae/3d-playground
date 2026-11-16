@@ -14,6 +14,8 @@ export const FORBIDDEN_CLAIMS: ReadonlyArray<readonly [string, RegExp]> = [
   ['the old name', new RegExp(['Fashion', 'Leaderboard'].join(' '))],
   ['a shape the tee is not', /\boversized\b/i],
   ['voting as a future feature', /voting comes later/i],
+  // The AI assist suggests pattern edits; it doesn't design (docs/claims-audit.md).
+  ['an AI-made design', /\bAI[- ](designed|generated|created|made)\b|\bdesigned by AI\b/i],
   [
     'a sample creator',
     /Elise Moreau|Camille Wren|Hiro Tanaka|Noor Rahman|Jules Adler|Marta Klein|Iman Farouk|Ada Voss|Jules Hart/,

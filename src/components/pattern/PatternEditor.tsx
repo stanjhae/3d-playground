@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 
+import { AI_ASSIST } from '../../lib/ai-assist'
 import { cn } from '../../lib/cn'
 import { getCanonicalDocument, useEditorStore } from '../../lib/editor-store'
 import {
@@ -17,6 +18,8 @@ import type { CanonicalPattern } from '../../lib/pattern/pattern-document'
 import { patternTemplateFor } from '../../lib/pattern/templates'
 import { usePatternDrape } from '../../lib/pattern-drape-status'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
+
+const AiAssist = lazy(() => import('./AiAssist'))
 
 type Selection = { pieceId: string; pointId: string } | null
 type Drag = {
@@ -275,6 +278,12 @@ export default function PatternEditor() {
       ) : null}
 
       <QuickEdits pattern={stored} frames={frames} onPreview={setPreview} onCommit={commit} />
+
+      {AI_ASSIST ? (
+        <Suspense fallback={null}>
+          <AiAssist pattern={stored} onPreview={setPreview} onApply={commit} />
+        </Suspense>
+      ) : null}
 
       <button
         type="button"

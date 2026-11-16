@@ -85,3 +85,50 @@ test('reshape the pattern, drape it, publish it, and reload without draping', as
   await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
   await expect(drapeState(page)).toHaveAttribute('data-runs', '0')
 })
+
+test('an AI suggestion is previewed, then applied as one undoable edit', async ({ page }) => {
+  test.setTimeout(180_000)
+  const email = newEmail({ label: 'pattern-ai' })
+  emails.push(email)
+  // Claude is mocked here: nothing goes to Anthropic.
+  let asked: { prompt?: string; template?: unknown } = {}
+  await page.route('**/api/flp/ai/sketch', async (route) => {
+    asked = route.request().postDataJSON()
+    await route.fulfill({ json: { ops: [{ op: 'lengthen', mm: 120 }, { op: 'sleeve', side: 'left', mm: 200 }], notes: 'Longer body and a long left sleeve.' } })
+  })
+
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'select')
+  await page.goto(url.toString())
+  await expectSaved({ page })
+  await page.getByRole('switch', { name: 'Pattern (beta)' }).click()
+  await expect(page.getByTestId('pattern-editor')).toBeVisible({ timeout: 30_000 })
+  await expectSaved({ page })
+  await expect.poll(async () => (await savedPattern({ page })).pattern !== null).toBe(true)
+
+  await page.getByRole('button', { name: 'AI suggestion (beta)' }).click()
+  const assist = page.getByTestId('ai-assist')
+  await assist.getByLabel('Describe it (optional)').fill('A long tee with one long sleeve')
+  await assist.getByRole('button', { name: 'Suggest' }).click()
+  await expect(assist.getByRole('status')).toContainText('Longer body and a long left sleeve.')
+  expect(asked.prompt).toBe('A long tee with one long sleeve')
+  expect(asked.template).toEqual({ id: 'tee-crew-short', version: 4 })
+
+  // Previewed, not saved yet.
+  expect((await savedPattern({ page })).pattern.pieces[0].outline[0].y).toBe(0)
+
+  await assist.getByRole('button', { name: 'Apply' }).click()
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+  const saved = (await savedPattern({ page })).pattern as { pieces: Array<{ id: string; mirrorOf?: string; outline: Array<{ id: string; y: number }> }> }
+  expect(saved.pieces.find((piece) => piece.id === 'front')!.outline.find((point) => point.id === 'hemL')!.y).toBe(-120)
+  // The left sleeve was parted from its mirror and lengthened alone.
+  expect(saved.pieces.find((piece) => piece.id === 'sleeveL')!.mirrorOf).toBeUndefined()
+
+  await page.getByRole('button', { name: 'Undo' }).first().click()
+  await expectSaved({ page })
+  expect((await savedPattern({ page })).pattern.pieces[0].outline[0].y).toBe(0)
+})
