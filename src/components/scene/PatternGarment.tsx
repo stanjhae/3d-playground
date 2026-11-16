@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
-import { DrapeCancelled, type DrapeClient, createDrapeClient } from '../../lib/cloth/cloth-client'
+import { DrapeCancelled } from '../../lib/cloth/cloth-client'
+import { sharedDrapeClient } from '../../lib/cloth/shared-drape'
 import type { DrapedMesh } from '../../lib/cloth/drape-job'
 import type { DesignDocument } from '../../lib/design-document'
 import type { MaterialOverride } from '../../lib/design-schema'
@@ -8,16 +9,15 @@ import type { CanonicalPattern } from '../../lib/pattern/pattern-document'
 import { shapesFromScene, usePanelShapes } from '../../lib/panel-shape'
 import { buildPatternScene } from '../../lib/pattern/pattern-scene'
 import { usePatternDrape } from '../../lib/pattern-drape-status'
+import { SOLVER_VERSION } from '../../lib/cloth/solver'
+import { useEditorStore } from '../../lib/editor-store'
+import { fetchStoredMesh, storeMesh } from '../../lib/pattern/mesh-sync'
 import { resolveTemplate } from '../../lib/template-manifest'
 import { SeatedForm } from './Garment'
 
-let client: DrapeClient | null = null
 
-/** One cloth worker for the whole studio, so a new drape cancels a stale one. */
-export function sharedDrapeClient() {
-  client ??= createDrapeClient()
-  return client
-}
+/** A drape left alone this long is stored, so the next visit loads it instead of draping. */
+const STORE_AFTER_MS = 30_000
 
 /**
  * A garment in Pattern mode: its pieces draped in the cloth worker, then
@@ -41,42 +41,77 @@ export default function PatternGarment({
   const patternKey = useMemo(() => JSON.stringify(render.pattern), [render.pattern])
   const [mesh, setMesh] = useState<DrapedMesh | null>(null)
 
+  // A saved design's stored drape comes first; the studio drapes only what
+  // it hasn't seen, and stores a drape that's been left alone a while.
+  const cloudDesign = useEditorStore((state) => (picking ? state.cloud?.designId ?? null : null))
+
   useEffect(() => {
     let live = true
+    let storeTimer: ReturnType<typeof setTimeout> | null = null
     const pattern = JSON.parse(patternKey) as CanonicalPattern
     const drapes = sharedDrapeClient()
 
-    void drapes.cached({ pattern }).then((hit) => {
+    const show = (draped: DrapedMesh) => {
+      setMesh(draped)
+      usePatternDrape.setState({ state: 'ready', progress: 1 })
+    }
+
+    void (async () => {
+      const hit = await drapes.cached({ pattern })
+
       if (!live) {
         return
       }
 
       if (hit) {
-        setMesh(hit)
-        usePatternDrape.setState({ state: 'ready', progress: 1 })
+        show(hit)
         return
       }
 
+      if (cloudDesign) {
+        usePatternDrape.setState({ state: 'draping', progress: 0 })
+        const stored = await fetchStoredMesh({ pattern, solverVersion: SOLVER_VERSION })
+
+        if (!live) {
+          return
+        }
+
+        if (stored) {
+          await drapes.remember({ pattern, mesh: stored })
+          show(stored)
+          return
+        }
+      }
+
       usePatternDrape.setState((state) => ({ state: 'draping', progress: 0, runs: state.runs + 1 }))
-      drapes
-        .drape({ pattern, onProgress: (progress) => live && usePatternDrape.setState({ progress }) })
-        .then((draped) => {
-          if (live) {
-            setMesh(draped)
-            usePatternDrape.setState({ state: 'ready', progress: 1 })
-          }
-        })
-        .catch((error: unknown) => {
-          if (live && !(error instanceof DrapeCancelled)) {
-            usePatternDrape.setState({ state: 'failed', progress: 0 })
-          }
-        })
-    })
+
+      try {
+        const draped = await drapes.drape({ pattern, onProgress: (progress) => live && usePatternDrape.setState({ progress }) })
+
+        if (!live) {
+          return
+        }
+
+        show(draped)
+
+        if (cloudDesign) {
+          storeTimer = setTimeout(() => void storeMesh({ pattern, mesh: draped }), STORE_AFTER_MS)
+        }
+      } catch (error) {
+        if (live && !(error instanceof DrapeCancelled)) {
+          usePatternDrape.setState({ state: 'failed', progress: 0 })
+        }
+      }
+    })()
 
     return () => {
       live = false
+
+      if (storeTimer) {
+        clearTimeout(storeTimer)
+      }
     }
-  }, [patternKey])
+  }, [cloudDesign, patternKey])
 
   useEffect(() => () => usePatternDrape.setState({ state: 'idle', progress: 0 }), [])
 

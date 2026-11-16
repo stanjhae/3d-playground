@@ -174,6 +174,15 @@ export function CloudPublish() {
           )
           return
         }
+
+        // The public views must match a stored drape; the server checks.
+        const { storeCurrentDrape } = await import('../../lib/pattern/store-current-drape')
+
+        if (!(await storeCurrentDrape({ pattern: getCanonicalDocument().pattern! }))) {
+          setBusy(null)
+          setMessage('The draped garment couldn’t be saved. Check your connection, then publish again.')
+          return
+        }
       }
 
       const stills = await captureAngleStills({

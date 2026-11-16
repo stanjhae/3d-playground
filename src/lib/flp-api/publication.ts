@@ -1,3 +1,7 @@
+import { SOLVER_VERSION } from '../cloth/solver.ts'
+import type { CanonicalPattern } from '../pattern/pattern-document.ts'
+import { hashPattern } from '../pattern/pattern-hash.ts'
+import { hasReadyMesh } from './pattern-meshes.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
@@ -464,6 +468,14 @@ export async function publishVersion({
     return respond({ status: error.status, body: error.body })
   }
 
+  // A Pattern (beta) design publishes only with its draped mesh stored, so
+  // the public page shows exactly the garment the stills show.
+  const meshGate = await patternMeshGate({ asUser, userId, designId, seq: parsed.request.seq })
+
+  if (meshGate) {
+    return respond({ status: meshGate.status, body: meshGate.body })
+  }
+
   const { data, error } = await admin
     .rpc('flp_publish_version', {
       p_owner_id: userId,
@@ -482,6 +494,46 @@ export async function publishVersion({
 
   const body: PublicationResponse = { slug: data.slug, status: data.status, seq: data.version_seq }
   return respond({ status: 200, body })
+}
+
+async function patternMeshGate({
+  asUser,
+  userId,
+  designId,
+  seq,
+}: {
+  asUser: SupabaseClient
+  userId: string
+  designId: string
+  seq: number
+}) {
+  const { data, error } = await asUser
+    .from('design_versions')
+    .select('content')
+    .eq('design_id', designId)
+    .eq('seq', seq)
+    .maybeSingle<{ content: { pattern?: CanonicalPattern } }>()
+
+  if (error || !data) {
+    return null
+  }
+
+  const pattern = data.content?.pattern
+
+  if (!pattern) {
+    return null
+  }
+
+  const patternHash = await hashPattern({ pattern })
+  const ready = await hasReadyMesh({ client: asUser, userId, key: { patternHash, solverVersion: SOLVER_VERSION } })
+
+  return ready
+    ? null
+    : apiError({
+        code: 'invalid',
+        message: 'This design’s draped pattern hasn’t been saved yet',
+        issues: [{ path: '$.pattern', message: 'no draped mesh' }],
+      })
 }
 
 /** DELETE /designs/:id/publication — withdraw public access now. */
