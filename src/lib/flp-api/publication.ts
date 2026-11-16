@@ -5,7 +5,7 @@ import { hasReadyMesh } from './pattern-meshes.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
-import { garmentOfTemplate, TEMPLATE_IDS } from '../template-manifest.ts'
+import { garmentOfTemplate, READABLE_TEMPLATE_IDS } from '../template-manifest.ts'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
   type ApiError,
@@ -124,7 +124,7 @@ export function parseRenderUpload({ value }: { value: unknown }):
     }
   }
 
-  if (record.templateId !== undefined && !(typeof record.templateId === 'string' && TEMPLATE_IDS.includes(record.templateId))) {
+  if (record.templateId !== undefined && !(typeof record.templateId === 'string' && READABLE_TEMPLATE_IDS.includes(record.templateId))) {
     return invalid('$.templateId', 'expected a known garment template')
   }
 

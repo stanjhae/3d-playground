@@ -1,5 +1,5 @@
 import type { Design, GarmentId } from './design-schema'
-import { resolveGarmentId } from './design-schema'
+import { isUpcomingGarment, resolveGarmentId } from './design-schema'
 import { rankDesigns } from './rank-designs'
 
 export type BoardTimeframe = 'week' | 'all'
@@ -74,7 +74,12 @@ export function boardGarmentOptions({
   const ids = new Set<GarmentId>()
 
   for (const look of looks) {
-    ids.add(resolveGarmentId({ garmentId: look.garmentId }))
+    const garmentId = resolveGarmentId({ garmentId: look.garmentId })
+
+    // Not offered until this build can show it.
+    if (!isUpcomingGarment({ garmentId })) {
+      ids.add(garmentId)
+    }
   }
 
   return [...ids]
