@@ -1,6 +1,6 @@
 import type { Capsule } from '../cloth/colliders.ts'
 import type { ClothInput } from '../cloth/solver.ts'
-import { type FlatOutline, flattenOutline, polylineLength } from './bezier.ts'
+import { type FlatOutline, flattenOutline, polylineLength, signedArea } from './bezier.ts'
 import { expandPieces } from './mirror.ts'
 import type { CanonicalPattern, PatternFabric } from './pattern-document.ts'
 import { type Placement, placementFor } from './place.ts'
@@ -12,14 +12,19 @@ import { type Point2, triangulatePiece } from './triangulate.ts'
  * matching samples on its two sides.
  */
 
-/** Stretch and bend compliance per fabric (lower is stiffer). Stretch below 1e-7 goes unstable (spike S1). */
+/**
+ * Stretch and bend compliance per fabric (lower is stiffer). Stretch below
+ * 1e-7 goes unstable with one pass per substep, and bending must stay at
+ * least ten times softer than stretch or the two fight where cloth curves
+ * over the body and it never settles (spike S1 and the template drapes).
+ */
 export const FABRICS: Record<PatternFabric, { stretch: number; bend: number }> = {
-  jersey: { stretch: 2e-6, bend: 3e-5 },
-  woven: { stretch: 1e-6, bend: 1e-5 },
-  fleece: { stretch: 1.5e-6, bend: 6e-6 },
-  denim: { stretch: 6e-7, bend: 3e-6 },
+  jersey: { stretch: 2e-6, bend: 4e-5 },
+  woven: { stretch: 1e-6, bend: 2e-5 },
+  fleece: { stretch: 1.5e-6, bend: 2e-5 },
+  denim: { stretch: 6e-7, bend: 1.2e-5 },
   satin: { stretch: 1e-6, bend: 6e-5 },
-  firm: { stretch: 5e-7, bend: 1.5e-6 },
+  firm: { stretch: 5e-7, bend: 1e-5 },
 }
 
 export const DEFAULT_SPACING_MM = 25
@@ -33,7 +38,17 @@ export type ClothPiece = {
   place: Placement
   stretchCompliance: number
   bendCompliance: number
+  /** Metres kept clear of the body beyond the cloth's thickness (outer layers). */
+  layerOffset?: number
+  /** A waistband: the outline run from the first of these points to the second can't drop. */
+  waistband?: readonly [string, string]
 }
+
+/** How far a waistband may sag below where it was placed. */
+export const WAISTBAND_SLACK_M = 0.015
+
+/** How far an outer layer sits off an inner one (a jacket over trousers). */
+export const LAYER_OFFSET_M = 0.008
 
 export type SeamSide = { piece: string; from: string; to: string }
 
@@ -134,6 +149,8 @@ export function buildCloth({
   const positions: number[] = []
   const flat: number[] = []
   const pieceOf: number[] = []
+  const layerOffset: number[] = []
+  const holdY: number[] = []
   const triangles: number[] = []
   const links: number[] = []
   const rest: number[] = []
@@ -172,6 +189,10 @@ export function buildCloth({
 
     const boundary: Point2[] = []
     const runs: { key: string; startAt: number; count: number }[] = []
+    /** Boundary indices on the waistband, if the piece has one. */
+    const band = new Set<number>()
+    const bandStart = piece.waistband ? cornerOf(piece, piece.waistband[0]) : -1
+    const bandEnd = piece.waistband ? cornerOf(piece, piece.waistband[1]) : -1
 
     for (let r = 0; r < breaks.length; r += 1) {
       const start = breaks[r]!
@@ -191,6 +212,14 @@ export function buildCloth({
       for (let c = start; c < stop; c += 1) {
         const part = between(piece.flat, c % cornerCount, (c + 1) % cornerCount)
         const samples = sampleRun(part, Math.max(1, Math.round(polylineLength(part) / spacing)))
+        const onBand = c % cornerCount === bandStart && (c + 1) % cornerCount === bandEnd
+
+        if (onBand) {
+          for (let k = 0; k < samples.length; k += 1) {
+            band.add(boundary.length + k)
+          }
+        }
+
         boundary.push(...samples.slice(0, -1))
       }
     }
@@ -198,12 +227,15 @@ export function buildCloth({
     const mesh = triangulatePiece({ outline: boundary, spacing })
     const base = positions.length / 3
 
-    for (const p of mesh.points) {
+    mesh.points.forEach((p, index) => {
       const [wx, wy, wz] = piece.place(p)
       positions.push(wx, wy, wz)
       flat.push(p[0], p[1])
       pieceOf.push(pieceIndex)
-    }
+      layerOffset.push(piece.layerOffset ?? 0)
+      // The band's last sample is the next run's first point.
+      holdY.push(band.has(index) || (band.has(boundary.length) && index === 0) ? wy - WAISTBAND_SLACK_M : -Infinity)
+    })
 
     for (const run of runs) {
       const indices: number[] = []
@@ -295,6 +327,8 @@ export function buildCloth({
       compliance: Float64Array.from(compliance),
       stitches: Uint32Array.from(stitches),
       colliders,
+      layerOffset: layerOffset.some((offset) => offset > 0) ? Float64Array.from(layerOffset) : undefined,
+      holdY: holdY.some((y) => Number.isFinite(y)) ? Float64Array.from(holdY) : undefined,
     },
     pieceOf: Uint16Array.from(pieceOf),
     flat: Float64Array.from(flat),
@@ -303,17 +337,65 @@ export function buildCloth({
   }
 }
 
+/** A lower garment's waistband: its two waist points, when they're neighbours on the outline. */
+function waistbandOf(piece: { outline: readonly { id: string }[]; roles?: { waist?: string[] } }): [string, string] | undefined {
+  const [first, second] = piece.roles?.waist ?? []
+
+  if (!first || !second) {
+    return undefined
+  }
+
+  const ids = piece.outline.map((point) => point.id)
+  const a = ids.indexOf(first)
+  const b = ids.indexOf(second)
+
+  if (a < 0 || b < 0) {
+    return undefined
+  }
+
+  // Counter-clockwise from one to the next with nothing between.
+  if ((a + 1) % ids.length === b) {
+    return [first, second]
+  }
+
+  return (b + 1) % ids.length === a ? [second, first] : undefined
+}
+
+/** About this many particles keeps a drape quick on a phone. */
+const TARGET_PARTICLES = 2200
+
+/**
+ * The mesh spacing for a pattern: 25 mm, or coarser for a big garment so
+ * it stays near `TARGET_PARTICLES`. Decided by the pattern alone, so the
+ * same pattern always meshes the same way.
+ */
+export function spacingFor({ pattern }: { pattern: CanonicalPattern }) {
+  let area = 0
+
+  for (const piece of expandPieces({ pattern })) {
+    area += Math.abs(signedArea(flattenOutline({ outline: piece.outline }).points))
+  }
+
+  // A triangular lattice holds one particle per s² · √3/2.
+  const spacing = Math.sqrt(area / (TARGET_PARTICLES * 0.866))
+  return Math.round(Math.min(40, Math.max(DEFAULT_SPACING_MM, spacing)))
+}
+
 /** The cloth for a stored pattern: mirrors drawn, curves flattened, pieces placed. */
 export function clothFromPattern({
   pattern,
   colliders,
-  spacing = DEFAULT_SPACING_MM,
+  spacing = spacingFor({ pattern }),
 }: {
   pattern: CanonicalPattern
   colliders: readonly Capsule[]
   spacing?: number
 }): BuiltCloth {
-  const pieces: ClothPiece[] = expandPieces({ pattern }).map((piece) => {
+  const expanded = expandPieces({ pattern })
+  // Skirts and trousers are the inner layer; anything else worn with them sits outside.
+  const lower = (anchor: string) => anchor.startsWith('hip-') || anchor.startsWith('leg-')
+  const layered = expanded.some((piece) => lower(piece.place.anchor)) && expanded.some((piece) => !lower(piece.place.anchor))
+  const pieces: ClothPiece[] = expanded.map((piece) => {
     const flat = flattenOutline({ outline: piece.outline })
     const fabric = FABRICS[piece.fabric ?? 'jersey']
 
@@ -324,6 +406,8 @@ export function clothFromPattern({
       place: placementFor({ place: piece.place, outline: flat.points }),
       stretchCompliance: fabric.stretch,
       bendCompliance: fabric.bend,
+      layerOffset: layered && !lower(piece.place.anchor) ? LAYER_OFFSET_M : 0,
+      waistband: lower(piece.place.anchor) ? waistbandOf(piece) : undefined,
     }
   })
 

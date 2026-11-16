@@ -21,6 +21,17 @@ export type ClothInput = {
   colliders: readonly Capsule[]
   /** Pinned particles keep their start position (none for a garment on a body). */
   pinned?: Uint8Array
+  /**
+   * Extra distance from the body per particle, metres: an outer layer (a
+   * jacket over trousers) keeps clear of the inner one without cloth-to-
+   * cloth collision.
+   */
+  layerOffset?: Float64Array
+  /**
+   * The lowest each particle may go, metres (−Infinity for most): a
+   * waistband stays at its height as if its elastic held it.
+   */
+  holdY?: Float64Array
 }
 
 export type ClothOptions = {
@@ -47,9 +58,17 @@ export type ClothResult = {
 }
 
 const GRAVITY = -9.81
-const SETTLE_SPEED = 0.006
-/** Settled when no more than this share of particles still moves (contact jitter). */
-const SETTLE_RESTLESS = 0.005
+/**
+ * Settling is judged over windows of 0.1 s: a particle that moved more
+ * than `SETTLE_DRIFT` in a window is still going somewhere. Jitter on a
+ * contact moves back and forth and nets out, so it doesn't hold a drape
+ * up. Settled after `SETTLE_WINDOWS` windows in a row with no more than
+ * `SETTLE_RESTLESS` of the particles drifting.
+ */
+const SETTLE_WINDOW_S = 0.1
+const SETTLE_DRIFT = 0.0015
+const SETTLE_RESTLESS = 0.01
+const SETTLE_WINDOWS = 3
 /** A particle pushed out of the body can't fling across the room. */
 const MAX_SPEED = 3
 /** Once the drape has formed, damping climbs to this to quiet contact jitter. */
@@ -86,7 +105,9 @@ export function simulateCloth(input: ClothInput, options: ClothOptions = {}): Cl
   const colliders = input.colliders.map((c) => prepareCollider(c, thickness))
   const maxSteps = Math.round(maxSeconds * hz)
   const reportEvery = Math.round(hz / 10)
-  let settledFor = 0
+  const windowSteps = Math.round(SETTLE_WINDOW_S * hz)
+  const snapshot = Float64Array.from(x)
+  let calmWindows = 0
   let step = 0
   let settled = false
 
@@ -134,18 +155,23 @@ export function simulateCloth(input: ClothInput, options: ClothOptions = {}): Cl
       }
 
       for (let c = 0; c < colliders.length; c += 1) {
-        collide(x, prev, i * 3, colliders[c]!, friction)
+        const collider = colliders[c]!
+        collide(x, prev, i * 3, collider, collider.friction ?? friction, input.layerOffset?.[i] ?? 0)
       }
 
       // The floor.
       if (x[i * 3 + 1]! < thickness) {
         x[i * 3 + 1] = thickness
       }
+
+      const hold = input.holdY?.[i]
+
+      if (hold !== undefined && x[i * 3 + 1]! < hold) {
+        x[i * 3 + 1] = hold
+      }
     }
 
     let maxSpeed2 = 0
-    let restless = 0
-    const settle2 = SETTLE_SPEED * SETTLE_SPEED
     const cap2 = MAX_SPEED * MAX_SPEED
 
     for (let o = 0; o < x.length; o += 3) {
@@ -169,10 +195,6 @@ export function simulateCloth(input: ClothInput, options: ClothOptions = {}): Cl
       if (s2 > maxSpeed2) {
         maxSpeed2 = s2
       }
-
-      if (s2 > settle2) {
-        restless += 1
-      }
     }
 
     if (step % reportEvery === 0 && options.onProgress) {
@@ -181,16 +203,31 @@ export function simulateCloth(input: ClothInput, options: ClothOptions = {}): Cl
       }
     }
 
-    if (rampT >= 1 && restless <= n * SETTLE_RESTLESS) {
-      settledFor += dt
+    if ((step + 1) % windowSteps === 0) {
+      const drift2 = SETTLE_DRIFT * SETTLE_DRIFT
+      let drifting = 0
 
-      if (settledFor >= 0.25) {
+      for (let o = 0; o < x.length; o += 3) {
+        const dx = x[o]! - snapshot[o]!
+        const dy = x[o + 1]! - snapshot[o + 1]!
+        const dz = x[o + 2]! - snapshot[o + 2]!
+
+        if (dx * dx + dy * dy + dz * dz > drift2) {
+          drifting += 1
+        }
+
+        snapshot[o] = x[o]!
+        snapshot[o + 1] = x[o + 1]!
+        snapshot[o + 2] = x[o + 2]!
+      }
+
+      calmWindows = rampT >= 1 && drifting <= n * SETTLE_RESTLESS ? calmWindows + 1 : 0
+
+      if (calmWindows >= SETTLE_WINDOWS) {
         settled = true
         step += 1
         break
       }
-    } else {
-      settledFor = 0
     }
   }
 
@@ -265,6 +302,9 @@ type PreparedCollider = {
   uz: number
   len2: number
   r: number
+  /** 1 / the smallest squash: world distance to squashed-space distance. */
+  inflate: number
+  friction?: number
   /** Loose bounds for a cheap early out. */
   minX: number
   maxX: number
@@ -289,7 +329,8 @@ function prepareCollider(c: Capsule, thickness: number): PreparedCollider {
   const ux = bx - ax
   const uy = by - ay
   const uz = bz - az
-  const pad = c.r + thickness * 4
+  // Room for the thickness and the outer layer's offset.
+  const pad = c.r + thickness * 4 + 0.02
 
   return {
     mx,
@@ -311,6 +352,8 @@ function prepareCollider(c: Capsule, thickness: number): PreparedCollider {
     // Thickness is applied in world space along the smallest squash, so the
     // shallow torso still keeps the cloth off its skin.
     r: c.r + thickness / Math.min(sx, sy, sz),
+    inflate: 1 / Math.min(sx, sy, sz),
+    friction: c.friction,
     minX: Math.min(c.a[0], c.b[0]) - pad,
     maxX: Math.max(c.a[0], c.b[0]) + pad,
     minY: Math.min(c.a[1], c.b[1]) - pad,
@@ -320,7 +363,7 @@ function prepareCollider(c: Capsule, thickness: number): PreparedCollider {
   }
 }
 
-function collide(x: Float64Array, prev: Float64Array, o: number, c: PreparedCollider, friction: number) {
+function collide(x: Float64Array, prev: Float64Array, o: number, c: PreparedCollider, friction: number, offset: number) {
   const px = x[o]!
   const py = x[o + 1]!
   const pz = x[o + 2]!
@@ -341,8 +384,9 @@ function collide(x: Float64Array, prev: Float64Array, o: number, c: PreparedColl
   const dy = ly - qy
   const dz = lz - qz
   const d2 = dx * dx + dy * dy + dz * dz
+  const r = c.r + offset * c.inflate
 
-  if (d2 >= c.r * c.r) {
+  if (d2 >= r * r) {
     return
   }
 
@@ -352,7 +396,7 @@ function collide(x: Float64Array, prev: Float64Array, o: number, c: PreparedColl
     return
   }
 
-  const k = c.r / d
+  const k = r / d
   const nx = c.mx + (qx + dx * k) * c.sx
   const ny = c.my + (qy + dy * k) * c.sy
   const nz = c.mz + (qz + dz * k) * c.sz
