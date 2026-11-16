@@ -2,7 +2,8 @@ import { flattenOutline } from './bezier.ts'
 import { expandPieces } from './mirror.ts'
 import type { CanonicalPattern, PatternPiece, PatternPoint } from './pattern-document.ts'
 import { type GeometryIssue, describeGeometryIssue, validateGeometry } from './validate-geometry.ts'
-import { PATTERN_OP_LIMITS, type PatternOp, applyPatternOps } from './pattern-ops.ts'
+import { PATTERN_OP_LIMITS, type PatternOp, applyPatternOps, closeSlit, maxSlitMm, slitPointId } from './pattern-ops.ts'
+import { dropFromRoles, freshPointId, removeOutlinePoint, runLength, seamEnds, seamOnEdge, splitEdge } from './outline-edit.ts'
 
 /**
  * The pattern editor's pure side: laying the pieces out on the sheet, SVG
@@ -101,6 +102,62 @@ export function piecePath(piece: SheetPiece): string {
   return `${parts.join(' ')} Z`
 }
 
+/** The edge after outline point `index` alone, as an SVG path. */
+export function edgePath(piece: SheetPiece, index: number): string {
+  const { outline } = piece
+  const point = outline[index]!
+  const next = outline[(index + 1) % outline.length]!
+  const [sx, sy] = toSheet(piece, point.x, point.y)
+  const [nx, ny] = toSheet(piece, next.x, next.y)
+
+  if (point.ho || next.hi) {
+    const [c1x, c1y] = toSheet(piece, point.x + (point.ho?.[0] ?? 0), point.y + (point.ho?.[1] ?? 0))
+    const [c2x, c2y] = toSheet(piece, next.x + (next.hi?.[0] ?? 0), next.y + (next.hi?.[1] ?? 0))
+    return `M${sx} ${sy} C${c1x} ${c1y} ${c2x} ${c2y} ${nx} ${ny}`
+  }
+
+  return `M${sx} ${sy} L${nx} ${ny}`
+}
+
+/** Seam colours, by the seam's place in the pattern. */
+export const SEAM_COLOURS = ['#b45309', '#2563eb', '#16a34a', '#9333ea', '#db2777', '#0891b2', '#ca8a04', '#dc2626', '#4f46e5', '#059669']
+
+export type SheetEdge = {
+  index: number
+  from: string
+  to: string
+  /** What sews it, or nothing for a free edge (a hem, a neckline, a slit). */
+  seam: { id: string; colour: string; to: { pieceId: string; label: string } } | null
+}
+
+/** Each edge of a piece and the seam that sews it, if any. */
+export function sheetEdges({ pattern, piece }: { pattern: CanonicalPattern; piece: SheetPiece }): SheetEdge[] {
+  const labelOf = (id: string) => pattern.pieces.find((entry) => entry.id === id)?.label ?? id
+
+  return piece.outline.map((point, index) => {
+    const next = piece.outline[(index + 1) % piece.outline.length]!
+    const sewn = seamOnEdge({ pattern, pieceId: piece.id, outline: piece.outline, index })
+    const other = sewn ? sewn.seam[sewn.side === 'a' ? 'b' : 'a'].piece : ''
+    return {
+      index,
+      from: point.id,
+      to: next.id,
+      seam: sewn ? { id: sewn.seam.id, colour: SEAM_COLOURS[sewn.colour % SEAM_COLOURS.length]!, to: { pieceId: other, label: labelOf(other) } } : null,
+    }
+  })
+}
+
+/** Plain words for an edge, for screen readers and the edge toolbar. */
+export function describeEdge({ piece, edge }: { piece: SheetPiece; edge: SheetEdge }) {
+  const where = `${piece.label}, edge ${edge.from} to ${edge.to}`
+
+  if (!edge.seam) {
+    return `${where}, open`
+  }
+
+  return edge.seam.to.pieceId === piece.id ? `${where}, sewn to itself (seam ${edge.seam.id})` : `${where}, sewn to ${edge.seam.to.label} (seam ${edge.seam.id})`
+}
+
 /** The drawn piece an edit to `pieceId` lands on, and whether x flips (a mirror). */
 export function editTarget({ pattern, pieceId }: { pattern: CanonicalPattern; pieceId: string }) {
   const piece = pattern.pieces.find((entry) => entry.id === pieceId)
@@ -161,6 +218,121 @@ export function movePoint({
   }
 
   return next
+}
+
+/**
+ * A new point halfway along the edge after outline point `index` on the
+ * piece the user sees. Like a move, a mirror's edit lands on its source.
+ * The new point's id is the first free `p`N.
+ */
+export function addPoint({ pattern, pieceId, index }: { pattern: CanonicalPattern; pieceId: string; index: number }): { pattern: CanonicalPattern; pointId: string } | null {
+  const sheet = expandPieces({ pattern }).find((piece) => piece.id === pieceId)
+  const target = editTarget({ pattern, pieceId })
+  const next = structuredClone(pattern)
+  const piece = next.pieces.find((entry) => entry.id === target.pieceId) as PatternPiece | undefined
+  const outline = piece?.outline
+
+  if (!sheet || !outline || index < 0 || index >= sheet.outline.length) {
+    return null
+  }
+
+  const a = sheet.outline[index]!.id
+  const b = sheet.outline[(index + 1) % sheet.outline.length]!.id
+  // A mirror runs the other way round: its edge a→b is the source's b→a.
+  const at = outline.findIndex((point) => point.id === (target.flipX ? b : a))
+  const pointId = freshPointId({ outline, prefix: 'p' })
+  piece.outline = splitEdge({ outline, index: at, t: 0.5, id: pointId })
+  return { pattern: next, pointId }
+}
+
+export type RemoveResult = { ok: true; pattern: CanonicalPattern } | { ok: false; message: string }
+
+/**
+ * Takes a point out of a piece (and the pieces mirroring it). Refused
+ * where a seam starts or ends, since the seam would lose its end, and on
+ * a piece already down to three points.
+ */
+export function removePoint({ pattern, pieceId, pointId }: { pattern: CanonicalPattern; pieceId: string; pointId: string }): RemoveResult {
+  const target = editTarget({ pattern, pieceId })
+  const sharing = pattern.pieces.filter((piece) => piece.id === target.pieceId || piece.mirrorOf === target.pieceId).map((piece) => piece.id)
+  const label = pattern.pieces.find((piece) => piece.id === pieceId)?.label ?? 'The piece'
+
+  if (sharing.some((id) => seamEnds({ pattern, pieceId: id }).has(pointId))) {
+    return { ok: false, message: `A seam ends at ${pointId}, so it can’t be removed. Move the point instead.` }
+  }
+
+  const next = structuredClone(pattern)
+  const piece = next.pieces.find((entry) => entry.id === target.pieceId) as PatternPiece | undefined
+  const outline = piece?.outline
+
+  if (!piece || !outline?.some((point) => point.id === pointId)) {
+    return { ok: false, message: `${pointId} isn’t on ${label}.` }
+  }
+
+  if (outline.length <= 3) {
+    return { ok: false, message: `${label} needs at least three points.` }
+  }
+
+  piece.outline = removeOutlinePoint({ outline, id: pointId })
+
+  for (const entry of next.pieces) {
+    if (sharing.includes(entry.id)) {
+      dropFromRoles(entry, pointId)
+
+      if (entry.roles && Object.keys(entry.roles).length === 0) {
+        delete entry.roles
+      }
+    }
+  }
+
+  return { ok: true, pattern: next }
+}
+
+export type SlitChoice = {
+  seamId: string
+  /** The longest slit the seam takes, millimetres. */
+  max: number
+  /** The slit it has now, millimetres, or 0. */
+  current: number
+}
+
+/** The slit an edge's seam can take, or null for a free edge or a seam too short for one. */
+export function slitChoice({ pattern, pieceId, index }: { pattern: CanonicalPattern; pieceId: string; index: number }): SlitChoice | null {
+  const drawn = expandPieces({ pattern })
+  const piece = drawn.find((entry) => entry.id === pieceId)
+  const sewn = piece ? seamOnEdge({ pattern, pieceId, outline: piece.outline, index }) : null
+
+  if (!sewn) {
+    return null
+  }
+
+  const max = maxSlitMm({ pattern, seamId: sewn.seam.id })
+
+  if (max === 0) {
+    return null
+  }
+
+  // A slit already there: how far it opens, as the op measures it.
+  let current = 0
+
+  for (const name of ['a', 'b'] as const) {
+    const side = sewn.seam[name]
+    const id = slitPointId({ seam: sewn.seam.id, side: name })
+
+    if (side.from === id || side.to === id) {
+      const closed = closeSlit({ pattern, seamId: sewn.seam.id }).seams.find((seam) => seam.id === sewn.seam.id)!
+      const outline = drawn.find((entry) => entry.id === side.piece)!.outline
+      current = side.from === id ? runLength({ outline, from: closed[name].from, to: id }) : runLength({ outline, from: id, to: closed[name].to })
+      break
+    }
+  }
+
+  return { seamId: sewn.seam.id, max, current: Math.round(current) }
+}
+
+/** The pattern with a slit of `mm` opened on the seam (or moved to that length). */
+export function slitEdit({ pattern, pieceId, seamId, mm }: { pattern: CanonicalPattern; pieceId: string; seamId: string; mm: number }) {
+  return applyPatternOps({ pattern, ops: [{ op: 'slit', piece: pieceId, seam: seamId, mm }] })
 }
 
 export type EditCheck = { ok: true } | { ok: false; messages: string[] }

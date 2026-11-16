@@ -4,6 +4,8 @@ import {
   NUDGE_STEP,
   NUDGE_STEP_LARGE,
   isTypingTarget,
+  patternKeyAction,
+  patternKeyList,
   studioKeyAction,
   studioKeyList,
 } from './studio-keys'
@@ -145,5 +147,33 @@ describe('studioKeyList', () => {
     expect(keys).toEqual(
       expect.arrayContaining(['Arrow keys', 'Shift + arrow keys', 'Delete or Backspace', 'Esc', 'Ctrl + D', 'Ctrl + C, then Ctrl + V', 'B, E, T, G', 'Ctrl + Z', 'Shift + Ctrl + Z']),
     )
+  })
+})
+
+describe('patternKeyAction', () => {
+  test('arrows move a focused point by millimetres, y up', () => {
+    expect(patternKeyAction({ key: 'ArrowUp', on: 'point' })).toEqual({ type: 'nudge', dx: 0, dy: 1 })
+    expect(patternKeyAction({ key: 'ArrowLeft', shiftKey: true, on: 'point' })).toEqual({ type: 'nudge', dx: -10, dy: 0 })
+    expect(patternKeyAction({ key: 'ArrowUp', on: 'edge' })).toBeNull()
+  })
+
+  test('Delete removes a point; + or Insert adds one on an edge; S slits an edge', () => {
+    expect(patternKeyAction({ key: 'Delete', on: 'point' })).toEqual({ type: 'removePoint' })
+    expect(patternKeyAction({ key: 'Backspace', on: 'point' })).toEqual({ type: 'removePoint' })
+    expect(patternKeyAction({ key: 'Delete', on: 'edge' })).toBeNull()
+    expect(patternKeyAction({ key: '+', on: 'edge' })).toEqual({ type: 'addPoint' })
+    expect(patternKeyAction({ key: 'Insert', on: 'edge' })).toEqual({ type: 'addPoint' })
+    expect(patternKeyAction({ key: 's', on: 'edge' })).toEqual({ type: 'slit' })
+    expect(patternKeyAction({ key: 's', on: 'point' })).toBeNull()
+    expect(patternKeyAction({ key: 'Escape', on: 'edge' })).toEqual({ type: 'deselect' })
+  })
+
+  test('shortcuts with a modifier pass through to undo and the browser', () => {
+    expect(patternKeyAction({ key: 'z', metaKey: true, on: 'point' })).toBeNull()
+    expect(patternKeyAction({ key: 'Delete', ctrlKey: true, on: 'point' })).toBeNull()
+  })
+
+  test('the help names every key it handles', () => {
+    expect(patternKeyList().map((entry) => entry.keys)).toEqual(['Tab', 'Arrow keys', 'Delete or Backspace', '+ or Insert', 'S', 'Esc'])
   })
 })

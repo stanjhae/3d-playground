@@ -1,5 +1,6 @@
 import { mirrorOutline } from './mirror.ts'
-import type { CanonicalPattern, PatternPiece, PatternPoint, PatternRole } from './pattern-document.ts'
+import { pointAlongRun, removeOutlinePoint, runLength, splitEdge } from './outline-edit.ts'
+import type { CanonicalPattern, PatternPiece, PatternPoint, PatternRole, PatternSeam } from './pattern-document.ts'
 import { type GeometryIssue, type PanelFrame, validateGeometry } from './validate-geometry.ts'
 
 /**
@@ -15,6 +16,11 @@ export type PatternOp =
   | { op: 'hemCurve'; mm: number; piece?: 'front' | 'back' | 'all' }
   | { op: 'neckline'; mm: number }
   | { op: 'sleeve'; side: 'left' | 'right' | 'both'; mm: number }
+  /**
+   * Opens a seam `mm` up from its hem (or cuff) end: the side seam nearest
+   * the hem on `piece`, or the named `seam`.
+   */
+  | { op: 'slit'; piece: string; seam?: string; mm: number }
 
 /** Inclusive millimetre bounds per op. */
 export const PATTERN_OP_LIMITS = {
@@ -24,9 +30,15 @@ export const PATTERN_OP_LIMITS = {
   hemCurve: { min: -150, max: 150 },
   neckline: { min: 0, max: 160 },
   sleeve: { min: -250, max: 500 },
+  slit: { min: 30, max: 400 },
 } as const satisfies Record<PatternOp['op'], { min: number; max: number }>
 
 export const PATTERN_OPS = Object.keys(PATTERN_OP_LIMITS) as PatternOp['op'][]
+
+/** A slit leaves at least this much of its seam sewn. */
+export const SLIT_MIN_SEWN_MM = 40
+/** A slit end this close to an existing point uses that point. */
+const SLIT_SNAP_MM = 3
 
 const BODY_ANCHORS = new Set(['front', 'back', 'side-left', 'side-right', 'hip-front', 'hip-back'])
 const BACK_ANCHORS = new Set(['back', 'hip-back'])
@@ -148,6 +160,10 @@ function applyOne(pattern: Mutable, raw: PatternOp) {
       }
       break
 
+    case 'slit':
+      slit(pattern, op)
+      break
+
     case 'sleeve': {
       const sides = op.side === 'both' ? ['left', 'right'] : [op.side]
 
@@ -173,6 +189,214 @@ function applyOne(pattern: Mutable, raw: PatternOp) {
       }
       break
     }
+  }
+}
+
+/** The id of the point a slit adds on one side of a seam. */
+export function slitPointId({ seam, side }: { seam: string; side: 'a' | 'b' }) {
+  return `${seam}-slit-${side}`.slice(0, 40)
+}
+
+const HEM_ROLES: PatternRole[] = ['hem', 'cuff']
+
+function drawnOutline(pattern: Mutable, pieceId: string) {
+  const piece = pattern.pieces.find((entry) => entry.id === pieceId)
+
+  if (!piece) {
+    return undefined
+  }
+
+  if (piece.mirrorOf) {
+    return mirrorOutline(pattern.pieces.find((entry) => entry.id === piece.mirrorOf)?.outline ?? [])
+  }
+
+  return piece.outline
+}
+
+/** Which end of a seam is its hem end: the lower one, on side `a`. */
+function hemEnd(pattern: Mutable, seam: PatternSeam): { a: 'from' | 'to'; b: 'from' | 'to' } | null {
+  const outline = drawnOutline(pattern, seam.a.piece)
+  const from = outline?.find((point) => point.id === seam.a.from)
+  const to = outline?.find((point) => point.id === seam.a.to)
+
+  if (!from || !to) {
+    return null
+  }
+
+  // `a.from` meets `b.to`.
+  return from.y <= to.y ? { a: 'from', b: 'to' } : { a: 'to', b: 'from' }
+}
+
+/**
+ * The seams a slit on `pieceId` may open, nearest the hem first: those
+ * with an end on a hem or cuff point (or an earlier slit), on this piece.
+ * One already slit comes first.
+ */
+export function slitSeams({ pattern, pieceId }: { pattern: CanonicalPattern; pieceId: string }): PatternSeam[] {
+  const piece = pattern.pieces.find((entry) => entry.id === pieceId)
+  const outline = piece ? drawnOutline(pattern, pieceId) : undefined
+
+  if (!piece || !outline) {
+    return []
+  }
+
+  const source = piece.mirrorOf ? pattern.pieces.find((entry) => entry.id === piece.mirrorOf) : undefined
+  const roles = piece.roles ?? source?.roles ?? {}
+  const hems = new Set(HEM_ROLES.flatMap((role) => roles[role] ?? []))
+  const candidates: { seam: PatternSeam; slit: boolean; y: number; order: number }[] = []
+
+  pattern.seams.forEach((seam, order) => {
+    for (const name of ['a', 'b'] as const) {
+      const side = seam[name]
+
+      if (side.piece !== pieceId) {
+        continue
+      }
+
+      const slitId = slitPointId({ seam: seam.id, side: name })
+      const ends = [side.from, side.to].filter((id) => hems.has(id) || id === slitId)
+      const point = outline.find((entry) => entry.id === ends[0])
+
+      if (ends.length === 1 && point) {
+        candidates.push({ seam, slit: ends[0] === slitId, y: point.y, order })
+        return
+      }
+    }
+  })
+
+  // A seam already slit comes first, so slitting the piece again moves that slit.
+  return candidates.sort((p, q) => Number(q.slit) - Number(p.slit) || p.y - q.y || p.order - q.order).map((entry) => entry.seam)
+}
+
+/** The longest slit the seam takes, millimetres (0 when it takes none). */
+export function maxSlitMm({ pattern, seamId }: { pattern: CanonicalPattern; seamId: string }) {
+  const seam = pattern.seams.find((entry) => entry.id === seamId)
+
+  if (!seam) {
+    return 0
+  }
+
+  // Measured with any slit there already taken back out.
+  const open = clone(pattern)
+  unslit(open, open.seams.find((entry) => entry.id === seamId)!)
+  const opened = open.seams.find((entry) => entry.id === seamId)!
+  let shortest = Infinity
+
+  for (const name of ['a', 'b'] as const) {
+    const outline = drawnOutline(open, opened[name].piece) ?? []
+    shortest = Math.min(shortest, runLength({ outline, from: opened[name].from, to: opened[name].to }))
+  }
+
+  const most = Math.min(PATTERN_OP_LIMITS.slit.max, Math.floor(shortest - SLIT_MIN_SEWN_MM))
+  return most >= PATTERN_OP_LIMITS.slit.min ? most : 0
+}
+
+/** A piece drawn on its own: its mirrors keep its shape, and a mirror gets its own outline. */
+function standAlone(pattern: Mutable, pieceId: string) {
+  detachMirrors(pattern, pieceId)
+  materialise(pattern, pieceId)
+  return pattern.pieces.find((entry) => entry.id === pieceId)!
+}
+
+/**
+ * Takes a slit this seam already has back out: its slit points go and
+ * each side's hem end returns to the hem (or cuff) point below.
+ */
+function unslit(pattern: Mutable, seam: PatternSeam) {
+  const ends = hemEnd(pattern, seam)
+
+  if (!ends) {
+    return
+  }
+
+  for (const name of ['a', 'b'] as const) {
+    const side = seam[name]
+    const end = ends[name]
+    const id = slitPointId({ seam: seam.id, side: name })
+
+    if (side[end] !== id) {
+      continue
+    }
+
+    const piece = standAlone(pattern, side.piece)
+    const outline = piece.outline!
+    const hems = new Set(HEM_ROLES.flatMap((role) => piece.roles?.[role] ?? []))
+    const n = outline.length
+    const at = outline.findIndex((point) => point.id === id)
+    // The open stretch lies before `from` and after `to`, counter-clockwise.
+    const step = end === 'from' ? -1 : 1
+    let reference = outline[(at + step + n) % n]!.id
+
+    for (let k = 1; k < n; k += 1) {
+      const candidate = outline[(at + step * k + n * n) % n]!.id
+
+      if (hems.has(candidate)) {
+        reference = candidate
+        break
+      }
+    }
+
+    side[end] = reference
+    piece.outline = removeOutlinePoint({ outline, id })
+  }
+}
+
+/** The pattern with the seam's slit sewn back up (no change if it has none). */
+export function closeSlit({ pattern, seamId }: { pattern: CanonicalPattern; seamId: string }): CanonicalPattern {
+  const next = clone(pattern)
+  const seam = next.seams.find((entry) => entry.id === seamId)
+
+  if (seam) {
+    unslit(next, seam)
+  }
+
+  return next
+}
+
+function slit(pattern: Mutable, op: Extract<PatternOp, { op: 'slit' }>) {
+  const seam = op.seam
+    ? pattern.seams.find((entry) => entry.id === op.seam && (entry.a.piece === op.piece || entry.b.piece === op.piece))
+    : slitSeams({ pattern, pieceId: op.piece })[0]
+
+  if (!seam) {
+    return
+  }
+
+  unslit(pattern, seam)
+  const ends = hemEnd(pattern, seam)
+  const most = maxSlitMm({ pattern, seamId: seam.id })
+
+  if (!ends || most === 0) {
+    return
+  }
+
+  const mm = Math.min(op.mm, most)
+
+  for (const name of ['a', 'b'] as const) {
+    const side = seam[name]
+    const end = ends[name]
+    const piece = standAlone(pattern, side.piece)
+    const outline = piece.outline!
+    const at = pointAlongRun({ outline, from: side.from, to: side.to, mm, fromEnd: end === 'to' })
+
+    if (!at) {
+      continue
+    }
+
+    const id = slitPointId({ seam: seam.id, side: name })
+    const n = outline.length
+    const next = (at.index + 1) % n
+    // Close to a point already there: that point is the new end.
+    const edge = runLength({ outline, from: outline[at.index]!.id, to: outline[next]!.id })
+    const snap = at.t * edge <= SLIT_SNAP_MM ? at.index : (1 - at.t) * edge <= SLIT_SNAP_MM ? next : -1
+
+    if (snap >= 0) {
+      side[end] = outline[snap]!.id
+      continue
+    }
+
+    piece.outline = splitEdge({ outline, index: at.index, t: at.t, id })
+    side[end] = id
   }
 }
 
@@ -216,10 +440,16 @@ export function isPatternOp(value: unknown): value is PatternOp {
     return false
   }
 
-  const allowed = new Set(['op', 'mm', ...(entry.op === 'sleeve' ? ['side'] : entry.op === 'hemCurve' ? ['piece'] : [])])
+  const extra: Record<string, string[]> = { sleeve: ['side'], hemCurve: ['piece'], slit: ['piece', 'seam'] }
+  const allowed = new Set(['op', 'mm', ...(extra[entry.op] ?? [])])
 
   if (Object.keys(entry).some((key) => !allowed.has(key))) {
     return false
+  }
+
+  if (entry.op === 'slit') {
+    const isId = (id: unknown) => typeof id === 'string' && id.length > 0 && id.length <= 40 && /^[A-Za-z0-9_-]+$/.test(id)
+    return isId(entry.piece) && (!('seam' in entry) || isId(entry.seam))
   }
 
   if (entry.op === 'sleeve') {
