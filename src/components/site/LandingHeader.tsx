@@ -18,7 +18,8 @@ export const MENU_LINK_CLASS = 'flex min-h-11 items-center rounded-lg px-3 text-
 export function BrandMark() {
   return (
     <>
-      <span className="flv-text-gradient font-display text-3xl leading-none">{FLV_COPY.brandMark}</span>
+      {/* Drawn by scripts/build-brand.mjs: 112 × 60 units, shown 28 px tall. */}
+      <img src="/brand/flv-mark.svg" alt={FLV_COPY.brandMark} width={52} height={28} className="block h-7 w-auto shrink-0" />
       <span className="hidden font-display text-[0.65rem] leading-[1.1] tracking-normal uppercase sm:block">
         Fashion
         <br />

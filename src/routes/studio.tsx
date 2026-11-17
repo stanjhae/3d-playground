@@ -40,6 +40,8 @@ import { EXAMPLE_DESIGN_TITLE, createExampleDocument } from '../lib/example-desi
 import { getGarment, listRailGarments, printAreas } from '../lib/garments'
 import { resolveTemplate, templateForGarment } from '../lib/template-manifest'
 import { trackAssumption } from '../lib/assumption-events'
+import { PLANNED_GARMENTS } from '../lib/landing-demo'
+import { ComingSoonBadge } from '../components/ui/ComingSoonBadge'
 
 export const Route = createFileRoute('/studio')({
   // `?new=1` is where Create lands: the start of a new design, not the library.
@@ -392,6 +394,22 @@ function MyStudio() {
               >
                 <span className="font-display text-lg text-flv-ink">{garment.label}</span>
                 <span className="font-body text-xs text-flv-muted">Prints on: {printAreas({ garmentId: garment.id })}</span>
+              </button>
+            ))}
+            {/* Planned pieces: shown so nobody wonders where they are, never pickable. */}
+            {PLANNED_GARMENTS.map((piece) => (
+              <button
+                key={piece.id}
+                type="button"
+                role="radio"
+                aria-checked="false"
+                disabled
+                aria-label={`${piece.label}, coming soon`}
+                data-planned-garment={piece.id}
+                className="flv-panel flex min-h-24 flex-col items-start justify-between gap-2 border-dashed p-4 text-left"
+              >
+                <span className="font-display text-lg text-flv-muted">{piece.label}</span>
+                <ComingSoonBadge />
               </button>
             ))}
           </div>
