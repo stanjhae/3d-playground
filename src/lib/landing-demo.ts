@@ -45,6 +45,10 @@ const GARMENT_CATEGORY: Record<GarmentId, GarmentCategoryId> = {
   overall: 'tops',
   tailored: 'outerwear',
   jacket: 'outerwear',
+  vest: 'tops',
+  crop: 'tops',
+  dress: 'outerwear',
+  trousers: 'bottoms',
 }
 
 export function garmentCategory({

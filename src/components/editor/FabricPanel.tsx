@@ -13,6 +13,7 @@ import {
   clothSheetHeightClass,
   nextClothOpen,
 } from '../../lib/studio-chrome'
+import { SurfaceChooser } from './SurfaceChooser'
 
 export function FabricPanel({
   selectedMeshName,
@@ -155,6 +156,7 @@ export function FabricPanel({
             )
           })}
         </ul>
+        <SurfaceChooser />
       </div>
     </aside>
   )

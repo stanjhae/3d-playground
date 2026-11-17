@@ -25,6 +25,12 @@ export const FABRICS: Record<PatternFabric, { stretch: number; bend: number }> =
   denim: { stretch: 6e-7, bend: 1.2e-5 },
   satin: { stretch: 1e-6, bend: 6e-5 },
   firm: { stretch: 5e-7, bend: 1e-5 },
+  // Provisional (pattern-reader R): read but not yet chosen by any writer.
+  // The fabric-drape writer (B3) tunes them against real drapes.
+  linen: { stretch: 8e-7, bend: 1.6e-5 },
+  chiffon: { stretch: 2e-6, bend: 8e-5 },
+  canvas: { stretch: 4e-7, bend: 8e-6 },
+  wool: { stretch: 1.2e-6, bend: 2.4e-5 },
 }
 
 export const DEFAULT_SPACING_MM = 25

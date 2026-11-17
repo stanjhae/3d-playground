@@ -92,6 +92,51 @@ describe('the AI assist', () => {
     expect(cleanOps('nope')).toEqual([])
   })
 
+  test('a slit comes back as an edit on a named piece and seam, and Claude is told which seams a slit can open', async () => {
+    const answer = {
+      ops: [
+        { op: 'slit', piece: 'front', seam: 'sideL', mm: 150 },
+        { op: 'slit', piece: 'front', seam: 'sideR', mm: 9999 },
+        { op: 'slit', piece: 'sleeveL', mm: 40 },
+      ],
+      notes: 'Side slits and a vented left cuff.',
+    }
+    const { fetchImpl, seen } = stub({ body: message({ text: JSON.stringify(answer) }) })
+    const result = await sketchToOps({ request: describeTee, template, env, fetchImpl })
+
+    expect(result).toEqual({
+      ok: true,
+      body: {
+        ops: [
+          { op: 'slit', piece: 'front', seam: 'sideL', mm: 150 },
+          { op: 'slit', piece: 'front', seam: 'sideR', mm: 400 },
+          { op: 'slit', piece: 'sleeveL', mm: 40 },
+        ],
+        notes: 'Side slits and a vented left cuff.',
+      },
+    })
+    const system = (seen[0]!.body.system as Array<{ text: string }>)[0]!.text
+    expect(system).toContain('id `front`')
+    expect(system).toContain('seams a slit can open: sideL, sideR')
+    expect(system).toMatch(/- slit: opens a seam .*, 30 to 400 mm/)
+    const schema = AI_OUTPUT_SCHEMA.properties.ops.items
+    expect(schema.properties.op.enum).toContain('slit')
+    expect(schema.properties.seam).toEqual({ type: 'string' })
+  })
+
+  test('a slit on a piece or seam the garment lacks is dropped', () => {
+    const raw = [
+      { op: 'slit', piece: 'pocket', mm: 100 },
+      { op: 'slit', piece: 'front', seam: 'shoulderL', mm: 100 },
+      { op: 'slit', piece: 'front', seam: 'side L', mm: 100 },
+      { op: 'slit', piece: 'back', mm: 10 },
+      { op: 'hemCurve', piece: 'sideways', mm: 10 },
+    ]
+    expect(cleanOps(raw, template.pattern)).toEqual([{ op: 'slit', piece: 'back', mm: 30 }])
+    // Without the garment, only the shape is checked.
+    expect(cleanOps(raw)).toHaveLength(3)
+  })
+
   test('a refusal, a garbled answer and an outage each get a plain message', async () => {
     const refused = await sketchToOps({ request: describeTee, template, env, fetchImpl: stub({ body: message({ stop: 'refusal' }) }).fetchImpl })
     expect(refused).toMatchObject({ ok: false, status: 422, code: 'refused' })

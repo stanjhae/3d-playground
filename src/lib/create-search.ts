@@ -3,7 +3,7 @@ import {
   MERGED_CREATE_STEPS,
   type CreateStepId,
 } from './create-steps'
-import { GARMENT_IDS, type GarmentId } from './design-schema'
+import { GARMENT_IDS, isUpcomingGarment, type GarmentId } from './design-schema'
 import type { HemId, NeckId, SleeveId } from './design-document'
 
 export type CreateSearch = {
@@ -48,7 +48,7 @@ function parseGarment({
     return undefined
   }
 
-  return (GARMENT_IDS as readonly string[]).includes(value)
+  return (GARMENT_IDS as readonly string[]).includes(value) && !isUpcomingGarment({ garmentId: value })
     ? (value as GarmentId)
     : undefined
 }

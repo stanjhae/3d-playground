@@ -1,5 +1,11 @@
 import type { DesignDocument } from './design-document.ts'
 
+/**
+ * Read since pattern-reader R, made by a later release (docs/release.md). Each
+ * one's template id is the same word (`UPCOMING_TEMPLATE_IDS`).
+ */
+const UPCOMING_GARMENT_IDS_LIST = ['vest', 'crop', 'dress', 'trousers'] as const
+
 export const GARMENT_IDS = [
   'gown',
   'slip',
@@ -11,9 +17,22 @@ export const GARMENT_IDS = [
   'tailored',
   'jacket',
   'tee',
+  ...UPCOMING_GARMENT_IDS_LIST,
 ] as const
 
 export type GarmentId = (typeof GARMENT_IDS)[number]
+
+/** Garments a later release adds; this build only reads their ids. */
+export const UPCOMING_GARMENT_IDS: readonly GarmentId[] = UPCOMING_GARMENT_IDS_LIST
+
+/**
+ * True for a garment this build can name but not yet make (pattern-reader
+ * R): it has no template or model, so the rail, studio, search and vote
+ * filters leave it out.
+ */
+export function isUpcomingGarment({ garmentId }: { garmentId: string }) {
+  return (UPCOMING_GARMENT_IDS as readonly string[]).includes(garmentId)
+}
 
 const GARMENT_ID_SET = new Set<string>(GARMENT_IDS)
 
