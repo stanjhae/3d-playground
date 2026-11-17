@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { Suspense, lazy, useId, useMemo, useState } from 'react'
 
 import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
@@ -18,6 +18,8 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+
+const SectionFill = lazy(() => import('./SectionFill'))
 
 const CATEGORY_CHIPS: { id: GraphicCategory | 'all'; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -57,6 +59,10 @@ export function GraphicLibrary() {
           {decodeError}
         </p>
       ) : null}
+      {/* A whole side in one click (writer W): the selected graphic, or stripes or a check. */}
+      <Suspense fallback={null}>
+        <SectionFill />
+      </Suspense>
       <label className="sr-only" htmlFor={searchId}>
         Search graphics
       </label>

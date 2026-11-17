@@ -1,6 +1,7 @@
 import type { CanonicalPattern } from './pattern/pattern-document.ts'
 import {
   type CanonicalDocument,
+  type CanonicalFabricId,
   type CanonicalLayer,
   type CanonicalPanelId,
   type CanonicalShape,
@@ -48,6 +49,18 @@ export type CanonicalLayerPatch = {
   locked?: boolean
 }
 
+/**
+ * A fill's own settings (writer W). An offset of 0 removes it, as a phase
+ * is stored only when off 0; `colors` is for a stripe or check fill only.
+ */
+export type CanonicalFillPatch = {
+  tile?: number
+  rotation?: number
+  offsetX?: number
+  offsetY?: number
+  colors?: [Color, Color]
+}
+
 export type CanonicalCommand =
   | {
       type: 'addStroke'
@@ -68,7 +81,15 @@ export type CanonicalCommand =
       panel: CanonicalPanelId
       newId: string
     }
+  /** The base's kind and colours; a base naming no fabric keeps the current one. */
   | { type: 'setBase'; base: GarmentBase }
+  /**
+   * The garment's cloth (writer W): a base preset id, or null to leave it
+   * out. The base's kind and colours stay as they are.
+   */
+  | { type: 'setFabric'; fabric: CanonicalFabricId | null }
+  /** A fill's repeat, turn, phase or colours (writer W); the rest stay. */
+  | { type: 'updateFill'; layerId: string; patch: CanonicalFillPatch }
   /**
    * Change some shape fields; the rest keep their values. A shape that comes
    * out neutral is removed, as shapes are stored only when off neutral.
@@ -185,6 +206,7 @@ export function lockedIssues({
 
   if (
     command.type === 'addStroke' ||
+    command.type === 'updateFill' ||
     command.type === 'clearPaintLayer' ||
     command.type === 'removeLayer' ||
     command.type === 'moveLayer'
@@ -409,6 +431,54 @@ function applyToDocument({
     return { ok: true, document: next }
   }
 
+  if (command.type === 'setFabric') {
+    if (command.fabric) {
+      next.base.fabric = command.fabric
+    } else {
+      delete next.base.fabric
+    }
+
+    return { ok: true, document: next }
+  }
+
+  if (command.type === 'updateFill') {
+    const found = findLayer({ document: next, layerId: command.layerId })
+
+    if (!found) {
+      return { ok: false, issues: missing({ id: command.layerId }) }
+    }
+
+    const fill = found.layer
+
+    if (fill.kind !== 'fill') {
+      return { ok: false, issues: [{ path: '$', message: `${command.layerId} is not a fill layer` }] }
+    }
+
+    const { tile, rotation, offsetX, offsetY, colors } = command.patch
+
+    if (tile !== undefined) fill.tile = tile
+    if (rotation !== undefined) fill.rotation = rotation
+
+    // A phase of 0 is stored as none (reader R2).
+    for (const [key, value] of [['offsetX', offsetX], ['offsetY', offsetY]] as const) {
+      if (value === 0) {
+        delete fill[key]
+      } else if (value !== undefined) {
+        fill[key] = value
+      }
+    }
+
+    if (colors !== undefined) {
+      if (!('pattern' in fill.source)) {
+        return { ok: false, issues: [{ path: '$.patch.colors', message: 'not editable on an image fill' }] }
+      }
+
+      fill.source = { ...fill.source, colors: [colors[0], colors[1]] }
+    }
+
+    return { ok: true, document: next }
+  }
+
   if (command.type === 'setPattern') {
     if (command.pattern) {
       next.pattern = structuredClone(command.pattern)
@@ -445,7 +515,9 @@ function applyToDocument({
     return { ok: true, document: next }
   }
 
-  next.base = structuredClone(command.base)
+  // A new colour or pattern keeps the cloth: only `setFabric` changes it.
+  const fabric = command.base.fabric ?? document.base.fabric
+  next.base = { ...structuredClone(command.base), ...(fabric ? { fabric } : {}) }
   return { ok: true, document: next }
 }
 

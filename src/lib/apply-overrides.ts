@@ -170,17 +170,24 @@ function applyOverrideToMaterial({
     nextMaterial.userData.mapId = override.mapId
   }
 
-  if (fabric?.sheen !== undefined) {
-    nextMaterial.sheen = fabric.sheen
-    nextMaterial.sheenRoughness = fabric.sheenRoughness ?? 0.3
-    nextMaterial.sheenColor = new Color(fabric.sheenColor ?? '#ffffff')
+  // The override's own surface wins (a canonical `base.fabric`, written by
+  // the projection); older overrides name only a texture, so the preset is
+  // found from it.
+  const sheen = override.sheen ?? fabric?.sheen
+  const clearcoat = override.clearcoat ?? fabric?.clearcoat
+  const opacity = override.opacity ?? fabric?.opacity
+
+  if (sheen !== undefined) {
+    nextMaterial.sheen = sheen
+    nextMaterial.sheenRoughness = override.sheenRoughness ?? fabric?.sheenRoughness ?? 0.3
+    nextMaterial.sheenColor = new Color(override.sheenColor ?? fabric?.sheenColor ?? '#ffffff')
   } else {
     nextMaterial.sheen = 0
   }
 
-  if (fabric?.clearcoat !== undefined) {
-    nextMaterial.clearcoat = fabric.clearcoat
-    nextMaterial.clearcoatRoughness = fabric.clearcoatRoughness ?? 0.4
+  if (clearcoat !== undefined) {
+    nextMaterial.clearcoat = clearcoat
+    nextMaterial.clearcoatRoughness = override.clearcoatRoughness ?? fabric?.clearcoatRoughness ?? 0.4
   } else {
     nextMaterial.clearcoat = 0
   }
@@ -190,8 +197,8 @@ function applyOverrideToMaterial({
   // surface to the model.
   if (override.mapId !== undefined) {
     const detail = resolveDetail({
-      detailId: fabric?.detailId,
-      detailScale: fabric?.detailScale,
+      detailId: override.detailId ?? fabric?.detailId,
+      detailScale: override.detailScale ?? fabric?.detailScale,
       surface,
     })
 
@@ -213,9 +220,9 @@ function applyOverrideToMaterial({
 
   // Sheer cloth (chiffon) is the one cloth drawn see-through. Its layers all
   // blend, so none hides another; every other cloth stays sealed.
-  if (fabric?.opacity !== undefined && fabric.opacity < 1) {
+  if (opacity !== undefined && opacity < 1) {
     nextMaterial.transparent = true
-    nextMaterial.opacity = fabric.opacity
+    nextMaterial.opacity = opacity
     nextMaterial.depthWrite = false
   }
 

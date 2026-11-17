@@ -115,7 +115,7 @@ describe('picking a fabric in the store', () => {
 
   beforeEach(() => load('hoodie', 1))
 
-  test('in Pattern mode it sets every piece but the hood, as one undo step with the colour', async () => {
+  test('in Pattern mode it sets every piece but the hood, as one undo step with the garment fabric', async () => {
     expect(await useEditorStore.getState().enablePattern()).toBe(true)
     const before = getCanonicalDocument()
     const undoCount = useEditorStore.getState().undoCount
@@ -134,12 +134,13 @@ describe('picking a fabric in the store', () => {
     expect(getCanonicalDocument().pattern).toEqual(before.pattern)
   })
 
-  test('outside Pattern mode only the colour changes', () => {
+  test('outside Pattern mode only the garment fabric changes; the colour stays', () => {
     const before = getCanonicalDocument()
     useEditorStore.getState().applyFabric({ fabricId: 'canvas', colorId: 'canvas' })
     const after = getCanonicalDocument()
 
     expect(after.pattern).toBeUndefined()
+    expect(after.base).toEqual({ ...before.base, fabric: 'canvas' })
     expect({ ...after, base: before.base }).toEqual(before)
   })
 })
