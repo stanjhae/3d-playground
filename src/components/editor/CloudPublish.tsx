@@ -1,4 +1,5 @@
 import { Globe, Lock } from 'lucide-react'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -64,6 +65,7 @@ export function CloudPublish() {
   }, [reviewing])
   const [displayName, setDisplayName] = useState('')
   const [busy, setBusy] = useState<'publishing' | 'unpublishing' | null>(null)
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   // Good news goes through the same status line, without the warning colour.
   const [notice, setNotice] = useState<string | null>(null)
@@ -256,6 +258,7 @@ export function CloudPublish() {
     setNotice(null)
     const result = await unpublishDesign({ designId })
     setBusy(null)
+    setConfirmUnpublish(false)
 
     if (!result.ok) {
       setMessage(failureSentence({ lead: 'Still published', reason: result.message }))
@@ -306,11 +309,26 @@ export function CloudPublish() {
               type="button"
               className={quietClass}
               disabled={busy !== null}
-              onClick={() => void unpublish()}
+              onClick={() => setConfirmUnpublish(true)}
             >
               {busy === 'unpublishing' ? 'Unpublishing…' : 'Unpublish'}
             </button>
           </div>
+          <ConfirmDialog
+            open={confirmUnpublish}
+            title="Unpublish this design?"
+            confirmLabel="Yes, unpublish"
+            busyLabel="Unpublishing…"
+            cancelLabel="Keep it published"
+            busy={busy === 'unpublishing'}
+            onConfirm={() => void unpublish()}
+            onCancel={() => setConfirmUnpublish(false)}
+          >
+            <p>
+              Its public link stops working straight away and it leaves the board. Its votes are kept if you publish it
+              again.
+            </p>
+          </ConfirmDialog>
         </div>
       ) : (
         <p className="flex items-center gap-2 font-body text-sm text-flv-ink">

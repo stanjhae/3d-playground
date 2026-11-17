@@ -107,9 +107,10 @@ test('demo fallback recording', async ({ page }) => {
 
   // Unpublish: the link is gone at once.
   await page.goto(studioUrl)
-  await expect(page.getByRole('button', { name: 'Unpublish' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Unpublish', exact: true })).toBeVisible()
   await beat({ page })
-  await page.getByRole('button', { name: 'Unpublish' }).click()
+  await page.getByRole('button', { name: 'Unpublish', exact: true }).click()
+  await page.getByRole('button', { name: 'Yes, unpublish' }).click()
   await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeVisible()
   await beat({ page, ms: 2_000 })
   await page.goto(shareUrl)

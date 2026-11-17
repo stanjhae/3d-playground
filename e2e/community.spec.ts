@@ -51,10 +51,16 @@ test('comment on a design, hide it as its owner, and follow its designer', async
   // The fan signs in through My Studio (which asks for the terms), then comments.
   await signIn({ page: fanPage, email: fan })
   await fanPage.goto(`/s/${slug}`)
-  await fanPage.getByRole('textbox', { name: 'Add a comment' }).fill('Love the cuffs')
+  // Markup in a comment is shown as the characters typed, never run (tester pass 2).
+  const markup = '<img src=x onerror="window.__xss=1"><b>bold</b>'
+  await fanPage.getByRole('textbox', { name: 'Add a comment' }).fill(`Love the cuffs ${markup}`)
   await fanPage.getByRole('button', { name: 'Post comment' }).click()
   await expect(fanPage.getByRole('heading', { name: 'Comments (1)' })).toBeVisible()
-  await expect(fanPage.getByText('Love the cuffs')).toBeVisible()
+  await expect(fanPage.getByText(`Love the cuffs ${markup}`)).toBeVisible()
+  await fanPage.reload()
+  await expect(fanPage.getByText(`Love the cuffs ${markup}`)).toBeVisible()
+  expect(await fanPage.evaluate(() => (window as { __xss?: number }).__xss)).toBeUndefined()
+  await expect(fanPage.locator('main img[src="x"], main b')).toHaveCount(0)
   await expect(fanPage.getByRole('button', { name: 'Delete' })).toBeVisible()
 
   // The owner sees it and hides it; it's gone for everyone.

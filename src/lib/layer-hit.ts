@@ -283,6 +283,21 @@ export function selectedTextLayer({
   return layer
 }
 
+/**
+ * The base pattern's per-panel stamps (`base-fill-*`, projected from the
+ * garment's Colour & Pattern choice). They belong to the cloth, not the
+ * surface: a press never picks, moves or resizes them, so drawing over a
+ * striped garment draws.
+ */
+export function isBaseFill({ layer }: { layer: { id: string } }) {
+  return layer.id === 'base-fill' || layer.id.startsWith('base-fill-')
+}
+
+/** Whether a selected layer shows handles and answers presses on the surface. */
+export function movableOnSurface({ layer }: { layer: PlaceableLayer }) {
+  return layer.visible && !isBaseFill({ layer }) && (layer.kind === 'pattern' || !layer.locked)
+}
+
 function isPlaceable({
   layer,
 }: {
@@ -347,7 +362,7 @@ export function hitPlaceableLayer({
   for (let index = document.layers.length - 1; index >= 0; index -= 1) {
     const layer = document.layers[index]
 
-    if (!layer || !layer.visible || !isPlaceable({ layer })) {
+    if (!layer || !layer.visible || !isPlaceable({ layer }) || isBaseFill({ layer })) {
       continue
     }
 

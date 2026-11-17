@@ -78,7 +78,7 @@ describe('glyph validation in the editor (#155)', () => {
 
     store().updateLayer({ layerId: id, patch: { content: 'Жар 😀' } })
     expect(frontWords()).toEqual([{ content: 'Жар', face: 'display' }])
-    expect(store().limitNotice).toBe('The display face can\'t draw “😀”. Remove it.')
+    expect(store().limitNotice).toBe("Emoji can't be printed as text. Remove it, or add a picture from Graphics instead.")
 
     store().updateLayer({ layerId: id, patch: { content: 'Bar' } })
     store().updateLayer({ layerId: id, patch: { face: 'sans' } })
@@ -147,7 +147,7 @@ describe('glyph validation in the editor (#155)', () => {
     ).not.toThrow()
 
     expect(frontWords()).toEqual([{ content: '😀 hi', face: 'sans' }])
-    expect(store().limitNotice).toContain('The sans face can\'t draw “😀”')
+    expect(store().limitNotice).toContain("Emoji can't be printed as text. Remove it, or add a picture from Graphics instead.")
   })
 
   test('copying an undrawable word is refused; other commands pass', () => {
@@ -161,7 +161,7 @@ describe('glyph validation in the editor (#155)', () => {
         document,
         command: { type: 'batch', commands: [{ type: 'addLayer', panel: 'front', layer: word('n', 'ok 😀') }] },
       }),
-    ).toContain('“😀”')
+    ).toContain("Emoji can't be printed as text")
     expect(glyphNotice({ document: createEmptyCanonicalDocument() })).toBeNull()
   })
 })
