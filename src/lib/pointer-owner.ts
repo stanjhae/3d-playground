@@ -11,19 +11,30 @@ type Owner = { pointerId: number; pointerType: string }
 let owner: Owner | null = null
 
 // Listens on window, so the handlers on the panel, the tee and the studio see
-// the lift while this pointer still owns the gesture.
+// the lift while this pointer still owns the gesture. Losing capture (the
+// panel unmounted under the finger) or the window losing focus (an alert, a
+// switch of app mid-drag) ends it too, so no pointer owns the studio for good.
 function releaseOnLift(event: PointerEvent) {
   if (event.pointerId === owner?.pointerId) {
     resetPointerOwner()
   }
 }
 
+function releaseOnBlur() {
+  resetPointerOwner()
+}
+
+const LIFTS = ['pointerup', 'pointercancel', 'lostpointercapture'] as const
+
 function take({ next }: { next: Owner }) {
   owner = next
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('pointerup', releaseOnLift)
-    window.addEventListener('pointercancel', releaseOnLift)
+    for (const type of LIFTS) {
+      window.addEventListener(type, releaseOnLift)
+    }
+
+    window.addEventListener('blur', releaseOnBlur)
   }
 }
 
@@ -65,7 +76,10 @@ export function resetPointerOwner() {
   owner = null
 
   if (typeof window !== 'undefined') {
-    window.removeEventListener('pointerup', releaseOnLift)
-    window.removeEventListener('pointercancel', releaseOnLift)
+    for (const type of LIFTS) {
+      window.removeEventListener(type, releaseOnLift)
+    }
+
+    window.removeEventListener('blur', releaseOnBlur)
   }
 }

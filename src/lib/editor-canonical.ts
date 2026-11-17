@@ -453,6 +453,27 @@ export function translateCommand({
     }
   }
 
+  if (command.type === 'moveLayerToPanel') {
+    const found = findLayer({ document, layerId: command.layerId })
+
+    if (!found || found.layer.kind === 'paint') {
+      return null
+    }
+
+    const panel = canonicalPanel({ renderPanel: command.panel, template: document.template })
+    // The patch is in render space on the panel it lands on.
+    const patch = translatePatch({ patch: fromRender(panel, command.patch ?? {}), kind: found.layer.kind })
+    const place: CanonicalCommand[] = Object.keys(patch).length > 0 ? [{ type: 'updateLayer', layerId: command.layerId, patch }] : []
+
+    return {
+      assetSources: same,
+      command:
+        panel === found.panel
+          ? place[0] ?? { type: 'batch', commands: [] }
+          : { type: 'batch', commands: [{ type: 'moveLayerToPanel', layerId: command.layerId, panel }, ...place] },
+    }
+  }
+
   if (command.type === 'applyFabric') {
     const color = toColor({ value: command.override.color })
 
@@ -882,6 +903,11 @@ export function limitRefusal({
 
   if (command.type === 'copyLayer') {
     return layersOn(command.panel)
+  }
+
+  if (command.type === 'moveLayerToPanel') {
+    const found = findLayer({ document, layerId: command.layerId })
+    return found && found.panel !== command.panel ? layersOn(command.panel) : null
   }
 
   if (command.type === 'updateLayer') {

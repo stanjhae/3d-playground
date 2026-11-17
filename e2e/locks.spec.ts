@@ -1,12 +1,12 @@
 import { type Page, expect, test } from '@playwright/test'
 
 import { HOUSE_COPY } from '../src/lib/house-copy'
-import { chooseTool, deleteAccounts, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, newEmail, panelCanvas, savedStrokes, signIn } from './helpers'
 
 /**
- * Locks (W3): an item locked from the layer list can't be picked or dragged
- * on the panel, its edit controls say why they are off, and unlocking it
- * from the list gives it back.
+ * Locks (W3): an item locked from the layer list can't be dragged on the
+ * panel (a press selects it and says why), its edit controls say why they
+ * are off, and unlocking it from the list gives it back.
  */
 
 const emails: string[] = []
@@ -71,19 +71,21 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   await expect(select).toBeVisible()
   await expect(positionX).toHaveValue('50')
 
-  // A real drag that starts on the word moves nothing and doesn't pick it:
-  // with the brush it draws over it instead.
+  // A real drag that starts on the word moves nothing and, even with the
+  // brush, draws nothing: it selects the word and says why it stays put.
   await chooseTool({ page, tool: 'Draw' })
+  await page.keyboard.press('Escape')
+  await expect(select).not.toHaveAttribute('aria-current', 'true')
   let point = await screenPoint({ page, spot })
   await page.mouse.move(point.x, point.y)
   await page.mouse.down()
   await page.mouse.move(point.x + 40, point.y + 20, { steps: 8 })
   await page.mouse.up()
-  await expect(select).not.toHaveAttribute('aria-current', 'true')
-
-  // A plain click on it doesn't pick it either.
-  point = await screenPoint({ page, spot })
-  await page.mouse.click(point.x, point.y)
+  await expect(select).toHaveAttribute('aria-current', 'true')
+  await expect(page.locator('[data-studio-notice]')).toHaveText('Locked: unlock in Layers to move')
+  await expect(positionX).toHaveValue('50')
+  expect(await savedStrokes({ page })).toEqual([])
+  await page.keyboard.press('Escape')
   await expect(select).not.toHaveAttribute('aria-current', 'true')
 
   // The list still selects it, so it can be unlocked; then the panel picks it again.
