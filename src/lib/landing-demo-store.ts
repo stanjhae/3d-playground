@@ -20,18 +20,29 @@ export function landingDemoDocument() {
   return demoDocument
 }
 
+export type LandingSurfaceMode = 'turn' | 'draw'
+
 type LandingDemoState = {
   /** The visitor's design; null until they change the demo. */
   document: DesignDocument | null
   /** The visitor drew or dropped something: only then is it handed over. */
   touched: boolean
   ink: string
+  /** A side picked with the view buttons; cleared when the visitor drags the tee round. */
   cameraView: LandingCameraView | null
+  /** The logo picked on the tee (a layer id of `document`), or none. */
+  selectedLayerId: string | null
+  /** What a drag on the 3D tee does: turn it, or draw on it. */
+  surfaceMode: LandingSurfaceMode
   /** The hero asked for the 3D scene (a touch, a tool, or idle time). */
   wantsScene: boolean
   apply: (change: (previous: DesignDocument) => DesignDocument) => void
   setInk: (ink: string) => void
   setCameraView: (view: LandingCameraView) => void
+  /** The visitor turned the tee by hand: no side is held any more. */
+  releaseCameraView: () => void
+  selectLayer: (layerId: string | null) => void
+  setSurfaceMode: (mode: LandingSurfaceMode) => void
   requestScene: () => void
 }
 
@@ -44,11 +55,17 @@ export const useLandingDemoStore = create<LandingDemoState>((set) => ({
   touched: false,
   ink: INK_COLORS[0]!.value,
   cameraView: null,
+  selectedLayerId: null,
+  surfaceMode: 'turn',
   wantsScene: false,
   apply: (change) =>
     set((state) => ({ document: change(state.document ?? landingDemoDocument()), touched: true, wantsScene: true })),
   setInk: (ink) => set({ ink, wantsScene: true }),
   setCameraView: (cameraView) => set({ cameraView, wantsScene: true }),
+  releaseCameraView: () => set((state) => (state.cameraView ? { cameraView: null } : state)),
+  selectLayer: (selectedLayerId) =>
+    set((state) => (state.selectedLayerId === selectedLayerId ? state : { selectedLayerId })),
+  setSurfaceMode: (surfaceMode) => set({ surfaceMode, wantsScene: true }),
   requestScene: () => set({ wantsScene: true }),
 }))
 

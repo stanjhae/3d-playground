@@ -21,6 +21,7 @@ import { useState, type ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { LANDING_COPY } from '../../lib/landing-copy'
+import { useLandingDemoStore } from '../../lib/landing-demo-store'
 import { GownCredit } from '../editor/GownCredit'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { HeroPoster, HERO_POSTER } from './HeroPoster'
@@ -144,13 +145,28 @@ export function LandingHeroSection({
           <div className="relative z-10 mx-auto w-full max-w-md lg:max-w-[30rem]">
             <HeroToolDock live={mode === 'live'} />
           </div>
-          <p className="pointer-events-none absolute top-5 right-5 z-10 hidden items-center gap-1.5 rounded-full bg-white/85 px-3 py-1.5 font-body text-xs text-flv-muted shadow-sm backdrop-blur [@media(pointer:fine)]:lg:inline-flex">
-            <MousePointer2 aria-hidden className="size-3.5" />
-            {hero.drag}
-          </p>
+          <DragHint>{hero.drag}</DragHint>
         </div>
       </div>
     </section>
+  )
+}
+
+/** "Drag to turn it", shown only while a drag does turn it: no side held, not drawing. */
+function DragHint({ children }: { children: ReactNode }) {
+  const shown = useLandingDemoStore((state) => !state.cameraView && state.surfaceMode === 'turn')
+
+  return (
+    <p
+      className={cn(
+        'pointer-events-none absolute top-5 right-5 z-10 hidden items-center gap-1.5 rounded-full bg-white/85 px-3 py-1.5 font-body text-xs text-flv-muted shadow-sm backdrop-blur',
+        { '[@media(pointer:fine)]:lg:inline-flex': shown },
+      )}
+      data-drag-hint
+    >
+      <MousePointer2 aria-hidden className="size-3.5" />
+      {children}
+    </p>
   )
 }
 
