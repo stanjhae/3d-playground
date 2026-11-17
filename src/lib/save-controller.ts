@@ -1,5 +1,5 @@
 import type { CanonicalDocument } from './canonical-document.ts'
-import { panelIdsOf } from './canonical-document.ts'
+import { layerAssetId, panelIdsOf } from './canonical-document.ts'
 import type { FlpResult } from './flp-api/client.ts'
 import type { VersionResponse } from './flp-api/contract.ts'
 import { isLibraryAssetId } from './library-assets.ts'
@@ -76,12 +76,10 @@ const MAX_RETRY_MS = 60_000
  */
 export function imagesReady({ document }: { document: CanonicalDocument }) {
   return panelIdsOf({ document: document }).every((panel) =>
-    document.panels[panel].layers.every(
-      (layer) =>
-        layer.kind !== 'image' ||
-        isLibraryAssetId({ assetId: layer.assetId }) ||
-        !layer.assetId.startsWith(LEGACY_ASSET_PREFIX),
-    ),
+    document.panels[panel].layers.every((layer) => {
+      const assetId = layerAssetId({ layer })
+      return !assetId || isLibraryAssetId({ assetId }) || !assetId.startsWith(LEGACY_ASSET_PREFIX)
+    }),
   )
 }
 

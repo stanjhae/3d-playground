@@ -9,14 +9,18 @@ export function listLayerSrcs({
 }: {
   document: DesignDocument
 }) {
-  return document.layers
-    .filter(
-      (layer): layer is Extract<DesignDocument['layers'][number], { src: string }> =>
-        (layer.kind === 'art' || layer.kind === 'graphic') &&
-        layer.visible &&
-        Boolean(layer.src),
-    )
-    .map((layer) => layer.src)
+  return document.layers.flatMap((layer) => {
+    if (!layer.visible) {
+      return []
+    }
+
+    if (layer.kind === 'art' || layer.kind === 'graphic') {
+      return layer.src ? [layer.src] : []
+    }
+
+    // An image fill (reader R2) draws its asset too.
+    return layer.kind === 'fill' && layer.source.kind === 'image' && layer.source.src ? [layer.source.src] : []
+  })
 }
 
 /** Raster images are decoded at their own size, up to this on each side. */

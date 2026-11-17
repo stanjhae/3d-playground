@@ -85,16 +85,19 @@ function atlasBox({
 
     return {
       width: Math.max(0.1, layer.scale * (0.7 + letters * 0.36)),
-      height: Math.max(0.06, layer.scale * 0.9),
+      // A stretched word (reader R2) is taller or shorter, never wider.
+      height: Math.max(0.06, (layer.scaleY ?? layer.scale) * 0.9),
     }
   }
 
   // Uploaded images keep their natural aspect (E03 #154), so selection
   // matches what is drawn instead of a square around it.
+  // A stretched image (reader R2) takes its height from `scaleY`.
+  const scaleY = layer.kind === 'graphic' ? (layer.scaleY ?? layer.scale) : layer.scale
   const box =
     layer.kind === 'graphic' && layer.aspect && layer.aspect !== 1
-      ? imageBox({ scale: layer.scale, aspect: layer.aspect })
-      : { width: layer.scale, height: layer.scale }
+      ? imageBox({ scale: layer.scale, scaleY, aspect: layer.aspect })
+      : { width: layer.scale, height: scaleY }
 
   return {
     width: Math.max(0.08, box.width),
@@ -413,6 +416,11 @@ export function layerVoice({
 
   if (layer.kind === 'pattern') {
     return layer.patternId === 'check' ? 'Check' : 'Stripe'
+  }
+
+  // A whole-panel fill (reader R2), named for what it repeats.
+  if (layer.kind === 'fill') {
+    return layer.source.kind === 'image' ? 'Image fill' : layer.source.patternId === 'check' ? 'Check fill' : 'Stripe fill'
   }
 
   return 'Look'

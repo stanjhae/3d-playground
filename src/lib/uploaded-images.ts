@@ -1,5 +1,5 @@
 import { accountGuard } from './auth/session-store.ts'
-import { type CanonicalDocument, panelIdsOf } from './canonical-document.ts'
+import { type CanonicalDocument, layerAssetId, panelIdsOf } from './canonical-document.ts'
 import { assetReadUrl, uploadAsset } from './flp-api/assets.ts'
 import type { FlpResult } from './flp-api/client.ts'
 import { isLibraryAssetId } from './library-assets.ts'
@@ -78,8 +78,10 @@ export function uploadedAssetIds({ document }: { document: CanonicalDocument }) 
 
   for (const panel of panelIdsOf({ document: document })) {
     for (const layer of document.panels[panel].layers) {
-      if (layer.kind === 'image' && !isLibraryAssetId({ assetId: layer.assetId })) {
-        ids.add(layer.assetId)
+      const assetId = layerAssetId({ layer })
+
+      if (assetId && !isLibraryAssetId({ assetId })) {
+        ids.add(assetId)
       }
     }
   }

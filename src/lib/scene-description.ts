@@ -40,7 +40,7 @@ export function describeDesign({ document }: { document: DesignDocument }) {
     ]
     return parts.length > 0 ? [`${label}: ${parts.join(', ')}.`] : []
   })
-  const cloth = visible.some((layer) => layer.kind === 'pattern') ? ' Patterned cloth.' : ''
+  const cloth = visible.some((layer) => layer.kind === 'pattern' || layer.kind === 'fill') ? ' Patterned cloth.' : ''
 
   return `3D preview of your design.${cloth} ${sides.length > 0 ? sides.join(' ') : 'No artwork on it yet.'}`
 }

@@ -2,10 +2,13 @@ import { describe, expect, test } from 'vitest'
 
 import {
   type CanonicalDocument,
+  type CanonicalFillLayer,
   type CanonicalLayer,
   createEmptyCanonicalDocument,
+  readCanonicalDocument,
   validateCanonicalDocument,
 } from './canonical-document'
+import { applyCanonicalCommand, createCanonicalStack } from './canonical-commands'
 import { hashCanonicalDocument, serializeCanonicalDocument } from './canonical-hash'
 import { boardGarmentOptions } from './board-filters'
 import { showsGarmentInStudio } from './concept-flags'
@@ -18,12 +21,17 @@ import { FABRICS } from './pattern/build-cloth'
 import { PATTERN_FABRICS } from './pattern/pattern-document'
 import { fixtureTeePattern } from './pattern/pattern-fixtures'
 import {
+  currentTemplateFor,
   garmentOfTemplate,
+  isUpcomingTemplateVersion,
   READABLE_TEMPLATE_IDS,
   resolveTemplate,
   TEMPLATE_IDS,
   UPCOMING_TEMPLATE_IDS,
 } from './template-manifest'
+import { hitPlaceableLayer, layerVoice } from './layer-hit'
+import { layerListGroups } from './layer-list'
+import { uploadedAssetReferences } from './flp-api/contract'
 import { atlasPixelAtPanel, createAtlasBuffer, rasterizeLayers } from './paint-atlas'
 import { toRenderDocument } from './render-projection'
 
@@ -246,4 +254,246 @@ describe('pattern-reader R', () => {
     expect(listGarmentsByCategory({ category: 'bottoms' }).map((garment) => garment.id)).toEqual(['trousers'])
     expect(listGarmentsByCategory({ category: 'tops' }).map((garment) => garment.id)).toEqual(expect.arrayContaining(['vest', 'crop']))
   })
+})
+
+/**
+ * Reader R2: the garment's fabric, stretching one side, whole-panel fills
+ * and the tee's @6. This release reads and draws them while nothing writes
+ * them yet; the writers merge once it is deployed (docs/release.md).
+ */
+const STRIPE_FILL: CanonicalFillLayer = {
+  id: 'fill-stripes',
+  kind: 'fill',
+  visible: true,
+  opacity: 1,
+  source: { pattern: 'stripes', colors: ['#f3efe6', '#1a1c22'] },
+  tile: 0.25,
+  rotation: 0,
+}
+
+describe('reader R2', () => {
+  function everyField(): CanonicalDocument {
+    const document = createEmptyCanonicalDocument()
+    document.base = { kind: 'check', colors: ['#f3efe6', '#9c4a2b'], period: 0.1, fabric: 'linen' }
+    document.panels.front.layers = [
+      { ...STRIPE_FILL, rotation: 0.4, offsetX: 0.25, offsetY: 0.5, name: 'Stripes', locked: true },
+      image({ scaleY: 0.2 }),
+      { id: 'word', kind: 'text', visible: true, opacity: 1, x: 0.5, y: 0.3, scale: 0.1, scaleY: 0.3, rotation: 0, content: 'FLP', face: 'sans', color: '#1a1c22' },
+    ]
+    document.panels.back.layers = [{ ...STRIPE_FILL, id: 'fill-image', source: { assetId: ASSET, aspect: 2 }, tile: 0.5 }]
+    return document
+  }
+
+  test('a design using every new field loads, validates, round-trips and hashes stably', async () => {
+    const document = everyField()
+    const serialized = serializeCanonicalDocument({ document })
+    const reloaded = readCanonicalDocument({ value: JSON.parse(serialized) })
+
+    expect(issuesOf(document)).toEqual([])
+    expect(reloaded.ok).toBe(true)
+    expect(reloaded.ok && serializeCanonicalDocument({ document: reloaded.document })).toBe(serialized)
+    expect(await hashCanonicalDocument({ document: JSON.parse(serialized) })).toBe(await hashCanonicalDocument({ document }))
+    expect(serialized).toContain('"fabric":"linen"')
+    expect(serialized).toContain('"scaleY":0.2')
+    expect(serialized).toContain('"kind":"fill"')
+    expect((await prepareContent({ value: JSON.parse(serialized) })).ok).toBe(true)
+  })
+
+  test('documents without the new fields hash exactly as before', async () => {
+    // Pinned before reader R2.
+    const plain = createEmptyCanonicalDocument({ templateId: 'tee-crew-short', version: 5 })
+    const marked = createEmptyCanonicalDocument({ templateId: 'tee-crew-short', version: 5 })
+    marked.base = { kind: 'stripes', colors: ['#f3efe6', '#1a1c22'], period: 0.08, angle: 0.5 }
+    marked.panels.front.layers = [
+      { id: 'img', kind: 'image', visible: true, opacity: 1, assetId: ASSET, aspect: 1.5, x: 0.5, y: 0.5, scale: 0.4, rotation: 0.3 },
+      { id: 'word', kind: 'text', visible: true, opacity: 1, x: 0.5, y: 0.3, scale: 0.1, rotation: 0, content: 'FLP', face: 'sans', color: '#1a1c22' },
+    ]
+    const hoodie = createEmptyCanonicalDocument({ templateId: 'hoodie' })
+    hoodie.base = { kind: 'check', colors: ['#f3efe6', '#9c4a2b'], period: 0.1 }
+
+    expect(await hashCanonicalDocument({ document: plain })).toBe('sha256:11166646439a98a72b7c9a1e3e75a986f28acb444fb3f83b27df66439e9ef74f')
+    expect(await hashCanonicalDocument({ document: marked })).toBe('sha256:a2c0a8fe288833bb3d0643b15fe00b48f611272ff34180925fcd130163cadafd')
+    expect(await hashCanonicalDocument({ document: hoodie })).toBe('sha256:4ddb693a8355118acc566f9eca51ba40a0392b4a3ea093403e8a6181d98890b9')
+    expect(serializeCanonicalDocument({ document: marked })).not.toMatch(/fabric|scaleY|"fill"/)
+  })
+
+  test('scaling a stretched layer back to square drops scaleY, so it hashes as uniform', () => {
+    const stack = createCanonicalStack({ document: withFront([image({ scaleY: 0.2 })]) })
+    const result = applyCanonicalCommand({ stack, command: { type: 'updateLayer', layerId: 'img', patch: { scale: 0.2 } } })
+
+    expect(result.ok).toBe(true)
+    expect(result.stack.document.panels.front.layers[0]).not.toHaveProperty('scaleY')
+  })
+
+  test('a fill is hidden, faded and locked from the layer list, but never placed', () => {
+    const stack = createCanonicalStack({ document: withFront([STRIPE_FILL]) })
+    const hidden = applyCanonicalCommand({ stack, command: { type: 'updateLayer', layerId: 'fill-stripes', patch: { visible: false, opacity: 0.5, locked: true } } })
+    const moved = applyCanonicalCommand({ stack, command: { type: 'updateLayer', layerId: 'fill-stripes', patch: { x: 0.2 } } })
+
+    expect(hidden.ok && hidden.stack.document.panels.front.layers[0]).toMatchObject({ visible: false, opacity: 0.5, locked: true })
+    expect(moved.ok).toBe(false)
+  })
+
+  test('an image fill counts as a use of its asset', () => {
+    expect(uploadedAssetReferences({ document: everyField() })).toEqual([
+      { assetId: ASSET, path: '$.panels.front.layers[1].assetId' },
+      { assetId: ASSET, path: '$.panels.back.layers[0].source.assetId' },
+    ])
+  })
+
+  test('the layer list names a fill, and the panel never hit-tests it', () => {
+    const { document: render } = toRenderDocument({ document: everyField(), assetSources: { [ASSET]: SRC } })
+    const fills = render.layers.filter((layer) => layer.kind === 'fill')
+
+    expect(fills.map((layer) => layerVoice({ layer }))).toEqual(['Stripes', 'Image fill'])
+    expect(layerVoice({ layer: { ...fills[0]!, label: undefined } })).toBe('Stripe fill')
+    const groups = layerListGroups({
+      layers: render.layers,
+      panels: [
+        { id: 'front', label: 'Front' },
+        { id: 'back', label: 'Back' },
+      ],
+      placement: () => null,
+    })
+    // Above the base check, which the projection draws first.
+    expect(groups.find((group) => group.panel === 'back')?.rows.map((row) => row.name)).toEqual(['Image fill', 'Check'])
+
+    const onlyFill = toRenderDocument({ document: withFront([STRIPE_FILL]) }).document
+
+    for (const x of [0.1, 0.5, 0.9]) {
+      expect(hitPlaceableLayer({ document: onlyFill, panel: 'front', x, y: 0.5 })).toBeNull()
+    }
+  })
+
+  test('tee-crew-short@6 is readable, not current, and opens as "needs a newer version"', async () => {
+    const document = { ...createEmptyCanonicalDocument(), template: { id: 'tee-crew-short', version: 6 } }
+    const resolved = resolveTemplate(document.template)
+
+    expect(isUpcomingTemplateVersion(document.template)).toBe(true)
+    expect(currentTemplateFor({ templateId: 'tee-crew-short' }).version).toBe(5)
+    expect(issuesOf(document)).toEqual([])
+    expect(resolved.ok).toBe(false)
+    expect(!resolved.ok && resolved.message).toMatch(/needs a newer version/)
+    expect(garmentOfTemplate(document.template)).toBe('tee')
+    // The server never stores what no build it knows can open, as for every unknown version.
+    expect((await prepareContent({ value: document })).ok).toBe(false)
+  })
+})
+
+describe('drawing reader R2', () => {
+  const inked = (buffer: ReturnType<typeof draw>, x: number, y: number) => atlasPixelAtPanel({ buffer, panel: 'front', x, y }).a > 0
+
+  test('a stretched image draws taller than it is wide; a uniform one draws as before', () => {
+    const square = draw(withFront([image({ scale: 0.2 })]))
+    const tall = draw(withFront([image({ scale: 0.2, scaleY: 0.6 })]))
+
+    // Same width either way…
+    expect(inked(tall, 0.5, 0.5)).toBe(true)
+    for (const x of [0.3, 0.7, 0.8]) {
+      expect(inked(tall, x, 0.5), String(x)).toBe(inked(square, x, 0.5))
+    }
+    // …but only the stretched one reaches well above and below its centre.
+    expect(inked(square, 0.5, 0.75)).toBe(false)
+    expect(inked(tall, 0.5, 0.75)).toBe(true)
+    expect(inked(tall, 0.5, 0.25)).toBe(true)
+  })
+
+  test('uniform layers draw bit-identically with or without the new code paths', () => {
+    // A stretch to the same height is refused by the validator, but drawn it is a no-op.
+    const { document: render } = toRenderDocument({ document: withFront([image({ scale: 0.3, rotation: 0.4 })]), assetSources: { [ASSET]: SRC } })
+    const same = { ...render, layers: render.layers.map((layer) => (layer.kind === 'graphic' ? { ...layer, scaleY: layer.scale } : layer)) }
+
+    expect(render.layers[0]).not.toHaveProperty('scaleY')
+    expectSamePixels(
+      rasterizeLayers({ document: same, width: 512, height: 512, images: { [SRC]: gradient() } }).pixels,
+      rasterizeLayers({ document: render, width: 512, height: 512, images: { [SRC]: gradient() } }).pixels,
+    )
+  })
+
+  test('a stretched word projects its scaleY; a uniform one carries none', () => {
+    const word = (extra: Record<string, unknown> = {}) =>
+      ({ id: 'w', kind: 'text', visible: true, opacity: 1, x: 0.5, y: 0.5, scale: 0.1, rotation: 0, content: 'II', face: 'sans', color: '#1a1c22', ...extra }) as CanonicalLayer
+
+    expect(toRenderDocument({ document: withFront([word()]) }).document.layers[0]).not.toHaveProperty('scaleY')
+    expect(toRenderDocument({ document: withFront([word({ scaleY: 0.3 })]) }).document.layers[0]).toMatchObject({ scaleY: 0.3 })
+  })
+
+  test('a stripe fill covers its whole panel and nothing else', () => {
+    const buffer = draw(withFront([STRIPE_FILL]))
+    const colours = new Set<number>()
+
+    for (let x = 0.01; x < 1; x += 0.049) {
+      for (let y = 0.01; y < 1; y += 0.049) {
+        const pixel = atlasPixelAtPanel({ buffer, panel: 'front', x, y })
+        expect(pixel.a, `${x}, ${y}`).toBe(255)
+        colours.add(pixel.r)
+      }
+    }
+
+    // Both the ground and the stripe show, and the sleeves and back stay bare.
+    expect([...colours].sort((a, b) => a - b)).toEqual([0x1a, 0xf3])
+    for (const panel of ['back', 'left', 'right']) {
+      expect(atlasPixelAtPanel({ buffer, panel, x: 0.5, y: 0.5 }).a, panel).toBe(0)
+    }
+  })
+
+  test('an image fill repeats its tile across the panel', () => {
+    const fill: CanonicalLayer = { ...STRIPE_FILL, id: 'fill-image', source: { assetId: ASSET, aspect: 1 }, tile: 0.25 }
+    const buffer = draw(withFront([fill]))
+    const red = (x: number) => atlasPixelAtPanel({ buffer, panel: 'front', x, y: 0.5 }).r
+
+    // One repeat is a quarter of the panel's width: the gradient restarts.
+    for (const x of [0.05, 0.3, 0.55]) {
+      expect(atlasPixelAtPanel({ buffer, panel: 'front', x, y: 0.5 }).a).toBe(255)
+      expect(Math.abs(red(x) - red(x + 0.125)), String(x)).toBeGreaterThan(64)
+      expect(Math.abs(red(x) - red(x + 0.25)), String(x)).toBeLessThanOrEqual(32)
+    }
+  })
+
+  test('a fill draws in layer order', () => {
+    const over = draw(withFront([STRIPE_FILL, image({ scale: 0.2 })]))
+    const under = draw(withFront([image({ scale: 0.2 }), STRIPE_FILL]))
+    const centre = (buffer: ReturnType<typeof draw>) => atlasPixelAtPanel({ buffer, panel: 'front', x: 0.5, y: 0.5 })
+
+    expect(centre(over)).not.toEqual(centre(under))
+    expect([0x1a, 0xf3]).toContain(centre(under).r)
+  })
+
+  test('a hidden fill draws nothing', () => {
+    expectSamePixels(draw(withFront([{ ...STRIPE_FILL, visible: false }])).pixels, draw(withFront([])).pixels)
+  })
+})
+
+test('uniform layers on tee @2, @4 and @5 draw exactly as before reader R2', async () => {
+  const out: string[] = []
+
+  for (const version of [2, 4, 5]) {
+    const document = createEmptyCanonicalDocument({ templateId: 'tee-crew-short', version })
+    document.base = { kind: 'stripes', colors: ['#f3efe6', '#1a1c22'], period: 0.08, angle: 0.5 }
+    document.panels.front.layers = [
+      { id: 'img', kind: 'image', visible: true, opacity: 0.8, assetId: 'asset_optional01', aspect: 1.5, x: 0.4, y: 0.5, scale: 0.4, rotation: 0.3, flipX: true },
+      { id: 'img2', kind: 'image', visible: true, opacity: 1, assetId: 'asset_optional02', aspect: 0.5, x: 0.6, y: 0.3, scale: 0.3, rotation: 0 },
+      { id: 'word', kind: 'text', visible: true, opacity: 1, x: 0.5, y: 0.3, scale: 0.1, rotation: 0.2, content: 'FLP', face: 'sans', color: '#1a1c22' },
+    ]
+    document.panels.back.layers = [
+      { id: 'img3', kind: 'image', visible: true, opacity: 1, assetId: 'asset_missing01', aspect: 1, x: 0.3, y: 0.6, scale: 0.2, rotation: -1 },
+    ]
+    const image = createAtlasBuffer({ width: 16, height: 16 })
+    for (let index = 0; index < 256; index += 1) {
+      image.pixels[index * 4] = (index % 16) * 16
+      image.pixels[index * 4 + 1] = Math.floor(index / 16) * 16
+      image.pixels[index * 4 + 3] = 255
+    }
+    const { document: render } = toRenderDocument({ document, assetSources: { asset_optional01: '/a.png', asset_optional02: '/b.png' } })
+    const buffer = rasterizeLayers({ document: render, width: 512, height: 512, images: { '/a.png': image, '/b.png': image } })
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array(buffer.pixels)))
+    out.push([...digest].map((byte) => byte.toString(16).padStart(2, '0')).join(''))
+  }
+
+  // Pinned before reader R2: stripes, flipped, tall and missing images, a word.
+  expect(out).toEqual([
+    'a8e543d224554ae9d9a42a1a6db664ec17e232606a99d4236048592af2cbcb12',
+    '3ffc50299c83479c3cd90a34abb2f595b23a9964dace2c2fdcb506901fee1d9b',
+    '70100dafdee4bfe36c0d9c06c4cea8f4e38872e1eef6ba60685a22da5c462979',
+  ])
 })
