@@ -8,12 +8,17 @@ import {
   colorWithOpacity,
   garmentCategory,
   LANDING_CAMERA_POSITIONS,
+  LANDING_PANEL_ASPECT,
+  LANDING_SCALE_STEP,
   LANDING_VIEW_PANEL,
   padToPanel,
+  padToSketch,
   landingClothOverrides,
   latestLandingGraphicId,
   listGarmentsByCategory,
   pickCannedStillGrid,
+  removeLandingGraphic,
+  scaleLandingGraphic,
   resolveLandingStrokeTool,
   sampleSizeMeasurements,
   stampLandingGraphic,
@@ -26,6 +31,9 @@ import {
   VIDEO_SCENES,
 } from './landing-demo'
 import { resolveTemplate } from './template-manifest'
+import { useLandingDemoStore } from './landing-demo-store'
+import { landingPanelRoutes, landingRenderDocument, toSketchPoint, withLandingOverlays } from './landing-real-tee'
+import { PAD_ASPECT_CLASS } from '../components/landing/HeroToolDock'
 
 describe('landing-demo', () => {
   test('maps garments into marketing categories', () => {
@@ -240,11 +248,105 @@ describe('drawing on a side of the landing tee', () => {
     }
   })
 
-  test('the pad keeps its proportions on a panel of any shape', () => {
-    // A 2.4:1 pad on a 0.6:1 sleeve: full width, a centred band of the height.
-    expect(padToPanel({ x: 0, y: 0, padAspect: 2.4, panelAspect: 0.6 })).toEqual({ x: 0, y: 0.375 })
-    expect(padToPanel({ x: 1, y: 1, padAspect: 2.4, panelAspect: 0.6 })).toEqual({ x: 1, y: 0.625 })
-    // A panel wider than the pad: full height, a centred band of the width.
-    expect(padToPanel({ x: 0, y: 0.5, padAspect: 1, panelAspect: 2 })).toEqual({ x: 0.25, y: 0.5 })
+  test("the pad takes its panel's shape, so ink reaches every edge of it", () => {
+    for (const panel of ['front', 'back', 'left', 'right']) {
+      const panelAspect = LANDING_PANEL_ASPECT[panel]!
+      // Top-left and bottom-right of the pad are the panel's own corners.
+      expect(padToPanel({ x: 0, y: 0, padAspect: panelAspect, panelAspect })).toEqual({ x: 0, y: 0 })
+      expect(padToPanel({ x: 1, y: 1, padAspect: panelAspect, panelAspect })).toEqual({ x: 1, y: 1 })
+      // The literal Tailwind class carries the same shape.
+      expect(PAD_ASPECT_CLASS[panel]).toBe(`aspect-[${panelAspect}]`)
+    }
+
+    // The pad's top is the panel's top: y runs up the tee from the hem.
+    expect(padToSketch({ x: 0.2, y: 0, padAspect: 1, panelAspect: 1 })).toEqual({ x: 0.2, y: 1 })
+    expect(padToSketch({ x: 0.2, y: 1, padAspect: 1, panelAspect: 1 })).toEqual({ x: 0.2, y: 0 })
+
+    // A pad a pixel off its panel's shape still runs (almost) edge to edge.
+    const front = padToPanel({ x: 0.5, y: 1, padAspect: 0.62, panelAspect: LANDING_PANEL_ASPECT.front! })
+    expect(front.y).toBeGreaterThan(0.98)
+  })
+
+  test("the panel aspects are the hero tee's own", () => {
+    const rendered = landingRenderDocument({})
+
+    for (const [panel, aspect] of Object.entries(LANDING_PANEL_ASPECT)) {
+      const render = Object.entries(landingPanelRoutes()).find(([, route]) => route.panel === panel)![0]
+      expect(rendered.panelAspects?.[render]).toBeCloseTo(aspect, 2)
+    }
+  })
+
+  test('a point on the 3D tee writes back to the sketch panel that renders there', () => {
+    const routes = landingPanelRoutes()
+    expect(Object.keys(routes).sort()).toEqual(['back', 'front', 'left', 'right'])
+
+    for (const [render, route] of Object.entries(routes)) {
+      // A mark put where the hit says lands back under the pointer.
+      const at = toSketchPoint({ panel: render, x: 0.3, y: 0.7 })
+      expect(at.panel).toBe(route.panel)
+      const stamped = stampLandingGraphic({ document: createEmptyDocument({ garmentId: 'tee' }), src: '/graphics/logo-crown.svg', panel: at.panel, x: at.x, y: at.y })
+      const shown = landingRenderDocument({ document: stamped }).layers.find((layer) => layer.kind === 'graphic')
+      expect(shown).toMatchObject({ panel: render, y: 0.7 })
+      expect(shown?.kind === 'graphic' && shown.x).toBeCloseTo(0.3, 6)
+    }
+  })
+})
+
+describe('editing a logo on the landing tee', () => {
+  const stamped = () => {
+    const document = stampLandingGraphic({ document: createEmptyDocument({ garmentId: 'tee' }), src: '/graphics/logo-crown.svg', panel: 'front' })
+    return { document, layerId: latestLandingGraphicId({ document })! }
+  }
+
+  test('moves, resizes within bounds, and removes', () => {
+    const { document, layerId } = stamped()
+    const moved = updateLandingGraphicTransform({ document, layerId, x: 0.3, y: 0.9 })
+    expect(moved.layers.find((layer) => layer.id === layerId)).toMatchObject({ x: 0.3, y: 0.9, scale: 0.28 })
+
+    const larger = scaleLandingGraphic({ document: moved, layerId, factor: LANDING_SCALE_STEP })
+    expect(larger.layers.find((layer) => layer.id === layerId)).toMatchObject({ scale: 0.28 * LANDING_SCALE_STEP })
+    let tiny = larger
+
+    for (let press = 0; press < 20; press += 1) {
+      tiny = scaleLandingGraphic({ document: tiny, layerId, factor: 1 / LANDING_SCALE_STEP })
+    }
+
+    expect(tiny.layers.find((layer) => layer.id === layerId)).toMatchObject({ scale: 0.08 })
+
+    const removed = removeLandingGraphic({ document: larger, layerId })
+    expect(removed.layers.some((layer) => layer.id === layerId)).toBe(false)
+    // Only graphics: a paint layer's id is left alone.
+    const paintId = removed.layers[0]!.id
+    expect(removeLandingGraphic({ document: removed, layerId: paintId })).toBe(removed)
+  })
+
+  test('the store keeps the picked logo, and a drag lets go of a held side', () => {
+    const store = useLandingDemoStore
+    const { layerId } = stamped()
+    store.getState().selectLayer(layerId)
+    expect(store.getState().selectedLayerId).toBe(layerId)
+    store.getState().selectLayer(null)
+    expect(store.getState().selectedLayerId).toBeNull()
+
+    expect(store.getState().surfaceMode).toBe('turn')
+    store.getState().setSurfaceMode('draw')
+    expect(store.getState().surfaceMode).toBe('draw')
+
+    store.getState().setCameraView('back')
+    store.getState().releaseCameraView()
+    expect(store.getState().cameraView).toBeNull()
+  })
+
+  test('the picked logo is framed on the tee, round its own box', () => {
+    const { document, layerId } = stamped()
+    const rendered = landingRenderDocument({ document })
+    const framed = withLandingOverlays({ document: rendered, selectedLayerId: layerId })
+    const overlay = framed.layers.at(-1)
+    expect(overlay?.kind).toBe('paint')
+    const frame = overlay?.kind === 'paint' ? overlay.strokes[0]! : null
+    expect(frame?.points).toHaveLength(5)
+    expect(frame?.panel).toBe('front')
+    // Nothing picked: the document is the render document as it was.
+    expect(withLandingOverlays({ document: rendered, selectedLayerId: null })).toBe(rendered)
   })
 })

@@ -344,6 +344,19 @@ export const LANDING_VIEW_PANEL: Record<LandingCameraView, PanelId> = {
 }
 
 /**
+ * Width / height of each panel of the landing's real tee, keyed by the
+ * sketch's own panel names (what `LANDING_VIEW_PANEL` writes). The pad takes
+ * this shape, so its ink covers the whole panel, sleeves included.
+ * landing-demo.test.ts checks them against the template the hero renders.
+ */
+export const LANDING_PANEL_ASPECT: Record<string, number> = {
+  front: 0.628,
+  back: 0.629,
+  left: 1.204,
+  right: 1.398,
+}
+
+/**
  * A point on the wide sketch pad, placed on a panel without stretching:
  * the pad fills the panel's width (or height, for a wider panel) and keeps
  * its own proportions, centred. `padAspect` and `panelAspect` are width / height.
@@ -356,6 +369,16 @@ export function padToPanel({ x, y, padAspect, panelAspect }: { x: number; y: num
 
   const width = padAspect / panelAspect
   return { x: 0.5 + (x - 0.5) * width, y }
+}
+
+/**
+ * A point on the pad as the sketch stores it. The hero tee's panels run
+ * their y up the body (0 at the hem), while the pad runs down the screen,
+ * so the pad is turned the right way up: what's drawn at its top lands at
+ * the top of the panel, not the hem.
+ */
+export function padToSketch({ x, y, padAspect, panelAspect }: { x: number; y: number; padAspect: number; panelAspect: number }) {
+  return padToPanel({ x, y: 1 - y, padAspect, panelAspect })
 }
 
 export const LANDING_CAMERA_POSITIONS: Record<
@@ -522,6 +545,46 @@ export function updateLandingGraphicTransform({
         ...(scale !== undefined ? { scale } : {}),
       },
     },
+  }).document
+}
+
+/** How far one Smaller / Larger press resizes a logo, and the sizes it stays between. */
+export const LANDING_SCALE_STEP = 1.25
+const LANDING_SCALE_RANGE = { min: 0.08, max: 0.9 } as const
+
+export function scaleLandingGraphic({
+  document,
+  layerId,
+  factor,
+}: {
+  document: DesignDocument
+  layerId: string
+  factor: number
+}): DesignDocument {
+  const layer = document.layers.find((entry) => entry.id === layerId)
+
+  if (layer?.kind !== 'graphic') {
+    return document
+  }
+
+  const scale = Math.min(LANDING_SCALE_RANGE.max, Math.max(LANDING_SCALE_RANGE.min, layer.scale * factor))
+  return scale === layer.scale ? document : updateLandingGraphicTransform({ document, layerId, scale })
+}
+
+export function removeLandingGraphic({
+  document,
+  layerId,
+}: {
+  document: DesignDocument
+  layerId: string
+}): DesignDocument {
+  if (!document.layers.some((layer) => layer.id === layerId && layer.kind === 'graphic')) {
+    return document
+  }
+
+  return applyCommand({
+    stack: createCommandStack({ document }),
+    command: { type: 'removeLayer', layerId },
   }).document
 }
 
