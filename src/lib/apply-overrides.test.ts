@@ -3,6 +3,7 @@ import {
   Group,
   Mesh,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   Texture,
 } from 'three'
@@ -18,6 +19,7 @@ import {
   sealClothMaterial,
   stampAncestorNames,
 } from './apply-overrides'
+import { detailNormalMap, type SurfaceChoice } from './fabric-detail'
 
 function createNamedMesh({ name }: { name: string }) {
   const mesh = new Mesh(
@@ -330,5 +332,75 @@ describe('cloneObjectMaterials', () => {
 
     expect(mesh.material).not.toBe(original)
     expect(mesh.material).toBeInstanceOf(MeshStandardMaterial)
+  })
+})
+
+describe('surface detail', () => {
+  function dress({ mapId, color, surface }: { mapId?: string; color?: string; surface?: SurfaceChoice }) {
+    const body = createNamedMesh({ name: 'body' })
+    const root = new Group()
+    root.add(body)
+    applyDesignOverrides({
+      root,
+      overrides: [{ meshName: 'body', ...(mapId ? { mapId } : {}), ...(color ? { color } : {}) }],
+      surface,
+    })
+    return body.material as MeshPhysicalMaterial
+  }
+
+  test("a fabric brings its preset's relief and strength", () => {
+    const material = dress({ mapId: 'denim-twill' })
+
+    expect(material.normalMap).toBe(detailNormalMap({ id: 'twill' }))
+    expect(material.normalScale.x).toBeCloseTo(0.8)
+  })
+
+  test("a fabric with no relief clears the model's own", () => {
+    const body = createNamedMesh({ name: 'body' })
+    body.material.normalMap = new Texture()
+    const root = new Group()
+    root.add(body)
+    applyDesignOverrides({ root, overrides: [{ meshName: 'body', mapId: 'cotton-weave' }] })
+
+    expect((body.material as MeshPhysicalMaterial).normalMap).toBeNull()
+  })
+
+  test('changing fabric swaps the relief, from the base each time', () => {
+    const body = createNamedMesh({ name: 'body' })
+    const root = new Group()
+    root.add(body)
+    const baseMaterials = captureMeshMaterials({ root })
+    const meshes = listMeshes({ root })
+
+    applyOverridesFromBases({ meshes, baseMaterials, overrides: [{ meshName: 'body', mapId: 'denim-twill' }] })
+    expect((body.material as MeshPhysicalMaterial).normalMap).toBe(detailNormalMap({ id: 'twill' }))
+
+    applyOverridesFromBases({ meshes, baseMaterials, overrides: [{ meshName: 'body', mapId: 'canvas-duck' }] })
+    expect((body.material as MeshPhysicalMaterial).normalMap).toBe(detailNormalMap({ id: 'canvas' }))
+
+    applyOverridesFromBases({ meshes, baseMaterials, overrides: [{ meshName: 'body', mapId: 'chiffon-gauze' }] })
+    expect((body.material as MeshPhysicalMaterial).normalMap).toBeNull()
+  })
+
+  test('a colour alone adds no relief, whatever the Surface choice', () => {
+    expect(dress({ color: '#123456' }).normalMap).toBeNull()
+    expect(dress({ color: '#123456', surface: 'rib' }).normalMap).toBeNull()
+  })
+
+  test('the Surface choice overrides or removes the relief', () => {
+    expect(dress({ mapId: 'denim-twill', surface: 'none' }).normalMap).toBeNull()
+    expect(dress({ mapId: 'cotton-weave', surface: 'quilting' }).normalMap).toBe(detailNormalMap({ id: 'quilting' }))
+  })
+
+  test('chiffon is sheer; other cloth is not', () => {
+    const chiffon = dress({ mapId: 'chiffon-gauze' })
+    expect(chiffon.transparent).toBe(true)
+    expect(chiffon.opacity).toBeLessThan(0.8)
+    expect(chiffon.depthWrite).toBe(false)
+
+    const canvas = dress({ mapId: 'canvas-duck' })
+    expect(canvas.transparent).toBe(false)
+    expect(canvas.opacity).toBe(1)
+    expect(dress({ mapId: 'chiffon-gauze', color: '#e7b7b5' }).color.getHexString()).toBe('e7b7b5')
   })
 })

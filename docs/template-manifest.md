@@ -69,7 +69,7 @@ Studio views and published stills share one camera setup, `src/lib/studio-camera
 | Canvas shape | A canvas wider than 4:5 is cropped at the sides at fov 36°. A narrower (portrait) canvas would be cropped top and bottom, so its fov widens (`captureFov`), live and during capture, until the crop spans 36° vertically. Every canvas shape gives the same still. |
 | Margins | Front, three-quarter and back: the whole garment, every vertex of the tee flat or worn, lies inside the still with at least 12% of the still's width or height clear on each side (`STILL_FRAME.minMargin`). Today the tee fills about the middle 60–68% across (flat) and 72% down. Sleeve views: that whole sleeve, flat or worn, lies inside with the same margin and spans more than a quarter of the still; the body may run off the edge. |
 | Background | Opaque, never transparent. The pixels are the scene background of the current environment, a top-to-bottom gradient: studio `#e6e5e2` to `#cbcac6` (the default) or outdoor `#87a4b8` to `#c4d2d6`. The frame fill, `#d9d8d4`, only shows if the canvas fails to cover the frame. Pictures already published keep the look they were captured with (a dark stage before this change); they are stored images and are never re-rendered. |
-| Encoding | JPEG, quality 0.72 after framing (the canvas is read at 0.82). Rendering: sRGB output, ACES filmic tone mapping, environment exposure, shadows on, and on the tee a cloth normal map (`fabric-normal.ts`) that changes shading only: no geometry, UV or atlas change, so no new template version. |
+| Encoding | JPEG, quality 0.72 after framing (the canvas is read at 0.82). Rendering: sRGB output, ACES filmic tone mapping, environment exposure, shadows on, and on the tee a cloth normal map (the `knit` detail in `fabric-detail.ts`) that changes shading only: no geometry, UV or atlas change, so no new template version. |
 
 `capture-framing.test.ts` builds the tee (flat and worn), projects every vertex through each preset at canvas aspects 0.46 to 2.4, applies the same crop, and checks the margins and that every canvas shape gives the same still. For each sleeve view it also checks that the centre of that sleeve's print panel faces the camera (normal · view > 0.6), sits near the middle of the still and is not hidden by the rest of the garment (a raycast). Not covered: the try-on mannequin preview, which places the garment by avatar measurements.
 
@@ -151,3 +151,36 @@ Each garment's current template version has a **pattern template**: the sewing p
   - A skirt or trouser waistband can't sag more than 1.5 cm.
   - Upper garments worn over skirts or trousers sit 8 mm out.
 - **Simplified for the beta.** Coats and suits have a one-piece deep-V front instead of overlapping lapels (spike S2): overlapping fronts would need cloth-to-cloth collision.
+
+## Baked from a pattern (roadmap D0)
+
+A garment that has only a pattern recipe gets its GLB and manifest from its own drape, with no downloaded model: `scripts/bake-pattern-glb.mjs` (`pnpm bake:pattern`).
+
+```bash
+pnpm bake:pattern --template tee-crew-short --version 5
+```
+
+**What it does:**
+
+1. **Drape.** It runs `drape-job.ts` headlessly in node, with the same pure-TS solver as the studio's cloth worker, for the recipe's pattern (`patternTemplateFor`) on the neutral body. The drape stays in the mannequin's frame (floor at y = 0). It isn't seated on an older model.
+2. **Atlas.** It packs the panels' pattern frames (millimetres) into a 2048² atlas at one shared scale (`scripts/atlas-pack.mjs`, the same packer `build-template.mjs` uses), in the tee's panel order. Each rectangle keeps its frame's shape.
+3. **Scene.** It builds the scene with `buildPatternScene` (`pattern-scene.ts`, with `seat: [0, 0, 0]`). That gives one double-sided mesh, `body-pattern`, with fabric UVs in `uv` and print UVs in `uv1` from each piece's place in its frame. `uv1` becomes `TEXCOORD_1` when three's `GLTFExporter` writes the GLB.
+4. **Slim steps.** `simplify-parts.mjs` welds (and simplifies with `--body-ratio`). Then `compress-models.sh <file>` applies Draco with `--prune-attributes false`, because no material samples the print UVs and `optimize` would otherwise drop them as unused.
+5. **Manifest.** `build-template.mjs` runs on a generated spec with `"printUv": "keep"`. In that mode it doesn't project print UVs. Instead it checks that every printing vertex's `TEXCOORD_1` lies in [0, 1] inside one region, measures each panel's `center` and the `bounds`, and writes the manifest with the GLB's sha256. Regions come from the frames:
+   - `uv` is the packed rectangle;
+   - `surface.panelAspect` is the frame's width over its height;
+   - `renderMirrorX` is the frame's `mirrorX` (the back only);
+   - sleeves route like every other garment's (`renderPanel`, wearer-side labels).
+
+**Output.** By default it writes `.bake/<id>@<version>/<id>-v<version>.glb` and `.ts`. That folder is git-ignored and never shipped. To ship a bake, pass `--glb public/models/<id>.glb --manifest src/lib/templates/<id>.ts`, plus `--garment <id>` for a template that isn't in the archive yet. Then register it as for any template-built garment (above).
+
+**Deterministic.** The recipe, solver and pinned tools give the same bytes on every run, so a re-bake leaves the sha256 as it was. `src/lib/pattern/bake-pattern-glb.test.ts` checks this. It bakes the tee uncompressed, because the Draco step fetches the gltf-transform CLI. It also checks `TEXCOORD_1`, that regions lie in [0, 1] without overlapping, and the routing checks `glb-templates.test.ts` applies to shipped templates.
+
+**Comparing.** Run `pnpm dev`, then open `/scripts/bake-compare.html?recipe=<id>@<version>`. This dev-only page shows the shipped model next to the bake, front and back, each printed with a test atlas from its own manifest. Each panel gets a colour, a letter, a grid and an up arrow. A panel in the wrong place, upside down or mirrored shows at once.
+
+**The tee proof (16 Nov).** `tee-crew-short@5` baked from its recipe ([comparison](evidence/bake-tee-v5-compare.jpg)):
+
+- **Size.** 1,537 vertices and 12.7 KiB with Draco, against the 1228.8 KiB `glbPerTemplateKiB` budget.
+- **Mapping.** The front, back and both sleeves land where `tee-real-v5.glb` puts them, upright, with the back the only mirrored panel. The sleeve frames have the same aspect as `@5`'s wrapped sleeves.
+- **Shape.** The drape is boxier than the Style3D model, and its sleeves stand further out: it measures 67 cm tall by 74 cm across, against the model's 71 by 57 cm. The sleeves print as pattern pieces rather than unrolled tubes.
+- **Not shipped.** `@5` keeps `tee-real-v5.glb`. New garments (roadmap D1) are the first to ship baked GLBs.

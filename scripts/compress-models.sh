@@ -23,6 +23,16 @@ compress_model() {
   ls -lh "$src"
 }
 
+# With file arguments, compress just those (scripts/bake-pattern-glb.mjs);
+# with none, the gown as before. A baked GLB already has its print UVs,
+# which no material samples, so optimize must not prune them as unused.
+if [ "$#" -gt 0 ]; then
+  for file in "$@"; do
+    compress_model "$file" --flatten false --join false --prune-attributes false
+  done
+  exit 0
+fi
+
 compress_model "$models/garment.glb" --flatten false --join false
 
 # Style3D forms are already compressed in public/models. To re-import one

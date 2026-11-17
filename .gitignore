@@ -28,3 +28,6 @@ public/models/garment-house.glb
 # disk and in history, no longer tracked.
 /.idea/
 /archive/
+
+# Scratch bakes (scripts/bake-pattern-glb.mjs); a shipped bake names its own --glb
+/.bake/
