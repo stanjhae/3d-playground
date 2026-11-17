@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 import { validateImage } from '../image-validate.ts'
-import { PATTERN_OPS, PATTERN_OP_LIMITS, type PatternOp, isPatternOp } from '../pattern/pattern-ops.ts'
+import { PATTERN_OPS, PATTERN_OP_LIMITS, type PatternOp, isPatternOp, slitSeams } from '../pattern/pattern-ops.ts'
 import type { PatternTemplate } from '../pattern/templates.ts'
 
 /**
@@ -116,7 +116,9 @@ export const AI_OUTPUT_SCHEMA = {
           op: { type: 'string', enum: [...PATTERN_OPS] },
           mm: { type: 'integer' },
           side: { type: 'string', enum: ['left', 'right', 'both'] },
-          piece: { type: 'string', enum: ['front', 'back', 'all'] },
+          // hemCurve: front, back or all; slit: a piece id. `cleanOps` checks which.
+          piece: { type: 'string' },
+          seam: { type: 'string' },
         },
         required: ['op', 'mm'],
       },
@@ -130,7 +132,12 @@ export const AI_OUTPUT_SCHEMA = {
 function garmentSummary(template: PatternTemplate) {
   const lines = template.pattern.pieces.map((piece) => {
     const roles = Object.keys(piece.roles ?? {}).join(', ')
-    return `- ${piece.label} (${piece.place.anchor}${piece.mirrorOf ? ', mirrors its pair' : ''})${roles ? `: has ${roles}` : ''}`
+    const seams = slitSeams({ pattern: template.pattern, pieceId: piece.id }).map((seam) => seam.id)
+    return [
+      `- ${piece.label} (${piece.place.anchor}${piece.mirrorOf ? ', mirrors its pair' : ''}), id \`${piece.id}\``,
+      roles ? `: has ${roles}` : '',
+      seams.length > 0 ? `; seams a slit can open: ${seams.join(', ')}` : '',
+    ].join('')
   })
   return lines.join('\n')
 }
@@ -143,6 +150,7 @@ function opsGuide() {
     hemCurve: 'hem curve depth (positive = curved shirt-tail down; negative = curved up); `piece` front, back or all',
     neckline: 'neckline drop at centre front (0 = as is)',
     sleeve: 'sleeve length change; `side` left, right or both (the wearer’s sides)',
+    slit: 'opens a seam this far up from its hem or cuff (a side slit, a vent); `piece` is a piece id, `seam` optionally one of that piece’s slit seams (default: its first). One slit per seam; slit each side for a pair',
   }
   return PATTERN_OPS.map((op) => `- ${op}: ${meaning[op]}, ${PATTERN_OP_LIMITS[op].min} to ${PATTERN_OP_LIMITS[op].max} mm`).join('\n')
 }
@@ -162,8 +170,14 @@ function systemPrompt(template: PatternTemplate) {
   ].join('\n')
 }
 
-/** Keeps only well-formed edits, clamped to their limits; at most 12. */
-export function cleanOps(raw: unknown): PatternOp[] {
+/**
+ * Keeps only well-formed edits, clamped to their limits; at most 12. With
+ * `pattern`, a slit must name one of its pieces and, if any, a seam a slit
+ * can open there.
+ */
+export function cleanOps(raw: unknown, pattern?: PatternTemplate['pattern']): PatternOp[] {
+  const pieces = pattern ? new Set(pattern.pieces.map((piece) => piece.id)) : null
+
   if (!Array.isArray(raw)) {
     return []
   }
@@ -172,6 +186,14 @@ export function cleanOps(raw: unknown): PatternOp[] {
 
   for (const entry of raw) {
     if (!isPatternOp(entry)) {
+      continue
+    }
+
+    if (
+      entry.op === 'slit' &&
+      pattern &&
+      (!pieces!.has(entry.piece) || (entry.seam !== undefined && !slitSeams({ pattern, pieceId: entry.piece }).some((seam) => seam.id === entry.seam)))
+    ) {
       continue
     }
 
@@ -280,5 +302,5 @@ export async function sketchToOps({
   }
 
   const notes = typeof parsed.notes === 'string' ? parsed.notes.slice(0, AI_LIMITS.notesChars) : ''
-  return { ok: true, body: { ops: cleanOps(parsed.ops), notes } }
+  return { ok: true, body: { ops: cleanOps(parsed.ops, template.pattern), notes } }
 }

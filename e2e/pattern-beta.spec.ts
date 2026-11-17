@@ -4,7 +4,7 @@ import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
 
 /**
  * Pattern (beta), Workflow 1 (the suite's build turns `VITE_PATTERN_BETA`
- * on): turn it on, reshape a piece, see it drape and save, publish it
+ * on): turn it on, reshape a piece, open a slit, see it drape and save, publish it
  * (which stores the draped mesh), and reload without draping again.
  */
 
@@ -26,7 +26,7 @@ async function savedPattern({ page }: { page: Page }) {
 
 const drapeState = (page: Page) => page.getByTestId('pattern-drape-state')
 
-test('reshape the pattern, drape it, publish it, and reload without draping', async ({ page }) => {
+test('reshape the pattern, slit it, drape it, publish it, and reload without draping', async ({ page }) => {
   test.setTimeout(240_000)
   const email = newEmail({ label: 'pattern' })
   emails.push(email)
@@ -70,6 +70,31 @@ test('reshape the pattern, drape it, publish it, and reload without draping', as
   }
 
   await expect(page.getByTestId('pattern-issues')).toContainText('seam')
+
+  // A slit, from the keyboard: focus the side seam's edge, S for its length, then add it.
+  await editor.locator('[data-edge="front:1"]').focus()
+  const tools = page.getByTestId('pattern-edge-tools')
+  await expect(tools).toContainText('sewn to Back (seam sideL)')
+  await page.keyboard.press('s')
+  const slitLength = tools.getByRole('slider', { name: /Slit length/ })
+  await expect(slitLength).toBeFocused()
+  await slitLength.fill('250')
+  await tools.getByRole('button', { name: 'Add slit here' }).click()
+  await expect(tools.getByRole('button', { name: 'Update slit' })).toBeVisible()
+  await expect(tools.locator('[data-slit-value]')).toHaveText('25.0 cm')
+  await expect(editor.locator('[data-point="front:sideL-slit-a"]')).toBeVisible()
+  // The open stretch below it is drawn dashed: a free edge, no seam.
+  await expect(editor.locator('[data-edge="front:1"]')).toHaveAttribute('aria-label', 'Front, edge hemR to sideL-slit-a, open')
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+  const slit = (await savedPattern({ page })).pattern as {
+    pieces: Array<{ id: string; outline: Array<{ id: string; y: number }> }>
+    seams: Array<{ id: string; a: { from: string }; b: { to: string } }>
+  }
+  expect(slit.seams.find((seam) => seam.id === 'sideL')).toMatchObject({ a: { from: 'sideL-slit-a' }, b: { to: 'sideL-slit-b' } })
+  // The side seam is straight up from the hem: 25 cm along it is 250 mm up.
+  expect(slit.pieces.find((piece) => piece.id === 'front')!.outline.find((point) => point.id === 'sideL-slit-a')!.y).toBe(250)
+  await test.info().attach('draped slit', { body: await page.screenshot(), contentType: 'image/png' })
 
   // Publishing stores the draped mesh, then the views.
   const designId = new URL(page.url()).searchParams.get('cloud')!

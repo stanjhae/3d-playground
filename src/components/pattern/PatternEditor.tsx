@@ -5,23 +5,35 @@ import { AI_ASSIST } from '../../lib/ai-assist'
 import { cn } from '../../lib/cn'
 import { getCanonicalDocument, useEditorStore } from '../../lib/editor-store'
 import {
+  type SheetEdge,
   type SheetPiece,
+  addPoint,
   checkEdit,
+  describeEdge,
+  edgePath,
   layoutSheet,
   movePoint,
   piecePath,
   quickEdit,
   quickEditsFor,
+  removePoint,
+  sheetEdges,
+  slitChoice,
+  slitEdit,
   toSheet,
 } from '../../lib/pattern/editor-model'
 import type { CanonicalPattern } from '../../lib/pattern/pattern-document'
+import { PATTERN_OP_LIMITS, closeSlit } from '../../lib/pattern/pattern-ops'
 import { patternTemplateFor } from '../../lib/pattern/templates'
 import { usePatternDrape } from '../../lib/pattern-drape-status'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
+import { patternKeyAction, patternKeyList } from '../../lib/studio-keys'
 
 const AiAssist = lazy(() => import('./AiAssist'))
 
 type Selection = { pieceId: string; pointId: string } | null
+/** An edge by its first point's place on the outline; `seamId` follows a seam whose points shift. */
+type EdgeSelection = { pieceId: string; index: number; seamId: string | null } | null
 type Drag = {
   pieceId: string
   pointId: string
@@ -37,9 +49,12 @@ const PIECE_COLOURS = ['#c2410c', '#1d4ed8', '#15803d', '#a16207', '#7e22ce', '#
 /**
  * Pattern (beta): the garment's pieces on a sheet. Drag a point (or a
  * curve handle) to reshape a piece, or use the quick edits; arrow keys
- * nudge the selected point 1 mm (10 with Shift). An edit is committed as
- * one undo step only if the pattern can still be sewn; otherwise it snaps
- * back and says why. The 3D garment re-drapes after each commit.
+ * nudge the selected point 1 mm (10 with Shift). Edges are drawn by what
+ * sews them: solid in the seam's colour, dashed where open. Select an
+ * edge to add a point on it or open a slit in its seam. An edit is
+ * committed as one undo step only if the pattern can still be sewn;
+ * otherwise it snaps back and says why. The 3D garment re-drapes after
+ * each commit.
  */
 export default function PatternEditor() {
   const stored = useEditorStore((state) => state.document.pattern?.pattern)
@@ -48,6 +63,9 @@ export default function PatternEditor() {
   const drapeRuns = usePatternDrape((status) => status.runs)
   const [preview, setPreview] = useState<CanonicalPattern | null>(null)
   const [selected, setSelected] = useState<Selection>(null)
+  const [edge, setEdge] = useState<EdgeSelection>(null)
+  /** A point or edge to focus once the next render has it. */
+  const pendingFocus = useRef<string | null>(null)
   const [messages, setMessages] = useState<string[]>([])
   const [announce, setAnnounce] = useState('')
   // The rail is narrow; expanded, the sheet fills the screen for fine work.
@@ -59,6 +77,15 @@ export default function PatternEditor() {
 
   // A stored change (undo, another tab) drops any stale preview.
   useEffect(() => setPreview(null), [stored])
+
+  useEffect(() => {
+    const selector = pendingFocus.current
+
+    if (selector) {
+      pendingFocus.current = null
+      svgRef.current?.querySelector<SVGElement>(selector)?.focus()
+    }
+  })
 
   if (!pattern || !sheet || !stored) {
     return null
@@ -74,7 +101,7 @@ export default function PatternEditor() {
     if (!check.ok) {
       setMessages(check.messages)
       setAnnounce(`Not applied: ${check.messages[0]}`)
-      return
+      return false
     }
 
     setMessages([])
@@ -82,6 +109,92 @@ export default function PatternEditor() {
     if (JSON.stringify(next) !== JSON.stringify(getCanonicalDocument().pattern)) {
       setPattern({ pattern: next })
       setAnnounce(what)
+    }
+
+    return true
+  }
+
+  /** Says why something can't be done, without changing anything. */
+  function refuse(message: string) {
+    setMessages([message])
+    setAnnounce(`Not applied: ${message}`)
+  }
+
+  function selectPoint(pieceId: string, pointId: string) {
+    setSelected({ pieceId, pointId })
+    setEdge(null)
+  }
+
+  function selectEdge(piece: SheetPiece, entry: SheetEdge) {
+    setSelected(null)
+    setEdge({ pieceId: piece.id, index: entry.index, seamId: entry.seam?.id ?? null })
+    setAnnounce(describeEdge({ piece, edge: entry }))
+  }
+
+  function addPointOn(pieceId: string, index: number) {
+    const added = addPoint({ pattern: stored!, pieceId, index })
+
+    if (added && commit(added.pattern, `Added point ${added.pointId} on ${labelOf(pieceId)}`)) {
+      selectPoint(pieceId, added.pointId)
+      pendingFocus.current = `[data-point="${pieceId}:${added.pointId}"]`
+    }
+  }
+
+  function removePointOf(pieceId: string, pointId: string) {
+    const removed = removePoint({ pattern: stored!, pieceId, pointId })
+
+    if (!removed.ok) {
+      refuse(removed.message)
+      return
+    }
+
+    if (commit(removed.pattern, `Removed point ${pointId} from ${labelOf(pieceId)}`)) {
+      setSelected(null)
+    }
+  }
+
+  function onPointKey(event: KeyboardEvent<SVGElement>, piece: SheetPiece, pointId: string) {
+    const action = patternKeyAction({ key: event.key, shiftKey: event.shiftKey, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, on: 'point' })
+
+    if (!action) {
+      return
+    }
+
+    event.preventDefault()
+
+    if (action.type === 'nudge') {
+      const step = Math.abs(action.dx || action.dy)
+      commit(movePoint({ pattern: stored!, pieceId: piece.id, pointId, dx: action.dx, dy: action.dy }), `Nudged ${pointId} ${step} mm`)
+    } else if (action.type === 'removePoint') {
+      removePointOf(piece.id, pointId)
+    } else if (action.type === 'deselect') {
+      setSelected(null)
+      ;(event.target as SVGElement).blur()
+    }
+  }
+
+  function onEdgeKey(event: KeyboardEvent<SVGElement>, piece: SheetPiece, entry: SheetEdge) {
+    const action = patternKeyAction({ key: event.key, shiftKey: event.shiftKey, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, on: 'edge' })
+
+    if (!action) {
+      return
+    }
+
+    event.preventDefault()
+
+    if (action.type === 'addPoint') {
+      addPointOn(piece.id, entry.index)
+    } else if (action.type === 'slit') {
+      const slider = document.querySelector<HTMLInputElement>('[data-testid="pattern-edge-tools"] input[name="slit-length"]')
+
+      if (slider) {
+        slider.focus()
+      } else {
+        refuse(entry.seam ? 'This seam is too short for a slit.' : 'This edge is open already; pick a sewn edge for a slit.')
+      }
+    } else if (action.type === 'deselect') {
+      setEdge(null)
+      ;(event.target as SVGElement).blur()
     }
   }
 
@@ -105,7 +218,7 @@ export default function PatternEditor() {
       from: { x: event.clientX, y: event.clientY },
       mmPerPx: viewWidth / Math.max(1, rect.width),
     }
-    setSelected({ pieceId: piece.id, pointId })
+    selectPoint(piece.id, pointId)
   }
 
   function moveDrag(event: PointerEvent<SVGElement>) {
@@ -134,18 +247,14 @@ export default function PatternEditor() {
     return stored!.pieces.find((piece) => piece.id === pieceId)?.label ?? 'the piece'
   }
 
-  function nudge(event: KeyboardEvent<SVGElement>, piece: SheetPiece, pointId: string) {
-    const step = event.shiftKey ? 10 : 1
-    const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }
-    const move = moves[event.key]
-
-    if (!move) {
-      return
-    }
-
-    event.preventDefault()
-    commit(movePoint({ pattern: stored!, pieceId: piece.id, pointId, dx: move[0], dy: move[1] }), `Nudged ${pointId} ${step} mm`)
-  }
+  const edgesOf = new Map(sheet.pieces.map((piece) => [piece.id, sheetEdges({ pattern, piece })]))
+  // The selected edge, following its seam if a slit moved its points: as
+  // drawn (a preview may have shifted them), and as stored, for its tools.
+  const edgePiece = edge ? sheet.pieces.find((piece) => piece.id === edge.pieceId) : undefined
+  const drawnEdge = edge && edgePiece ? resolveEdge(edgesOf.get(edgePiece.id)!, edge) : null
+  const storedPiece = edge && preview ? layoutSheet({ pattern: stored }).pieces.find((piece) => piece.id === edge.pieceId) : edgePiece
+  const toolEdge = edge && storedPiece ? (preview ? resolveEdge(sheetEdges({ pattern: stored, piece: storedPiece }), edge) : drawnEdge) : null
+  const selectedPoint = selected ? sheet.pieces.find((piece) => piece.id === selected.pieceId) : undefined
 
   const pad = 60
   const viewBox = `${-pad} ${-pad} ${sheet.width + pad * 2} ${sheet.height + pad * 2}`
@@ -191,7 +300,9 @@ export default function PatternEditor() {
         ref={svgRef}
         viewBox={viewBox}
         role="group"
-        aria-label="Pattern pieces. Tab to a point; arrow keys move it 1 mm, with Shift 10 mm."
+        aria-label={`Pattern pieces. ${patternKeyList()
+          .map((entry) => `${entry.keys}: ${entry.does}.`)
+          .join(' ')}`}
         className={cn('w-full touch-none select-none rounded-sm bg-flv-paper', { 'max-h-[70vh]': expanded })}
         style={{ aspectRatio: `${sheet.width + pad * 2} / ${sheet.height + pad * 2}` }}
         onPointerMove={moveDrag}
@@ -207,10 +318,46 @@ export default function PatternEditor() {
 
           return (
             <g key={piece.id} data-piece={piece.id}>
-              <path d={piecePath(piece)} fill={colour} fillOpacity={0.12} stroke={colour} strokeWidth={4} vectorEffect="non-scaling-stroke" />
+              <path d={piecePath(piece)} fill={colour} fillOpacity={0.12} stroke="none" />
               <text x={lx} y={ly} textAnchor="middle" fontSize={44} fill={colour} className="font-body">
                 {piece.label}
               </text>
+              {edgesOf.get(piece.id)!.map((entry) => {
+                const d = edgePath(piece, entry.index)
+                const isSelected = drawnEdge !== null && edgePiece?.id === piece.id && drawnEdge.index === entry.index
+
+                return (
+                  <g key={`edge-${entry.index}`}>
+                    {/* Sewn: solid in the seam's colour. Open: dashed in the piece's. */}
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke={entry.seam?.colour ?? colour}
+                      strokeWidth={isSelected ? 9 : entry.seam ? 5 : 3}
+                      strokeDasharray={entry.seam ? undefined : '8 6'}
+                      vectorEffect="non-scaling-stroke"
+                      pointerEvents="none"
+                      data-seam={entry.seam?.id ?? ''}
+                    />
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={22}
+                      vectorEffect="non-scaling-stroke"
+                      tabIndex={0}
+                      role="button"
+                      aria-label={describeEdge({ piece, edge: entry })}
+                      aria-pressed={isSelected}
+                      className="cursor-pointer outline-none focus-visible:stroke-flv-ink/30"
+                      data-edge={`${piece.id}:${entry.index}`}
+                      onClick={() => selectEdge(piece, entry)}
+                      onFocus={() => selectEdge(piece, entry)}
+                      onKeyDown={(event) => onEdgeKey(event, piece, entry)}
+                    />
+                  </g>
+                )
+              })}
               {piece.outline.map((point) => {
                 const [px, py] = toSheet(piece, point.x, point.y)
                 const isSelected = selected?.pieceId === piece.id && selected.pointId === point.id
@@ -256,8 +403,8 @@ export default function PatternEditor() {
                       className="cursor-move outline-none focus-visible:stroke-flv-ink"
                       data-point={`${piece.id}:${point.id}`}
                       onPointerDown={(event) => startDrag(event, piece, point.id, 'point')}
-                      onFocus={() => setSelected({ pieceId: piece.id, pointId: point.id })}
-                      onKeyDown={(event) => nudge(event, piece, point.id)}
+                      onFocus={() => selectPoint(piece.id, point.id)}
+                      onKeyDown={(event) => onPointKey(event, piece, point.id)}
                     />
                   </g>
                 )
@@ -266,6 +413,33 @@ export default function PatternEditor() {
           )
         })}
       </svg>
+
+      {toolEdge && storedPiece ? (
+        <EdgeTools
+          key={`${storedPiece.id}:${toolEdge.seam?.id ?? toolEdge.index}`}
+          pattern={stored}
+          piece={storedPiece}
+          edge={toolEdge}
+          onAddPoint={() => addPointOn(storedPiece.id, toolEdge.index)}
+          onPreview={setPreview}
+          onCommit={commit}
+        />
+      ) : null}
+
+      {selected && selectedPoint ? (
+        <div className={cn('flex flex-wrap items-center gap-2', chromeTextClass())} data-testid="pattern-point-tools">
+          <span className={chromeMutedClass()}>
+            {selectedPoint.label}, point {selected.pointId}
+          </span>
+          <button
+            type="button"
+            onClick={() => removePointOf(selected.pieceId, selected.pointId)}
+            className={cn('min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent', chromeTextClass())}
+          >
+            Remove point
+          </button>
+        </div>
+      ) : null}
 
       {messages.length > 0 ? (
         <ul role="alert" className={cn('flex flex-col gap-1 border border-flv-accent px-3 py-2 text-flv-accent', chromeTextClass())} data-testid="pattern-issues">
@@ -374,5 +548,107 @@ function QuickEdits({
         )
       })}
     </fieldset>
+  )
+}
+
+/** The edge a selection names: its index, or, if a seam has moved, the first edge that seam sews. */
+function resolveEdge(edges: SheetEdge[], selection: NonNullable<EdgeSelection>) {
+  const at = edges[selection.index]
+
+  if (selection.seamId && at?.seam?.id !== selection.seamId) {
+    return edges.find((entry) => entry.seam?.id === selection.seamId) ?? null
+  }
+
+  return at ?? null
+}
+
+/** What the selected edge offers: a point halfway along, and a slit when a seam sews it. */
+function EdgeTools({
+  pattern,
+  piece,
+  edge,
+  onAddPoint,
+  onPreview,
+  onCommit,
+}: {
+  pattern: CanonicalPattern
+  piece: SheetPiece
+  edge: SheetEdge
+  onAddPoint: () => void
+  onPreview: (pattern: CanonicalPattern | null) => void
+  onCommit: (pattern: CanonicalPattern, what: string) => boolean
+}) {
+  const choice = slitChoice({ pattern, pieceId: piece.id, index: edge.index })
+  const [mm, setMm] = useState(() => (choice ? choice.current || Math.min(150, choice.max) : 0))
+  const buttonClass = cn('min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent', chromeTextClass())
+
+  function preview(next: number) {
+    if (!choice) {
+      return
+    }
+
+    const result = slitEdit({ pattern, pieceId: piece.id, seamId: choice.seamId, mm: next })
+    onPreview(result.ok ? result.pattern : null)
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border border-flv-line px-3 py-2" data-testid="pattern-edge-tools" role="group" aria-label="Selected edge">
+      <p className={chromeMutedClass()}>{describeEdge({ piece, edge })}</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={onAddPoint} className={buttonClass}>
+          Add point
+        </button>
+        {choice && choice.current > 0 ? (
+          <button
+            type="button"
+            onClick={() => onCommit(closeSlit({ pattern, seamId: choice.seamId }), `Closed the slit in seam ${choice.seamId}`)}
+            className={buttonClass}
+          >
+            Close slit
+          </button>
+        ) : null}
+      </div>
+      {choice ? (
+        <div className="flex flex-col gap-1">
+          <label className="flex flex-col gap-1">
+            <span className="flex items-baseline justify-between gap-2">
+              <span className={chromeMutedClass()}>Slit length</span>
+              <span className={chromeMutedClass()} data-slit-value>
+                {(mm / 10).toFixed(1)} cm
+              </span>
+            </span>
+            <input
+              type="range"
+              name="slit-length"
+              aria-label="Slit length, millimetres up from the hem"
+              min={PATTERN_OP_LIMITS.slit.min}
+              max={choice.max}
+              step={5}
+              value={mm}
+              onChange={(event) => {
+                const next = Number.parseInt(event.target.value, 10)
+                setMm(next)
+                preview(next)
+              }}
+              onBlur={() => onPreview(null)}
+              className="w-full accent-flv-accent"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const result = slitEdit({ pattern, pieceId: piece.id, seamId: choice.seamId, mm })
+              // A refused slit is still handed over, so the editor can say why.
+              onCommit(result.ok ? result.pattern : result.attempted, `Slit of ${(mm / 10).toFixed(1)} cm in seam ${choice.seamId}`)
+            }}
+            className={buttonClass}
+          >
+            {choice.current > 0 ? 'Update slit' : 'Add slit here'}
+          </button>
+        </div>
+      ) : edge.seam ? (
+        <p className={chromeMutedClass()}>This seam is too short for a slit.</p>
+      ) : null}
+    </div>
   )
 }
