@@ -94,3 +94,21 @@ test('a failed image upload stops before saving, and the design can be created w
   await expect(page).toHaveURL(/\/create\?cloud=/)
   await expectSaved({ page })
 })
+
+test('a waiting landing sketch can be set aside: Start fresh instead clears it', async ({ page }) => {
+  const email = newEmail({ label: 'landing-fresh' })
+  emails.push(email)
+  await signIn({ page, email })
+  await storeLandingDesign({ page })
+
+  await expect(page.getByRole('button', { name: 'Create from your landing design' })).toBeVisible()
+  await page.getByRole('button', { name: 'Start fresh instead' }).click()
+
+  // The usual choice is back, and the sketch is gone for good (a reload keeps it gone).
+  await expect(page.getByRole('button', { name: 'Create from your landing design' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Create a T-shirt' })).toBeVisible()
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), LANDING_HANDOFF_KEY)).toBeNull()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Create a T-shirt' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start fresh instead' })).toHaveCount(0)
+})

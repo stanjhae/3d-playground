@@ -47,18 +47,25 @@ export const LANDING_COPY = {
       right: 'It lands on the right sleeve.',
     },
     graphicsHint: 'Tap one, or drag it onto the tee.',
+    /** Shown under the graphics, not only as a tooltip. */
+    graphicsCaption: 'Drag onto the tee or the pad',
     inkLabel: 'Ink',
     graphicsLabel: 'Drop a graphic',
     viewsLabel: 'Turn it',
-    /** What a drag on the 3D tee does (a fine pointer only; touch draws on the pad). */
-    surfaceLabel: 'Dragging on the tee',
+    /** What a drag on the 3D tee does. */
+    surfaceLabel: 'On the tee',
     surfaceTurn: 'Turn',
     surfaceDraw: 'Draw',
+    /** What one and two fingers do, by mode (touch screens). */
+    surfaceTouchHint: {
+      turn: 'Swipe sideways to turn it. Hold a logo to move it.',
+      draw: 'One finger draws. Two fingers turn it.',
+    },
     logoSelected: 'Logo selected',
     logoSmaller: 'Smaller',
     logoLarger: 'Larger',
     logoRemove: 'Remove',
-    logoHint: 'Drag it on the tee to move it. Delete removes it.',
+    logoHint: 'Drag it on the tee to move it (on touch, hold it first). Delete removes it.',
     live: 'Live',
     spin: 'Spin it in 3D',
     drag: 'Drag to turn it',
@@ -67,6 +74,7 @@ export const LANDING_COPY = {
       'A white T-shirt on a mannequin with a red gothic cross and flames printed on the front',
     noWebgl: 'This browser can’t show 3D. You can still sketch, and the studio explains what it needs.',
     sceneFailed: 'The 3D preview couldn’t start here. Your sketch still works, and Start creating opens the full studio.',
+    sceneSlow: 'The 3D preview took too long to load, so here’s the still picture. Your sketch still works, and Start creating opens the full studio.',
   },
   steps: {
     eyebrow: 'How it works',

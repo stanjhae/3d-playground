@@ -24,7 +24,7 @@ const devURL = `http://localhost:${DEV_PORT}`
 const DEV_ONLY = /@dev-server/
 
 // Touch and iPad cover input and layout, not every journey (A6, A7).
-const TOUCH_SPECS = ['touch.spec.ts', 'smoke.spec.ts']
+const TOUCH_SPECS = ['touch.spec.ts', 'smoke.spec.ts', 'landing-demo.spec.ts']
 
 /** Pro tools start on: the suite drives the expert controls. */
 function storageFor({ url }: { url: string }) {

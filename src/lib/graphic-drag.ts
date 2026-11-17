@@ -68,12 +68,15 @@ export function armTouchGraphicDrag({
   clientX,
   clientY,
   src,
+  onLift,
   onEnd,
 }: {
   pointerId: number
   clientX: number
   clientY: number
   src: string
+  /** The hold lifted the graphic: it now follows the finger. */
+  onLift?: () => void
   onEnd?: ({ dropped }: { dropped: boolean }) => void
 }) {
   let ghost: HTMLImageElement | null = null
@@ -104,6 +107,7 @@ export function armTouchGraphicDrag({
     })
     document.body.append(ghost)
     place({ x: clientX, y: clientY })
+    onLift?.()
   }
 
   function onMove(event: PointerEvent) {
