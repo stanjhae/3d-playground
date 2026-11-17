@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 
 import { Link } from '@tanstack/react-router'
+import { Lock } from 'lucide-react'
 
 import { ComingSoonBadge } from '../ui/ComingSoonBadge'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
@@ -9,12 +10,14 @@ import type { GarmentId } from '../../lib/design-schema'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
-import { CONCEPT_FEATURES, showsGarmentInStudio } from '../../lib/concept-flags'
+import { CONCEPT_FEATURES } from '../../lib/concept-flags'
 import { garmentCanPaint, garmentCredit, garmentPanels, getGarment, printAreas } from '../../lib/garments'
 import {
-  GARMENT_CATEGORIES,
   garmentCategory,
   listGarmentsByCategory,
+  listPlannedGarments,
+  LOCKED_GARMENT_NOTE,
+  pickerCategories,
   sampleSizeMeasurements,
   SAMPLE_SIZE_IDS,
   type GarmentCategoryId,
@@ -122,6 +125,39 @@ function FormGlyph({
   )
 }
 
+function NewDesignLink() {
+  return (
+    <Link to="/studio" search={{ new: true }} className="text-flv-accent underline underline-offset-2">
+      Start a new design
+    </Link>
+  )
+}
+
+/** Outline glyphs for pieces not built yet. */
+function PlannedGlyph({ id }: { id: string }) {
+  if (id === 'cap') {
+    return (
+      <svg viewBox="0 0 48 48" aria-hidden className="h-12 w-12 fill-current">
+        <path d="M10 30 Q10 14 24 14 Q38 14 38 30 Z M8 30 L44 30 L44 34 L8 34 Z" />
+      </svg>
+    )
+  }
+
+  if (id === 'tote') {
+    return (
+      <svg viewBox="0 0 48 48" aria-hidden className="h-12 w-12 fill-current">
+        <path d="M12 18 L36 18 L38 42 L10 42 Z M18 18 Q18 8 24 8 Q30 8 30 18 L27 18 Q27 11 24 11 Q21 11 21 18 Z" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden className="h-12 w-12 fill-current">
+      <path d="M11 32 Q11 12 24 12 Q37 12 37 32 Z M9 32 L39 32 L39 38 L9 38 Z" />
+    </svg>
+  )
+}
+
 export function SilhouetteSwitch({
   garmentId,
 }: {
@@ -149,27 +185,20 @@ export function SilhouetteSwitch({
   }, [current])
   const [sampleColor, setSampleColor] = useState<string>(SAMPLE_COLORS[0].value)
   const [sampleSize, setSampleSize] = useState<SampleSizeId>('L')
-  const garments = listGarmentsByCategory({ category }).filter((garment) =>
-    showsGarmentInStudio({ garmentId: garment.id }),
-  )
-  const categories = GARMENT_CATEGORIES.filter((entry) =>
-    listGarmentsByCategory({ category: entry.id }).some((garment) =>
-      showsGarmentInStudio({ garmentId: garment.id }),
-    ),
-  )
+  const garments = listGarmentsByCategory({ category })
+  const planned = listPlannedGarments({ category })
+  // Categories with only Coming soon pieces (Accessories) show too, never hidden.
+  const categories = pickerCategories()
   const selected =
-    garments.find((garment) => garment.id === current) ?? garments[0]
+    garments.find((garment) => garment.id === current) ?? (locked ? undefined : garments[0])
+  const lockedNoteId = useId()
 
   return (
     <div className="flex w-full max-w-full flex-col gap-3">
       {locked ? (
         <p role="note" className="font-body text-sm text-flv-ink">
-          This design is a {getGarment({ garmentId: current }).label.toLowerCase()}, and a design keeps its garment. To
-          design something else,{' '}
-          <Link to="/create" className="text-flv-accent underline underline-offset-2">
-            start a new design
-          </Link>
-          .
+          This design is a {getGarment({ garmentId: current }).label.toLowerCase()}. {LOCKED_GARMENT_NOTE}{' '}
+          <NewDesignLink />
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
@@ -177,13 +206,11 @@ export function SilhouetteSwitch({
           <button
             key={entry.id}
             type="button"
-            disabled={locked && garmentCategory({ garmentId: current }) !== entry.id}
             aria-pressed={category === entry.id}
             onClick={() => {
               setCategory(entry.id)
-              const first = listGarmentsByCategory({ category: entry.id }).find(
-                (garment) => showsGarmentInStudio({ garmentId: garment.id }),
-              )
+              // A saved design keeps its garment: browsing a category picks nothing.
+              const first = locked ? undefined : listGarmentsByCategory({ category: entry.id })[0]
               if (first) {
                 setGarmentId({ garmentId: first.id })
               }
@@ -202,35 +229,36 @@ export function SilhouetteSwitch({
           </button>
         ))}
       </div>
-      {garments.length === 0 ? (
-        <p className={chromeMutedClass()}>
-          No house forms in this category yet.
-        </p>
-      ) : (
-        <nav
-          aria-label="Garment gallery"
-          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-        >
-          {garments.map((garment) => {
-            const isCurrent = current === garment.id
+      <nav
+        aria-label="Garment gallery"
+        className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+      >
+        {garments.map((garment) => {
+          const isCurrent = current === garment.id
+          const isLocked = locked && !isCurrent
 
-            return (
+          return (
+            <div key={garment.id} className="group relative">
               <button
-                key={garment.id}
                 type="button"
-                disabled={locked && !isCurrent}
+                // Focusable while locked, so a keyboard reaches the reason too.
+                aria-disabled={isLocked ? 'true' : undefined}
+                aria-describedby={isLocked ? lockedNoteId : undefined}
                 aria-pressed={isCurrent ? 'true' : 'false'}
                 onClick={() => {
+                  if (isLocked) {
+                    return
+                  }
                   setGarmentId({ garmentId: garment.id })
                   setCategory(garmentCategory({ garmentId: garment.id }))
                 }}
                 className={cn(
-                  'relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3 disabled:opacity-40',
+                  'relative flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3',
                   chromeTextClass(),
                   {
                     'border-flv-accent text-flv-accent': isCurrent,
-                    'border-flv-line text-flv-muted hover:text-flv-accent':
-                      !isCurrent,
+                    'border-flv-line text-flv-muted hover:text-flv-accent': !isCurrent && !isLocked,
+                    'cursor-not-allowed border-dashed border-flv-line text-flv-muted': isLocked,
                   },
                 )}
               >
@@ -239,16 +267,54 @@ export function SilhouetteSwitch({
                     ✓
                   </span>
                 ) : null}
-                <FormGlyph garmentId={garment.id} />
-                <span>{garment.label}</span>
-                <span className="font-body text-[0.55rem] tracking-[0.08em] text-flv-muted normal-case">
-                  {FIT_LABEL[garment.id] ?? FLV_COPY.selectFitClassic}
+                {isLocked ? (
+                  <Lock aria-label="Locked" className="absolute top-2 right-2 size-3.5 text-flv-muted" />
+                ) : null}
+                <span className={cn('flex flex-col items-center gap-2', { 'opacity-45': isLocked })}>
+                  <FormGlyph garmentId={garment.id} />
+                  <span>{garment.label}</span>
+                  <span className="font-body text-[0.55rem] tracking-[0.08em] text-flv-muted normal-case">
+                    {FIT_LABEL[garment.id] ?? FLV_COPY.selectFitClassic}
+                  </span>
                 </span>
               </button>
-            )
-          })}
-        </nav>
-      )}
+              {isLocked ? (
+                <div
+                  data-locked-hint
+                  className="pointer-events-none invisible absolute inset-x-1 top-full z-20 -mt-2 rounded-lg border border-flv-line bg-flv-paper p-2 font-body text-[0.7rem] leading-snug text-flv-ink normal-case opacity-0 shadow-md transition-opacity group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100"
+                >
+                  {LOCKED_GARMENT_NOTE} <NewDesignLink />
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
+        {planned.map((piece) => (
+          <button
+            key={piece.id}
+            type="button"
+            disabled
+            aria-label={`${piece.label}, coming soon`}
+            data-planned-garment={piece.id}
+            className={cn(
+              'relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-flv-line px-3 py-3 text-flv-muted',
+              chromeTextClass(),
+            )}
+          >
+            <span className="opacity-60">
+              <PlannedGlyph id={piece.id} />
+            </span>
+            <span className="opacity-60">{piece.label}</span>
+            <ComingSoonBadge />
+          </button>
+        ))}
+      </nav>
+      {/* The locked tiles' reason, for screen readers (aria-describedby). */}
+      {locked ? (
+        <p id={lockedNoteId} className="sr-only">
+          {LOCKED_GARMENT_NOTE}
+        </p>
+      ) : null}
       {selected ? (
         <aside className={railFrameClass()}>
           <p className={chromeKickerClass()}>{FLV_COPY.selectDetails}</p>

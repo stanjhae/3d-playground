@@ -39,17 +39,22 @@ function HouseCaption({
   )
 }
 
-/** Preview & Publish shows a chosen avatar wearing the tee. */
+/**
+ * Preview & Publish shows a chosen avatar wearing the garment: the tee, or
+ * any garment with a real model (its frame says where it sits on the body).
+ */
 function isTryOn({
   createStep,
   avatarId,
   garmentId,
+  document,
 }: {
   createStep: string
   avatarId: string | null
   garmentId: string
+  document: { modelFrame?: unknown }
 }) {
-  return createStep === 'share' && Boolean(avatarId) && garmentId === 'tee'
+  return createStep === 'share' && Boolean(avatarId) && (garmentId === 'tee' || Boolean(document.modelFrame))
 }
 
 function DesignGarment() {

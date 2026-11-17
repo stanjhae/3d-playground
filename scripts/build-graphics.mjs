@@ -6,7 +6,8 @@
 //
 // The art is drawn here from code, so it is original to this project and
 // released CC0. logo-flv.svg is the Fashion Leader brand mark: it is listed
-// in the catalogue but its file is never rewritten.
+// in the catalogue, but this script never rewrites it (scripts/build-brand.mjs
+// draws it).
 import { mkdirSync, writeFileSync } from 'node:fs'
 
 import { svg } from './graphics/draw.mjs'
