@@ -45,19 +45,24 @@ A document on a template with a shape map (today only `tee-crew-short@4`, `templ
 
 ### Pattern mode (pattern v1)
 
-A document may carry an optional `pattern` block: the garment as flat sewing-pattern pieces with seams, which the studio sews and drapes on the body to make the 3D garment (the founder's Workflow 1; plan in `docs/research/2d-to-3d.md`). **Only the reader exists so far.** No release writes a pattern yet, so the reader can ship at least one release ahead of the Pattern (beta) writer.
+A document may carry an optional `pattern` block: the garment as flat sewing-pattern pieces with seams, which the studio sews and drapes on the body to make the 3D garment (the founder's Workflow 1; plan in `docs/research/2d-to-3d.md`). The reader shipped first, a release ahead of the Pattern (beta) writer (#378), and that writer now saves patterns. Cut-outs and the newer fabrics below are read but not yet written (pattern-reader R).
 
 - **Shape.** `{ v: 1, basis, pieces, seams }`, typed and checked in `src/lib/pattern/pattern-document.ts` (`checkPattern`).
   - `basis` names the pattern template the design started from (`templateId` must be the document's template, plus `templateVersion` and `patternVersion`).
-  - Each piece has an `id`, the print `panel` it takes its artwork from, a `label`, a `panelOrigin` (where its origin sits in that panel's frame), a `place` (an anchor on the body, `plane` or `cylinder`, an offset and a turn), optional `roles` (named point groups such as `hem` or `neck`) and an optional `fabric`.
+  - Each piece has an `id`, the print `panel` it takes its artwork from, a `label`, a `panelOrigin` (where its origin sits in that panel's frame), a `place` (an anchor on the body, `plane` or `cylinder`, an offset and a turn), optional `roles` (named point groups such as `hem` or `neck`) and an optional `fabric`: `jersey`, `woven`, `fleece`, `denim`, `satin`, `firm`, `linen`, `chiffon`, `canvas` or `wool`. The last four came with pattern-reader R; their drape stiffness (`FABRICS` in `build-cloth.ts`) is provisional until the fabric-drape writer tunes it.
   - A piece is either drawn (`outline`) or the mirror of a drawn piece (`mirrorOf`). Several pieces may share a panel.
   - Outline points are whole millimetres, counter-clockwise, with stable ids. They are cubic Béziers: `hi` and `ho` are a point's handles as offsets, `k: "s"` marks a smooth point, and a corner is the default and isn't written.
+  - **Cut-outs (pattern-reader R).** A drawn piece may have `holes`: at most 4, each a closed ring of 3 to 32 points, run clockwise in the piece's frame. Hole points are points like the outline's (whole millimetres, handles, `k`), and their ids are unique within the piece, outline included. Seams and roles name outline points only. A mirror takes its source's holes, so a piece with `mirrorOf` can't have its own. An empty list is refused: a piece without cut-outs leaves `holes` out, so it hashes exactly as before. Whether a hole lies inside its piece and clear of the edge is a geometry check that lands with the cut-out writer.
   - A seam joins two runs, `a` and `b`, each counter-clockwise on its piece from `from` to `to`; `a.from` meets `b.to`. `kind` is `sew` or `ease`.
-- **Limits.** 24 pieces, 64 points per piece, 48 seams, coordinates within ±3000 mm. That's about 60 KB at most, well inside the 2 MB content limit.
+- **Limits.** 24 pieces, 64 points per piece, 48 seams, coordinates within ±3000 mm, plus up to 4 holes of 32 points per drawn piece. That's about 180 KB at most, well inside the 2 MB content limit.
 - **Never with `shape`.** A pattern replaces the shape sliders: entering Pattern mode folds the shape into the pieces. A document holding both is refused.
 - **What the reader doesn't check yet.** Whether a pattern can be sewn: a simple outline and matching seam lengths. That check (`validate-geometry.ts`) lands before the writer, so no stored pattern can fail it.
 - **Hashing.** Content hashing is unchanged, and a document without a pattern hashes exactly as before. `hashPattern` (`src/lib/pattern/pattern-hash.ts`) hashes the block alone. The server uses it to find the draped mesh stored for that pattern.
 - **Migration.** None. `schemaVersion` stays 2, and the block follows the optional-field route that `shape` took.
+
+### Upcoming templates (pattern-reader R)
+
+`template.id` may also name a template a later release adds: `vest`, `crop`, `dress` or `trousers` (`UPCOMING_TEMPLATE_IDS` in `src/lib/template-manifest.ts`), each named after its garment. This build has no manifest for them, so it doesn't know their panels: a document on one takes its own `panels`, 1 to 8 of them with stable ids. Such a document reads and validates, but the build can't open it: cloud load reports it as unsupported, and the API still refuses to store a design no version it knows can open. The garment ids are in `GARMENT_IDS` too, but `isUpcomingGarment` keeps them out of the rail, the studio, create links and the vote filters until their templates ship.
 
 ## Content hashing
 

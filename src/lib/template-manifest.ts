@@ -282,7 +282,23 @@ const CURRENT_VERSIONS: Record<string, TemplateManifest> = Object.fromEntries(
   Object.entries(TEMPLATE_ARCHIVE).map(([id, versions]) => [id, versions[Math.max(...Object.keys(versions).map(Number))]!]),
 )
 
+/** Templates this build can open: every id in the archive. */
 export const TEMPLATE_IDS: readonly string[] = Object.freeze(Object.keys(TEMPLATE_ARCHIVE))
+
+/**
+ * Templates a later release adds (pattern-reader R), named after their
+ * garment like the others. This build has no manifest for them, so it can't
+ * open one, but a document or publication naming one still reads: it is
+ * stored and listed, and opening it says it needs a newer version.
+ */
+export const UPCOMING_TEMPLATE_IDS: readonly string[] = Object.freeze(['vest', 'crop', 'dress', 'trousers'])
+
+/** Every template id the reader accepts: the ones it opens and the upcoming ones. */
+export const READABLE_TEMPLATE_IDS: readonly string[] = Object.freeze([...TEMPLATE_IDS, ...UPCOMING_TEMPLATE_IDS])
+
+export function isUpcomingTemplate({ templateId }: { templateId: unknown }) {
+  return typeof templateId === 'string' && UPCOMING_TEMPLATE_IDS.includes(templateId)
+}
 
 /** The manifest new designs on this template pin. */
 export function currentTemplateFor({ templateId }: { templateId: string }): TemplateManifest {
@@ -311,7 +327,8 @@ export function garmentOfTemplate({ id, version }: { id: string | null | undefin
     return resolved.manifest.garmentId
   }
 
-  return CURRENT_VERSIONS[id]?.garmentId ?? 'tee'
+  // An upcoming template is named after its garment.
+  return CURRENT_VERSIONS[id]?.garmentId ?? (isUpcomingTemplate({ templateId: id }) ? id : 'tee')
 }
 
 /** The template a garment prints on, if it has one. */

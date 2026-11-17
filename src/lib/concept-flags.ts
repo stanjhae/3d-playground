@@ -1,4 +1,4 @@
-import type { GarmentId } from './design-schema'
+import { isUpcomingGarment, type GarmentId } from './design-schema'
 import { templateForGarment } from './template-manifest'
 
 /**
@@ -18,6 +18,11 @@ export function isCanonicalGarment({ garmentId }: { garmentId: GarmentId }) {
   return Boolean(templateForGarment({ garmentId }))
 }
 
+/** An upcoming garment needs its template first, concept build or not. */
 export function showsGarmentInStudio({ garmentId }: { garmentId: GarmentId }) {
-  return CONCEPT_FEATURES || isCanonicalGarment({ garmentId })
+  if (isCanonicalGarment({ garmentId })) {
+    return true
+  }
+
+  return CONCEPT_FEATURES && !isUpcomingGarment({ garmentId })
 }

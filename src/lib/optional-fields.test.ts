@@ -6,7 +6,24 @@ import {
   createEmptyCanonicalDocument,
   validateCanonicalDocument,
 } from './canonical-document'
-import { serializeCanonicalDocument } from './canonical-hash'
+import { hashCanonicalDocument, serializeCanonicalDocument } from './canonical-hash'
+import { boardGarmentOptions } from './board-filters'
+import { showsGarmentInStudio } from './concept-flags'
+import { parseCreateSearch } from './create-search'
+import { createEmptyDesign, GARMENT_IDS, isUpcomingGarment, UPCOMING_GARMENT_IDS } from './design-schema'
+import { prepareContent } from './flp-api/contract'
+import { listRailGarments } from './garments'
+import { listGarmentsByCategory } from './landing-demo'
+import { FABRICS } from './pattern/build-cloth'
+import { PATTERN_FABRICS } from './pattern/pattern-document'
+import { fixtureTeePattern } from './pattern/pattern-fixtures'
+import {
+  garmentOfTemplate,
+  READABLE_TEMPLATE_IDS,
+  resolveTemplate,
+  TEMPLATE_IDS,
+  UPCOMING_TEMPLATE_IDS,
+} from './template-manifest'
 import { atlasPixelAtPanel, createAtlasBuffer, rasterizeLayers } from './paint-atlas'
 import { toRenderDocument } from './render-projection'
 
@@ -140,5 +157,98 @@ describe('shape (parametric shape v1)', () => {
     expect(serializeCanonicalDocument({ document: JSON.parse(serializeCanonicalDocument({ document })) })).toBe(
       serializeCanonicalDocument({ document }),
     )
+  })
+})
+
+/**
+ * Pattern-reader R: cut-outs, more simulation fabrics and four upcoming
+ * garments. This release reads them; the cut-out, fabric-drape and
+ * new-garment writers merge only after it has been out a release cycle
+ * (docs/release.md). Holes are covered in pattern/pattern-document.test.ts.
+ */
+describe('pattern-reader R', () => {
+  function upcoming(templateId: string, panels: string[] = ['front', 'back']): Record<string, unknown> {
+    return {
+      ...createEmptyCanonicalDocument(),
+      template: { id: templateId, version: 1 },
+      panels: Object.fromEntries(panels.map((panel) => [panel, { layers: [] }])),
+    }
+  }
+
+  test('a tee with holes on its front reads and keeps them through a save', () => {
+    const pattern = fixtureTeePattern()
+    pattern.pieces[0]!.holes = [[{ id: 'h0', x: 0, y: 330 }, { id: 'h1', x: 30, y: 300 }, { id: 'h2', x: -30, y: 300 }]]
+    const document = { ...createEmptyCanonicalDocument(), pattern }
+
+    expect(issuesOf(document)).toEqual([])
+    expect(JSON.parse(serializeCanonicalDocument({ document })).pattern.pieces[0].holes).toEqual(pattern.pieces[0]!.holes)
+  })
+
+  test('a document without holes or new fabrics hashes as it always did', async () => {
+    // Pinned before pattern-reader R.
+    const document = { ...createEmptyCanonicalDocument({ templateId: 'tee-crew-short', version: 4 }), pattern: fixtureTeePattern() }
+    expect(await hashCanonicalDocument({ document })).toBe('sha256:4ef1d28a830aacdaecacd65005f1f7faf11c9623f6543c91a96c4ad958ae5796')
+    expect(serializeCanonicalDocument({ document })).not.toContain('holes')
+  })
+
+  test('every simulation fabric has stable compliances, and the old ones are unchanged', () => {
+    for (const fabric of PATTERN_FABRICS) {
+      const { stretch, bend } = FABRICS[fabric]
+      expect(stretch, fabric).toBeGreaterThanOrEqual(1e-7)
+      expect(bend / stretch, fabric).toBeGreaterThanOrEqual(10)
+    }
+
+    expect(PATTERN_FABRICS).toEqual(expect.arrayContaining(['linen', 'chiffon', 'canvas', 'wool']))
+    expect({ jersey: FABRICS.jersey, woven: FABRICS.woven, fleece: FABRICS.fleece, denim: FABRICS.denim, satin: FABRICS.satin, firm: FABRICS.firm }).toEqual({
+      jersey: { stretch: 2e-6, bend: 4e-5 },
+      woven: { stretch: 1e-6, bend: 2e-5 },
+      fleece: { stretch: 1.5e-6, bend: 2e-5 },
+      denim: { stretch: 6e-7, bend: 1.2e-5 },
+      satin: { stretch: 1e-6, bend: 6e-5 },
+      firm: { stretch: 5e-7, bend: 1e-5 },
+    })
+  })
+
+  test('upcoming garments are named after their templates, which this build reads but cannot open', () => {
+    expect([...UPCOMING_GARMENT_IDS]).toEqual(['vest', 'crop', 'dress', 'trousers'])
+    expect([...UPCOMING_TEMPLATE_IDS]).toEqual([...UPCOMING_GARMENT_IDS])
+
+    for (const id of UPCOMING_TEMPLATE_IDS) {
+      expect(GARMENT_IDS).toContain(id)
+      expect(TEMPLATE_IDS).not.toContain(id)
+      expect(READABLE_TEMPLATE_IDS).toContain(id)
+      expect(resolveTemplate({ id, version: 1 }).ok).toBe(false)
+      expect(garmentOfTemplate({ id, version: 1 })).toBe(id)
+    }
+  })
+
+  test("a document on an upcoming template reads with its own panels", () => {
+    expect(issuesOf(upcoming('vest'))).toEqual([])
+    expect(issuesOf(upcoming('trousers', ['front', 'back', 'leg-left', 'leg-right']))).toEqual([])
+    expect(issuesOf(upcoming('vest', []))).toEqual(['$.panels: expected 1 to 8 panels'])
+    expect(issuesOf(upcoming('vest', ['front', 'bad panel']))).toEqual(['$.panels.bad panel: expected a stable panel id'])
+    expect(issuesOf(upcoming('cape', ['front', 'back', 'left', 'right']))).toEqual([expect.stringMatching(/^\$\.template\.id: expected one of /)])
+  })
+
+  test('the server still refuses to store a design this build cannot open', async () => {
+    const prepared = await prepareContent({ value: upcoming('dress') })
+    expect(prepared.ok).toBe(false)
+  })
+
+  test('upcoming garments stay out of the rail, studio, search and vote filters', () => {
+    for (const garmentId of UPCOMING_GARMENT_IDS) {
+      expect(isUpcomingGarment({ garmentId })).toBe(true)
+      expect(showsGarmentInStudio({ garmentId })).toBe(false)
+      expect(parseCreateSearch({ search: { garment: garmentId } }).garment).toBeUndefined()
+      expect(boardGarmentOptions({ looks: [{ ...createEmptyDesign({ id: `look-${garmentId}` }), garmentId }] })).toEqual([])
+    }
+
+    const shown = [
+      ...listRailGarments(),
+      ...(['tops', 'bottoms', 'outerwear', 'accessories'] as const).flatMap((category) => listGarmentsByCategory({ category })),
+    ].map((garment) => garment.id)
+    expect(shown.filter((id) => isUpcomingGarment({ garmentId: id }))).toEqual([])
+    expect(showsGarmentInStudio({ garmentId: 'tee' })).toBe(true)
+    expect(parseCreateSearch({ search: { garment: 'tee' } }).garment).toBe('tee')
   })
 })

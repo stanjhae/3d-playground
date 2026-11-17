@@ -18,7 +18,7 @@
 
 import { type GarmentShape, isNeutralShape, NEUTRAL_SHAPE, SHAPE_FIELDS, SHAPE_LIMITS, templateHasShape } from './garment-shape-params.ts'
 import { type CanonicalPattern, checkPattern } from './pattern/pattern-document.ts'
-import { currentTemplateFor, resolveTemplate, TEMPLATE_IDS } from './template-manifest.ts'
+import { currentTemplateFor, isUpcomingTemplate, READABLE_TEMPLATE_IDS, resolveTemplate, TEMPLATE_IDS } from './template-manifest.ts'
 
 export { TEMPLATE_IDS }
 
@@ -59,6 +59,8 @@ export const CANONICAL_LIMITS = {
   maxPatternPeriod: 0.5,
   maxImageAspect: 20,
   maxIssues: 50,
+  /** Panels a document on an upcoming template may name (pattern-reader R). */
+  upcomingPanels: 8,
 } as const
 
 /** Stored numbers keep six decimals, so π itself rounds to this bound. */
@@ -432,7 +434,7 @@ function checkTemplate({
     return
   }
 
-  checkEnum({ context, value: template.id, path: `${path}.id`, options: TEMPLATE_IDS })
+  checkEnum({ context, value: template.id, path: `${path}.id`, options: READABLE_TEMPLATE_IDS })
   checkNumber({
     context,
     value: template.version,
@@ -889,9 +891,31 @@ function checkShape({
   }
 }
 
-/** The template's panels when its id and version resolve, else the tee's. */
-function panelIdsForValidation({ template }: { template: unknown }) {
+/**
+ * The template's panels when its id and version resolve, else the tee's. An
+ * upcoming template's panels aren't known to this build, so the document's
+ * own are taken, as long as there are 1 to `upcomingPanels` of them with
+ * stable ids.
+ */
+function panelIdsForValidation({ context, template, panels }: { context: Context; template: unknown; panels: unknown }) {
   const ref = template as { id?: unknown; version?: unknown } | undefined
+
+  if (isUpcomingTemplate({ templateId: ref?.id }) && isRecord(panels)) {
+    const ids = Object.keys(panels)
+
+    if (ids.length === 0 || ids.length > CANONICAL_LIMITS.upcomingPanels) {
+      report({ context, path: '$.panels', message: `expected 1 to ${CANONICAL_LIMITS.upcomingPanels} panels` })
+    }
+
+    for (const panelId of ids) {
+      if (panelId.length > CANONICAL_LIMITS.idLength || !ID_PATTERN.test(panelId)) {
+        report({ context, path: `$.panels.${panelId}`, message: 'expected a stable panel id' })
+      }
+    }
+
+    return ids
+  }
+
   return typeof ref?.id === 'string' && typeof ref.version === 'number'
     ? templatePanelIds({ template: { id: ref.id, version: ref.version } })
     : [...CANONICAL_PANEL_IDS]
@@ -937,7 +961,7 @@ export function validateCanonicalDocument({
         context,
         value: root.panels,
         path: '$.panels',
-        panelIds: panelIdsForValidation({ template: root.template }),
+        panelIds: panelIdsForValidation({ context, template: root.template, panels: root.panels }),
       })
     }
 
