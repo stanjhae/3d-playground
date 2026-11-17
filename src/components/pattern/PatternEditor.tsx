@@ -22,6 +22,8 @@ import {
   slitEdit,
   toSheet,
 } from '../../lib/pattern/editor-model'
+import { getFabricById } from '../../lib/fabrics'
+import { keepsOwnFabric } from '../../lib/pattern/fabric-drape'
 import type { CanonicalPattern } from '../../lib/pattern/pattern-document'
 import { PATTERN_OP_LIMITS, closeSlit } from '../../lib/pattern/pattern-ops'
 import { patternTemplateFor } from '../../lib/pattern/templates'
@@ -449,6 +451,8 @@ export default function PatternEditor() {
         </ul>
       ) : null}
 
+      <FabricChoice pattern={stored} onPicked={setAnnounce} />
+
       <QuickEdits pattern={stored} onPreview={setPreview} onCommit={commit} />
 
       {AI_ASSIST ? (
@@ -483,6 +487,58 @@ export default function PatternEditor() {
     </>
   ) : (
     editor
+  )
+}
+
+/** The cloths offered here: one of each, in rough order from light to stiff. */
+const PATTERN_CLOTHS = ['chiffon', 'silk', 'satin', 'jersey', 'cotton', 'linen', 'wool', 'denim', 'canvas', 'leather'] as const
+
+/**
+ * The cloth the pattern is cut from. Picking one sets the garment's
+ * fabric and, as the same undo step, every piece's but the hood's and
+ * any trim's, so the drape re-runs in it (B3).
+ */
+function FabricChoice({ pattern, onPicked }: { pattern: CanonicalPattern; onPicked: (message: string) => void }) {
+  const applyFabric = useEditorStore((state) => state.applyFabric)
+  const fabricId = useEditorStore((state) => state.fabricId)
+  const main = pattern.pieces.find((piece) => !keepsOwnFabric({ piece, pattern }))
+  const cutFrom = main?.fabric ?? 'jersey'
+
+  return (
+    <fieldset className="flex flex-col gap-2" data-testid="pattern-fabric">
+      <legend className={chromeKickerClass()}>Fabric</legend>
+      <p className={chromeMutedClass()} data-testid="pattern-cut-from" data-fabric={cutFrom}>
+        Drapes as {cutFrom}
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        {PATTERN_CLOTHS.map((id) => {
+          const preset = getFabricById({ id })
+
+          if (!preset) {
+            return null
+          }
+
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={fabricId === id}
+              onClick={() => {
+                applyFabric({ fabricId: id, colorId: id })
+                onPicked(`Fabric: ${preset.name}`)
+              }}
+              className={cn('flex min-h-11 items-center gap-2 border px-3', chromeTextClass(), {
+                'border-flv-accent text-flv-accent': fabricId === id,
+                'border-flv-line text-flv-ink hover:text-flv-accent': fabricId !== id,
+              })}
+            >
+              <span aria-hidden className="size-4 shrink-0 rounded-full border border-black/10" style={{ backgroundColor: preset.color }} />
+              {preset.name}
+            </button>
+          )
+        })}
+      </div>
+    </fieldset>
   )
 }
 

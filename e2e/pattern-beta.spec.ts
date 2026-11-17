@@ -157,3 +157,37 @@ test('an AI suggestion is previewed, then applied as one undoable edit', async (
   await expectSaved({ page })
   expect((await savedPattern({ page })).pattern.pieces[0].outline[0].y).toBe(0)
 })
+
+test('picking a fabric re-drapes the pattern in it and saves it on the pieces', async ({ page }) => {
+  test.setTimeout(180_000)
+  const email = newEmail({ label: 'pattern-fabric' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'select')
+  await page.goto(url.toString())
+  await expectSaved({ page })
+  await page.getByRole('switch', { name: 'Pattern (beta)' }).click()
+  await expect(page.getByTestId('pattern-editor')).toBeVisible({ timeout: 30_000 })
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+  const runs = Number(await drapeState(page).getAttribute('data-runs'))
+
+  const fabric = page.getByTestId('pattern-fabric')
+  await fabric.getByRole('button', { name: 'Chiffon' }).click()
+  await expect(fabric.getByRole('button', { name: 'Chiffon' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('pattern-cut-from')).toHaveAttribute('data-fabric', 'chiffon')
+  // The pattern's hash moved, so it drapes again.
+  await expect.poll(async () => Number(await drapeState(page).getAttribute('data-runs')), { timeout: 30_000 }).toBeGreaterThan(runs)
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+
+  const saved = (await savedPattern({ page })).pattern as { pieces: Array<{ id: string; fabric?: string }> }
+  expect(saved.pieces.length).toBeGreaterThan(0)
+
+  for (const piece of saved.pieces) {
+    expect(piece.fabric).toBe('chiffon')
+  }
+})

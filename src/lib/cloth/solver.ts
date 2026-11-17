@@ -32,6 +32,12 @@ export type ClothInput = {
    * waistband stays at its height as if its elastic held it.
    */
   holdY?: Float64Array
+  /**
+   * Inverse mass per particle (1 when absent): a light fabric (chiffon)
+   * weighs less than a heavy one (canvas). Absent, every particle weighs
+   * the same, as before this field existed.
+   */
+  invMass?: Float64Array
 }
 
 export type ClothOptions = {
@@ -89,7 +95,7 @@ export function simulateCloth(input: ClothInput, options: ClothOptions = {}): Cl
   const w = new Float64Array(n)
 
   for (let i = 0; i < n; i += 1) {
-    w[i] = input.pinned?.[i] ? 0 : 1
+    w[i] = input.pinned?.[i] ? 0 : (input.invMass?.[i] ?? 1)
   }
 
   const links = input.links
