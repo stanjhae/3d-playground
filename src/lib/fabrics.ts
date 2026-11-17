@@ -1,3 +1,6 @@
+// Server code (og-page) reads this file, so: a type-only import, with its extension.
+import type { DetailId } from './fabric-detail.ts'
+
 export type FabricPreset = {
   id: string
   name: string
@@ -11,6 +14,16 @@ export type FabricPreset = {
   clearcoat?: number
   clearcoatRoughness?: number
   mapRepeat?: number
+  /**
+   * Sheer cloth (chiffon): below 1, the cloth is drawn see-through. Opacity,
+   * not transmission: transmission reads a garment's own back faces, so
+   * double-sided cloth would not show what is behind it.
+   */
+  opacity?: number
+  /** The surface relief this cloth carries by default (`fabric-detail.ts`). */
+  detailId?: DetailId
+  /** Normal-map strength for that relief; 1 when unset. */
+  detailScale?: number
 }
 
 const FABRIC_PRESETS: readonly FabricPreset[] = [
@@ -34,6 +47,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     sheenRoughness: 0.28,
     sheenColor: '#fff6ea',
     mapRepeat: 2,
+    detailId: 'satin',
+    detailScale: 0.2,
   },
   {
     id: 'wool',
@@ -43,6 +58,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     metalness: 0,
     mapId: 'wool-nap',
     mapRepeat: 3.4,
+    detailId: 'knit',
+    detailScale: 0.5,
   },
   {
     id: 'denim',
@@ -52,6 +69,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     metalness: 0,
     mapId: 'denim-twill',
     mapRepeat: 3.2,
+    detailId: 'twill',
+    detailScale: 0.8,
   },
   {
     id: 'leather',
@@ -65,6 +84,69 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     mapRepeat: 2.4,
   },
   {
+    id: 'linen',
+    name: 'Linen',
+    color: '#e6dccb',
+    roughness: 0.9,
+    metalness: 0,
+    mapId: 'linen-slub',
+    mapRepeat: 4,
+    detailId: 'canvas',
+    detailScale: 0.35,
+  },
+  {
+    id: 'satin',
+    name: 'Satin',
+    color: '#e9d8b8',
+    roughness: 0.3,
+    metalness: 0.04,
+    mapId: 'satin-sheen',
+    sheen: 1,
+    sheenRoughness: 0.35,
+    sheenColor: '#fff8ec',
+    mapRepeat: 2,
+    detailId: 'satin',
+    detailScale: 0.12,
+  },
+  {
+    id: 'jersey',
+    name: 'Jersey',
+    color: '#e4e2de',
+    roughness: 0.82,
+    metalness: 0,
+    mapId: 'jersey-knit',
+    sheen: 0.3,
+    sheenRoughness: 0.6,
+    sheenColor: '#ffffff',
+    mapRepeat: 5,
+    detailId: 'knit',
+    detailScale: 0.6,
+  },
+  {
+    id: 'chiffon',
+    name: 'Chiffon',
+    color: '#f7f1ec',
+    roughness: 0.5,
+    metalness: 0,
+    mapId: 'chiffon-gauze',
+    sheen: 0.5,
+    sheenRoughness: 0.4,
+    sheenColor: '#ffffff',
+    mapRepeat: 6,
+    opacity: 0.62,
+  },
+  {
+    id: 'canvas',
+    name: 'Canvas',
+    color: '#d9cdb4',
+    roughness: 0.97,
+    metalness: 0,
+    mapId: 'canvas-duck',
+    mapRepeat: 5,
+    detailId: 'canvas',
+    detailScale: 0.4,
+  },
+  {
     id: 'ivory-silk',
     name: 'Ivory Silk',
     color: '#f4ead4',
@@ -75,6 +157,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     sheenRoughness: 0.26,
     sheenColor: '#fff4e4',
     mapRepeat: 2,
+    detailId: 'satin',
+    detailScale: 0.2,
   },
   {
     id: 'ivory-cotton',
@@ -102,6 +186,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     metalness: 0,
     mapId: 'wool-nap',
     mapRepeat: 3.4,
+    detailId: 'knit',
+    detailScale: 0.5,
   },
   {
     id: 'brass-silk',
@@ -114,6 +200,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     sheenRoughness: 0.3,
     sheenColor: '#f3e2b0',
     mapRepeat: 2,
+    detailId: 'satin',
+    detailScale: 0.2,
   },
   {
     id: 'blush-silk',
@@ -126,6 +214,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     sheenRoughness: 0.3,
     sheenColor: '#ffe8dc',
     mapRepeat: 2,
+    detailId: 'satin',
+    detailScale: 0.2,
   },
   {
     id: 'oxblood-leather',
@@ -157,6 +247,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     metalness: 0,
     mapId: 'denim-twill',
     mapRepeat: 3.2,
+    detailId: 'twill',
+    detailScale: 0.8,
   },
   {
     id: 'meadow-cotton',
@@ -166,6 +258,132 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     metalness: 0,
     mapId: 'cotton-weave',
     mapRepeat: 4,
+  },
+  {
+    id: 'sage-linen',
+    name: 'Sage Linen',
+    color: '#a8b49a',
+    roughness: 0.9,
+    metalness: 0,
+    mapId: 'linen-slub',
+    mapRepeat: 4,
+    detailId: 'canvas',
+    detailScale: 0.35,
+  },
+  {
+    id: 'clay-linen',
+    name: 'Clay Linen',
+    color: '#b9785a',
+    roughness: 0.9,
+    metalness: 0,
+    mapId: 'linen-slub',
+    mapRepeat: 4,
+    detailId: 'canvas',
+    detailScale: 0.35,
+  },
+  {
+    id: 'midnight-satin',
+    name: 'Midnight Satin',
+    color: '#1d2240',
+    roughness: 0.3,
+    metalness: 0.04,
+    mapId: 'satin-sheen',
+    sheen: 1,
+    sheenRoughness: 0.35,
+    sheenColor: '#fff8ec',
+    mapRepeat: 2,
+    detailId: 'satin',
+    detailScale: 0.12,
+  },
+  {
+    id: 'emerald-satin',
+    name: 'Emerald Satin',
+    color: '#1f5b47',
+    roughness: 0.3,
+    metalness: 0.04,
+    mapId: 'satin-sheen',
+    sheen: 1,
+    sheenRoughness: 0.35,
+    sheenColor: '#fff8ec',
+    mapRepeat: 2,
+    detailId: 'satin',
+    detailScale: 0.12,
+  },
+  {
+    id: 'marl-jersey',
+    name: 'Marl Jersey',
+    color: '#8f8e8b',
+    roughness: 0.82,
+    metalness: 0,
+    mapId: 'jersey-knit',
+    sheen: 0.3,
+    sheenRoughness: 0.6,
+    sheenColor: '#ffffff',
+    mapRepeat: 5,
+    detailId: 'knit',
+    detailScale: 0.6,
+  },
+  {
+    id: 'navy-jersey',
+    name: 'Navy Jersey',
+    color: '#27324a',
+    roughness: 0.82,
+    metalness: 0,
+    mapId: 'jersey-knit',
+    sheen: 0.3,
+    sheenRoughness: 0.6,
+    sheenColor: '#ffffff',
+    mapRepeat: 5,
+    detailId: 'knit',
+    detailScale: 0.6,
+  },
+  {
+    id: 'rose-chiffon',
+    name: 'Rose Chiffon',
+    color: '#e7b7b5',
+    roughness: 0.5,
+    metalness: 0,
+    mapId: 'chiffon-gauze',
+    sheen: 0.5,
+    sheenRoughness: 0.4,
+    sheenColor: '#ffffff',
+    mapRepeat: 6,
+    opacity: 0.62,
+  },
+  {
+    id: 'mist-chiffon',
+    name: 'Mist Chiffon',
+    color: '#c9d3dc',
+    roughness: 0.5,
+    metalness: 0,
+    mapId: 'chiffon-gauze',
+    sheen: 0.5,
+    sheenRoughness: 0.4,
+    sheenColor: '#ffffff',
+    mapRepeat: 6,
+    opacity: 0.62,
+  },
+  {
+    id: 'olive-canvas',
+    name: 'Olive Canvas',
+    color: '#5f6243',
+    roughness: 0.97,
+    metalness: 0,
+    mapId: 'canvas-duck',
+    mapRepeat: 5,
+    detailId: 'canvas',
+    detailScale: 0.4,
+  },
+  {
+    id: 'rust-canvas',
+    name: 'Rust Canvas',
+    color: '#9c4a2b',
+    roughness: 0.97,
+    metalness: 0,
+    mapId: 'canvas-duck',
+    mapRepeat: 5,
+    detailId: 'canvas',
+    detailScale: 0.4,
   },
 ]
 

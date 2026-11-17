@@ -6,11 +6,13 @@ import {
   MeshStandardMaterial,
   RepeatWrapping,
   SRGBColorSpace,
+  Vector2,
   type Object3D,
   type Texture,
 } from 'three'
 
 import type { MaterialOverride } from './design-schema'
+import { detailNormalMap, resolveDetail, type SurfaceChoice } from './fabric-detail'
 import { getFabricForOverride } from './fabrics'
 import { overrideMatchesMesh } from './mesh-match'
 
@@ -139,10 +141,12 @@ function applyOverrideToMaterial({
   material,
   override,
   map,
+  surface,
 }: {
   material: MeshStandardMaterial
   override: MaterialOverride
   map?: Texture
+  surface?: SurfaceChoice
 }) {
   const nextMaterial = toPhysicalMaterial({ material })
   const fabric = getFabricForOverride({
@@ -181,6 +185,22 @@ function applyOverrideToMaterial({
     nextMaterial.clearcoat = 0
   }
 
+  // A chosen fabric brings its own relief, or none: a model's own normal map
+  // or an earlier fabric's never shows through it. A colour alone leaves the
+  // surface to the model.
+  if (override.mapId !== undefined) {
+    const detail = resolveDetail({
+      detailId: fabric?.detailId,
+      detailScale: fabric?.detailScale,
+      surface,
+    })
+
+    nextMaterial.normalMap = detail ? detailNormalMap({ id: detail.id }) : null
+    nextMaterial.normalScale = new Vector2(detail?.scale ?? 1, detail?.scale ?? 1)
+    nextMaterial.userData.detailId = detail?.id ?? 'none'
+    nextMaterial.needsUpdate = true
+  }
+
   if (map) {
     nextMaterial.map = cloneFabricMap({
       map,
@@ -189,23 +209,35 @@ function applyOverrideToMaterial({
     nextMaterial.needsUpdate = true
   }
 
-  return sealClothMaterial({ material: nextMaterial })
+  sealClothMaterial({ material: nextMaterial })
+
+  // Sheer cloth (chiffon) is the one cloth drawn see-through. Its layers all
+  // blend, so none hides another; every other cloth stays sealed.
+  if (fabric?.opacity !== undefined && fabric.opacity < 1) {
+    nextMaterial.transparent = true
+    nextMaterial.opacity = fabric.opacity
+    nextMaterial.depthWrite = false
+  }
+
+  return nextMaterial
 }
 
 function applyOverrideToSlot({
   material,
   override,
   map,
+  surface,
 }: {
   material: Material
   override: MaterialOverride
   map?: Texture
+  surface?: SurfaceChoice
 }) {
   if (!(material instanceof MeshStandardMaterial)) {
     return material
   }
 
-  return applyOverrideToMaterial({ material, override, map })
+  return applyOverrideToMaterial({ material, override, map, surface })
 }
 
 function findOverrideForMesh({
@@ -279,10 +311,13 @@ export function applyDesignOverrides({
   root,
   overrides,
   maps,
+  surface,
 }: {
   root: Object3D
   overrides: MaterialOverride[]
   maps?: Record<string, Texture>
+  /** The studio's Surface choice; the fabric's own relief when unset. */
+  surface?: SurfaceChoice
 }) {
   root.traverse((node) => {
     if (!isMesh(node)) {
@@ -299,7 +334,7 @@ export function applyDesignOverrides({
 
     if (Array.isArray(node.material)) {
       node.material = node.material.map((material) =>
-        applyOverrideToSlot({ material, override, map }),
+        applyOverrideToSlot({ material, override, map, surface }),
       )
       return
     }
@@ -308,6 +343,7 @@ export function applyDesignOverrides({
       material: node.material,
       override,
       map,
+      surface,
     })
   })
 
@@ -319,11 +355,13 @@ export function applyOverridesFromBases({
   baseMaterials,
   overrides,
   maps,
+  surface,
 }: {
   meshes: Mesh[]
   baseMaterials: Map<string, Mesh['material']>
   overrides: MaterialOverride[]
   maps?: Record<string, Texture>
+  surface?: SurfaceChoice
 }) {
   restoreMeshMaterials({ meshes, baseMaterials })
 
@@ -332,6 +370,7 @@ export function applyOverridesFromBases({
       root: mesh,
       overrides,
       maps,
+      surface,
     })
   }
 
@@ -348,12 +387,14 @@ export function applyLiveOverrides({
   overrides,
   maps,
   animate = true,
+  surface,
 }: {
   meshes: Mesh[]
   baseMaterials: Map<string, Mesh['material']>
   overrides: MaterialOverride[]
   maps?: Record<string, Texture>
   animate?: boolean
+  surface?: SurfaceChoice
 }) {
   const priors = new Map<string, Color>()
 
@@ -373,6 +414,7 @@ export function applyLiveOverrides({
     baseMaterials,
     overrides,
     maps,
+    surface,
   })
 
   for (const mesh of meshes) {

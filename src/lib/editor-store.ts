@@ -56,6 +56,7 @@ import {
   rememberSnapshot,
   type DesignSnapshot,
 } from './design-snapshots'
+import type { SurfaceChoice } from './fabric-detail'
 import { getFabricById } from './fabrics'
 import { isSafeLayerSrc } from './look-thumbnail'
 import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from './paint-colors'
@@ -110,6 +111,11 @@ export const BASE_FINISH_PRESETS = [
   { id: 'wool', label: 'Wool', fabricId: 'wool' },
   { id: 'denim', label: 'Denim', fabricId: 'denim' },
   { id: 'leather', label: 'Leather', fabricId: 'leather' },
+  { id: 'linen', label: 'Linen', fabricId: 'linen' },
+  { id: 'satin', label: 'Satin', fabricId: 'satin' },
+  { id: 'jersey', label: 'Jersey', fabricId: 'jersey' },
+  { id: 'chiffon', label: 'Chiffon', fabricId: 'chiffon' },
+  { id: 'canvas', label: 'Canvas', fabricId: 'canvas' },
 ] as const
 
 export type BaseFinishId = (typeof BASE_FINISH_PRESETS)[number]['id'] | string
@@ -173,6 +179,8 @@ type EditorState = {
   studioEnv: StudioEnvMode
   basePatternId: BasePatternId
   baseFinishId: BaseFinishId
+  /** Surface relief shown on chosen fabrics; a view setting, not saved. */
+  surface: SurfaceChoice
   setMode: ({ mode }: { mode: EditorMode }) => void
   selectMesh: ({ selectedMeshName }: { selectedMeshName: string | null }) => void
   setGarmentId: ({ garmentId }: { garmentId: GarmentId }) => void
@@ -235,6 +243,7 @@ type EditorState = {
   setStudioEnv: ({ studioEnv }: { studioEnv: StudioEnvMode }) => void
   setBasePattern: ({ patternId }: { patternId: BasePatternId }) => void
   setBaseFinish: ({ finishId }: { finishId: BaseFinishId }) => void
+  setSurface: ({ surface }: { surface: SurfaceChoice }) => void
   copyLayerToOpposite: ({ layerId }: { layerId: string }) => void
   duplicateLayer: ({ layerId }: { layerId: string }) => void
   /** Remembers the selected mark or word for `pasteLayer`, this session only. */
@@ -770,6 +779,7 @@ const INITIAL_EDITOR_STATE = {
   studioEnv: 'studio' as StudioEnvMode,
   basePatternId: 'solid' as BasePatternId,
   baseFinishId: 'matte' as BaseFinishId,
+  surface: 'preset' as SurfaceChoice,
 }
 
 /** The tee's canonical v2 document, for cloud saving (S04 #173). */
@@ -1181,6 +1191,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setStudioEnv: ({ studioEnv }) => {
     set({ studioEnv })
+  },
+  setSurface: ({ surface }) => {
+    set({ surface })
   },
   setBasePattern: ({ patternId }) => {
     set((state) => {
