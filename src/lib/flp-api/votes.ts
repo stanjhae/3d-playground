@@ -1,5 +1,4 @@
-import { useSessionStore } from '../auth/session-store.ts'
-import { type FlpResult, call } from './client.ts'
+import { type FlpResult, call, publicRead } from './client.ts'
 import type { VoteState } from './contract.ts'
 
 /**
@@ -9,30 +8,13 @@ import type { VoteState } from './contract.ts'
 
 const votePath = ({ slug }: { slug: string }) => `public/${encodeURIComponent(slug)}/vote`
 
-export async function getVoteState({
-  slug,
-  fetchImpl = fetch,
-}: {
-  slug: string
-  fetchImpl?: typeof fetch
-}): Promise<FlpResult<VoteState>> {
-  if (useSessionStore.getState().status === 'signed-in') {
-    return call<VoteState>({ path: votePath({ slug }), fetchImpl })
-  }
-
-  try {
-    const response = await fetchImpl(`/api/flp/${votePath({ slug })}`)
-
-    if (response.ok) {
-      return { ok: true, data: (await response.json()) as VoteState }
-    }
-
-    return response.status === 404
-      ? { ok: false, code: 'not_found', message: 'This design is not available' }
-      : { ok: false, code: 'internal', message: 'Votes could not load' }
-  } catch {
-    return { ok: false, code: 'network', message: 'Could not reach the server' }
-  }
+export function getVoteState({ slug, fetchImpl }: { slug: string; fetchImpl?: typeof fetch }): Promise<FlpResult<VoteState>> {
+  return publicRead<VoteState>({
+    path: votePath({ slug }),
+    fetchImpl,
+    notFound: 'This design is not available',
+    failed: 'Votes could not load',
+  })
 }
 
 export function castVote({ slug, fetchImpl }: { slug: string; fetchImpl?: typeof fetch }) {

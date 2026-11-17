@@ -677,8 +677,10 @@ await check({
   title: 'One vote per account, never on your own design; a new account\'s vote counts after a day; signed-out readers see the count, never who voted (V1)',
   run: async ({ note }) => {
     const { a, b, fixture } = await setUp()
-    // Voting takes the terms, like the studio.
-    await as({ token: b.token, path: 'terms', method: 'POST', body: { version: TERMS_VERSION } })
+    // Voting takes the terms, like the studio; the owner too, so its refusal is about its own design.
+    for (const account of [a, b]) {
+      await as({ token: account.token, path: 'terms', method: 'POST', body: { version: TERMS_VERSION } })
+    }
     // unpublish-404 took the fixture down; publish it again.
     const published = await republish({ a, fixture })
     expect(published.status < 300, `republishing answered ${published.status}`)

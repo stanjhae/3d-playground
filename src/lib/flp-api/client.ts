@@ -287,6 +287,41 @@ export function deleteDesign({ designId, fetchImpl }: { designId: string; fetchI
   return call<null>({ path: `designs/${designId}`, method: 'DELETE', fetchImpl })
 }
 
+/**
+ * A read anyone may make: with the session when signed in (so the answer
+ * can say what is the caller's), and without a token when signed out, so a
+ * signed-out reader is never asked to sign in. Only a 404 means "not there".
+ */
+export async function publicRead<T>({
+  path,
+  fetchImpl = fetch,
+  notFound = 'This isn’t available',
+  failed = 'This could not load',
+}: {
+  path: string
+  fetchImpl?: typeof fetch
+  notFound?: string
+  failed?: string
+}): Promise<FlpResult<T>> {
+  if (useSessionStore.getState().status === 'signed-in') {
+    return call<T>({ path, fetchImpl })
+  }
+
+  try {
+    const response = await fetchImpl(`/api/flp/${path}`)
+
+    if (response.ok) {
+      return { ok: true, data: (await response.json()) as T }
+    }
+
+    return response.status === 404
+      ? { ok: false, code: 'not_found', message: notFound }
+      : { ok: false, code: 'internal', message: failed }
+  } catch {
+    return { ok: false, code: 'network', message: 'Could not reach the server' }
+  }
+}
+
 /** The name the account shows on published designs (A06 #150). */
 export function getProfile({ fetchImpl }: { fetchImpl?: typeof fetch } = {}) {
   return call<ProfileResponse>({ path: 'profile', fetchImpl })

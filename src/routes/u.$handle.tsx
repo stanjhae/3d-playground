@@ -1,6 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { FollowButton } from '../components/vote/FollowButton'
+import { COMMUNITY } from '../lib/community'
 import { getPublicProfile } from '../lib/flp-api/public-read'
 import type { PublicProfile } from '../lib/flp-api/publication'
 import { voteCountLabel } from '../lib/flp-api/votes'
@@ -89,6 +91,7 @@ function ProfilePage() {
           @{profile.handle} · {profile.designs.length} {profile.designs.length === 1 ? 'design' : 'designs'} published ·{' '}
           {voteCountLabel({ count: total })}
         </p>
+        {COMMUNITY ? <FollowButton handle={profile.handle} /> : null}
       </header>
 
       {profile.designs.length === 0 ? (

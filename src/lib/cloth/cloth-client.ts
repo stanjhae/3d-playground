@@ -78,7 +78,9 @@ export function createDrapeClient({
       const key = await keyFor(pattern, build)
       const hit = cache.get(key)
 
+      // Already draped (perhaps while this caller was hashing): say it's done.
       if (hit) {
+        onProgress?.(1)
         return hit
       }
 
