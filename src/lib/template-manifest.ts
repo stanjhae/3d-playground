@@ -310,6 +310,27 @@ export function isUpcomingTemplate({ templateId }: { templateId: unknown }) {
   return typeof templateId === 'string' && UPCOMING_TEMPLATE_IDS.includes(templateId)
 }
 
+/**
+ * Versions of an archived template that a later release bakes (reader R2):
+ * the tee's `@6`, re-baked with its sides printable. This build has no
+ * manifest for them, so it doesn't make them current or open them. A
+ * document pinned to one reads and validates against the panels of the
+ * template's current version (a re-bake keeps its panels), and opening it
+ * says it needs a newer version, as for any version this build can't open.
+ */
+export const UPCOMING_TEMPLATE_VERSIONS: Readonly<Record<string, readonly number[]>> = Object.freeze({
+  'tee-crew-short': Object.freeze([6]),
+})
+
+export function isUpcomingTemplateVersion({ id, version }: { id: unknown; version: unknown }) {
+  return (
+    typeof id === 'string' &&
+    typeof version === 'number' &&
+    !TEMPLATE_ARCHIVE[id]?.[version] &&
+    (UPCOMING_TEMPLATE_VERSIONS[id]?.includes(version) ?? false)
+  )
+}
+
 /** The manifest new designs on this template pin. */
 export function currentTemplateFor({ templateId }: { templateId: string }): TemplateManifest {
   const manifest = CURRENT_VERSIONS[templateId]
@@ -388,7 +409,9 @@ export function resolveTemplate({
     return {
       ok: false,
       reason: 'unsupported-version',
-      message: `This design was made on ${id} version ${version}, which this app cannot open`,
+      message: isUpcomingTemplateVersion({ id, version })
+        ? `This design was made on ${id} version ${version}, which needs a newer version of this app`
+        : `This design was made on ${id} version ${version}, which this app cannot open`,
     }
   }
 

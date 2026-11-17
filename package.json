@@ -14,6 +14,7 @@
     "tee": "node scripts/build-tee.mjs",
     "bake:pattern": "node scripts/bake-pattern-glb.mjs",
     "graphics": "node scripts/build-graphics.mjs",
+    "brand": "node scripts/build-brand.mjs",
     "fabric-maps": "node scripts/build-fabric-maps.mjs",
     "stills": "node scripts/bake-stills.mjs",
     "og": "node scripts/bake-og.mjs",

@@ -71,6 +71,34 @@ export function listGarmentsByCategory({
   )
 }
 
+/**
+ * Pieces we plan to make but have no garment id, model or template for yet.
+ * The picker shows them as Coming soon tiles so a category is never empty or
+ * hidden. They are not `GarmentId`s, so nothing can select, save, search or
+ * vote on them.
+ */
+export type PlannedGarment = { id: string; label: string; category: GarmentCategoryId }
+
+export const PLANNED_GARMENTS: readonly PlannedGarment[] = [
+  { id: 'cap', label: 'Cap', category: 'accessories' },
+  { id: 'tote', label: 'Tote bag', category: 'accessories' },
+  { id: 'beanie', label: 'Beanie', category: 'accessories' },
+]
+
+export function listPlannedGarments({ category }: { category: GarmentCategoryId }): PlannedGarment[] {
+  return PLANNED_GARMENTS.filter((planned) => planned.category === category)
+}
+
+/** Every category with something to show: garments to pick, or ones coming soon. */
+export function pickerCategories() {
+  return GARMENT_CATEGORIES.filter(
+    (entry) => listGarmentsByCategory({ category: entry.id }).length > 0 || listPlannedGarments({ category: entry.id }).length > 0,
+  )
+}
+
+/** Why a saved design's other garments can't be picked, and the way out. */
+export const LOCKED_GARMENT_NOTE = 'Saved designs keep their garment. Start a new design to switch.'
+
 export const SHOOT_PRESETS = [
   { id: 'studio', label: 'Studio' },
   { id: 'editorial', label: 'Editorial' },

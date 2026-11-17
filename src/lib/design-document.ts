@@ -108,6 +108,8 @@ export type GraphicLayer = {
   x: number
   y: number
   scale: number
+  /** Height scale when stretched (canonical `scaleY`, reader R2); absent means `scale`. */
+  scaleY?: number
   rotation: number
   opacity: number
   color?: string
@@ -139,6 +141,8 @@ export type TextLayer = {
   x: number
   y: number
   scale: number
+  /** Height scale when stretched (canonical `scaleY`, reader R2); absent means `scale`. */
+  scaleY?: number
   rotation: number
   opacity: number
   visible: boolean
@@ -149,6 +153,31 @@ export type TextLayer = {
   flipX?: boolean
   flipY?: boolean
   /** Can't be selected on the panel or changed until unlocked; absent when unlocked. */
+  locked?: true
+}
+
+/**
+ * A pattern covering its whole panel (canonical `fill`, reader R2), in
+ * render space. Projected from v2 only: the v1 parser has no such kind.
+ */
+export type FillLayer = {
+  id: string
+  kind: 'fill'
+  panel: PanelId
+  source:
+    | { kind: 'image'; src: string; aspect: number; missing?: true }
+    | { kind: 'pattern'; patternId: 'stripe' | 'check'; colors: [string, string] }
+  /** One repeat, as a fraction of the panel's atlas width. */
+  tile: number
+  rotation: number
+  /** Phase as a fraction of one repeat along the pattern's own axes; absent is 0. */
+  offsetX?: number
+  offsetY?: number
+  opacity: number
+  visible: boolean
+  label?: string
+  /** Absent on older templates, which draw in atlas proportions. */
+  surface?: PanelSurface
   locked?: true
 }
 
@@ -188,6 +217,7 @@ export type DesignLayer =
   | TextLayer
   | ArtLayer
   | PatternLayer
+  | FillLayer
 
 export type StructuralParams = {
   neck?: NeckId
@@ -751,19 +781,22 @@ export function documentHasInk({
     return (
       layer.kind === 'graphic' ||
       layer.kind === 'art' ||
-      layer.kind === 'pattern'
+      layer.kind === 'pattern' ||
+      layer.kind === 'fill'
     )
   })
 }
 
-/** A lockable layer that is locked: paint, a mark or a word (W3). */
+/** A lockable layer that is locked: paint, a mark, a word or a fill (W3, R2). */
 export function isLockedLayer({ layer }: { layer: DesignLayer | undefined | null }) {
-  return Boolean(layer && (layer.kind === 'paint' || layer.kind === 'graphic' || layer.kind === 'text') && layer.locked)
+  return Boolean(isLockableLayer({ layer }) && (layer as { locked?: true }).locked)
 }
 
-/** Layers that take a lock: the v2 paint, image and text kinds. */
+/** Layers that take a lock: the v2 paint, image, text and fill kinds. */
 export function isLockableLayer({ layer }: { layer: DesignLayer | undefined | null }) {
-  return Boolean(layer && (layer.kind === 'paint' || layer.kind === 'graphic' || layer.kind === 'text'))
+  return Boolean(
+    layer && (layer.kind === 'paint' || layer.kind === 'graphic' || layer.kind === 'text' || layer.kind === 'fill'),
+  )
 }
 
 export function activePaintLayer({

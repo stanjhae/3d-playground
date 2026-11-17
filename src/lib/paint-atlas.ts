@@ -594,6 +594,11 @@ function drawTextMark({
 
       context.rotate(layer.rotation)
 
+      // Stretched along its own y axis (reader R2); a uniform word skips this.
+      if (layer.scaleY !== undefined && layer.scaleY !== layer.scale) {
+        context.scale(1, layer.scaleY / layer.scale)
+      }
+
       if (layer.flipX || layer.flipY) {
         context.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1)
       }
@@ -619,7 +624,7 @@ function drawTextMark({
   }
 
   const width = Math.max(0.04, layer.scale * 1.8)
-  const height = Math.max(0.02, layer.scale * 0.45) * (layer.surface?.stretchY ?? 1)
+  const height = Math.max(0.02, (layer.scaleY ?? layer.scale) * 0.45) * (layer.surface?.stretchY ?? 1)
   const markOpacity = Math.min(1, Math.max(0, layer.opacity ?? 1))
 
   for (let x = 0; x < 12; x += 1) {
@@ -716,6 +721,17 @@ function drawPatternMark({
 }
 
 /**
+ * Whether a point of a stripe or check pattern takes the ink colour, with
+ * `x` and `y` in bands (half a repeat) along the pattern's own axes:
+ * stripes ink every other band of `y`, a check every other square. The
+ * base and a fill layer (reader R2) share it, so they draw alike.
+ */
+function periodicInk({ patternId, x, y }: { patternId: 'stripe' | 'check' | 'gradient'; x: number; y: number }) {
+  const stripe = Math.floor(y)
+  return patternId === 'check' ? (Math.floor(x) + stripe) % 2 === 0 : stripe % 2 === 0
+}
+
+/**
  * Stripes or check whose repeat is `period` atlas widths (half stripe,
  * half gap), computed per atlas pixel so the period holds at every atlas
  * size: 2D panel, scene and published art agree (#161). The stamp is the
@@ -770,13 +786,7 @@ function drawPeriodicPattern({
         continue
       }
 
-      const stripe = Math.floor(y / band)
-      const fill =
-        layer.patternId === 'check'
-          ? (Math.floor(x / band) + stripe) % 2 === 0
-          : stripe % 2 === 0
-
-      if (fill) {
+      if (periodicInk({ patternId: layer.patternId, x: x / band, y: y / band })) {
         writePixel({ buffer, index: (row * buffer.width + column) * 4, r, g, b, a: alpha })
       }
     }
@@ -830,7 +840,8 @@ function drawGraphicMark({
     width: buffer.width,
     height: buffer.height,
   })
-  const box = imageBox({ scale: layer.scale, aspect: layer.aspect ?? 1 })
+  // Width from `scale`, height from `scaleY` when stretched (reader R2).
+  const box = imageBox({ scale: layer.scale, scaleY: layer.scaleY ?? layer.scale, aspect: layer.aspect ?? 1 })
   const width = Math.max(12, Math.round(box.width * buffer.width))
   const height = Math.max(12, Math.round(box.height * buffer.width))
   const stretchY = layer.surface?.stretchY ?? 1
@@ -866,6 +877,101 @@ function drawGraphicMark({
     opacity: layer.opacity ?? 1,
     ...(tint ? { tint: { r: tint.r, g: tint.g, b: tint.b } } : {}),
   })
+}
+
+/**
+ * A whole-panel fill (reader R2): its source repeated across the panel's
+ * atlas rectangle, clipped to it. One repeat is `tile` panel widths wide
+ * (an image's height follows its aspect; stripes and checks are square),
+ * turned by `rotation` about the panel's centre and shifted by
+ * `offsetX`/`offsetY` repeats along the pattern's own axes. Like a mark,
+ * it is drawn at the cloth's proportions (`surface.stretchY`). Stripes and
+ * checks paint their ground and ink both, so the fill hides what is under
+ * it; an image shows its own transparency.
+ */
+function drawFillLayer({
+  buffer,
+  layer,
+  image,
+}: {
+  buffer: AtlasBuffer
+  layer: Extract<DesignLayer, { kind: 'fill' }>
+  image?: AtlasBuffer
+}) {
+  const opacity = Math.min(1, Math.max(0, layer.opacity))
+  const rect = atlasSourceRect({ panel: layer.panel, width: buffer.width, height: buffer.height, rects: buffer.panelUv })
+  const clip = buffer.clip ?? {
+    x0: Math.round(rect.sourceX),
+    y0: Math.round(rect.sourceY),
+    x1: Math.round(rect.sourceX + rect.sourceWidth),
+    y1: Math.round(rect.sourceY + rect.sourceHeight),
+  }
+  const row0 = Math.max(0, clip.y0)
+  const row1 = Math.min(buffer.height, clip.y1)
+  const column0 = Math.max(0, clip.x0)
+  const column1 = Math.min(buffer.width, clip.x1)
+  const centerX = rect.sourceX + rect.sourceWidth / 2
+  const centerY = rect.sourceY + rect.sourceHeight / 2
+  const stretchY = layer.surface?.stretchY ?? 1
+  const repeatWidth = Math.max(1, layer.tile * rect.sourceWidth)
+  const { source } = layer
+  const repeatHeight = source.kind === 'image' ? repeatWidth / source.aspect : repeatWidth
+  const cos = Math.cos(-layer.rotation)
+  const sin = Math.sin(-layer.rotation)
+  const offsetX = layer.offsetX ?? 0
+  // Canonical y runs up; atlas rows run down.
+  const offsetY = -(layer.offsetY ?? 0)
+  const pattern =
+    source.kind === 'pattern'
+      ? {
+          ground: hexToRgb({ color: source.colors[0] }),
+          ink: hexToRgb({ color: source.colors[1] }),
+        }
+      : null
+  const alpha = Math.round(255 * opacity)
+  // A missing or undecodable asset shows the placeholder, at full strength (#154).
+  const tile =
+    source.kind === 'image'
+      ? (image ?? placeholderBuffer({ width: Math.max(12, Math.round(repeatWidth)), height: Math.max(12, Math.round(repeatHeight)) }))
+      : null
+  const tileOpacity = image ? opacity : 1
+
+  if (pattern && alpha === 0) {
+    return
+  }
+
+  for (let row = row0; row < row1; row += 1) {
+    for (let column = column0; column < column1; column += 1) {
+      const localX = column + 0.5 - centerX
+      const localY = (row + 0.5 - centerY) / stretchY
+      const u = (localX * cos - localY * sin) / repeatWidth + offsetX
+      const v = (localX * sin + localY * cos) / repeatHeight + offsetY
+
+      if (pattern) {
+        const color = periodicInk({ patternId: source.kind === 'pattern' ? source.patternId : 'stripe', x: u * 2, y: v * 2 })
+          ? pattern.ink
+          : pattern.ground
+        writePixel({ buffer, index: (row * buffer.width + column) * 4, r: color.r, g: color.g, b: color.b, a: alpha })
+        continue
+      }
+
+      if (!tile) {
+        continue
+      }
+
+      const fracU = u - Math.floor(u)
+      const fracV = v - Math.floor(v)
+      sampleSource({
+        dest: buffer,
+        source: tile,
+        column,
+        row,
+        srcX: Math.min(tile.width - 1, Math.floor(fracU * tile.width)),
+        srcY: Math.min(tile.height - 1, Math.floor(fracV * tile.height)),
+        opacity: tileOpacity,
+      })
+    }
+  }
 }
 
 export function createAtlasBuffer({
@@ -1040,6 +1146,14 @@ export function rasterizeLayers({
 
     if (layer.kind === 'pattern') {
       drawPatternMark({ buffer: target(layer), layer })
+    }
+
+    if (layer.kind === 'fill') {
+      drawFillLayer({
+        buffer: target(layer),
+        layer,
+        image: layer.source.kind === 'image' && layer.source.src ? images?.[layer.source.src] : undefined,
+      })
     }
   }
 
