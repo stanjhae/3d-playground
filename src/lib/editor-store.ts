@@ -94,7 +94,7 @@ import {
   replaceDocumentUndoable,
 } from './canonical-commands'
 import { upgradeToCurrentTemplate } from './template-upgrade'
-import { canonicalPanel, renderPanel, rendersMirrored } from './render-projection'
+import { canonicalPanel, renderPanel, renderPanelSurface, rendersMirrored } from './render-projection'
 import { NUDGE_MERGE_MS } from './studio-keys'
 import { clampShape, type GarmentShape, templateHasShape } from './garment-shape-params'
 import { roundPlacement } from './transform-fields'
@@ -369,6 +369,11 @@ type EditorState = {
   startLayerEdit: ({ edit }: { edit: LayerEdit }) => void
   moveLayerEdit: ({ edit }: { edit: LayerEdit }) => void
   endLayerEdit: () => void
+  /**
+   * Moves an image, word or print to another panel, at `x`/`y` there
+   * (render space; absent: where it was), as one undo step.
+   */
+  moveLayerToPanel: ({ layerId, panel, x, y }: { layerId: string; panel: PanelId; x?: number; y?: number }) => void
   updateLayer: ({
     layerId,
     patch,
@@ -1847,7 +1852,38 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     )
   },
   moveLayerEdit: ({ edit }) => {
-    set({ activeLayerEdit: edit })
+    set((state) => {
+      const layer = placeableLayer({ document: state.document, layerId: edit.layerId })
+
+      // Only the edit in hand moves: an undo or redo mid-drag ended it, and
+      // a locked item takes no drag (W3).
+      if (!layer || state.activeLayerEdit?.layerId !== edit.layerId || isLockedLayer({ layer })) {
+        return state
+      }
+
+      const panel = edit.panel && edit.panel !== layer.panel ? edit.panel : undefined
+      return {
+        activeLayerEdit: panel
+          ? { ...edit, panel, surface: teeActive() ? renderPanelSurface({ panel, template: tee.stack.document.template }) : undefined }
+          : { layerId: edit.layerId, x: edit.x, y: edit.y, scale: edit.scale, rotation: edit.rotation },
+      }
+    })
+  },
+  moveLayerToPanel: ({ layerId, panel, x, y }) => {
+    set((state) => {
+      const layer = placeableLayer({ document: state.document, layerId })
+
+      if (!layer) {
+        return state
+      }
+
+      const next = runCommand({
+        command: { type: 'moveLayerToPanel', layerId, panel, patch: { x: x ?? layer.x, y: y ?? layer.y } },
+        extra: { paintPanel: panel },
+      })
+      // Refused (a full panel, a locked item), it stays where it was.
+      return { ...next, selectedLayerId: layerId, activeLayerEdit: null }
+    })
   },
   endLayerEdit: () => {
     set((state) => {
@@ -1859,6 +1895,27 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       const layer = state.document.layers.find(
         (entry) => entry.id === edit.layerId,
       )
+
+      // Carried onto another panel: moved and placed there as one step.
+      if (edit.panel && layer && 'panel' in layer && edit.panel !== layer.panel) {
+        const next = runCommand({
+          command: {
+            type: 'moveLayerToPanel',
+            layerId: edit.layerId,
+            panel: edit.panel,
+            patch: { x: edit.x, y: edit.y, scale: edit.scale, rotation: edit.rotation },
+          },
+        })
+
+        return {
+          ...next,
+          selectedLayerId: edit.layerId,
+          activeLayerEdit: null,
+          paintPanel: next.document.layers.some((entry) => entry.id === edit.layerId && 'panel' in entry && entry.panel === edit.panel)
+            ? edit.panel
+            : state.paintPanel,
+        }
+      }
 
       if (
         layer &&

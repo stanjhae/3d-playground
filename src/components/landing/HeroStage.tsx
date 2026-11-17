@@ -7,7 +7,7 @@ import { LANDING_COPY } from '../../lib/landing-copy'
 import { LANDING_VIEW_PANEL, landingClothOverrides, stampLandingGraphic } from '../../lib/landing-demo'
 import { LANDING_TEE_COLOR, landingDemoDocument, useLandingDemoStore } from '../../lib/landing-demo-store'
 import { HeroPoster } from './HeroPoster'
-import { GRAPHIC_DRAG_TYPE } from './HeroToolDock'
+import { addLandingGraphic, GRAPHIC_DRAG_TYPE } from './HeroToolDock'
 
 const LandingCloth = lazy(() => import('./LandingCloth'))
 const COPY = LANDING_COPY.hero
@@ -40,7 +40,6 @@ export function HeroStage() {
   const cameraView = useLandingDemoStore((state) => state.cameraView)
   const wantsScene = useLandingDemoStore((state) => state.wantsScene)
   const requestScene = useLandingDemoStore((state) => state.requestScene)
-  const apply = useLandingDemoStore((state) => state.apply)
   const [webgl] = useState(() => {
     if (webglTestMode({ search: window.location.search, dev: import.meta.env.DEV }) === 'none') return false
     return detectWebgl({ createCanvas: () => window.document.createElement('canvas') })
@@ -92,7 +91,7 @@ export function HeroStage() {
         if (!src) return
         event.preventDefault()
         const panel = LANDING_VIEW_PANEL[useLandingDemoStore.getState().cameraView ?? 'front']
-        apply((previous) => stampLandingGraphic({ document: previous, src, panel }))
+        addLandingGraphic((previous) => stampLandingGraphic({ document: previous, src, panel }))
       }}
     >
       <HeroPoster className={cn('transition-opacity duration-700', { 'opacity-0': ready })} />
