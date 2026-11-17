@@ -64,6 +64,12 @@ export type CanonicalCommand =
   | { type: 'updateLayer'; layerId: string; patch: CanonicalLayerPatch }
   | { type: 'removeLayer'; layerId: string }
   | { type: 'moveLayer'; layerId: string; toIndex: number }
+  /**
+   * Moves an image or word to another panel, on top of that panel's
+   * stack, keeping its fields; with an `updateLayer` in a batch it is one
+   * undo step that also places it. The same panel changes nothing.
+   */
+  | { type: 'moveLayerToPanel'; layerId: string; panel: CanonicalPanelId }
   | {
       type: 'copyLayer'
       layerId: string
@@ -189,7 +195,8 @@ export function lockedIssues({
     command.type === 'addStroke' ||
     command.type === 'clearPaintLayer' ||
     command.type === 'removeLayer' ||
-    command.type === 'moveLayer'
+    command.type === 'moveLayer' ||
+    command.type === 'moveLayerToPanel'
   ) {
     return lockedLayer(command.layerId) ? refuse(command.layerId) : null
   }
@@ -389,6 +396,30 @@ function applyToDocument({
 
     const [layer] = layers.splice(found.index, 1)
     layers.splice(command.toIndex, 0, layer!)
+    return { ok: true, document: next }
+  }
+
+  if (command.type === 'moveLayerToPanel') {
+    const found = findLayer({ document: next, layerId: command.layerId })
+
+    if (!found) {
+      return { ok: false, issues: missing({ id: command.layerId }) }
+    }
+
+    if (found.layer.kind === 'paint') {
+      return { ok: false, issues: [{ path: '$', message: `${command.layerId} is ink; ink stays on its panel` }] }
+    }
+
+    if (!next.panels[command.panel]) {
+      return { ok: false, issues: [{ path: '$.panel', message: `no panel ${command.panel}` }] }
+    }
+
+    if (found.panel === command.panel) {
+      return { ok: true, document: next }
+    }
+
+    const [layer] = next.panels[found.panel].layers.splice(found.index, 1)
+    next.panels[command.panel].layers.push(layer!)
     return { ok: true, document: next }
   }
 

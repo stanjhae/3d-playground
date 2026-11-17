@@ -1,17 +1,20 @@
 import { Html, Outlines, useCursor } from '@react-three/drei'
-import { type ThreeEvent } from '@react-three/fiber'
+import { type ThreeEvent, useThree } from '@react-three/fiber'
 import { useEffect, useState, type ReactNode } from 'react'
-import { type Mesh } from 'three'
+import { type Mesh, Raycaster, Vector2 } from 'three'
 
 import {
   clothDrag,
   clothPaintActive,
+  crossClothDrag,
   endClothDrag,
   endClothPaint,
-  moveClothDragOnUv,
+  moveClothDrag,
   startClothDrag,
   startClothPaint,
 } from '../../lib/cloth-pointer'
+import { anchorFromHit, clothDragStep } from '../../lib/cloth-drag-ray'
+import { LOCKED_NOTICE, flashNotice } from '../../lib/studio-announcer'
 import { useEditorStore } from '../../lib/editor-store'
 import { surfaceGesture } from '../../lib/surface-gesture'
 import { acceptsPointer } from '../../lib/palm-rejection'
@@ -23,7 +26,7 @@ import {
   hitPlaceableLayer,
   placedType,
 } from '../../lib/layer-hit'
-import { uvToPanelPoint } from '../../lib/panel-uv'
+import { DEFAULT_PANEL_UV, uvToPanelPoint } from '../../lib/panel-uv'
 import { SELECTION_COLOR, isOpenClothMesh, meshOutlineVisible } from '../../lib/selection-chrome'
 
 function pointerUv({
@@ -41,6 +44,101 @@ function pointerUv({
   }
 
   return { u: uv.x, v: uv.y }
+}
+
+/** The cloth a drag follows: every printable mesh in the scene now. */
+const clothMeshes = new Set<Mesh>()
+
+/**
+ * Follows a graphic dragged on the cloth from window pointer moves, so it
+ * keeps moving when the pointer leaves the cloth or crosses a strip that
+ * doesn't print (`cloth-drag-ray.ts`), and goes to another panel when the
+ * drag crosses a seam onto it. Ends with the drag; returns the stop.
+ */
+function followClothDrag({
+  pointerId,
+  element,
+  camera,
+  printUv,
+  start,
+}: {
+  pointerId: number
+  element: HTMLElement
+  camera: () => Parameters<Raycaster['setFromCamera']>[1]
+  printUv: boolean
+  start: ThreeEvent<PointerEvent>
+}) {
+  const raycaster = new Raycaster()
+  const pointer = new Vector2()
+  let anchor = anchorFromHit({ hit: start, printUv })
+
+  // Every move of this pointer comes to the canvas, on or off the garment.
+  try {
+    element.setPointerCapture(pointerId)
+  } catch {
+    // A pointer the browser no longer tracks; the window still hears it.
+  }
+
+  function onMove(event: PointerEvent) {
+    const drag = clothDrag()
+
+    if (event.pointerId !== pointerId) {
+      return
+    }
+
+    const state = useEditorStore.getState()
+
+    // An undo or redo mid-drag ended the edit: the drag ends with it.
+    if (!drag || state.activeLayerEdit?.layerId !== drag.layerId) {
+      endClothDrag()
+      stop()
+      return
+    }
+
+    const rect = element.getBoundingClientRect()
+    pointer.set(
+      ((event.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1,
+      -((event.clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1,
+    )
+    raycaster.setFromCamera(pointer, camera())
+    const step = clothDragStep({
+      hits: raycaster.intersectObjects([...clothMeshes], false),
+      ray: raycaster.ray,
+      panel: drag.panel,
+      anchor,
+      printUv,
+      rects: state.document.panelUv ?? DEFAULT_PANEL_UV,
+    })
+
+    if (step.kind === 'none') {
+      return
+    }
+
+    anchor = step.anchor
+    const edit = step.kind === 'cross' ? crossClothDrag(step) : moveClothDrag(step)
+
+    if (edit) {
+      event.preventDefault()
+      state.moveLayerEdit({ edit })
+    }
+  }
+
+  function onEnd(event: PointerEvent) {
+    if (event.pointerId === pointerId) {
+      stop()
+    }
+  }
+
+  function stop() {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onEnd)
+    window.removeEventListener('pointercancel', onEnd)
+  }
+
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onEnd)
+  window.addEventListener('pointercancel', onEnd)
+  return stop
 }
 
 export function SelectableMesh({
@@ -75,9 +173,9 @@ export function SelectableMesh({
   const addText = useEditorStore((state) => state.addText)
   const selectLayer = useEditorStore((state) => state.selectLayer)
   const startLayerEdit = useEditorStore((state) => state.startLayerEdit)
-  const moveLayerEdit = useEditorStore((state) => state.moveLayerEdit)
   const endLayerEdit = useEditorStore((state) => state.endLayerEdit)
   const setPaintPanel = useEditorStore((state) => state.setPaintPanel)
+  const getThree = useThree((state) => state.get)
   const isSelected = Boolean(
     selectedMeshName &&
       (selectedMeshName === name || name.startsWith(`${selectedMeshName}-`)),
@@ -103,6 +201,18 @@ export function SelectableMesh({
       return
     }
 
+    clothMeshes.add(mesh)
+
+    return () => {
+      clothMeshes.delete(mesh)
+    }
+  }, [canPaint, mesh])
+
+  useEffect(() => {
+    if (!canPaint) {
+      return
+    }
+
     function finishClothPointer(event: PointerEvent) {
       if (isOtherPointer({ pointerId: event.pointerId })) {
         return
@@ -121,12 +231,17 @@ export function SelectableMesh({
       }
     }
 
-    window.addEventListener('pointerup', finishClothPointer)
-    window.addEventListener('pointercancel', finishClothPointer)
+    // Losing capture ends the drag as a lift does (the canvas went away).
+    const ends = ['pointerup', 'pointercancel', 'lostpointercapture'] as const
+
+    for (const type of ends) {
+      window.addEventListener(type, finishClothPointer)
+    }
 
     return () => {
-      window.removeEventListener('pointerup', finishClothPointer)
-      window.removeEventListener('pointercancel', finishClothPointer)
+      for (const type of ends) {
+        window.removeEventListener(type, finishClothPointer)
+      }
     }
   }, [canPaint, cancelStroke, endLayerEdit, endStroke])
 
@@ -161,22 +276,33 @@ export function SelectableMesh({
         }
 
         const word = paintTool === 'type' && designTool === 'text' ? placedType({ typeDraft }) : null
-        const hit = hitPlaceableLayer({
+        const top = hitPlaceableLayer({
           document: liveDocument,
           panel: point.panel,
           x: point.x,
           y: point.y,
+          withLocked: true,
         })
+        const locked = top && top.kind !== 'pattern' && top.locked ? top : null
+        const hit = locked ? null : top
         const gesture = surfaceGesture({
           designTool,
           wordArmed: Boolean(word),
-          hitsLayer: Boolean(hit),
+          hitsLayer: Boolean(top),
           rotatingView: rotateView,
         })
 
         // Not inking, placing or dragging: leave the press to the orbit so
         // the garment turns instead of collecting stray ink.
         if (gesture === 'none') {
+          return
+        }
+
+        // A locked item is selected, says why it stays put, and never takes
+        // ink; the press is left to the orbit (W3).
+        if (locked) {
+          selectLayer({ selectedLayerId: locked.id })
+          flashNotice({ message: LOCKED_NOTICE })
           return
         }
 
@@ -229,6 +355,13 @@ export function SelectableMesh({
               rotation: hit.rotation,
             },
           })
+          followClothDrag({
+            pointerId: event.nativeEvent.pointerId,
+            element: getThree().gl.domElement,
+            camera: () => getThree().camera,
+            printUv: Boolean(panelUv),
+            start: event,
+          })
           return
         }
 
@@ -252,22 +385,15 @@ export function SelectableMesh({
           return
         }
 
-        const uv = pointerUv({ event, printUv: Boolean(panelUv) })
-
-        if (!uv) {
+        // A drag is followed from the window (`followClothDrag`), on the cloth or off it.
+        if (clothDrag()) {
+          event.stopPropagation()
           return
         }
 
-        if (clothDrag()) {
-          const edit = moveClothDragOnUv({ u: uv.u, v: uv.v, rects: panelUv })
+        const uv = pointerUv({ event, printUv: Boolean(panelUv) })
 
-          if (!edit) {
-            return
-          }
-
-          event.stopPropagation()
-          event.nativeEvent.preventDefault()
-          moveLayerEdit({ edit })
+        if (!uv) {
           return
         }
 

@@ -34,6 +34,10 @@ export type LayerEdit = {
   y: number
   scale: number
   rotation: number
+  /** Set when a drag carries the layer onto another panel (render space). */
+  panel?: PanelId
+  /** That panel's surface, so the frame is measured on it while dragged. */
+  surface?: PanelSurface
   /** Height scale while stretching; absent keeps the layer's own. */
   scaleY?: number
 }
@@ -121,16 +125,32 @@ function atlasBox({
   }
 }
 
+/** How far inside the panel's edge a handle must sit to be pressed. */
+const HANDLE_EDGE = 0.03
+
+/**
+ * Whether the rotate handle sits below the box: above it, near the top of
+ * the panel, it would be off the panel, where a press can't reach it.
+ */
+export function rotateHandleBelow({ layer }: { layer: PlaceableLayer }) {
+  const box = layerBox({ layer })
+  const reach = (box.height / 2 + LAYER_ROTATE_GAP) * Math.cos(layer.rotation)
+  const overflow = (y: number) => Math.max(0, y - (1 - HANDLE_EDGE), HANDLE_EDGE - y)
+  const above = overflow(layer.y + reach)
+  return above > 0 && overflow(layer.y - reach) < above
+}
+
 export function layerHandleLocal({
   layer,
 }: {
   layer: PlaceableLayer
 }) {
   const box = layerBox({ layer })
+  const rotateY = box.height / 2 + LAYER_ROTATE_GAP
 
   return {
     scale: { x: box.width / 2, y: -box.height / 2 },
-    rotate: { x: 0, y: box.height / 2 + LAYER_ROTATE_GAP },
+    rotate: { x: 0, y: rotateHandleBelow({ layer }) ? -rotateY : rotateY },
     // Mid-edge handles (stretch one side, W), only where the layer stretches.
     ...(layerStretches({ layer })
       ? {
@@ -213,6 +233,7 @@ export function placeablePoseMatches({
   edit: LayerEdit
 }) {
   return (
+    (!edit.panel || edit.panel === layer.panel) &&
     layer.x === edit.x &&
     layer.y === edit.y &&
     layer.scale === edit.scale &&
@@ -313,11 +334,14 @@ export function hitPlaceableLayer({
   panel,
   x,
   y,
+  withLocked = false,
 }: {
   document: DesignDocument
   panel: PanelId
   x: number
   y: number
+  /** Also find a locked item, to say why it won't move. */
+  withLocked?: boolean
 }): PlaceableLayer | null {
   for (let index = document.layers.length - 1; index >= 0; index -= 1) {
     const layer = document.layers[index]
@@ -336,7 +360,7 @@ export function hitPlaceableLayer({
 
     // A locked item can't be picked on the cloth (W3): the click passes to
     // whatever is under it. It is still selectable from the layer list.
-    if (layer.panel !== panel || (layer.kind !== 'pattern' && layer.locked)) {
+    if (layer.panel !== panel || (!withLocked && layer.kind !== 'pattern' && layer.locked)) {
       continue
     }
 
@@ -421,13 +445,21 @@ export function applyLayerEdit({
         return layer
       }
 
+      const carried =
+        edit.panel && edit.panel !== layer.panel
+          ? layer.kind === 'pattern'
+            ? { panel: edit.panel }
+            : { panel: edit.panel, surface: edit.surface }
+          : {}
+
       const moved = {
         ...layer,
+        ...carried,
         x: edit.x,
         y: edit.y,
         scale: edit.scale,
         rotation: edit.rotation,
-      }
+      } as PlaceableLayer
 
       if (edit.scaleY === undefined || moved.kind === 'pattern') {
         return moved
@@ -435,7 +467,7 @@ export function applyLayerEdit({
 
       // A stretch drawn live; back to square, it is uniform again.
       const { scaleY: _previous, ...uniform } = moved
-      return edit.scaleY === edit.scale ? uniform : { ...uniform, scaleY: edit.scaleY }
+      return (edit.scaleY === edit.scale ? uniform : { ...uniform, scaleY: edit.scaleY }) as PlaceableLayer
     }),
   }
 }

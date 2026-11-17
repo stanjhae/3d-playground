@@ -3,7 +3,7 @@ import {
   type CanonicalPanelId,
   panelIdsOf,
 } from './canonical-document.ts'
-import type { DesignDocument, DesignLayer, PanelId } from './design-document.ts'
+import type { DesignDocument, DesignLayer, PanelId, PanelSurface } from './design-document.ts'
 import { templateHasShape } from './garment-shape-params.ts'
 import { CURRENT_TEMPLATE, type TemplateManifest, resolveTemplate } from './template-manifest.ts'
 
@@ -66,6 +66,28 @@ export function renderPanel({
   template?: CanonicalDocument['template']
 }): PanelId {
   return manifestFor({ template }).regions[panel]?.renderPanel ?? panel
+}
+
+/**
+ * How a render panel lies on the cloth, as the projection gives it to that
+ * panel's layers: a layer dragged onto another panel takes this one's.
+ */
+export function renderPanelSurface({
+  panel,
+  template,
+}: {
+  panel: PanelId
+  template?: CanonicalDocument['template']
+}): PanelSurface | undefined {
+  const manifest = manifestFor({ template })
+  const region = Object.values(manifest.regions).find((entry) => entry.renderPanel === panel)
+  const surface = region?.surface
+
+  if (!region || !surface) {
+    return undefined
+  }
+
+  return manifest.geometry.kind === 'glb' ? { ...surface, uv: { ...region.uv } } : surface
 }
 
 /** Whether `panel` is drawn left-right reversed in the render document. */

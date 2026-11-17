@@ -50,6 +50,8 @@ export type DesignCommand =
       layerId: string
       patch: LayerPatch
     }
+  /** An image, word or print moves to another panel, placed by `patch`, as one step. */
+  | { type: 'moveLayerToPanel'; layerId: string; panel: PanelId; patch?: LayerPatch }
   | { type: 'setStructural'; structural: StructuralParams }
   | { type: 'applyFabric'; override: MaterialOverride }
 
@@ -96,7 +98,7 @@ export function editsLockedLayer({
     return lockedLayer(command.layerId) && !isUnlockOnly({ patch: command.patch })
   }
 
-  if (command.type === 'removeLayer' || command.type === 'updateText') {
+  if (command.type === 'removeLayer' || command.type === 'updateText' || command.type === 'moveLayerToPanel') {
     return lockedLayer(command.layerId)
   }
 
@@ -278,6 +280,26 @@ function applyToDocument({
       })
     }
     return next
+  }
+
+  if (command.type === 'moveLayerToPanel') {
+    const placed = command.patch
+      ? applyToDocument({ document: next, command: { type: 'updateLayer', layerId: command.layerId, patch: command.patch } })
+      : next
+    const index = placed.layers.findIndex((layer) => layer.id === command.layerId)
+    const layer = placed.layers[index]
+
+    if (!layer || (layer.kind !== 'graphic' && layer.kind !== 'text' && layer.kind !== 'pattern')) {
+      return placed
+    }
+
+    if (layer.panel !== command.panel) {
+      // On top of its new panel's stack.
+      placed.layers.splice(index, 1)
+      placed.layers.push({ ...layer, panel: command.panel })
+    }
+
+    return placed
   }
 
   if (command.type === 'setStructural') {

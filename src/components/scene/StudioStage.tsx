@@ -394,7 +394,8 @@ function LandingCameraSeat({
   cameraView,
   modelFrame,
 }: {
-  cameraView: LandingCameraView
+  /** None: seat the three-quarter view once, then leave the camera to the orbit. */
+  cameraView?: LandingCameraView
   /** The real tee's bounds: its own fitted seats, not the drawn tee's. */
   modelFrame?: ModelFrame
 }) {
@@ -406,8 +407,28 @@ function LandingCameraSeat({
       }
     | null
     | undefined
+  const seated = useRef(false)
 
   useLayoutEffect(() => {
+    if (!cameraView) {
+      // The landing owns its camera (no pull back to a seat), so it is placed
+      // once where the studio's camera would start, and the orbit takes over.
+      if (seated.current || !controls) {
+        return
+      }
+
+      const start = modelFrame ? modelSeat({ preset: 'threeQuarter', frame: modelFrame, live: true }) : null
+      const seat = start?.seat ?? STUDIO_CAMERA.position
+      const target = start?.target ?? STUDIO_CAMERA.target
+      camera.position.set(seat[0], seat[1], seat[2])
+      camera.lookAt(target[0], target[1], target[2])
+      controls.target.set(target[0], target[1], target[2])
+      controls.update()
+      seated.current = true
+      return
+    }
+
+    seated.current = true
     // The studio's own seats for a real model. The landing's Left and Right
     // are the wearer's sides; the studio's sleeve seats are named by render
     // panel (render `left` is the wearer's right), hence the mapping.
@@ -479,6 +500,7 @@ export function StudioOrbit({
   zoom = true,
   cameraView,
   modelFrame,
+  onTurn,
 }: {
   intro?: boolean
   turntable?: boolean
@@ -487,6 +509,11 @@ export function StudioOrbit({
   cameraView?: LandingCameraView
   /** With `cameraView`: the real model whose seats the views use. */
   modelFrame?: ModelFrame
+  /**
+   * The landing: its camera is seated here (a view, or the start), and a
+   * drag by hand calls this, so the held side lets go and the tee turns.
+   */
+  onTurn?: () => void
 }) {
   const reducedMotion = prefersReducedMotion()
   const [enabled, setEnabled] = useState(() => !intro || reducedMotion)
@@ -499,7 +526,8 @@ export function StudioOrbit({
   // A graphic being dragged across the cloth holds the view as ink does.
   const draggingLayer = useEditorStore((state) => state.activeLayerEdit !== null)
   const controlsRef = useRef<{ enabled: boolean } | null>(null)
-  const orbitEnabled = enabled && !painting && !draggingLayer && !capturingAngles && !lockedView
+  // A held view doesn't disable the orbit: a drag lets go of it (`onTurn`).
+  const orbitEnabled = enabled && !painting && !draggingLayer && !capturingAngles
 
   // Ink or a dragged graphic holds the cloth: stand the orbit down in the
   // same pointer event, and give it back only when the press lets go.
@@ -533,7 +561,7 @@ export function StudioOrbit({
 
   return (
     <>
-      {cameraView ? <LandingCameraSeat cameraView={cameraView} modelFrame={modelFrame} /> : null}
+      {cameraView || onTurn ? <LandingCameraSeat cameraView={cameraView} modelFrame={modelFrame} /> : null}
       <OrbitControls
         autoRotate={
           turntable && spinning && enabled && !capturingAngles && !lockedView
@@ -551,6 +579,7 @@ export function StudioOrbit({
         minPolarAngle={Math.PI / 4}
         onStart={() => {
           setSpinning(false)
+          onTurn?.()
         }}
         onEnd={() => {
           if (turntable && !reducedMotion && !lockedView) {

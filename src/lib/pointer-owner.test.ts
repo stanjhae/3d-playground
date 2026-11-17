@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clothPaintActive, resetClothPointer, startClothPaint } from './cloth-pointer'
 import { useEditorStore } from './editor-store'
@@ -63,6 +63,35 @@ describe('pointer ownership', () => {
 
     expect(claimDrawingPointer(FINGER)).toBe(false)
     expect(store().activeStroke).not.toBeNull()
+  })
+})
+
+describe('releasing the gesture', () => {
+  beforeEach(() => {
+    vi.stubGlobal('window', new EventTarget())
+    resetPointerOwner()
+  })
+
+  afterEach(() => {
+    resetPointerOwner()
+    vi.unstubAllGlobals()
+  })
+
+  const lift = (type: string, pointerId: number) => Object.assign(new Event(type), { pointerId })
+
+  it('ends when the owner loses pointer capture', () => {
+    claimDrawingPointer(PEN)
+    window.dispatchEvent(lift('lostpointercapture', FINGER.pointerId))
+    expect(isOtherPointer({ pointerId: FINGER.pointerId })).toBe(true)
+
+    window.dispatchEvent(lift('lostpointercapture', PEN.pointerId))
+    expect(isOtherPointer({ pointerId: FINGER.pointerId })).toBe(false)
+  })
+
+  it('ends when the window loses focus', () => {
+    claimDrawingPointer(PEN)
+    window.dispatchEvent(new Event('blur'))
+    expect(isOtherPointer({ pointerId: FINGER.pointerId })).toBe(false)
   })
 })
 
