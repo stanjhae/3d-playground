@@ -59,10 +59,10 @@ const VIEW_LABEL: Record<(typeof LANDING_CAMERA_VIEWS)[number], string> = {
  * them to the aspects.
  */
 export const PAD_ASPECT_CLASS: Record<string, string> = {
-  front: 'aspect-[0.628]',
-  back: 'aspect-[0.629]',
-  left: 'aspect-[1.204]',
-  right: 'aspect-[1.398]',
+  front: 'aspect-[0.813]',
+  back: 'aspect-[0.761]',
+  left: 'aspect-[1.31]',
+  right: 'aspect-[1.443]',
 }
 
 /** What a dragged graphic carries: its library path. */

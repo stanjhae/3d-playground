@@ -788,6 +788,15 @@ function layerPatchChanges({
     return true
   }
 
+  if (patch.scaleY !== undefined && layer.kind !== 'pattern' && patch.scaleY !== (patch.scale ?? layer.scale) && patch.scaleY !== layer.scaleY) {
+    return true
+  }
+
+  // Back to uniform: a stretched layer given its width as its height.
+  if (patch.scaleY !== undefined && layer.kind !== 'pattern' && layer.scaleY !== undefined && patch.scaleY === (patch.scale ?? layer.scale)) {
+    return true
+  }
+
   if (patch.rotation !== undefined && patch.rotation !== layer.rotation) {
     return true
   }
@@ -1872,7 +1881,15 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       return {
         activeLayerEdit: panel
           ? { ...edit, panel, surface: teeActive() ? renderPanelSurface({ panel, template: tee.stack.document.template }) : undefined }
-          : { layerId: edit.layerId, x: edit.x, y: edit.y, scale: edit.scale, rotation: edit.rotation },
+          : {
+              layerId: edit.layerId,
+              x: edit.x,
+              y: edit.y,
+              scale: edit.scale,
+              rotation: edit.rotation,
+              // A stretch in hand (edge handle, or a free corner) stays with the edit.
+              ...(edit.scaleY !== undefined ? { scaleY: edit.scaleY } : {}),
+            },
       }
     })
   },
@@ -1910,7 +1927,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             type: 'moveLayerToPanel',
             layerId: edit.layerId,
             panel: edit.panel,
-            patch: { x: edit.x, y: edit.y, scale: edit.scale, rotation: edit.rotation },
+            patch: {
+              x: edit.x,
+              y: edit.y,
+              scale: edit.scale,
+              rotation: edit.rotation,
+              ...(edit.scaleY !== undefined ? { scaleY: edit.scaleY } : {}),
+            },
           },
         })
 
@@ -1947,6 +1970,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             y: edit.y,
             scale: edit.scale,
             rotation: edit.rotation,
+            // A stretch (edge handle, or a free corner) in the same one step.
+            ...(edit.scaleY !== undefined ? { scaleY: edit.scaleY } : {}),
           },
         },
       })

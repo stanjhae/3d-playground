@@ -209,6 +209,14 @@ export type PatternLayer = {
    * keeps the legacy stamp: a 64px tile scaled to the stamp.
    */
   period?: number
+  /**
+   * A base stripe or check on a template that places its panels in one
+   * print space (`frame`, the tee's `@6`): the pattern covers the whole
+   * panel and is phased from that space's origin rather than the stamp's
+   * corner, at the canonical `angle`, so it lines up across the side seams.
+   * `mirrorX` says the panel renders mirrored (render x = 1 − canonical x).
+   */
+  garmentPhase?: { frame: { x0: number; x1: number; y0: number; y1: number }; mirrorX: boolean; angle: number }
 }
 
 export type DesignLayer =

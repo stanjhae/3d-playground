@@ -39,6 +39,7 @@ Run it on the exact commit to be tagged, in the main checkout.
 **Build and tests**
 - [ ] `pnpm install --frozen-lockfile`
 - [ ] `pnpm lint` and `pnpm audit --audit-level high` are clean
+  - Exceptions live in `pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`), each with its reason. Only one so far: **GHSA-fc5q-39xc-vjpf** (picomatch ReDoS, 17 Nov 2026), which has no patched release. It reaches only the build tools (Vite, Tailwind, tinyglobby); nothing in production depends on it and it only ever matches the build's own fixed patterns. Remove the exception when a fixed picomatch ships (Dependabot will propose it).
 - [ ] `pnpm build` (route generation, typecheck, Vite) is clean, and `node scripts/check-budgets.mjs` passes (JS and GLB budgets, also in the CI `check` job)
 - [ ] `pnpm test`
 - [ ] `supabase test db`: **Result: PASS**

@@ -22,7 +22,7 @@ import { textFaceState } from './text-faces.ts'
  * (`atlas-goldens.test.ts`) fails until it is bumped, and stored renders
  * carry it so an older drawing can be told apart (C2).
  */
-export const ATLAS_COMPILER_VERSION = 1
+export const ATLAS_COMPILER_VERSION = 2
 
 /**
  * `fallback`: everything is drawn, but a font missed its load, so some words

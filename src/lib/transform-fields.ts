@@ -10,8 +10,11 @@ import { HOUSE_COPY } from './house-copy'
 
 export type TransformKey = 'x' | 'y' | 'scale' | 'rotation'
 
+/** A word's or image's own width and height (stretch one side, W). */
+export type SizeKey = 'width' | 'height'
+
 export type TransformField = {
-  key: TransformKey
+  key: TransformKey | SizeKey
   /** The visible name, which also names the slider. */
   name: string
   /** Accessible name of the number box: the visible name and its unit. */
@@ -35,7 +38,7 @@ const degrees = {
 }
 
 /** The same ranges as the inspector's sliders. */
-export const TRANSFORM_FIELDS: Record<TransformKey, TransformField> = {
+export const TRANSFORM_FIELDS: Record<TransformKey | SizeKey, TransformField> = {
   x: {
     key: 'x',
     name: `${HOUSE_COPY.position} X`,
@@ -60,6 +63,26 @@ export const TRANSFORM_FIELDS: Record<TransformKey, TransformField> = {
     label: `${HOUSE_COPY.size}, percent`,
     unit: '%',
     min: 5,
+    max: 80,
+    ...percent,
+  },
+  // Stretch one side (W): a word's or image's width (`scale`) and height
+  // (`scaleY`) on their own, in the same percent as Size.
+  width: {
+    key: 'width',
+    name: 'Width',
+    label: 'Width, percent',
+    unit: '%',
+    min: 4,
+    max: 80,
+    ...percent,
+  },
+  height: {
+    key: 'height',
+    name: 'Height',
+    label: 'Height, percent',
+    unit: '%',
+    min: 4,
     max: 80,
     ...percent,
   },

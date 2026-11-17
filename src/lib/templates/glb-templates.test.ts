@@ -1,3 +1,5 @@
+import { NodeIO } from '@gltf-transform/core'
+import { KHRDracoMeshCompression } from '@gltf-transform/extensions'
 import { describe, expect, test } from 'vitest'
 
 import { createEmptyCanonicalDocument, validateCanonicalDocument } from '../canonical-document'
@@ -9,6 +11,7 @@ import { resolveTemplate, TEE_CREW_SHORT_V3, templateForGarment, type TemplateMa
 import { HOODIE_V1 } from './hoodie'
 import { TEE_CREW_SHORT_V4 } from './tee-v4'
 import { TEE_CREW_SHORT_V5 } from './tee-v5'
+import { TEE_CREW_SHORT_V6 } from './tee-v6'
 import { COAT_V1 } from './coat'
 import { GOWN_V1 } from './gown'
 import { MIXED_V1 } from './mixed'
@@ -40,7 +43,7 @@ function glbJson({ bytes }: { bytes: Uint8Array }) {
 
 const TEMPLATES: Array<{ manifest: TemplateManifest; panels: string[] }> = [
   { manifest: HOODIE_V1, panels: ['front', 'back', 'left', 'right', 'hood-left', 'hood-right'] },
-  { manifest: TEE_CREW_SHORT_V5, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: TEE_CREW_SHORT_V6, panels: ['front', 'back', 'left', 'right'] },
   { manifest: MIXED_V1, panels: ['front', 'back', 'left', 'right'] },
   { manifest: COAT_V1, panels: ['front', 'back', 'left', 'right'] },
   { manifest: SUIT_V1, panels: ['front', 'back', 'left', 'right'] },
@@ -240,6 +243,101 @@ describe('tee-crew-short@4, kept for the designs pinned to it', () => {
 
     expect(TEE_CREW_SHORT_V5.regions.front!.renderPanel).toBe(TEE_CREW_SHORT_V4.regions.front!.renderPanel)
     expect(TEE_CREW_SHORT_V5.regions.left!.renderPanel).toBe(TEE_CREW_SHORT_V4.regions.left!.renderPanel)
+  })
+})
+
+describe('tee-crew-short@5, kept for the designs pinned to it', () => {
+  test('still resolves, and its GLB is unchanged', async () => {
+    expect(resolveTemplate({ id: 'tee-crew-short', version: 5 })).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V5 })
+    const digest = await crypto.subtle.digest('SHA-256', await readBytes({ path: `public${TEE_CREW_SHORT_V5.geometry.file}` }))
+    const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+    expect(sha256).toBe(TEE_CREW_SHORT_V5.geometry.sha256)
+  })
+})
+
+/** Per mesh node: how many triangles, and how many print (their print UVs aren't −1). */
+async function printedTriangles({ file }: { file: string }) {
+  // @ts-expect-error untyped CommonJS module
+  const draco3d = (await import('draco3dgltf')) as { default: { createDecoderModule: () => Promise<unknown> } }
+  const io = new NodeIO()
+    .registerExtensions([KHRDracoMeshCompression])
+    .registerDependencies({ 'draco3d.decoder': await draco3d.default.createDecoderModule() })
+  const document = await io.readBinary(await readBytes({ path: `public${file}` }))
+  const out: Record<string, { triangles: number; printed: number }> = {}
+
+  for (const node of document.getRoot().listNodes()) {
+    for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
+      const uv = primitive.getAttribute('TEXCOORD_1')!
+      const indices = primitive.getIndices()!.getArray()!
+      const entry = (out[node.getName()] ??= { triangles: 0, printed: 0 })
+
+      for (let corner = 0; corner < indices.length; corner += 3) {
+        entry.triangles += 1
+        if (uv.getElement(indices[corner]!, [0, 0])[0]! >= 0) entry.printed += 1
+      }
+    }
+  }
+
+  return out
+}
+
+describe('tee-crew-short@6: the sides print (seam gaps, 17 Nov)', () => {
+  test('front and back wrap round the body, so nearly all of the torso prints, where @5 left its sides bare', async () => {
+    const v5 = await printedTriangles({ file: TEE_CREW_SHORT_V5.geometry.file })
+    const v6 = await printedTriangles({ file: TEE_CREW_SHORT_V6.geometry.file })
+
+    for (const node of ['body-front', 'body-back']) {
+      const before = v5[node]!.printed / v5[node]!.triangles
+      const after = v6[node]!.printed / v6[node]!.triangles
+      // @5 dropped the cloth turned away from a flat view: about a sixth of each side.
+      expect(before, node).toBeLessThan(0.9)
+      // @6 leaves only a few triangles at the armhole and hem folds.
+      expect(after, node).toBeGreaterThan(0.99)
+    }
+
+    // The sleeves' inner seam is unrolled too, so they print more than before.
+    expect(v6['body-sleeves']!.printed).toBeGreaterThan(v5['body-sleeves']!.printed)
+    // The collar is no panel, on either version.
+    expect(v6['body-collar']!.printed).toBe(0)
+  }, 30_000)
+
+  test('front and back are unrolled to the side seams, and each panel carries its print-space frame', () => {
+    for (const panel of ['front', 'back'] as const) {
+      expect(TEE_CREW_SHORT_V5.regions[panel]!.notes[0]).toMatch(/^Planar print/)
+      expect(TEE_CREW_SHORT_V6.regions[panel]!.notes[0]).toMatch(/^Wrapped round the body/)
+      // Unrolled, the body is wider than its flat view.
+      expect(TEE_CREW_SHORT_V6.regions[panel]!.surface!.panelAspect).toBeGreaterThan(TEE_CREW_SHORT_V5.regions[panel]!.surface!.panelAspect)
+    }
+
+    const perMetre = ({ uv, frame }: { uv: { v0: number; v1: number }; frame?: { y0: number; y1: number } }) => ((uv.v1 - uv.v0) * 2048) / (frame!.y1 - frame!.y0)
+    for (const [id, region] of Object.entries(TEE_CREW_SHORT_V6.regions)) {
+      const { frame, uv } = region
+      expect(frame!.x1, id).toBeGreaterThan(frame!.x0)
+      // One shared scale up the garment, so bands keep their width on every panel.
+      expect(perMetre(region), id).toBeCloseTo(perMetre(TEE_CREW_SHORT_V6.regions.front!), 0)
+      // Each rectangle has its frame's shape, except the back, which spans the front's seam-to-seam width.
+      if (id !== 'back') expect((uv.u1 - uv.u0) / (uv.v1 - uv.v0), id).toBeCloseTo((frame!.x1 - frame!.x0) / (frame!.y1 - frame!.y0), 2)
+    }
+
+    // Canonical x runs toward the wearer's left on both from the wearer's
+    // right seam to the left one, so a pattern phased from the origin meets
+    // itself at both side seams.
+    const { front, back } = TEE_CREW_SHORT_V6.regions
+    expect(front!.frame!.x0).toBeLessThan(0)
+    expect(front!.frame!.x1).toBeGreaterThan(0)
+    expect([back!.frame!.x0, back!.frame!.x1]).toEqual([front!.frame!.x0, front!.frame!.x1])
+    // The back's own arc is within a tenth of the front's.
+    const backWidth = ((back!.uv.u1 - back!.uv.u0) * 2048) / perMetre(back!)
+    expect(backWidth / (front!.frame!.x1 - front!.frame!.x0)).toBeGreaterThan(0.9)
+    // The bake pads panels wider apart, so their edges can bleed (paint-atlas.ts).
+    expect(TEE_CREW_SHORT_V6.regions.back!.uv.u0 * 2048).toBeGreaterThanOrEqual(16 - 1e-3)
+  })
+
+  test('renders the same panels as @5', () => {
+    for (const panel of ['front', 'back', 'left', 'right'] as const) {
+      expect(TEE_CREW_SHORT_V6.regions[panel]!.renderPanel).toBe(TEE_CREW_SHORT_V5.regions[panel]!.renderPanel)
+      expect(TEE_CREW_SHORT_V6.regions[panel]!.renderMirrorX).toBe(TEE_CREW_SHORT_V5.regions[panel]!.renderMirrorX)
+    }
   })
 })
 

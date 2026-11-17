@@ -25,6 +25,7 @@ type Layer = {
   x: number
   y: number
   scale: number
+  scaleY?: number
   rotation: number
   color?: string
   content?: string
@@ -117,12 +118,22 @@ async function handles({ page, layer, panel = 'Front' }: { page: Page; layer: La
     body: { x: frame.x, y: frame.y },
     scale: { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 },
     rotate: { x: frame.x, y: frame.y - frame.height / 2 - frame.rotateGap },
+    // Mid-edge handles (stretch one side); unturned layers only.
+    right: { x: frame.x + frame.width / 2, y: frame.y },
+    top: { x: frame.x, y: frame.y - frame.height / 2 },
   }
   const screen = (point: { x: number; y: number }) => ({
     x: box.x + (point.x / size.width) * box.width,
     y: box.y + (point.y / size.height) * box.height,
   })
-  return { pixels, body: screen(pixels.body), scale: screen(pixels.scale), rotate: screen(pixels.rotate) }
+  return {
+    pixels,
+    body: screen(pixels.body),
+    scale: screen(pixels.scale),
+    rotate: screen(pixels.rotate),
+    right: screen(pixels.right),
+    top: screen(pixels.top),
+  }
 }
 
 async function pixelAt({ page, panel = 'Front', point }: { page: Page; panel?: Panel; point: { x: number; y: number } }) {
@@ -220,8 +231,8 @@ test('the move, resize and rotate handles show on the selected layer and do thei
   expect((await layers({ page, kind: 'image' }))[0]!.scale).toBe(turned.scale)
 })
 
-test('resizing an image scales both sides together', async ({ page }) => {
-  test.setTimeout(120_000)
+test('the corner scales an image on both sides together; an edge stretches only its own side', async ({ page }) => {
+  test.setTimeout(150_000)
   await openDesign({ page, label: 'uniform' })
   const base64 = await page.evaluate(async () => {
     const canvas = document.createElement('canvas')
@@ -257,7 +268,7 @@ test('resizing an image scales both sides together', async ({ page }) => {
         }
       }
 
-      return { width: right - left + 1, height: bottom - top + 1 }
+      return { left, right, top, bottom, width: right - left + 1, height: bottom - top + 1 }
     })
   await expect.poll(async () => (await magentaBox()).width).toBeGreaterThan(5)
   const small = await magentaBox()
@@ -271,7 +282,75 @@ test('resizing an image scales both sides together', async ({ page }) => {
   expect(large.width).toBeGreaterThan(small.width)
   expect(large.width / large.height).toBeGreaterThan((small.width / small.height) * 0.95)
   expect(large.width / large.height).toBeLessThan((small.width / small.height) * 1.05)
-  expect((await layers({ page, kind: 'image' }))[0]!.aspect).toBe(2)
+  const uniform = (await layers({ page, kind: 'image' }))[0]!
+  expect(uniform.aspect).toBe(2)
+  // The corner keeps it uniform: no stretch is stored.
+  expect(uniform.scaleY).toBeUndefined()
+
+  // The right edge makes it wider only; its left edge stays where it was.
+  const edges = await handles({ page, layer: uniform })
+  await drag({ page, from: edges.right, to: { x: edges.right.x + 16, y: edges.right.y } })
+  await saved({ read: async () => (await layers({ page, kind: 'image' }))[0]!.scale }).toBeGreaterThan(uniform.scale)
+  const wider = (await layers({ page, kind: 'image' }))[0]!
+  // The height is stored as it was, so the width alone changed.
+  expect(wider.scaleY).toBeCloseTo(uniform.scale, 6)
+  expect(wider.x).toBeGreaterThan(uniform.x)
+  await expect.poll(async () => (await magentaBox()).width).toBeGreaterThan(large.width + 4)
+  const stretched = await magentaBox()
+  expect(Math.abs(stretched.left - large.left)).toBeLessThanOrEqual(2)
+  expect(Math.abs(stretched.height - large.height)).toBeLessThanOrEqual(2)
+
+  // The top edge makes it taller only; its bottom edge stays.
+  const tallHandles = await handles({ page, layer: wider })
+  await drag({ page, from: tallHandles.top, to: { x: tallHandles.top.x, y: tallHandles.top.y - 12 } })
+  await saved({ read: async () => (await layers({ page, kind: 'image' }))[0]!.scaleY }).toBeGreaterThan(wider.scaleY!)
+  const taller = (await layers({ page, kind: 'image' }))[0]!
+  expect(taller.scale).toBeCloseTo(wider.scale, 6)
+  await expect.poll(async () => (await magentaBox()).height).toBeGreaterThan(stretched.height + 4)
+  const tall = await magentaBox()
+  expect(Math.abs(tall.bottom - stretched.bottom)).toBeLessThanOrEqual(2)
+  expect(Math.abs(tall.width - stretched.width)).toBeLessThanOrEqual(2)
+
+  // Each drag is one undo step.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await page.keyboard.press('ControlOrMeta+z')
+  await saved({ read: async () => (await layers({ page, kind: 'image' }))[0]!.scaleY }).toBeCloseTo(wider.scaleY!, 6)
+})
+
+test('width and height take exact values, together or on their own', async ({ page }) => {
+  test.setTimeout(120_000)
+  await openDesign({ page, label: 'widthheight' })
+  await addWord({ page, word: 'TALL' })
+  await saved({ read: async () => (await layers({ page, kind: 'text' })).length }).toBe(1)
+  const start = (await layers({ page, kind: 'text' }))[0]!
+  const width = page.getByRole('textbox', { name: 'Width, percent' })
+  const height = page.getByRole('textbox', { name: 'Height, percent' })
+  const keep = page.getByRole('button', { name: 'Keep proportions' })
+  await expect(width).toHaveValue(String(Math.round(start.scale * 1000) / 10))
+  await expect(keep).toHaveAttribute('aria-pressed', 'true')
+
+  // With proportions kept, a new width scales the height with it: still uniform.
+  await width.fill('20')
+  await width.press('Enter')
+  await saved({ read: async () => (await layers({ page, kind: 'text' }))[0]!.scale }).toBeCloseTo(0.2, 6)
+  expect((await layers({ page, kind: 'text' }))[0]!.scaleY).toBeUndefined()
+  await expect(height).toHaveValue('20')
+
+  // On their own, the height changes and the width stays.
+  await keep.click()
+  await expect(keep).toHaveAttribute('aria-pressed', 'false')
+  await height.fill('35')
+  await height.press('Enter')
+  await saved({ read: async () => (await layers({ page, kind: 'text' }))[0]!.scaleY }).toBeCloseTo(0.35, 6)
+  expect((await layers({ page, kind: 'text' }))[0]!.scale).toBeCloseTo(0.2, 6)
+  // Arrows step it by one, like the other fields.
+  await height.press('ArrowUp')
+  await saved({ read: async () => (await layers({ page, kind: 'text' }))[0]!.scaleY }).toBeCloseTo(0.36, 6)
+
+  // Given its width again, it is uniform once more.
+  await height.fill('20')
+  await height.press('Enter')
+  await saved({ read: async () => (await layers({ page, kind: 'text' }))[0]!.scaleY }).toBeUndefined()
 })
 
 test('switching panels keeps each layer, its values and the chosen tool settings', async ({ page }) => {

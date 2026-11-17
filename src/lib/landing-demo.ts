@@ -378,10 +378,10 @@ export const LANDING_VIEW_PANEL: Record<LandingCameraView, PanelId> = {
  * landing-demo.test.ts checks them against the template the hero renders.
  */
 export const LANDING_PANEL_ASPECT: Record<string, number> = {
-  front: 0.628,
-  back: 0.629,
-  left: 1.204,
-  right: 1.398,
+  front: 0.813,
+  back: 0.761,
+  left: 1.31,
+  right: 1.443,
 }
 
 /**

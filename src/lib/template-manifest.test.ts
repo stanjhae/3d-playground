@@ -10,7 +10,7 @@ import {
   TEE_CREW_SHORT_V1,
   TEE_CREW_SHORT_V2,
   TEE_CREW_SHORT_V3,
-  TEE_CREW_SHORT_V5,
+  TEE_CREW_SHORT_V6,
   resolveTemplate,
 } from './template-manifest'
 
@@ -205,7 +205,7 @@ describe('resolveTemplate', () => {
     const { template } = createEmptyCanonicalDocument()
 
     // The real T-shirt; @1–@3 stay procedural for the designs made on them.
-    expect(resolveTemplate(template)).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V5 })
+    expect(resolveTemplate(template)).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V6 })
   })
 
   test('keeps @1 so documents saved before #165 still open', () => {

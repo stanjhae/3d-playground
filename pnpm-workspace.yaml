@@ -1,0 +1,7 @@
+# Settings only (one package). Audit exceptions: docs/release.md, release checklist.
+auditConfig:
+  ignoreGhsas:
+    # picomatch ReDoS (17 Nov 2026), no patched release yet. Build tooling only
+    # (Vite, Tailwind, tinyglobby): nothing in production depends on it and it
+    # never sees user input. Remove once a fixed picomatch ships.
+    - GHSA-fc5q-39xc-vjpf

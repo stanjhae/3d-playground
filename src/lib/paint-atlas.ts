@@ -2,6 +2,7 @@ import type { DesignDocument, DesignLayer, Stroke } from './design-document'
 import { imageBox } from './canonical-document'
 import { MAX_ART_MAP_CHARS, isSafeDataImage } from './look-thumbnail'
 import {
+  DEFAULT_PANEL_UV,
   atlasPixelForUv,
   atlasSourceRect,
   panelPointToUv,
@@ -754,6 +755,11 @@ function drawPeriodicPattern({
     return
   }
 
+  if (layer.garmentPhase) {
+    drawGarmentPhasedPattern({ buffer, layer, phase: layer.garmentPhase, period, color: { r, g, b, a: alpha } })
+    return
+  }
+
   const origin = panelPointToUv({ panel: layer.panel, x: layer.x, y: layer.y, rects: buffer.panelUv })
   const pixel = atlasPixelForUv({
     u: origin.u,
@@ -788,6 +794,54 @@ function drawPeriodicPattern({
 
       if (periodicInk({ patternId: layer.patternId, x: x / band, y: y / band })) {
         writePixel({ buffer, index: (row * buffer.width + column) * 4, r, g, b, a: alpha })
+      }
+    }
+  }
+}
+
+/**
+ * A base stripe or check phased from the garment's print-space origin
+ * (seam gaps, 17 Nov): each atlas pixel of the panel is placed in that
+ * space through the panel's `frame`, so the front's and back's bands meet
+ * at the side seams instead of each starting from its own panel's corner.
+ * The repeat is the same `period` in atlas widths as the stamped pattern.
+ */
+function drawGarmentPhasedPattern({
+  buffer,
+  layer,
+  phase,
+  period,
+  color,
+}: {
+  buffer: AtlasBuffer
+  layer: Extract<DesignLayer, { kind: 'pattern' }>
+  phase: NonNullable<Extract<DesignLayer, { kind: 'pattern' }>['garmentPhase']>
+  period: number
+  color: { r: number; g: number; b: number; a: number }
+}) {
+  const rect = atlasSourceRect({ panel: layer.panel, width: buffer.width, height: buffer.height, rects: buffer.panelUv })
+  const clip = buffer.clip ?? panelPixelBox({ buffer, panel: layer.panel })
+  const { frame } = phase
+  // Atlas pixels per metre of print space. Panels share one scale up the
+  // garment, so this is the same on every panel and the bands keep their
+  // width; across, the frame may be stretched a little to meet a seam.
+  const perY = rect.sourceHeight / Math.max(1e-6, frame.y1 - frame.y0)
+  const band = Math.max(1, (period * buffer.width) / 2)
+  const cos = Math.cos(-phase.angle)
+  const sin = Math.sin(-phase.angle)
+
+  for (let row = Math.max(0, clip.y0); row < Math.min(buffer.height, clip.y1); row += 1) {
+    // Canonical y runs up, atlas rows down: measured downward from the origin.
+    const y = -(frame.y1 - ((row + 0.5 - rect.sourceY) / rect.sourceHeight) * (frame.y1 - frame.y0)) * perY
+
+    for (let column = Math.max(0, clip.x0); column < Math.min(buffer.width, clip.x1); column += 1) {
+      const across = (column + 0.5 - rect.sourceX) / rect.sourceWidth
+      const x = (frame.x0 + (phase.mirrorX ? 1 - across : across) * (frame.x1 - frame.x0)) * perY
+      const u = x * cos - y * sin
+      const v = x * sin + y * cos
+
+      if (periodicInk({ patternId: layer.patternId, x: u / band, y: v / band })) {
+        writePixel({ buffer, index: (row * buffer.width + column) * 4, ...color })
       }
     }
   }
@@ -996,6 +1050,39 @@ function clipsPanels({ document }: { document: DesignDocument }) {
   return document.garmentId === 'tee' || Boolean(document.panelUv)
 }
 
+type PixelBox = NonNullable<AtlasBuffer['clip']>
+
+/**
+ * A panel's atlas rectangle in whole pixels (end-exclusive), rounded
+ * outward so the texels its UVs reach at the rim are drawn, not left as
+ * a 1 px unprinted line. An edge that would reach into a neighbouring
+ * panel's rectangle (the procedural tee's panels touch) rounds as before.
+ */
+function panelPixelBox({ buffer, panel }: { buffer: AtlasBuffer; panel: Stroke['panel'] }): PixelBox {
+  const rects = buffer.panelUv ?? DEFAULT_PANEL_UV
+  const own = atlasSourceRect({ panel, width: buffer.width, height: buffer.height, rects })
+  const others = (Object.keys(rects) as Array<Stroke['panel']>)
+    .filter((other) => other !== panel && rects[other])
+    .map((other) => atlasSourceRect({ panel: other, width: buffer.width, height: buffer.height, rects }))
+  const overlaps = ({ x0, y0, x1, y1 }: PixelBox) =>
+    others.some((rect) => x0 < rect.sourceX + rect.sourceWidth && x1 > rect.sourceX && y0 < rect.sourceY + rect.sourceHeight && y1 > rect.sourceY)
+  const left = own.sourceX
+  const top = own.sourceY
+  const right = own.sourceX + own.sourceWidth
+  const bottom = own.sourceY + own.sourceHeight
+  const x0 = Math.floor(left)
+  const y0 = Math.floor(top)
+  const x1 = Math.ceil(right)
+  const y1 = Math.ceil(bottom)
+
+  return {
+    x0: x0 < left && overlaps({ x0, y0: top, x1: left, y1: bottom }) ? Math.round(left) : x0,
+    y0: y0 < top && overlaps({ x0: left, y0, x1: right, y1: top }) ? Math.round(top) : y0,
+    x1: x1 > right && overlaps({ x0: right, y0: top, x1, y1: bottom }) ? Math.round(right) : x1,
+    y1: y1 > bottom && overlaps({ x0: left, y0: bottom, x1: right, y1 }) ? Math.round(bottom) : y1,
+  }
+}
+
 /**
  * The same pixels, with writes limited to one panel's atlas rectangle, so
  * a mark near an edge never lands on a neighbouring panel (E02 #153).
@@ -1007,17 +1094,79 @@ function clipToPanel({
   buffer: AtlasBuffer
   panel: Stroke['panel']
 }): AtlasBuffer {
-  const rect = atlasSourceRect({ panel, width: buffer.width, height: buffer.height, rects: buffer.panelUv })
+  return { ...buffer, clip: panelPixelBox({ buffer, panel }) }
+}
 
-  return {
-    ...buffer,
-    clip: {
-      x0: Math.round(rect.sourceX),
-      y0: Math.round(rect.sourceY),
-      x1: Math.round(rect.sourceX + rect.sourceWidth),
-      y1: Math.round(rect.sourceY + rect.sourceHeight),
-    },
-  }
+/** How far each panel's edge pixels bleed into the gap around it: 8 px at 1024, 16 at 2048. */
+export function bleedRadius({ width }: { width: number }) {
+  return Math.max(2, Math.ceil(width / 128))
+}
+
+/**
+ * Bleeds each panel's edge pixels outward into the empty atlas around it,
+ * up to `bleedRadius` (seam gaps, 17 Nov). The garment's print UVs reach
+ * the very rim of each rectangle, and the texture's filtering and mip
+ * levels blend in texels beyond it; without this they found transparent
+ * padding, so ink faded at a panel's edge and left a pale line along a seam.
+ *
+ * Only the band around each rectangle is visited. Marks are clipped to their
+ * panel, so nothing else is drawn there; a band pixel is rewritten from the
+ * edge every time, which keeps a live stroke's bleed current. A pixel
+ * between two panels takes the nearer panel's edge, so neighbours split
+ * the gap and never bleed into each other.
+ */
+export function bleedPanels({ buffer, panels }: { buffer: AtlasBuffer; panels?: ReadonlyArray<Stroke['panel']> }) {
+  const rects = buffer.panelUv ?? DEFAULT_PANEL_UV
+  const ids = (Object.keys(rects) as Array<Stroke['panel']>).filter((panel) => rects[panel])
+  const boxes = ids.map((panel) => panelPixelBox({ buffer, panel }))
+  const radius = bleedRadius({ width: buffer.width })
+  const { width, height, pixels } = buffer
+  const distance = (box: PixelBox, column: number, row: number) =>
+    Math.max(box.x0 - column, column - (box.x1 - 1), box.y0 - row, row - (box.y1 - 1), 0)
+
+  boxes.forEach((box, index) => {
+    if (panels && !panels.includes(ids[index]!)) {
+      return
+    }
+
+    const row0 = Math.max(0, box.y0 - radius)
+    const row1 = Math.min(height, box.y1 + radius)
+    const column0 = Math.max(0, box.x0 - radius)
+    const column1 = Math.min(width, box.x1 + radius)
+    // Neighbours close enough to contest the band; an even split goes to the earlier panel.
+    const near = boxes
+      .map((other, which) => ({ other, earlier: which < index }))
+      .filter(({ other }, which) => which !== index && other.x0 - radius < column1 && other.x1 + radius > column0 && other.y0 - radius < row1 && other.y1 + radius > row0)
+
+    for (let row = row0; row < row1; row += 1) {
+      const inside = row >= box.y0 && row < box.y1
+      const sourceRow = Math.min(box.y1 - 1, Math.max(box.y0, row))
+
+      for (let column = column0; column < column1; column += 1) {
+        // Inside the rectangle: skip straight to its right-hand band.
+        if (inside && column >= box.x0 && column < box.x1) {
+          column = box.x1 - 1
+          continue
+        }
+
+        const index4 = (row * width + column) * 4
+        const own = distance(box, column, row)
+
+        if (near.some(({ other, earlier }) => {
+          const theirs = distance(other, column, row)
+          return theirs < own || (earlier && theirs === own)
+        })) {
+          continue
+        }
+
+        const source = (sourceRow * width + Math.min(box.x1 - 1, Math.max(box.x0, column))) * 4
+        pixels[index4] = pixels[source]!
+        pixels[index4 + 1] = pixels[source + 1]!
+        pixels[index4 + 2] = pixels[source + 2]!
+        pixels[index4 + 3] = pixels[source + 3]!
+      }
+    }
+  })
 }
 
 /** The smallest clip holding all of these, or null for none. */
@@ -1162,6 +1311,10 @@ export function rasterizeLayers({
   // starts a new layer is drawn on top, where that layer will be.
   if (extraStroke && !liveEraser && !liveDrawn) {
     drawStroke({ buffer: target(extraStroke), stroke: extraStroke })
+  }
+
+  if (clipsPanels({ document })) {
+    bleedPanels({ buffer })
   }
 
   return buffer
@@ -1393,6 +1546,9 @@ export function createLiveAtlas({ enabled = true }: { enabled?: boolean } = {}) 
         compositeRegion({ dest: out, source: layerOwn, region, opacity: plan.opacity })
       }
     }
+
+    // Only the stroke's panel changed, so only its edge bleeds again.
+    bleedPanels({ buffer: out, panels: [extraStroke.panel] })
 
     return out
   }

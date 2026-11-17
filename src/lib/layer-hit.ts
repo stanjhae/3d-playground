@@ -12,7 +12,21 @@ import { DEFAULT_PANEL_UV } from './panel-uv'
 
 export type PlaceableLayer = GraphicLayer | TextLayer | PatternLayer
 
-export type LayerHandle = 'move' | 'scale' | 'rotate'
+/** A side of the selection box: dragging it stretches only that side (W). */
+export type LayerEdge = 'left' | 'right' | 'top' | 'bottom'
+
+export type LayerHandle = 'move' | 'scale' | 'rotate' | LayerEdge
+
+export const LAYER_EDGES: readonly LayerEdge[] = ['left', 'right', 'top', 'bottom']
+
+export function isEdgeHandle(handle: LayerHandle | null): handle is LayerEdge {
+  return handle === 'left' || handle === 'right' || handle === 'top' || handle === 'bottom'
+}
+
+/** Words and images stretch (canonical `scaleY`); patterns stay square. */
+export function layerStretches({ layer }: { layer: PlaceableLayer }) {
+  return layer.kind === 'graphic' || layer.kind === 'text'
+}
 
 export type LayerEdit = {
   layerId: string
@@ -24,6 +38,8 @@ export type LayerEdit = {
   panel?: PanelId
   /** That panel's surface, so the frame is measured on it while dragged. */
   surface?: PanelSurface
+  /** Height scale while stretching; absent keeps the layer's own. */
+  scaleY?: number
 }
 
 export const LAYER_ROTATE_GAP = 0.04
@@ -135,6 +151,15 @@ export function layerHandleLocal({
   return {
     scale: { x: box.width / 2, y: -box.height / 2 },
     rotate: { x: 0, y: rotateHandleBelow({ layer }) ? -rotateY : rotateY },
+    // Mid-edge handles (stretch one side, W), only where the layer stretches.
+    ...(layerStretches({ layer })
+      ? {
+          left: { x: -box.width / 2, y: 0 },
+          right: { x: box.width / 2, y: 0 },
+          top: { x: 0, y: box.height / 2 },
+          bottom: { x: 0, y: -box.height / 2 },
+        }
+      : {}),
   }
 }
 
@@ -212,7 +237,8 @@ export function placeablePoseMatches({
     layer.x === edit.x &&
     layer.y === edit.y &&
     layer.scale === edit.scale &&
-    layer.rotation === edit.rotation
+    layer.rotation === edit.rotation &&
+    (edit.scaleY === undefined || layer.kind === 'pattern' || (layer.scaleY ?? layer.scale) === edit.scaleY)
   )
 }
 
@@ -362,15 +388,28 @@ export function hitLayerHandle({
   const half = layerHalf({ layer })
   const handles = layerHandleLocal({ layer })
   const pad = Math.max(0.03, Math.min(half.width, half.height) * 0.45)
+  // Edge handles sit between the corner and the rotate handle, so they reach less far.
+  const edgePad = Math.max(0.025, Math.min(half.width, half.height) * 0.3)
+  // The nearest handle within reach wins, so the top edge and the rotate
+  // handle just above it can each be grabbed.
+  let nearest: { handle: LayerHandle; distance: number } | null = null
 
-  if (
-    Math.hypot(local.x - handles.scale.x, local.y - handles.scale.y) < pad
-  ) {
-    return 'scale'
+  for (const handle of ['scale', 'rotate', ...LAYER_EDGES] as const) {
+    const at = handles[handle]
+
+    if (!at) {
+      continue
+    }
+
+    const distance = Math.hypot(local.x - at.x, local.y - at.y)
+
+    if (distance < (isEdgeHandle(handle) ? edgePad : pad) && (!nearest || distance < nearest.distance)) {
+      nearest = { handle, distance }
+    }
   }
 
-  if (Math.hypot(local.x - handles.rotate.x, local.y - handles.rotate.y) < pad) {
-    return 'rotate'
+  if (nearest) {
+    return nearest.handle
   }
 
   if (Math.abs(local.x) <= half.width && Math.abs(local.y) <= half.height) {
@@ -406,21 +445,29 @@ export function applyLayerEdit({
         return layer
       }
 
-      const moved =
+      const carried =
         edit.panel && edit.panel !== layer.panel
           ? layer.kind === 'pattern'
             ? { panel: edit.panel }
             : { panel: edit.panel, surface: edit.surface }
           : {}
 
-      return {
+      const moved = {
         ...layer,
-        ...moved,
+        ...carried,
         x: edit.x,
         y: edit.y,
         scale: edit.scale,
         rotation: edit.rotation,
       } as PlaceableLayer
+
+      if (edit.scaleY === undefined || moved.kind === 'pattern') {
+        return moved
+      }
+
+      // A stretch drawn live; back to square, it is uniform again.
+      const { scaleY: _previous, ...uniform } = moved
+      return (edit.scaleY === edit.scale ? uniform : { ...uniform, scaleY: edit.scaleY }) as PlaceableLayer
     }),
   }
 }
@@ -456,4 +503,100 @@ export function layerVoice({
   }
 
   return 'Look'
+}
+
+/** The smallest and largest a drag may make a side (as `scale` and `scaleY`). */
+export const LAYER_SCALE_RANGE = { min: 0.04, max: 0.6 } as const
+
+function clampScale(value: number) {
+  return Math.min(LAYER_SCALE_RANGE.max, Math.max(LAYER_SCALE_RANGE.min, value))
+}
+
+/**
+ * Dragging one edge of a layer (stretch one side, W): only that side moves.
+ * The opposite edge stays where it was, so the centre moves half as far,
+ * along the layer's own axis (its rotation measured on the cloth). Left and
+ * right change `scale` (the width), top and bottom `scaleY` (the height).
+ * `from` and `to` are the pointer at the start and now, in panel units.
+ */
+export function stretchEdge({
+  layer,
+  edge,
+  from,
+  to,
+}: {
+  layer: PlaceableLayer
+  edge: LayerEdge
+  from: { x: number; y: number }
+  to: { x: number; y: number }
+}): Omit<LayerEdit, 'layerId'> {
+  const aspect = panelTrueAspect({ layer })
+  const box = layerBox({ layer })
+  const scaleY = layer.kind === 'pattern' ? layer.scale : (layer.scaleY ?? layer.scale)
+  const cos = Math.cos(layer.rotation)
+  const sin = Math.sin(layer.rotation)
+  // The pointer's travel on the cloth (x in true proportions), along the layer's axes.
+  const dx = (to.x - from.x) * aspect
+  const dy = to.y - from.y
+  const along = edge === 'left' || edge === 'right' ? dx * cos + dy * sin : -dx * sin + dy * cos
+  const sign = edge === 'right' || edge === 'top' ? 1 : -1
+  const horizontal = edge === 'left' || edge === 'right'
+  // The side's length now, in true units; at least the smallest a layer may be.
+  const length = horizontal ? box.width * aspect : box.height
+  const start = horizontal ? layer.scale : scaleY
+  const next = clampScale(start * Math.max(0.01, (length + sign * along) / Math.max(1e-6, length)))
+  // Measured on the new box, since a box never gets smaller than its minimum.
+  const after = layerBox({ layer: { ...layer, ...(horizontal ? { scale: next } : layer.kind === 'pattern' ? { scale: next } : { scaleY: next }) } as PlaceableLayer })
+  const grown = (horizontal ? after.width * aspect : after.height) - length
+  // The centre follows the moving side by half its growth.
+  const shift = (sign * grown) / 2
+  const x = layer.x + (horizontal ? shift * cos : -shift * sin) / aspect
+  const y = layer.y + (horizontal ? shift * sin : shift * cos)
+
+  return {
+    x: Math.min(1, Math.max(0, x)),
+    y: Math.min(1, Math.max(0, y)),
+    rotation: layer.rotation,
+    scale: horizontal ? next : layer.scale,
+    scaleY: horizontal ? scaleY : next,
+  }
+}
+
+/**
+ * Dragging the corner: uniform, about the centre, so a stretched layer
+ * keeps its proportions (`scaleY` follows `scale`). With `free` (Shift),
+ * width and height follow the pointer separately.
+ */
+export function scaleCorner({
+  layer,
+  from,
+  to,
+  free = false,
+}: {
+  layer: PlaceableLayer
+  from: { x: number; y: number }
+  to: { x: number; y: number }
+  free?: boolean
+}): Omit<LayerEdit, 'layerId'> {
+  const scaleY = layer.kind === 'pattern' ? layer.scale : (layer.scaleY ?? layer.scale)
+  const pose = { x: layer.x, y: layer.y, rotation: layer.rotation }
+
+  if (free && layerStretches({ layer })) {
+    const start = toLocal({ layer, x: from.x, y: from.y })
+    const now = toLocal({ layer, x: to.x, y: to.y })
+    const width = clampScale(layer.scale * (Math.abs(now.x) / Math.max(0.01, Math.abs(start.x))))
+    const height = clampScale(scaleY * (Math.abs(now.y) / Math.max(0.01, Math.abs(start.y))))
+    return { ...pose, scale: width, scaleY: height }
+  }
+
+  const ratio = Math.hypot(to.x - layer.x, to.y - layer.y) / Math.max(0.02, Math.hypot(from.x - layer.x, from.y - layer.y))
+  // Clamped so neither side leaves the range, and the proportions hold.
+  const most = LAYER_SCALE_RANGE.max / Math.max(layer.scale, scaleY)
+  const least = LAYER_SCALE_RANGE.min / Math.min(layer.scale, scaleY)
+  const k = Math.min(most, Math.max(least, ratio))
+  const scale = layer.scale * k
+
+  return layer.kind !== 'pattern' && layer.scaleY !== undefined
+    ? { ...pose, scale, scaleY: layer.scaleY * k }
+    : { ...pose, scale }
 }
