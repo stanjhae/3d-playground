@@ -16,7 +16,7 @@ import { useEditorStore } from '../../lib/editor-store'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useStudioMode } from '../../lib/studio-mode'
 import { HOUSE_COPY } from '../../lib/house-copy'
-import { type PlaceableLayer, layerMostlyOffPanel, layerVoice } from '../../lib/layer-hit'
+import { type PlaceableLayer, layerMostlyOffPanel, layerStretches, layerVoice } from '../../lib/layer-hit'
 import { LOCKED_REASON, layerLockMessage } from '../../lib/layer-list'
 import { announce } from '../../lib/studio-announcer'
 import { revealInScroller } from '../../lib/reveal-in-scroller'
@@ -31,7 +31,9 @@ import {
   TRANSFORM_FIELDS,
   formatField,
   parseField,
+  roundPlacement,
   stepField,
+  type SizeKey,
   type TransformKey,
 } from '../../lib/transform-fields'
 
@@ -53,7 +55,7 @@ function TransformNumber({
   value,
   onCommit,
 }: {
-  fieldKey: TransformKey
+  fieldKey: TransformKey | SizeKey
   value: number
   onCommit: ({ value }: { value: number }) => void
 }) {
@@ -175,6 +177,8 @@ export function TechInspector() {
   const [draft, setDraft] = useState<DraftPose | null>(null)
   const pro = useStudioMode((state) => state.pro)
   const lockReasonId = useId()
+  // W and H move together until this is turned off (stretch one side, W).
+  const [keepProportions, setKeepProportions] = useState(true)
 
   // On a phone the tools scroll under the cloth: bring a fresh selection's
   // size, angle and Remove into view.
@@ -257,7 +261,12 @@ export function TechInspector() {
         setDraft((current) =>
           current ? { ...current, [key]: value } : current,
         )
-        commitDraft({ patch: { [key]: value } })
+        // Size scales a stretched item as a whole: its height keeps its share.
+        const stretch =
+          key === 'scale' && selected.kind !== 'pattern' && selected.scaleY !== undefined
+            ? { scaleY: roundPlacement({ value: (value * selected.scaleY) / selected.scale }) }
+            : {}
+        commitDraft({ patch: { [key]: value, ...stretch } })
       },
     }
   }
@@ -357,6 +366,55 @@ export function TechInspector() {
           {pro ? numberField({ key: 'scale' }) : null}
         </div>
       </div>
+      {layerStretches({ layer: selected }) && selected.kind !== 'pattern' ? (
+        <div role="group" aria-label="Width and height" className="flex flex-col gap-1">
+          <span className={cn('text-flv-muted', chromeTextClass())}>Width and height</span>
+          <div className="flex flex-wrap items-start gap-2">
+            {(['width', 'height'] as const).map((key) => {
+              const width = selected.scale
+              const height = selected.scaleY ?? selected.scale
+              return (
+                <span key={key} className="flex items-start gap-1">
+                  <span aria-hidden className="pt-2 font-body text-xs text-flv-muted">
+                    {key === 'width' ? 'W' : 'H'}
+                  </span>
+                  <TransformNumber
+                    key={`${selected.id}-${key}`}
+                    fieldKey={key}
+                    value={key === 'width' ? width : height}
+                    onCommit={({ value }) => {
+                      const patch: LayerPatch =
+                        key === 'width'
+                          ? keepProportions
+                            ? { scale: value, scaleY: roundPlacement({ value: (value * height) / width }) }
+                            : { scale: value, scaleY: height }
+                          : keepProportions
+                            ? { scale: roundPlacement({ value: (value * width) / height }), scaleY: value }
+                            : { scaleY: value }
+                      setDraft((current) => (current && patch.scale !== undefined ? { ...current, scale: patch.scale } : current))
+                      commitDraft({ patch })
+                    }}
+                  />
+                </span>
+              )
+            })}
+            <button
+              type="button"
+              aria-pressed={keepProportions}
+              onClick={() => {
+                setKeepProportions((current) => !current)
+              }}
+              className={cn(
+                'min-h-9 border border-flv-line px-2 text-flv-muted hover:text-flv-accent',
+                chromeTextClass(),
+                { 'border-flv-accent text-flv-accent': keepProportions },
+              )}
+            >
+              Keep proportions
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-1">
         <span className={cn('text-flv-muted', chromeTextClass())}>
           {HOUSE_COPY.rotation}

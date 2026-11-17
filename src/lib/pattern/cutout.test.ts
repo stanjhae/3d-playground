@@ -153,6 +153,7 @@ describe('patterns without holes are untouched', () => {
     'tailored@1': '466447b9',
     'tee-crew-short@4': '0ad31dd6',
     'tee-crew-short@5': '0ad31dd6',
+    'tee-crew-short@6': '0ad31dd6',
     'trousers@1': '3c48fa2c',
     'vest@1': '8d98e9da',
   }

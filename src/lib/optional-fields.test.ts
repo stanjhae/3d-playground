@@ -365,18 +365,20 @@ describe('reader R2', () => {
     }
   })
 
-  test('tee-crew-short@6 is readable, not current, and opens as "needs a newer version"', async () => {
+  test('tee-crew-short@6, read since R2, is baked now: current, and it opens', async () => {
     const document = { ...createEmptyCanonicalDocument(), template: { id: 'tee-crew-short', version: 6 } }
     const resolved = resolveTemplate(document.template)
 
-    expect(isUpcomingTemplateVersion(document.template)).toBe(true)
-    expect(currentTemplateFor({ templateId: 'tee-crew-short' }).version).toBe(5)
+    // The seam-gaps writer baked it, so it is no longer upcoming.
+    expect(isUpcomingTemplateVersion(document.template)).toBe(false)
+    expect(currentTemplateFor({ templateId: 'tee-crew-short' }).version).toBe(6)
     expect(issuesOf(document)).toEqual([])
-    expect(resolved.ok).toBe(false)
-    expect(!resolved.ok && resolved.message).toMatch(/needs a newer version/)
+    expect(resolved.ok).toBe(true)
     expect(garmentOfTemplate(document.template)).toBe('tee')
-    // The server never stores what no build it knows can open, as for every unknown version.
-    expect((await prepareContent({ value: document })).ok).toBe(false)
+    expect((await prepareContent({ value: document })).ok).toBe(true)
+    // An unbaked version still reads as "this app cannot open".
+    const later = resolveTemplate({ id: 'tee-crew-short', version: 7 })
+    expect(!later.ok && later.message).toMatch(/cannot open/)
   })
 })
 
@@ -464,7 +466,7 @@ describe('drawing reader R2', () => {
   })
 })
 
-test('uniform layers on tee @2, @4 and @5 draw exactly as before reader R2', async () => {
+test('uniform layers on tee @2, @4 and @5 draw exactly as pinned', async () => {
   const out: string[] = []
 
   for (const version of [2, 4, 5]) {
@@ -490,10 +492,14 @@ test('uniform layers on tee @2, @4 and @5 draw exactly as before reader R2', asy
     out.push([...digest].map((byte) => byte.toString(16).padStart(2, '0')).join(''))
   }
 
-  // Pinned before reader R2: stripes, flipped, tall and missing images, a word.
+  // Pinned before reader R2: stripes, flipped, tall and missing images, a
+  // word. R2 drew them bit for bit the same. The seam-gaps writer (atlas
+  // compiler 2) re-approved @4 and @5: their panels now bleed into the
+  // padding round them and clip edges round outward. @2's panels touch, so
+  // it has no padding to bleed into and draws as before.
   expect(out).toEqual([
     'a8e543d224554ae9d9a42a1a6db664ec17e232606a99d4236048592af2cbcb12',
-    '3ffc50299c83479c3cd90a34abb2f595b23a9964dace2c2fdcb506901fee1d9b',
-    '70100dafdee4bfe36c0d9c06c4cea8f4e38872e1eef6ba60685a22da5c462979',
+    '49852e3926b3dc8f13b5d14968d9a5de6535a086aa5dcb33b89c93a67d7891a1',
+    'fd2821aae78a782c6576cb9fbf0415df55d3553c354f8e140d1778be9b397fbe',
   ])
 })

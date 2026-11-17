@@ -30,7 +30,11 @@ import {
   panelTrueAspect,
   hitLayerHandle,
   hitPlaceableLayer,
+  isEdgeHandle,
+  layerStretches,
   layerVoice,
+  scaleCorner,
+  stretchEdge,
   placedType,
   wordEditShouldCommit,
   wordEditorWidth,
@@ -77,6 +81,8 @@ type DragState = {
   moved: boolean
   layerKind: PlaceableLayer['kind']
   panel: PanelId
+  /** The layer as it was at pointer-down, which corner and edge drags measure from. */
+  startLayer: PlaceableLayer
 }
 
 function panelFromEvent({
@@ -218,6 +224,20 @@ function paintPanelSurface({
     context.beginPath()
     context.arc(0, -frame.height / 2 - frame.rotateGap, 5, 0, Math.PI * 2)
     context.fill()
+
+    // Mid-edge handles stretch one side (W): squares, told apart from the round corner.
+    if (layerStretches({ layer: selected })) {
+      context.fillStyle = '#ffffff'
+      for (const [x, y] of [
+        [-frame.width / 2, 0],
+        [frame.width / 2, 0],
+        [0, -frame.height / 2],
+        [0, frame.height / 2],
+      ] as const) {
+        context.fillRect(x - 4, y - 4, 8, 8)
+        context.strokeRect(x - 4, y - 4, 8, 8)
+      }
+    }
     context.restore()
   }
 }
@@ -553,6 +573,7 @@ function PaintSurface({
           moved: false,
           layerKind: selected.kind,
           panel,
+          startLayer: selected,
         }
         startLayerEdit({
           edit: {
@@ -595,6 +616,7 @@ function PaintSurface({
         moved: false,
         layerKind: hit.kind,
         panel,
+        startLayer: hit,
       }
       startLayerEdit({
         edit: {
@@ -702,24 +724,32 @@ function PaintSurface({
       }
 
       if (drag.handle === 'scale') {
-        const startDist = Math.hypot(
-          drag.originX - drag.startX,
-          drag.originY - drag.startY,
-        )
-        const nextDist = Math.hypot(point.x - drag.startX, point.y - drag.startY)
+        // Uniform about the centre; Shift lets width and height go their own ways.
         moveLayerEdit({
           edit: {
             layerId: selected.id,
-            x: drag.startX,
-            y: drag.startY,
-            scale: Math.min(
-              0.6,
-              Math.max(
-                0.04,
-                drag.startScale * (nextDist / Math.max(0.02, startDist)),
-              ),
-            ),
-            rotation: drag.startRotation,
+            ...scaleCorner({
+              layer: drag.startLayer,
+              from: { x: drag.originX, y: drag.originY },
+              to: point,
+              free: event.shiftKey,
+            }),
+          },
+        })
+        return
+      }
+
+      if (isEdgeHandle(drag.handle)) {
+        // One side only: the opposite edge stays put.
+        moveLayerEdit({
+          edit: {
+            layerId: selected.id,
+            ...stretchEdge({
+              layer: drag.startLayer,
+              edge: drag.handle,
+              from: { x: drag.originX, y: drag.originY },
+              to: point,
+            }),
           },
         })
         return

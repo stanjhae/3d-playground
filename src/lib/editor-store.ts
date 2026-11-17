@@ -714,6 +714,15 @@ function layerPatchChanges({
     return true
   }
 
+  if (patch.scaleY !== undefined && layer.kind !== 'pattern' && patch.scaleY !== (patch.scale ?? layer.scale) && patch.scaleY !== layer.scaleY) {
+    return true
+  }
+
+  // Back to uniform: a stretched layer given its width as its height.
+  if (patch.scaleY !== undefined && layer.kind !== 'pattern' && layer.scaleY !== undefined && patch.scaleY === (patch.scale ?? layer.scale)) {
+    return true
+  }
+
   if (patch.rotation !== undefined && patch.rotation !== layer.rotation) {
     return true
   }
@@ -1663,6 +1672,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             y: edit.y,
             scale: edit.scale,
             rotation: edit.rotation,
+            // A stretch (edge handle, or a free corner) in the same one step.
+            ...(edit.scaleY !== undefined ? { scaleY: edit.scaleY } : {}),
           },
         },
       })

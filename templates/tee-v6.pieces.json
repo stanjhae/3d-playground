@@ -1,0 +1,63 @@
+{
+  "$comment": "Tee @6: the @4 model with front and back wrapped round the body to the side seams, so the sides, shoulder tops and underarms print (founder, 17 Nov: seam gaps); sleeves wrapped all round with the inner seam closed; wider atlas padding for edge bleed. @4 and @5 stay as they are.",
+  "templateId": "tee-crew-short",
+  "version": 6,
+  "garmentId": "tee",
+  "glb": "public/models/tee-real.glb",
+  "out": "public/models/tee-real-v6.glb",
+  "manifest": "src/lib/templates/tee-v6.ts",
+  "atlas": 2048,
+  "color": "#ffffff",
+  "facingMin": 0.05,
+  "padding": 16,
+  "closeSleeveSeam": true,
+  "frames": true,
+  "panels": [
+    {
+      "id": "front",
+      "label": "Front",
+      "view": "front",
+      "pieces": [
+        {
+          "node": "body-front"
+        }
+      ],
+      "wrap": "torso"
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "view": "back",
+      "pieces": [
+        {
+          "node": "body-back"
+        }
+      ],
+      "wrap": "torso"
+    },
+    {
+      "id": "left",
+      "label": "Left sleeve",
+      "view": "left",
+      "pieces": [
+        {
+          "node": "body-sleeves",
+          "piece": "+x"
+        }
+      ],
+      "wrap": true
+    },
+    {
+      "id": "right",
+      "label": "Right sleeve",
+      "view": "right",
+      "pieces": [
+        {
+          "node": "body-sleeves",
+          "piece": "-x"
+        }
+      ],
+      "wrap": true
+    }
+  ]
+}

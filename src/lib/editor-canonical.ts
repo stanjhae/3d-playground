@@ -253,6 +253,10 @@ function translatePatch({
   if (patch.scale !== undefined) {
     next.scale = Math.min(CANONICAL_LIMITS.maxObjectScale, Math.max(0.01, patch.scale))
   }
+  // Stretch one side (W): images and words only; patterns have no height of their own.
+  if (patch.scaleY !== undefined && (kind === 'image' || kind === 'text')) {
+    next.scaleY = Math.min(CANONICAL_LIMITS.maxObjectScale, Math.max(0.01, patch.scaleY))
+  }
   if (patch.rotation !== undefined) next.rotation = wrapAngle({ value: patch.rotation })
   // Flips are about the item's own axes, so a mirrored panel keeps them as they are.
   if (patch.flipX !== undefined) next.flipX = patch.flipX

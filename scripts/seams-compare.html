@@ -1,0 +1,114 @@
+<!doctype html>
+<!--
+  A dev-only page (never built) that shows the tee's @5 and @6 side by side,
+  printed the way the studio prints them (`toRenderDocument`,
+  `rasterizeLayers`, `bindInkMap`): a stripe base and a word near the
+  wearer's left side seam, from the front, three-quarters and the side.
+  Cloth that never prints shows the ground colour with no stripes.
+
+    pnpm dev, then open /scripts/seams-compare.html
+
+  docs/evidence/seams-*.png were taken from it (seam gaps, 17 Nov).
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seam comparison</title>
+    <style>
+      body { margin: 0; background: #f4f1ec; font: 14px/1.4 system-ui, sans-serif; color: #222; }
+      #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 8px; }
+      figure { margin: 0; background: #fff; border-radius: 6px; overflow: hidden; }
+      figcaption { padding: 6px 10px; border-bottom: 1px solid #eee; }
+      canvas { display: block; width: 100%; aspect-ratio: 3 / 4; }
+    </style>
+  </head>
+  <body>
+    <div id="grid"></div>
+    <script type="module">
+      import * as THREE from 'three'
+      import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+      import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+      import { createEmptyCanonicalDocument } from '/src/lib/canonical-document.ts'
+      import { toRenderDocument } from '/src/lib/render-projection.ts'
+      import { rasterizeLayers } from '/src/lib/paint-atlas.ts'
+      import { bindInkMap } from '/src/lib/apply-ink.ts'
+      import { resolveTemplate } from '/src/lib/template-manifest.ts'
+
+      const loader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('/draco/'))
+      const VIEWS = [
+        { id: 'front', title: 'front', angle: 0 },
+        { id: 'three-quarter', title: 'three-quarters, wearer’s left', angle: Math.PI / 4 },
+        { id: 'side', title: 'side, wearer’s left', angle: Math.PI / 2 },
+      ]
+
+      function design(version) {
+        const document = createEmptyCanonicalDocument({ templateId: 'tee-crew-short', version })
+        document.base = { kind: 'stripes', colors: ['#f3efe6', '#1f3a5f'], period: 0.035, angle: 0 }
+        // Near the wearer's left side seam (canonical x runs toward the wearer's left).
+        document.panels.front.layers = [
+          { id: 'mark', kind: 'text', visible: true, opacity: 1, x: 0.86, y: 0.55, scale: 0.16, rotation: 0, content: 'SEAM', face: 'sans', color: '#c0392b' },
+        ]
+        return toRenderDocument({ document }).document
+      }
+
+      async function garment(version) {
+        const resolved = resolveTemplate({ id: 'tee-crew-short', version })
+        const manifest = resolved.manifest
+        const render = design(version)
+        const buffer = rasterizeLayers({ document: render, width: render.atlasSize, height: render.atlasSize })
+        const canvas = document.createElement('canvas')
+        canvas.width = buffer.width
+        canvas.height = buffer.height
+        canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(buffer.pixels), buffer.width, buffer.height), 0, 0)
+        const ink = new THREE.CanvasTexture(canvas)
+        ink.colorSpace = THREE.SRGBColorSpace
+        const gltf = await loader.loadAsync(manifest.geometry.file)
+        const meshes = []
+        gltf.scene.traverse((child) => {
+          if (!child.isMesh) return
+          child.material = new THREE.MeshStandardMaterial({ color: '#f3efe6', roughness: 0.86, side: THREE.DoubleSide })
+          meshes.push(child)
+        })
+        bindInkMap({ meshes, inkMap: ink, printUv: true })
+        return { scene: gltf.scene, manifest }
+      }
+
+      function view({ id, title, angle, version, model, manifest }) {
+        const figure = document.createElement('figure')
+        figure.dataset.shot = `v${version}-${id}`
+        const caption = document.createElement('figcaption')
+        caption.textContent = `tee-crew-short@${version}, ${title}`
+        const canvas = document.createElement('canvas')
+        figure.append(caption, canvas)
+        document.getElementById('grid').append(figure)
+        const width = 480
+        const height = 640
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
+        renderer.setPixelRatio(1)
+        renderer.setSize(width, height, false)
+        renderer.setClearColor('#ffffff')
+        const scene = new THREE.Scene()
+        scene.add(new THREE.HemisphereLight('#ffffff', '#777777', 2.2))
+        const sun = new THREE.DirectionalLight('#ffffff', 1.4)
+        sun.position.set(Math.sin(angle) * 3, 2, Math.cos(angle) * 3)
+        scene.add(sun)
+        scene.add(model.clone())
+        const { min, max } = manifest.geometry.bounds
+        const centre = new THREE.Vector3((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2)
+        const span = Math.max(max[0] - min[0], (max[1] - min[1]) * 0.75)
+        const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 20)
+        const distance = span * 2.4
+        camera.position.set(centre.x + Math.sin(angle) * distance, centre.y, centre.z + Math.cos(angle) * distance)
+        camera.lookAt(centre)
+        renderer.render(scene, camera)
+      }
+
+      for (const version of [5, 6]) {
+        const { scene, manifest } = await garment(version)
+        for (const entry of VIEWS) view({ ...entry, version, model: scene, manifest })
+      }
+      document.body.dataset.ready = 'true'
+    </script>
+  </body>
+</html>

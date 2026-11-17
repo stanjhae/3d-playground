@@ -34,6 +34,8 @@ export type CanonicalLayerPatch = {
   x?: number
   y?: number
   scale?: number
+  /** Stretch along the layer's own y (reader R2); equal to `scale` makes it uniform again. */
+  scaleY?: number
   rotation?: number
   opacity?: number
   visible?: boolean
@@ -329,8 +331,8 @@ function applyToDocument({
       found.layer.kind === 'paint' || found.layer.kind === 'fill'
         ? ['opacity', 'visible', 'name', 'locked']
         : found.layer.kind === 'image'
-          ? ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked']
-          : ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY', 'locked']
+          ? ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked']
+          : ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY', 'locked']
 
     for (const [key, value] of Object.entries(command.patch)) {
       if (value === undefined) {

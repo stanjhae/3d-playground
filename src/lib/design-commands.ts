@@ -18,6 +18,8 @@ export type LayerPatch = {
   x?: number
   y?: number
   scale?: number
+  /** Height scale of a stretched word or image (canonical `scaleY`); equal to `scale` makes it uniform. */
+  scaleY?: number
   rotation?: number
   opacity?: number
   color?: string
@@ -191,6 +193,15 @@ function applyToDocument({
 
         if (command.patch.scale !== undefined) {
           layer.scale = command.patch.scale
+        }
+
+        if (command.patch.scaleY !== undefined && layer.kind !== 'pattern') {
+          layer.scaleY = command.patch.scaleY
+        }
+
+        // One form per look: a stretch scaled back to square is uniform.
+        if (layer.kind !== 'pattern' && layer.scaleY === layer.scale) {
+          delete layer.scaleY
         }
 
         if (command.patch.rotation !== undefined) {

@@ -133,6 +133,27 @@ Every garment but the hidden house jacket now has a template (the four D1 garmen
 - **Versions.** New designs pin `@5`. Designs on `@4` keep their look; the template upgrade re-pins them with their placements unchanged. `@4`'s GLB is untouched (`glb-templates.test.ts`).
 - **Pattern templates and shape.** The pattern template has a `@5` entry too, with the same pattern and wider sleeve frames. Shape v1 already applies to `@4` and later.
 
+## `tee-crew-short@6`: the sides print, and stripes meet at the seams (17 Nov)
+
+`@5` printed the front and back as flat views: a triangle turned more than about 78° from the view (`FACING_MIN` 0.2) took no print UVs, so the side seams, shoulder tops and underarms never printed, and a fill or stripe base stopped short of the seam (founder, 17 Nov: "gaps between the 2D design areas and the 3D garment"). `@6` is the same model (`public/models/tee-real-v6.glb`, built from `@4`'s GLB by `templates/tee-v6.pieces.json`):
+
+- **Front and back wrap round the body** (`"wrap": "torso"`). `build-template.mjs` measures the torso's cross-section in 2 cm bands (an ellipse per height) and unrolls each panel along it from its centre line, so print x is the arc length round the body. Near the centre it maps as the flat view did; at the sides a centimetre of cloth stays about a centimetre of print instead of being squeezed to nothing. A triangle prints when it faces out from the body's axis (`"facingMin": 0.05`), so the sides, shoulder tops and underarms belong to the front or the back, meeting at the side seam. About 99.5% of the torso's triangles print, against 84% on `@5`; what is left is at the armhole and hem folds.
+- **Sleeves** are wrapped as on `@5`, and `"closeSleeveSeam": true` unrolls the triangles the inner seam runs through past the far edge, so the sleeve has no unprinted strip there.
+- **Wider padding** (`"padding": 16` px between packed panels, against 8), for the atlas bleed below.
+- **Print-space frames.** Each region carries `frame: { x0, x1, y0, y1 }` in metres: canonical x toward the wearer's left, y up. The front's runs seam to seam; the back is given the same span (its own arc is about 7% shorter), so a pattern phased from the origin meets itself at both side seams. `toRenderDocument` passes the frame to the base stripe and check layers (`garmentPhase`), which then cover the whole panel phased from that origin instead of each panel's own corner. Templates without frames draw as before.
+- **Panels.** 63.6 × 69.4 cm (front) and 59.0 × 70.3 cm (back) unrolled, against 43.3 × 69.0 and 44.2 × 70.3 flat; the sleeves are 35.2 × 24.4 and 34.6 × 26.4 cm. At one shared scale the atlas holds 16.3 px per cm (21.0 on `@5`).
+- **Versions.** New tee designs pin `@6`; designs on `@5` and earlier keep their look, and the template upgrade re-pins them with their placements unchanged (a mark keeps its panel coordinates, so on the wider panel it sits a little smaller). `@4`'s and `@5`'s GLBs are untouched (`glb-templates.test.ts`). The pattern template has a `@6` entry with the same recipe.
+- **Comparison.** `scripts/seams-compare.html` prints a stripe base and a word near the wearer's left seam on both versions: `docs/evidence/seams-front.png`, `seams-three-quarter.png` and `seams-side.png`.
+
+### Atlas bleed (atlas compiler 2)
+
+Each panel's ink is clipped to its rectangle, and the garment's print UVs reach its very rim, so texture filtering and the lower mip levels blended in the transparent padding round it: ink faded at a panel's edge and left a pale line along a seam. `rasterizeLayers` now:
+
+- rounds clip edges **outward** (an edge that would reach a neighbouring rectangle, as on the procedural tee, rounds as before), so the rim texels the UVs reach are drawn;
+- **bleeds** each panel's edge pixels into the padding round it, up to `bleedRadius` (`width / 128`: 16 px at 2048), visiting only that band. A pixel between two panels takes the nearer one's edge, so neighbours split the gap. The live stroke cache re-bleeds only the stroke's panel.
+
+The procedural tee (`@1`–`@3`) has no padding, so it draws as before; template-built garments' atlases changed, so `ATLAS_COMPILER_VERSION` is 2 and the goldens were re-approved.
+
 ## Pattern templates (Workflow 1, pattern v1)
 
 Each garment's current template version has a **pattern template**: the sewing pattern a design starts from in Pattern mode, plus a fixed print frame per panel (`src/lib/pattern/templates.ts`). A design records the one it used in `pattern.basis` (`docs/canonical-document.md`).

@@ -203,6 +203,10 @@ export function toRenderDocument({
         opacity: 1,
         visible: true,
         period: base.period,
+        // Templates that place panels in one print space phase it from there.
+        ...(regionOf(panel)?.frame
+          ? { garmentPhase: { frame: { ...regionOf(panel)!.frame! }, mirrorX: regionOf(panel)?.renderMirrorX ?? false, angle } }
+          : {}),
       })
     }
   }

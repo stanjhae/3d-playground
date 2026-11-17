@@ -81,7 +81,12 @@ This release reads four additions. **Nothing writes them yet**: the writers (pla
   - `offsetX` and `offsetY` shift the phase along the pattern's own axes, as a fraction of one repeat, in `(0, 1)`; 0 is left out. `offsetY` runs up, like `y`.
   - Drawing: the repeat is anchored at the panel's centre and drawn at the cloth's proportions (`surface.stretchY`), like a mark. A pattern paints both its ground and its ink, so it hides what is under it; an image fill shows the image's own transparency, and a missing image draws the hatched placeholder. Stripes and checks share the base's ink rule (`periodicInk`). On a mirrored render panel (the back) the rotation and `offsetX` are mirrored, as for marks.
   - A fill has no position, so it is never hit on the panel or the garment: it is selected, hidden, faded, locked, renamed and restacked from the layer list only. `updateLayer` accepts `opacity`, `visible`, `name` and `locked` for it. The layer list names it "Stripe fill", "Check fill" or "Image fill". An image fill's asset counts as a use of that asset, so a save is refused unless the caller owns it, as for an image layer.
-- **`tee-crew-short@6`** (`UPCOMING_TEMPLATE_VERSIONS` in `src/lib/template-manifest.ts`): the tee re-baked with printable sides, which the writer PR bakes. This build has no manifest for it and doesn't make it current, so new designs still pin `@5`. A document pinned to `@6` reads and validates against the tee's panels; opening it reports it as unsupported ("needs a newer version of this app"), exactly as any version this build can't open, and the API refuses to store it until a build with the manifest is deployed.
+- **`tee-crew-short@6`**: the tee re-baked with printable sides. R2 listed it in `UPCOMING_TEMPLATE_VERSIONS`, so a build with R2 and no manifest read it and reported it as unsupported ("needs a newer version of this app").
+
+**Written since the stretch and seam-gaps writer (17 Nov):**
+
+- **`scaleY`** is written by the 2D editor: the mid-edge handles stretch one side (left and right change `scale`, top and bottom `scaleY`, the opposite edge staying put), Shift on the corner sizes width and height freely, and the inspector's Width and Height fields (with Keep proportions) take exact values. `updateLayer` accepts `scaleY` on image and text layers; the corner and Size keep a stretched layer's proportions.
+- **`tee-crew-short@6`** has its manifest (`src/lib/templates/tee-v6.ts`) and is the tee's current version: new tee designs pin it, and designs on `@5` and earlier keep theirs (`docs/template-manifest.md`).
 
 ## Content hashing
 

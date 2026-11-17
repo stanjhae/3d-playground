@@ -1,10 +1,15 @@
 // Packing print panels into a square atlas, shared by build-template.mjs
 // (panel boxes in metres) and bake-pattern-glb.mjs (pattern frames in mm).
 
-const PADDING_PX = 8
+// Transparent gap between packed panels, in atlas pixels. The app bleeds
+// each panel's edge pixels into it (paint-atlas.ts), so a texture sampled at
+// a lower mip level still finds the panel's colour at its rim. A template
+// may ask for more (`"padding"` in its piece map); older bakes keep 8.
+export const PADDING_PX = 8
 
 /** Shelf-pack panel boxes (metres) into a square atlas at the largest shared scale. */
-export function packPanels({ boxes, size }) {
+export function packPanels({ boxes, size, padding = PADDING_PX }) {
+  const PADDING_PX = padding
   const fits = (scale) => {
     const order = boxes
       .map((box, index) => ({ index, width: box.width * scale, height: box.height * scale }))

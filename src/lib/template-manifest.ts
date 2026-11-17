@@ -3,6 +3,7 @@ import type { PanelId, PanelSurface } from './design-document.ts'
 import { HOODIE_V1 } from './templates/hoodie.ts'
 import { TEE_CREW_SHORT_V4 } from './templates/tee-v4.ts'
 import { TEE_CREW_SHORT_V5 } from './templates/tee-v5.ts'
+import { TEE_CREW_SHORT_V6 } from './templates/tee-v6.ts'
 import { MIXED_V1 } from './templates/mixed.ts'
 import { SLIP_V1 } from './templates/slip.ts'
 import { COAT_V1 } from './templates/coat.ts'
@@ -63,6 +64,14 @@ export type TemplateRegion = {
   surface?: PanelSurface
   /** Template-built garments: where the panel sits on the model (metres), for the camera. */
   center?: [number, number, number]
+  /**
+   * From the tee's `@6`: the panel's extent in the garment's print space
+   * (metres). Canonical x runs from `x0` to `x1` toward the wearer's left
+   * (front and back unrolled round the body, so the two meet at the side
+   * seams), y from `y0` at the hem to `y1`. Base stripes and checks are
+   * phased from this space's origin, so they line up across the seams.
+   */
+  frame?: { x0: number; x1: number; y0: number; y1: number }
 }
 
 export type TemplateManifest = {
@@ -262,7 +271,7 @@ export const TEE_CREW_SHORT_V3: TemplateManifest = Object.freeze({
  */
 export const CURRENT_TEMPLATE = TEE_CREW_SHORT_V3
 
-export { TEE_CREW_SHORT_V4, TEE_CREW_SHORT_V5 }
+export { TEE_CREW_SHORT_V4, TEE_CREW_SHORT_V5, TEE_CREW_SHORT_V6 }
 
 /**
  * Every version that saved designs may reference. Never remove entries. New
@@ -270,7 +279,7 @@ export { TEE_CREW_SHORT_V4, TEE_CREW_SHORT_V5 }
  * T-shirt (templates/tee.pieces.json); @1–@3 stay procedural.
  */
 const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
-  'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3, 4: TEE_CREW_SHORT_V4, 5: TEE_CREW_SHORT_V5 },
+  'tee-crew-short': { 1: TEE_CREW_SHORT_V1, 2: TEE_CREW_SHORT_V2, 3: TEE_CREW_SHORT_V3, 4: TEE_CREW_SHORT_V4, 5: TEE_CREW_SHORT_V5, 6: TEE_CREW_SHORT_V6 },
   hoodie: { 1: HOODIE_V1 },
   mixed: { 1: MIXED_V1 },
   slip: { 1: SLIP_V1 },
@@ -311,16 +320,15 @@ export function isUpcomingTemplate({ templateId }: { templateId: unknown }) {
 }
 
 /**
- * Versions of an archived template that a later release bakes (reader R2):
- * the tee's `@6`, re-baked with its sides printable. This build has no
- * manifest for them, so it doesn't make them current or open them. A
+ * Versions of an archived template that a later release bakes. This build
+ * has no manifest for them, so it doesn't make them current or open them. A
  * document pinned to one reads and validates against the panels of the
  * template's current version (a re-bake keeps its panels), and opening it
  * says it needs a newer version, as for any version this build can't open.
+ * Reader R2 named the tee's `@6` here; the seam-gaps writer baked it, so
+ * none is upcoming now.
  */
-export const UPCOMING_TEMPLATE_VERSIONS: Readonly<Record<string, readonly number[]>> = Object.freeze({
-  'tee-crew-short': Object.freeze([6]),
-})
+export const UPCOMING_TEMPLATE_VERSIONS: Readonly<Record<string, readonly number[]>> = Object.freeze({})
 
 export function isUpcomingTemplateVersion({ id, version }: { id: unknown; version: unknown }) {
   return (
