@@ -16,6 +16,7 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+import { SurfaceChooser } from './SurfaceChooser'
 
 const PATTERN_OPTIONS: { id: BasePatternId; label: string }[] = [
   { id: 'solid', label: HOUSE_COPY.solid },
@@ -169,6 +170,7 @@ export function ColorPatternPanel() {
           </button>
         ))}
       </div>
+      <SurfaceChooser />
       {activeFabric ? (
         <div className="flex flex-col gap-2 rounded-xl border border-flv-line p-3">
           <div
