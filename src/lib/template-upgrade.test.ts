@@ -52,7 +52,7 @@ describe('upgradeToCurrentTemplate', () => {
     expect(canUpgradeTemplate({ document: teeOn({ version: 1 }) })).toBe(true)
     if (!result.ok) return
 
-    expect(result.document.template).toEqual({ id: 'tee-crew-short', version: 6 })
+    expect(result.document.template).toEqual({ id: 'tee-crew-short', version: 7 })
     // The front never mirrored: unchanged.
     expect(result.document.panels.front!.layers[0]).toMatchObject({ x: 0.3, rotation: 0.4 })
     // @1 stored the back in render space; @4 mirrors it, so the content flips back.
@@ -72,7 +72,7 @@ describe('upgradeToCurrentTemplate', () => {
     }
   })
 
-  it('moves the real tee @4 and @5 to @6 keeping each mark\'s size and place on the cloth', () => {
+  it('moves the real tee @4 and @5 to @7 keeping each mark\'s size and place on the cloth', () => {
     const to = currentTemplateFor({ templateId: 'tee-crew-short' })
 
     for (const version of [4, 5]) {
@@ -103,14 +103,50 @@ describe('upgradeToCurrentTemplate', () => {
     }
   })
 
+  it('moves the tee @6 to @7: the body is untouched, and a sleeve mark stays where it was on the cloth but now reads upright', () => {
+    const source = teeOn({ version: 6 })
+    source.panels.left!.layers.push(
+      { id: 'word-sleeve', kind: 'text', content: 'FLP', face: 'sans', color: '#111111', visible: true, opacity: 1, x: 0.5, y: 0.8, scale: 0.05, rotation: 0.2 },
+      {
+        id: 'ink-sleeve',
+        kind: 'paint',
+        visible: true,
+        opacity: 1,
+        strokes: [{ id: 's2', tool: 'brush', color: '#111111', width: 4, opacity: 1, points: [0.4, 0.7, 0.5, 0.9] }],
+      },
+    )
+    const result = upgradeToCurrentTemplate({ document: source })
+    expect(result.ok && result.changed).toBe(true)
+    expect(upgradeKeepsSize({ document: source })).toBe(true)
+    if (!result.ok) return
+
+    // Front and back are the same on both: nothing moves.
+    expect(result.document.panels.front).toEqual(source.panels.front)
+    expect(result.document.panels.back).toEqual(source.panels.back)
+
+    // @6 ran the sleeve's panel down the arm, so y 0.8 sat near the cuff; on
+    // @7 (up the arm) the same place is low on the panel. Same size, same turn.
+    const [word, ink] = result.document.panels.left!.layers as unknown as [{ x: number; y: number; scale: number; rotation: number }, { kind: 'paint'; strokes: Array<{ points: number[]; width: number }> }]
+    expect(word.y).toBeLessThan(0.35)
+    expect(Math.abs(word.x - 0.5)).toBeLessThan(0.06)
+    expect(word.scale).toBeCloseTo(0.05, 2)
+    expect(word.rotation).toBe(0.2)
+    // A drawing moves as one piece and keeps its shape: its stroke still rises from first point to last.
+    const [x0, y0, x1, y1] = ink.strokes[0]!.points as [number, number, number, number]
+    expect(y1).toBeGreaterThan(y0)
+    expect((y1 - y0) / (x1 - x0)).toBeCloseTo((0.9 - 0.7) / (0.5 - 0.4), 0)
+    expect((y0 + y1) / 2).toBeLessThan(0.4)
+  })
+
   it('says marks keep their size only when coming from the real tee', () => {
+    expect(upgradeKeepsSize({ document: teeOn({ version: 6 }) })).toBe(true)
     expect(upgradeKeepsSize({ document: teeOn({ version: 5 }) })).toBe(true)
     expect(upgradeKeepsSize({ document: teeOn({ version: 4 }) })).toBe(true)
     expect(upgradeKeepsSize({ document: teeOn({ version: 2 }) })).toBe(false)
   })
 
   it('leaves a design already on the newest version alone', () => {
-    const document = teeOn({ version: 6 })
+    const document = teeOn({ version: 7 })
 
     expect(upgradeToCurrentTemplate({ document })).toEqual({ ok: true, document, changed: false })
     expect(canUpgradeTemplate({ document })).toBe(false)

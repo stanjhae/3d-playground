@@ -18,6 +18,10 @@
 //   axis, seam on the inner side against the body, so filling the sleeve
 //   covers it all round (founder review, 16 Nov). Only the outer layer
 //   prints. Near the outer face it maps as the flat view did.
+// - `"sleeveAxis": "normals"` (tee @7) finds each sleeve's axis from its
+//   surface normals instead of the spread of its vertices, and
+//   `"sleeveFolds": true` prints a one-layer sleeve's fold flanks too (see
+//   `wrapFrame` and the sleeve loop in `build`).
 // - Panels are packed into the atlas at one shared scale, so a mark of the
 //   same size reads the same size on every panel.
 // - Every other vertex gets print UVs of (-1, -1), which the ink shader
@@ -157,6 +161,12 @@ function faceNormal({ world, a, b, c }) {
   return [nx / length, ny / length, nz / length]
 }
 
+function triangleArea({ world, a, b, c }) {
+  const u = [0, 1, 2].map((k) => world[b * 3 + k] - world[a * 3 + k])
+  const v = [0, 1, 2].map((k) => world[c * 3 + k] - world[a * 3 + k])
+  return Math.hypot(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]) / 2
+}
+
 function meshNodes({ document }) {
   return document.getRoot().listNodes().filter((node) => node.getMesh())
 }
@@ -274,19 +284,38 @@ const norm = (a) => {
  * panel's viewer) and the across direction (`across`, the viewer's right),
  * and its mean radius. `project` unrolls a point to (around, up the sleeve).
  */
-function wrapFrame({ points, toward, right }) {
+function wrapFrame({ points, toward, right, normals = null }) {
   const centre = [0, 0, 0]
   for (const point of points) for (let k = 0; k < 3; k += 1) centre[k] += point[k] / points.length
 
-  // Principal axis by power iteration on the covariance.
-  const cov = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-  for (const point of points) {
-    const d = sub(point, centre)
-    for (let i = 0; i < 3; i += 1) for (let j = 0; j < 3; j += 1) cov[i * 3 + j] += d[i] * d[j]
-  }
   let axis = norm([toward[0] + 0.1, -1, toward[2] + 0.1])
-  for (let iteration = 0; iteration < 64; iteration += 1) {
-    axis = norm([0, 1, 2].map((i) => cov[i * 3] * axis[0] + cov[i * 3 + 1] * axis[1] + cov[i * 3 + 2] * axis[2]))
+  if (normals) {
+    // From the surface (`"sleeveAxis": "normals"`, tee @7): a tube's normals
+    // all lie across its axis, so the axis is the direction they leave out,
+    // the least eigenvector of their area-weighted covariance (power
+    // iteration on trace − covariance). The vertices' spread can't tell a
+    // short sleeve's length from its girth: on the tee it came out nearly
+    // vertical on the wearer's left and tilted the wrong way on the right,
+    // so the unroll took the underarm's folds for the inside of the sleeve.
+    const cov = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for (const { normal, area } of normals) {
+      for (let i = 0; i < 3; i += 1) for (let j = 0; j < 3; j += 1) cov[i * 3 + j] += area * normal[i] * normal[j]
+    }
+    const trace = cov[0] + cov[4] + cov[8]
+    const least = cov.map((value, k) => (k % 4 === 0 ? trace : 0) - value)
+    for (let iteration = 0; iteration < 256; iteration += 1) {
+      axis = norm([0, 1, 2].map((i) => least[i * 3] * axis[0] + least[i * 3 + 1] * axis[1] + least[i * 3 + 2] * axis[2]))
+    }
+  } else {
+    // Principal axis by power iteration on the covariance.
+    const cov = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for (const point of points) {
+      const d = sub(point, centre)
+      for (let i = 0; i < 3; i += 1) for (let j = 0; j < 3; j += 1) cov[i * 3 + j] += d[i] * d[j]
+    }
+    for (let iteration = 0; iteration < 64; iteration += 1) {
+      axis = norm([0, 1, 2].map((i) => cov[i * 3] * axis[0] + cov[i * 3 + 1] * axis[1] + cov[i * 3 + 2] * axis[2]))
+    }
   }
   // Shoulder to cuff: away from the body's centre line, the side the viewer stands.
   if (dot(axis, toward) < 0) axis = scale3(axis, -1)
@@ -477,6 +506,46 @@ function torsoFrame({ points }) {
   }
 }
 
+/**
+ * `"sleeveFolds": true` prints every triangle of a wrapped sleeve, which is
+ * right only for one layer of cloth wound one way: no edge shared by more
+ * than two triangles, none crossed the same way by both (a flipped
+ * triangle), and the cloth's front facing out over most of its area (an
+ * inner lining would face in). The bake stops otherwise.
+ */
+function assertOneLayer({ panel, frame, triangles }) {
+  const edges = new Map()
+  const ids = new Map()
+  const id = (world, vertex) => {
+    const key = [0, 1, 2].map((k) => Math.round(world[vertex * 3 + k] * 1e5)).join(',')
+    if (!ids.has(key)) ids.set(key, ids.size)
+    return ids.get(key)
+  }
+  let outward = 0
+  let total = 0
+  for (const { world, vertices } of triangles) {
+    const [a, b, c] = vertices
+    const corners = [a, b, c].map((vertex) => id(world, vertex))
+    for (let corner = 0; corner < 3; corner += 1) {
+      const from = corners[corner]
+      const to = corners[(corner + 1) % 3]
+      const key = from < to ? `${from},${to}` : `${to},${from}`
+      const list = edges.get(key) ?? []
+      list.push(from < to)
+      edges.set(key, list)
+    }
+    const area = triangleArea({ world, a, b, c })
+    const mid = [0, 1, 2].map((k) => (world[a * 3 + k] + world[b * 3 + k] + world[c * 3 + k]) / 3)
+    total += area
+    if (dot(faceNormal({ world, a, b, c }), frame.radial(mid)) > 0) outward += area
+  }
+  for (const list of edges.values()) {
+    if (list.length > 2) throw new Error(`Panel ${panel.id}: sleeveFolds needs one layer of cloth, but an edge joins ${list.length} triangles`)
+    if (list.length === 2 && list[0] === list[1]) throw new Error(`Panel ${panel.id}: sleeveFolds needs the cloth wound one way, but a triangle is flipped`)
+  }
+  if (outward / total < 0.9) throw new Error(`Panel ${panel.id}: sleeveFolds needs the cloth facing out, but only ${((100 * outward) / total).toFixed(1)}% does`)
+}
+
 /** The whole garment's extent, for the camera to fit. */
 function garmentBounds({ document }) {
   const min = [Infinity, Infinity, Infinity]
@@ -653,6 +722,7 @@ async function build({ piecesFile }) {
     // A wrapped sleeve measures its own axis from all of its piece's vertices.
     if (panel.wrap === true) {
       const points = []
+      const normals = []
       for (const pick of panel.pieces) {
         const node = nodes.get(pick.node)
         if (!node) throw new Error(`Panel ${panel.id}: no mesh node ${pick.node}`)
@@ -663,11 +733,19 @@ async function build({ piecesFile }) {
           const keep = keptPiece({ pick, pieces, indices, world })
           for (let triangle = 0; triangle < pieces.length; triangle += 1) {
             if (keep !== null && pieces[triangle] !== keep) continue
-            for (const vertex of indices.slice(triangle * 3, triangle * 3 + 3)) points.push(point(world, vertex))
+            const [a, b, c] = indices.slice(triangle * 3, triangle * 3 + 3)
+            for (const vertex of [a, b, c]) points.push(point(world, vertex))
+            if (spec.sleeveAxis === 'normals') normals.push({ normal: faceNormal({ world, a, b, c }), area: triangleArea({ world, a, b, c }) })
           }
         }
       }
-      frame = wrapFrame({ points, toward, right })
+      // `"mirrorSleeves"` (tee @7): the wearer's right sleeve unrolls in the
+      // left's handedness and is flipped across (below), so the two lay out
+      // as mirror images, the seam's overlap at the back on both.
+      const mirrored = spec.mirrorSleeves && panel.view === 'right'
+      frame = wrapFrame({ points, toward, right: mirrored ? scale3(right, -1) : right, normals: spec.sleeveAxis === 'normals' ? normals : null })
+      frame.mirrored = mirrored
+      if (spec.sleeveFolds) assertOneLayer({ panel, frame, triangles: [...keptTriangles({ panel })] })
     }
 
     const flat = (world, vertex) => [world[vertex * 3] * right[0] + world[vertex * 3 + 1] * right[1] + world[vertex * 3 + 2] * right[2], world[vertex * 3 + 1]]
@@ -678,7 +756,8 @@ async function build({ piecesFile }) {
       : frame
         ? (world, vertex, shift = false) => {
             const [px, py] = frame.project(point(world, vertex))
-            return [shift && frame.angle(point(world, vertex)) < 0 ? px + frame.girth : px, py]
+            const across = shift && frame.angle(point(world, vertex)) < 0 ? px + frame.girth : px
+            return [frame.mirrored ? -across : across, py]
           }
         : flat
     projectors.push(project)
@@ -709,7 +788,10 @@ async function build({ piecesFile }) {
           } else if (frame) {
             // The outer layer only, and not a triangle the seam runs through
             // (unless the piece map closes the seam: then it unrolls past it).
-            if (dot(normal, frame.radial(mid)) < facingMin) continue
+            // A sleeve that is one layer of cloth (`"sleeveFolds": true`,
+            // checked by `assertOneLayer`) prints all of it: a triangle facing
+            // in is the flank of a fold, still the outside of the cloth.
+            if (!spec.sleeveFolds && dot(normal, frame.radial(mid)) < facingMin) continue
             const angles = [a, b, c].map((vertex) => frame.angle(point(world, vertex)))
             if (Math.max(...angles) - Math.min(...angles) > Math.PI) {
               if (!spec.closeSleeveSeam) continue
@@ -742,6 +824,22 @@ async function build({ piecesFile }) {
     if (!Number.isFinite(box.minX)) throw new Error(`Panel ${panel.id}: nothing faces the ${panel.view} view`)
     boxes.push({ ...box, width: box.maxX - box.minX, height: box.maxY - box.minY })
     centers.push([sum.x / sum.count, sum.y / sum.count, sum.z / sum.count].map((value) => round({ value })))
+  }
+
+  // Mirrored sleeves share one box, the right's flipped across, so a point
+  // at x on one panel is the mirror of the point at 1 − x on the other.
+  if (spec.mirrorSleeves) {
+    const left = spec.panels.findIndex((panel) => panel.view === 'left' && panel.wrap === true)
+    const right = spec.panels.findIndex((panel) => panel.view === 'right' && panel.wrap === true)
+    if (left === -1 || right === -1) throw new Error('mirrorSleeves needs a wrapped left and right sleeve')
+    const [a, b] = [boxes[left], boxes[right]]
+    const minX = Math.min(a.minX, -b.maxX)
+    const maxX = Math.max(a.maxX, -b.minX)
+    const minY = Math.min(a.minY, b.minY)
+    const maxY = Math.max(a.maxY, b.maxY)
+    const shared = { minY, maxY, width: maxX - minX, height: maxY - minY }
+    boxes[left] = { ...shared, minX, maxX }
+    boxes[right] = { ...shared, minX: -maxX, maxX: -minX }
   }
 
   // 2. Pack panels at one shared scale.
