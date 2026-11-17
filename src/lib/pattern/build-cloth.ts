@@ -61,6 +61,8 @@ export type ClothPiece = {
   layerOffset?: number
   /** A waistband: the outline run from the first of these points to the second can't drop. */
   waistband?: readonly [string, string]
+  /** Cut-outs, flattened, each clockwise: free edges inside the outline. */
+  holes?: readonly FlatOutline[]
 }
 
 /** How far a waistband may sag below where it was placed. */
@@ -113,6 +115,23 @@ function sampleRun(points: readonly Point2[], count: number): Point2[] {
 
   out.push(points[points.length - 1]!)
   return out
+}
+
+/**
+ * A hole's ring for the mesh: each corner-to-corner part sampled at about
+ * `spacing` on its own, like a free edge of the outline.
+ */
+function holeRing(flat: FlatOutline, spacing: number): Point2[] {
+  const ring: Point2[] = []
+  const count = flat.corners.length
+
+  for (let c = 0; c < count; c += 1) {
+    const part = between(flat, c, (c + 1) % count)
+    const samples = sampleRun(part, Math.max(1, Math.round(polylineLength(part) / spacing)))
+    ring.push(...samples.slice(0, -1))
+  }
+
+  return ring
 }
 
 /** The flattened outline from corner `start` to corner `end`, counter-clockwise, ends included. */
@@ -244,7 +263,10 @@ export function buildCloth({
       }
     }
 
-    const mesh = triangulatePiece({ outline: boundary, spacing })
+    // Each hole is one more boundary ring after the outline's; seams stay on the outline.
+    const holeRings = (piece.holes ?? []).map((hole) => holeRing(hole, spacing))
+    const holePoints = holeRings.reduce((sum, ring) => sum + ring.length, 0)
+    const mesh = triangulatePiece({ outline: boundary, holes: holeRings, spacing })
     const base = positions.length / 3
 
     mesh.points.forEach((p, index) => {
@@ -254,8 +276,11 @@ export function buildCloth({
       pieceOf.push(pieceIndex)
       layerOffset.push(piece.layerOffset ?? 0)
       invMass.push(1 / (piece.massScale ?? 1))
+      // `band` counts the outline then the lattice, as it did before holes:
+      // hole points are never on it.
+      const at = index < boundary.length ? index : index < boundary.length + holePoints ? -1 : index - holePoints
       // The band's last sample is the next run's first point.
-      holdY.push(band.has(index) || (band.has(boundary.length) && index === 0) ? wy - WAISTBAND_SLACK_M : -Infinity)
+      holdY.push(band.has(at) || (band.has(boundary.length) && index === 0) ? wy - WAISTBAND_SLACK_M : -Infinity)
     })
 
     for (const run of runs) {
@@ -397,6 +422,10 @@ export function spacingFor({ pattern }: { pattern: CanonicalPattern }) {
 
   for (const piece of expandPieces({ pattern })) {
     area += Math.abs(signedArea(flattenOutline({ outline: piece.outline }).points))
+
+    for (const hole of piece.holes ?? []) {
+      area -= Math.abs(signedArea(flattenOutline({ outline: hole }).points))
+    }
   }
 
   // A triangular lattice holds one particle per s² · √3/2.
@@ -432,6 +461,7 @@ export function clothFromPattern({
       ...(fabric.massScale !== undefined && fabric.massScale !== 1 ? { massScale: fabric.massScale } : {}),
       layerOffset: layered && !lower(piece.place.anchor) ? LAYER_OFFSET_M : 0,
       waistband: lower(piece.place.anchor) ? waistbandOf(piece) : undefined,
+      holes: piece.holes?.map((hole) => flattenOutline({ outline: hole })),
     }
   })
 

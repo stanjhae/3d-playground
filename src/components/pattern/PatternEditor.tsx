@@ -5,15 +5,22 @@ import { AI_ASSIST } from '../../lib/ai-assist'
 import { cn } from '../../lib/cn'
 import { getCanonicalDocument, useEditorStore } from '../../lib/editor-store'
 import {
+  CUTOUT_SIZE_LIMITS,
   type SheetEdge,
   type SheetPiece,
+  addCutout,
   addPoint,
   checkEdit,
   describeEdge,
+  describeHole,
   edgePath,
+  holeOfPoint,
+  holePath,
   layoutSheet,
+  moveHole,
   movePoint,
   piecePath,
+  removeCutout,
   quickEdit,
   quickEditsFor,
   removePoint,
@@ -25,7 +32,8 @@ import {
 import { getFabricById } from '../../lib/fabrics'
 import { keepsOwnFabric } from '../../lib/pattern/fabric-drape'
 import type { CanonicalPattern } from '../../lib/pattern/pattern-document'
-import { PATTERN_OP_LIMITS, closeSlit } from '../../lib/pattern/pattern-ops'
+import { CUTOUT_SHAPES, type CutoutShape, PATTERN_OP_LIMITS, closeSlit } from '../../lib/pattern/pattern-ops'
+import { PATTERN_LIMITS } from '../../lib/pattern/pattern-document'
 import { patternTemplateFor } from '../../lib/pattern/templates'
 import { usePatternDrape } from '../../lib/pattern-drape-status'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
@@ -36,10 +44,14 @@ const AiAssist = lazy(() => import('./AiAssist'))
 type Selection = { pieceId: string; pointId: string } | null
 /** An edge by its first point's place on the outline; `seamId` follows a seam whose points shift. */
 type EdgeSelection = { pieceId: string; index: number; seamId: string | null } | null
+/** A whole cut-out, by its place in the piece's holes. */
+type HoleSelection = { pieceId: string; hole: number } | null
 type Drag = {
   pieceId: string
   pointId: string
   part: 'point' | 'hi' | 'ho'
+  /** Dragging a whole cut-out (by its outline) rather than a point. */
+  hole?: number
   start: CanonicalPattern
   from: { x: number; y: number }
   /** Screen pixels to sheet millimetres. */
@@ -53,7 +65,9 @@ const PIECE_COLOURS = ['#c2410c', '#1d4ed8', '#15803d', '#a16207', '#7e22ce', '#
  * curve handle) to reshape a piece, or use the quick edits; arrow keys
  * nudge the selected point 1 mm (10 with Shift). Edges are drawn by what
  * sews them: solid in the seam's colour, dashed where open. Select an
- * edge to add a point on it or open a slit in its seam. An edit is
+ * edge to add a point on it or open a slit in its seam. A selected piece
+ * can take a cut-out; drag a cut-out's outline (or its arrow keys) to
+ * move it, or its points to reshape it. An edit is
  * committed as one undo step only if the pattern can still be sewn;
  * otherwise it snaps back and says why. The 3D garment re-drapes after
  * each commit.
@@ -66,6 +80,9 @@ export default function PatternEditor() {
   const [preview, setPreview] = useState<CanonicalPattern | null>(null)
   const [selected, setSelected] = useState<Selection>(null)
   const [edge, setEdge] = useState<EdgeSelection>(null)
+  const [hole, setHole] = useState<HoleSelection>(null)
+  /** A piece picked by clicking it, for its cut-out tools. */
+  const [pieceFocus, setPieceFocus] = useState<string | null>(null)
   /** A point or edge to focus once the next render has it. */
   const pendingFocus = useRef<string | null>(null)
   const [messages, setMessages] = useState<string[]>([])
@@ -125,12 +142,73 @@ export default function PatternEditor() {
   function selectPoint(pieceId: string, pointId: string) {
     setSelected({ pieceId, pointId })
     setEdge(null)
+    setHole(null)
   }
 
   function selectEdge(piece: SheetPiece, entry: SheetEdge) {
     setSelected(null)
+    setHole(null)
     setEdge({ pieceId: piece.id, index: entry.index, seamId: entry.seam?.id ?? null })
     setAnnounce(describeEdge({ piece, edge: entry }))
+  }
+
+  function selectHole(piece: SheetPiece, index: number) {
+    setSelected(null)
+    setEdge(null)
+    setHole({ pieceId: piece.id, hole: index })
+    setAnnounce(describeHole({ piece, hole: index }))
+  }
+
+  function focusCutoutTools() {
+    document.querySelector<HTMLSelectElement>('[data-testid="pattern-cutout-tools"] select[name="cutout-shape"]')?.focus()
+  }
+
+  function addCutoutTo(pieceId: string, shape: CutoutShape, wMm: number, hMm: number) {
+    const result = addCutout({ pattern: stored!, pieceId, shape, wMm, hMm })
+
+    if ('message' in result) {
+      refuse(result.message)
+      return
+    }
+
+    const holes = expandHoles(result.ok ? result.pattern : result.attempted, pieceId)
+    const what = `Added a ${shape} cut-out, ${(wMm / 10).toFixed(1)} by ${((shape === 'circle' ? wMm : hMm) / 10).toFixed(1)} cm, to ${labelOf(pieceId)}`
+
+    if (commit(result.ok ? result.pattern : result.attempted, what)) {
+      setHole({ pieceId, hole: holes - 1 })
+      setSelected(null)
+      setEdge(null)
+      pendingFocus.current = `[data-hole="${pieceId}:${holes - 1}"]`
+    }
+  }
+
+  function removeCutoutOf(pieceId: string, index: number) {
+    if (commit(removeCutout({ pattern: stored!, pieceId, hole: index }), `Removed cut-out ${index + 1} from ${labelOf(pieceId)}`)) {
+      setHole(null)
+      setSelected(null)
+    }
+  }
+
+  function onHoleKey(event: KeyboardEvent<SVGElement>, piece: SheetPiece, index: number) {
+    const action = patternKeyAction({ key: event.key, shiftKey: event.shiftKey, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, on: 'hole' })
+
+    if (!action) {
+      return
+    }
+
+    event.preventDefault()
+
+    if (action.type === 'nudge') {
+      const step = Math.abs(action.dx || action.dy)
+      commit(moveHole({ pattern: stored!, pieceId: piece.id, hole: index, dx: action.dx, dy: action.dy }), `Moved cut-out ${index + 1} ${step} mm`)
+    } else if (action.type === 'removeCutout') {
+      removeCutoutOf(piece.id, index)
+    } else if (action.type === 'cutout') {
+      focusCutoutTools()
+    } else if (action.type === 'deselect') {
+      setHole(null)
+      ;(event.target as SVGElement).blur()
+    }
   }
 
   function addPointOn(pieceId: string, index: number) {
@@ -169,6 +247,8 @@ export default function PatternEditor() {
       commit(movePoint({ pattern: stored!, pieceId: piece.id, pointId, dx: action.dx, dy: action.dy }), `Nudged ${pointId} ${step} mm`)
     } else if (action.type === 'removePoint') {
       removePointOf(piece.id, pointId)
+    } else if (action.type === 'cutout') {
+      focusCutoutTools()
     } else if (action.type === 'deselect') {
       setSelected(null)
       ;(event.target as SVGElement).blur()
@@ -194,13 +274,15 @@ export default function PatternEditor() {
       } else {
         refuse(entry.seam ? 'This seam is too short for a slit.' : 'This edge is open already; pick a sewn edge for a slit.')
       }
+    } else if (action.type === 'cutout') {
+      focusCutoutTools()
     } else if (action.type === 'deselect') {
       setEdge(null)
       ;(event.target as SVGElement).blur()
     }
   }
 
-  function startDrag(event: PointerEvent<SVGElement>, piece: SheetPiece, pointId: string, part: Drag['part']) {
+  function startDrag(event: PointerEvent<SVGElement>, piece: SheetPiece, pointId: string, part: Drag['part'], holeIndex?: number) {
     const svg = svgRef.current
 
     if (!svg || !event.isPrimary) {
@@ -219,8 +301,14 @@ export default function PatternEditor() {
       start: stored!,
       from: { x: event.clientX, y: event.clientY },
       mmPerPx: viewWidth / Math.max(1, rect.width),
+      ...(holeIndex === undefined ? {} : { hole: holeIndex }),
     }
-    selectPoint(piece.id, pointId)
+
+    if (holeIndex === undefined) {
+      selectPoint(piece.id, pointId)
+    } else {
+      selectHole(piece, holeIndex)
+    }
   }
 
   function moveDrag(event: PointerEvent<SVGElement>) {
@@ -233,7 +321,11 @@ export default function PatternEditor() {
     const dx = (event.clientX - current.from.x) * current.mmPerPx
     // The sheet's y runs down; the pattern's runs up.
     const dy = -(event.clientY - current.from.y) * current.mmPerPx
-    setPreview(movePoint({ pattern: current.start, pieceId: current.pieceId, pointId: current.pointId, part: current.part, dx, dy }))
+    setPreview(
+      current.hole === undefined
+        ? movePoint({ pattern: current.start, pieceId: current.pieceId, pointId: current.pointId, part: current.part, dx, dy })
+        : moveHole({ pattern: current.start, pieceId: current.pieceId, hole: current.hole, dx, dy }),
+    )
   }
 
   function endDrag() {
@@ -241,8 +333,13 @@ export default function PatternEditor() {
     drag.current = null
 
     if (current && preview) {
-      commit(preview, `Moved ${current.pointId} on ${labelOf(current.pieceId)}`)
+      commit(preview, current.hole === undefined ? `Moved ${current.pointId} on ${labelOf(current.pieceId)}` : `Moved cut-out ${current.hole + 1} on ${labelOf(current.pieceId)}`)
     }
+  }
+
+  /** How many cut-outs the piece the user sees has in `next`. */
+  function expandHoles(next: CanonicalPattern, pieceId: string) {
+    return layoutSheet({ pattern: next }).pieces.find((piece) => piece.id === pieceId)?.holes.length ?? 0
   }
 
   function labelOf(pieceId: string) {
@@ -257,6 +354,14 @@ export default function PatternEditor() {
   const storedPiece = edge && preview ? layoutSheet({ pattern: stored }).pieces.find((piece) => piece.id === edge.pieceId) : edgePiece
   const toolEdge = edge && storedPiece ? (preview ? resolveEdge(sheetEdges({ pattern: stored, piece: storedPiece }), edge) : drawnEdge) : null
   const selectedPoint = selected ? sheet.pieces.find((piece) => piece.id === selected.pieceId) : undefined
+  // A cut-out is selected by its outline, or by one of its points.
+  const pointHole = selected && selectedPoint ? holeOfPoint({ piece: selectedPoint, pointId: selected.pointId }) : -1
+  const activeHole = hole ?? (selected && pointHole >= 0 ? { pieceId: selected.pieceId, hole: pointHole } : null)
+  const holePiece = activeHole ? layoutSheet({ pattern: stored }).pieces.find((piece) => piece.id === activeHole.pieceId) : undefined
+  const toolHole = activeHole && holePiece?.holes[activeHole.hole] ? activeHole : null
+  // The piece the cut-out tools act on: whatever on it is selected, or the piece clicked.
+  const toolPieceId = selected?.pieceId ?? edge?.pieceId ?? hole?.pieceId ?? pieceFocus
+  const toolPiece = toolPieceId ? sheet.pieces.find((piece) => piece.id === toolPieceId) : undefined
 
   const pad = 60
   const viewBox = `${-pad} ${-pad} ${sheet.width + pad * 2} ${sheet.height + pad * 2}`
@@ -320,8 +425,19 @@ export default function PatternEditor() {
 
           return (
             <g key={piece.id} data-piece={piece.id}>
-              <path d={piecePath(piece)} fill={colour} fillOpacity={0.12} stroke="none" />
-              <text x={lx} y={ly} textAnchor="middle" fontSize={44} fill={colour} className="font-body">
+              <path
+                d={piecePath(piece)}
+                fill={colour}
+                fillOpacity={pieceFocus === piece.id ? 0.2 : 0.12}
+                fillRule="evenodd"
+                stroke="none"
+                data-piece-fill={piece.id}
+                onClick={() => {
+                  setPieceFocus(piece.id)
+                  setAnnounce(`${piece.label} picked`)
+                }}
+              />
+              <text x={lx} y={ly} textAnchor="middle" fontSize={44} fill={colour} className="font-body" pointerEvents="none">
                 {piece.label}
               </text>
               {edgesOf.get(piece.id)!.map((entry) => {
@@ -360,9 +476,46 @@ export default function PatternEditor() {
                   </g>
                 )
               })}
-              {piece.outline.map((point) => {
+              {piece.holes.map((_, holeIndex) => {
+                const d = holePath(piece, holeIndex)
+                const isSelected = toolHole?.pieceId === piece.id && toolHole.hole === holeIndex
+
+                return (
+                  <g key={`hole-${holeIndex}`}>
+                    {/* A cut-out's edge is open: dashed, like a hem. */}
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke={colour}
+                      strokeWidth={isSelected ? 7 : 3}
+                      strokeDasharray="8 6"
+                      vectorEffect="non-scaling-stroke"
+                      pointerEvents="none"
+                    />
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={22}
+                      vectorEffect="non-scaling-stroke"
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${describeHole({ piece, hole: holeIndex })}. Arrow keys move it; Delete removes it.`}
+                      aria-pressed={isSelected}
+                      className="cursor-move outline-none focus-visible:stroke-flv-ink/30"
+                      data-hole={`${piece.id}:${holeIndex}`}
+                      onPointerDown={(event) => startDrag(event, piece, '', 'point', holeIndex)}
+                      onFocus={() => selectHole(piece, holeIndex)}
+                      onKeyDown={(event) => onHoleKey(event, piece, holeIndex)}
+                    />
+                  </g>
+                )
+              })}
+              {[...piece.outline, ...piece.holes.flat()].map((point) => {
                 const [px, py] = toSheet(piece, point.x, point.y)
                 const isSelected = selected?.pieceId === piece.id && selected.pointId === point.id
+                const holeIndex = holeOfPoint({ piece, pointId: point.id })
+                const onHole = holeIndex >= 0
                 const handles = isSelected
                   ? (['hi', 'ho'] as const).filter((part) => point[part]).map((part) => {
                       const [hx, hy] = toSheet(piece, point.x + point[part]![0], point.y + point[part]![1])
@@ -393,14 +546,14 @@ export default function PatternEditor() {
                     <circle
                       cx={px}
                       cy={py}
-                      r={isSelected ? 22 : 16}
+                      r={onHole ? (isSelected ? 14 : 9) : isSelected ? 22 : 16}
                       fill={isSelected ? colour : 'white'}
                       stroke={colour}
                       strokeWidth={3}
                       vectorEffect="non-scaling-stroke"
                       tabIndex={0}
                       role="button"
-                      aria-label={`${piece.label}, point ${point.id}`}
+                      aria-label={onHole ? `${piece.label}, cut-out ${holeIndex + 1}, point ${point.id}` : `${piece.label}, point ${point.id}`}
                       aria-pressed={isSelected}
                       className="cursor-move outline-none focus-visible:stroke-flv-ink"
                       data-point={`${piece.id}:${point.id}`}
@@ -441,6 +594,23 @@ export default function PatternEditor() {
             Remove point
           </button>
         </div>
+      ) : null}
+
+      {toolHole && holePiece ? (
+        <div className={cn('flex flex-wrap items-center gap-2', chromeTextClass())} data-testid="pattern-hole-tools" role="group" aria-label="Selected cut-out">
+          <span className={chromeMutedClass()}>{describeHole({ piece: holePiece, hole: toolHole.hole })}</span>
+          <button
+            type="button"
+            onClick={() => removeCutoutOf(toolHole.pieceId, toolHole.hole)}
+            className={cn('min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent', chromeTextClass())}
+          >
+            Remove cut-out
+          </button>
+        </div>
+      ) : null}
+
+      {toolPiece ? (
+        <CutoutTools key={toolPiece.id} piece={toolPiece} onAdd={(shape, wMm, hMm) => addCutoutTo(toolPiece.id, shape, wMm, hMm)} />
       ) : null}
 
       {messages.length > 0 ? (
@@ -603,6 +773,73 @@ function QuickEdits({
           </label>
         )
       })}
+    </fieldset>
+  )
+}
+
+const CUTOUT_LABELS: Record<CutoutShape, string> = { circle: 'Circle', oval: 'Oval', teardrop: 'Teardrop', keyhole: 'Keyhole' }
+
+/** "Add cut-out" for the selected piece: a shape and a size, placed in its middle. */
+function CutoutTools({ piece, onAdd }: { piece: SheetPiece; onAdd: (shape: CutoutShape, wMm: number, hMm: number) => void }) {
+  const [shape, setShape] = useState<CutoutShape>('circle')
+  const [wMm, setWMm] = useState(80)
+  const [hMm, setHMm] = useState(100)
+  const full = piece.holes.length >= PATTERN_LIMITS.holesPerPiece
+  const fieldClass = cn('min-h-11 border border-flv-line bg-flv-paper px-2 text-flv-ink', chromeTextClass())
+  const size = (value: string) => Math.min(CUTOUT_SIZE_LIMITS.max, Math.max(CUTOUT_SIZE_LIMITS.min, Number.parseInt(value, 10) || CUTOUT_SIZE_LIMITS.min))
+
+  return (
+    <fieldset className="flex flex-col gap-2 border border-flv-line px-3 py-2" data-testid="pattern-cutout-tools">
+      <legend className={chromeKickerClass()}>Cut-out on {piece.label}</legend>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex flex-col gap-1">
+          <span className={chromeMutedClass()}>Shape</span>
+          <select name="cutout-shape" value={shape} onChange={(event) => setShape(event.target.value as CutoutShape)} className={fieldClass}>
+            {CUTOUT_SHAPES.map((entry) => (
+              <option key={entry} value={entry}>
+                {CUTOUT_LABELS[entry]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={chromeMutedClass()}>{shape === 'circle' ? 'Across, mm' : 'Width, mm'}</span>
+          <input
+            type="number"
+            name="cutout-width"
+            min={CUTOUT_SIZE_LIMITS.min}
+            max={CUTOUT_SIZE_LIMITS.max}
+            step={5}
+            value={wMm}
+            onChange={(event) => setWMm(size(event.target.value))}
+            className={cn(fieldClass, 'w-24')}
+          />
+        </label>
+        {shape === 'circle' ? null : (
+          <label className="flex flex-col gap-1">
+            <span className={chromeMutedClass()}>Height, mm</span>
+            <input
+              type="number"
+              name="cutout-height"
+              min={CUTOUT_SIZE_LIMITS.min}
+              max={CUTOUT_SIZE_LIMITS.max}
+              step={5}
+              value={hMm}
+              onChange={(event) => setHMm(size(event.target.value))}
+              className={cn(fieldClass, 'w-24')}
+            />
+          </label>
+        )}
+        <button
+          type="button"
+          disabled={full}
+          onClick={() => onAdd(shape, wMm, shape === 'circle' ? wMm : hMm)}
+          className={cn('min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent disabled:opacity-50', chromeTextClass())}
+        >
+          Add cut-out
+        </button>
+      </div>
+      {full ? <p className={chromeMutedClass()}>{piece.label} has {PATTERN_LIMITS.holesPerPiece} cut-outs, the most a piece can take.</p> : null}
     </fieldset>
   )
 }

@@ -1,6 +1,14 @@
-import { mirrorOutline } from './mirror.ts'
+import { mirrorHoles, mirrorOutline } from './mirror.ts'
 import { pointAlongRun, removeOutlinePoint, runLength, splitEdge } from './outline-edit.ts'
-import type { CanonicalPattern, PatternPiece, PatternPoint, PatternRole, PatternSeam } from './pattern-document.ts'
+import {
+  type CanonicalPattern,
+  PATTERN_LIMITS,
+  PATTERN_ROLES,
+  type PatternPiece,
+  type PatternPoint,
+  type PatternRole,
+  type PatternSeam,
+} from './pattern-document.ts'
 import { type GeometryIssue, type PanelFrame, validateGeometry } from './validate-geometry.ts'
 
 /**
@@ -21,8 +29,26 @@ export type PatternOp =
    * the hem on `piece`, or the named `seam`.
    */
   | { op: 'slit'; piece: string; seam?: string; mm: number }
+  /**
+   * Cuts a hole `wMm` wide and `hMm` tall in `piece`, centred `dx`, `dy`
+   * millimetres from `at`: the middle of the points a role names, or the
+   * middle of the piece (`centre`, the default). A circle is `wMm` across.
+   */
+  | {
+      op: 'cutout'
+      piece: string
+      shape: CutoutShape
+      at?: PatternRole | 'centre'
+      dx: number
+      dy: number
+      wMm: number
+      hMm: number
+    }
 
-/** Inclusive millimetre bounds per op. */
+export const CUTOUT_SHAPES = ['circle', 'oval', 'teardrop', 'keyhole'] as const
+export type CutoutShape = (typeof CUTOUT_SHAPES)[number]
+
+/** Inclusive millimetre bounds per op (a cut-out's are for its width and height). */
 export const PATTERN_OP_LIMITS = {
   lengthen: { min: -250, max: 400 },
   widen: { min: -80, max: 150 },
@@ -31,9 +57,13 @@ export const PATTERN_OP_LIMITS = {
   neckline: { min: 0, max: 160 },
   sleeve: { min: -250, max: 500 },
   slit: { min: 30, max: 400 },
+  cutout: { min: 25, max: 300 },
 } as const satisfies Record<PatternOp['op'], { min: number; max: number }>
 
 export const PATTERN_OPS = Object.keys(PATTERN_OP_LIMITS) as PatternOp['op'][]
+
+/** How far a cut-out's centre may sit from where it's measured, each way. */
+export const CUTOUT_OFFSET_LIMITS = { min: -600, max: 600 } as const
 
 /** A slit leaves at least this much of its seam sewn. */
 export const SLIT_MIN_SEWN_MM = 40
@@ -62,9 +92,10 @@ function materialise(pattern: Mutable, pieceId: string) {
   }
 
   const source = pattern.pieces.find((entry) => entry.id === piece.mirrorOf)
-  const { mirrorOf: _mirror, ...rest } = piece
+  const { mirrorOf: _mirror, holes: _holes, ...rest } = piece
   const index = pattern.pieces.indexOf(piece)
-  pattern.pieces[index] = { ...rest, outline: mirrorOutline(source?.outline ?? []), roles: piece.roles ?? source?.roles }
+  const holes = mirrorHoles(source?.holes)
+  pattern.pieces[index] = { ...rest, outline: mirrorOutline(source?.outline ?? []), roles: piece.roles ?? source?.roles, ...(holes ? { holes } : {}) }
 }
 
 /** Every piece that mirrors `pieceId` gets its own outline first. */
@@ -84,14 +115,28 @@ function movePoints(piece: PatternPiece, ids: Set<string>, move: (point: Pattern
   }
 }
 
-function clamp(op: PatternOp): PatternOp {
-  const { min, max } = PATTERN_OP_LIMITS[op.op]
-  const mm = Math.round(Math.min(max, Math.max(min, Number.isFinite(op.mm) ? op.mm : 0)))
-  return { ...op, mm }
+function bound(value: number, { min, max }: { min: number; max: number }) {
+  return Math.round(Math.min(max, Math.max(min, Number.isFinite(value) ? value : 0)))
+}
+
+/** The op with every number whole and within its bounds. */
+export function clampPatternOp(op: PatternOp): PatternOp {
+  if (op.op === 'cutout') {
+    const size = PATTERN_OP_LIMITS.cutout
+    return { ...op, dx: bound(op.dx, CUTOUT_OFFSET_LIMITS), dy: bound(op.dy, CUTOUT_OFFSET_LIMITS), wMm: bound(op.wMm, size), hMm: bound(op.hMm, size) }
+  }
+
+  return { ...op, mm: bound(op.mm, PATTERN_OP_LIMITS[op.op]) }
 }
 
 function applyOne(pattern: Mutable, raw: PatternOp) {
-  const op = clamp(raw)
+  const op = clampPatternOp(raw)
+
+  if (op.op === 'cutout') {
+    cutout(pattern, op)
+    return
+  }
+
   const bodies = pattern.pieces.filter((piece) => BODY_ANCHORS.has(piece.place.anchor) && piece.outline)
 
   switch (op.op) {
@@ -190,6 +235,156 @@ function applyOne(pattern: Mutable, raw: PatternOp) {
       break
     }
   }
+}
+
+type Point = [number, number]
+
+/**
+ * A cut-out's outline, centred on (0, 0), clockwise, at most 32 points:
+ * a point about every 3 cm round it, never fewer than 8.
+ */
+export function cutoutOutline({ shape, wMm, hMm }: { shape: CutoutShape; wMm: number; hMm: number }): Point[] {
+  const count = (perimeter: number) => Math.min(PATTERN_LIMITS.pointsPerHole.max, Math.max(8, Math.round(perimeter / 30)))
+  /** `n` steps from angle `from` to `to`; both ends included. */
+  const arc = (cy: number, r: number, from: number, to: number, n: number) => {
+    const out: Point[] = []
+
+    for (let i = 0; i <= n; i += 1) {
+      const t = from + ((to - from) * i) / n
+      out.push([r * Math.cos(t), cy + r * Math.sin(t)])
+    }
+
+    return out
+  }
+  let ccw: Point[]
+
+  if (shape === 'circle' || shape === 'oval') {
+    const rx = wMm / 2
+    const ry = shape === 'circle' ? rx : hMm / 2
+    // Ramanujan's ellipse perimeter.
+    // A multiple of four points, so the ring touches its full width and height.
+    const n = Math.min(PATTERN_LIMITS.pointsPerHole.max, 4 * Math.round(count(Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)))) / 4))
+    ccw = Array.from({ length: n }, (_, i) => {
+      const t = -Math.PI / 2 + (2 * Math.PI * i) / n
+      return [rx * Math.cos(t), ry * Math.sin(t)] as Point
+    })
+  } else if (shape === 'teardrop') {
+    // A round bottom `wMm` across, rising to a point at the top.
+    const r = wMm / 2
+    const h = Math.max(hMm, wMm * 1.25)
+    const cy = -h / 2 + r
+    const beta = Math.acos(r / (h - r))
+    const from = Math.PI / 2 + beta
+    const to = Math.PI / 2 - beta + 2 * Math.PI
+    // Counter-clockwise: the tip, down the left, round the bottom, up the right.
+    ccw = [[0, h / 2], ...arc(cy, r, from, to, count((to - from) * r) - 2)]
+  } else {
+    // A round top `wMm` across over a slot 0.4 of that, down to `hMm`.
+    const r = wMm / 2
+    const h = Math.max(hMm, wMm * 1.5)
+    const cy = h / 2 - r
+    const half = wMm * 0.2
+    const join = Math.acos(half / r)
+    const from = -join
+    const to = Math.PI + join
+    ccw = [[-half, -h / 2], [half, -h / 2], ...arc(cy, r, from, to, count((to - from) * r) - 3)]
+  }
+
+  const out: Point[] = []
+
+  for (const [x, y] of ccw.reverse()) {
+    const point: Point = [Math.round(x), Math.round(y)]
+    const last = out[out.length - 1]
+
+    if (!last || last[0] !== point[0] || last[1] !== point[1]) {
+      out.push(point)
+    }
+  }
+
+  while (out.length > 1 && out[0]![0] === out[out.length - 1]![0] && out[0]![1] === out[out.length - 1]![1]) {
+    out.pop()
+  }
+
+  return out
+}
+
+/** The id of point `index` on a piece's cut-out `hole` (the lowest number free when it was cut). */
+export function cutoutPointId({ hole, index }: { hole: number; index: number }) {
+  return `cut${hole}-${index}`
+}
+
+/** Where a cut-out is measured from on a drawn outline, or null when the role isn't there. */
+function cutoutAnchor(roles: PatternPiece['roles'], outline: readonly PatternPoint[], at: PatternRole | 'centre'): Point | null {
+  if (at === 'centre') {
+    const xs = outline.map((point) => point.x)
+    const ys = outline.map((point) => point.y)
+    return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
+  }
+
+  const ids = new Set(roles?.[at] ?? [])
+  const named = outline.filter((point) => ids.has(point.id))
+
+  if (named.length === 0) {
+    return null
+  }
+
+  return [named.reduce((sum, point) => sum + point.x, 0) / named.length, named.reduce((sum, point) => sum + point.y, 0) / named.length]
+}
+
+/**
+ * Adds a cut-out to a drawn piece in place, measured on that piece; false
+ * (and no change) when it has four already or lacks the role. `roles`
+ * defaults to the piece's own.
+ */
+export function placeCutout({
+  piece,
+  op,
+  roles = piece.roles,
+}: {
+  piece: { outline: PatternPoint[]; holes?: PatternPoint[][]; roles?: PatternPiece['roles'] }
+  op: Extract<PatternOp, { op: 'cutout' }>
+  roles?: PatternPiece['roles']
+}): boolean {
+  const holes = piece.holes ?? []
+  const anchor = cutoutAnchor(roles, piece.outline, op.at ?? 'centre')
+
+  if (holes.length >= PATTERN_LIMITS.holesPerPiece || !anchor) {
+    return false
+  }
+
+  const ids = new Set([...piece.outline, ...holes.flat()].map((point) => point.id))
+  let hole = 0
+
+  while (ids.has(cutoutPointId({ hole, index: 0 }))) {
+    hole += 1
+  }
+
+  const { dx, dy, wMm, hMm, shape } = clampPatternOp(op) as typeof op
+  const cx = Math.round(anchor[0] + dx)
+  const cy = Math.round(anchor[1] + dy)
+  const ring = cutoutOutline({ shape, wMm, hMm }).map(([x, y], index) => ({ id: cutoutPointId({ hole, index }), x: cx + x, y: cy + y }))
+  piece.holes = [...holes, ring]
+  return true
+}
+
+function cutout(pattern: Mutable, op: Extract<PatternOp, { op: 'cutout' }>) {
+  const target = pattern.pieces.find((entry) => entry.id === op.piece)
+
+  if (!target) {
+    return
+  }
+
+  // Tried on a copy first, so a cut that can't be placed changes nothing.
+  const source = target.mirrorOf ? pattern.pieces.find((entry) => entry.id === target.mirrorOf) : undefined
+  const trial = { outline: drawnOutline(pattern, op.piece) ?? [], holes: target.mirrorOf ? mirrorHoles(source?.holes) : target.holes }
+
+  if (!placeCutout({ piece: trial, op, roles: target.roles ?? source?.roles })) {
+    return
+  }
+
+  // Cut on one piece alone: a mirror gets its own outline, and mirrors of this piece keep theirs.
+  const piece = standAlone(pattern, op.piece)
+  piece.holes = trial.holes
 }
 
 /** The id of the point a slit adds on one side of a seam. */
@@ -435,8 +630,21 @@ export function isPatternOp(value: unknown): value is PatternOp {
   }
 
   const entry = value as Record<string, unknown>
+  const isId = (id: unknown) => typeof id === 'string' && id.length > 0 && id.length <= 40 && /^[A-Za-z0-9_-]+$/.test(id)
+  const isNumber = (n: unknown) => typeof n === 'number' && Number.isFinite(n)
 
-  if (typeof entry.op !== 'string' || !(entry.op in PATTERN_OP_LIMITS) || typeof entry.mm !== 'number' || !Number.isFinite(entry.mm)) {
+  if (entry.op === 'cutout') {
+    const allowed = new Set(['op', 'piece', 'shape', 'at', 'dx', 'dy', 'wMm', 'hMm'])
+    return (
+      Object.keys(entry).every((key) => allowed.has(key)) &&
+      isId(entry.piece) &&
+      (CUTOUT_SHAPES as readonly unknown[]).includes(entry.shape) &&
+      (!('at' in entry) || entry.at === 'centre' || (PATTERN_ROLES as readonly unknown[]).includes(entry.at)) &&
+      [entry.dx, entry.dy, entry.wMm, entry.hMm].every(isNumber)
+    )
+  }
+
+  if (typeof entry.op !== 'string' || !(entry.op in PATTERN_OP_LIMITS) || !isNumber(entry.mm)) {
     return false
   }
 
@@ -448,7 +656,6 @@ export function isPatternOp(value: unknown): value is PatternOp {
   }
 
   if (entry.op === 'slit') {
-    const isId = (id: unknown) => typeof id === 'string' && id.length > 0 && id.length <= 40 && /^[A-Za-z0-9_-]+$/.test(id)
     return isId(entry.piece) && (!('seam' in entry) || isId(entry.seam))
   }
 

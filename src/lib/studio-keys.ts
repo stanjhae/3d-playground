@@ -238,12 +238,15 @@ export function studioKeyList({ mod = MOD }: { mod?: string } = {}) {
   ]
 }
 
-/** What a key does in the pattern editor, on a focused point or edge. */
+/** What a key does in the pattern editor, on a focused point, edge or cut-out. */
 export type PatternKeyAction =
   | { type: 'nudge'; dx: number; dy: number }
   | { type: 'removePoint' }
   | { type: 'addPoint' }
   | { type: 'slit' }
+  /** Go to the piece's "Add cut-out" tools. */
+  | { type: 'cutout' }
+  | { type: 'removeCutout' }
   | { type: 'deselect' }
 
 /**
@@ -263,7 +266,7 @@ export function patternKeyAction({
   metaKey?: boolean
   ctrlKey?: boolean
   altKey?: boolean
-  on: 'point' | 'edge'
+  on: 'point' | 'edge' | 'hole'
 }): PatternKeyAction | null {
   // Undo, redo and the browser's own shortcuts pass through.
   if (metaKey || ctrlKey || altKey) {
@@ -274,7 +277,11 @@ export function patternKeyAction({
     return { type: 'deselect' }
   }
 
-  if (on === 'point') {
+  if (key === 'c' || key === 'C') {
+    return { type: 'cutout' }
+  }
+
+  if (on === 'point' || on === 'hole') {
     const arrow = ARROWS[key]
 
     if (arrow) {
@@ -282,7 +289,7 @@ export function patternKeyAction({
       return { type: 'nudge', dx: arrow.dx * step + 0, dy: arrow.dy * step + 0 }
     }
 
-    return key === 'Delete' || key === 'Backspace' ? { type: 'removePoint' } : null
+    return key === 'Delete' || key === 'Backspace' ? { type: on === 'hole' ? 'removeCutout' : 'removePoint' } : null
   }
 
   if (key === '+' || key === '=' || key === 'Insert') {
@@ -300,6 +307,9 @@ export function patternKeyList() {
     { keys: 'Delete or Backspace', does: 'Remove the focused point, unless a seam ends there' },
     { keys: '+ or Insert', does: 'Add a point halfway along the focused edge' },
     { keys: 'S', does: 'Add a slit on the focused edge’s seam, or adjust its length' },
+    { keys: 'C', does: 'Add a cut-out to the focused piece' },
+    { keys: 'Arrow keys on a cut-out', does: 'Move the whole cut-out 1 mm (with Shift, 10 mm)' },
+    { keys: 'Delete on a cut-out', does: 'Remove the cut-out' },
     { keys: 'Esc', does: 'Deselect' },
   ]
 }

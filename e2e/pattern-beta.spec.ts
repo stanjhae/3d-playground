@@ -4,7 +4,7 @@ import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
 
 /**
  * Pattern (beta), Workflow 1 (the suite's build turns `VITE_PATTERN_BETA`
- * on): turn it on, reshape a piece, open a slit, see it drape and save, publish it
+ * on): turn it on, reshape a piece, open a slit, cut a hole, see it drape and save, publish it
  * (which stores the draped mesh), and reload without draping again.
  */
 
@@ -26,7 +26,7 @@ async function savedPattern({ page }: { page: Page }) {
 
 const drapeState = (page: Page) => page.getByTestId('pattern-drape-state')
 
-test('reshape the pattern, slit it, drape it, publish it, and reload without draping', async ({ page }) => {
+test('reshape the pattern, slit it, cut a hole in it, drape it, publish it, and reload without draping', async ({ page }) => {
   test.setTimeout(240_000)
   const email = newEmail({ label: 'pattern' })
   emails.push(email)
@@ -95,6 +95,30 @@ test('reshape the pattern, slit it, drape it, publish it, and reload without dra
   // The side seam is straight up from the hem: 25 cm along it is 250 mm up.
   expect(slit.pieces.find((piece) => piece.id === 'front')!.outline.find((point) => point.id === 'sideL-slit-a')!.y).toBe(250)
   await test.info().attach('draped slit', { body: await page.screenshot(), contentType: 'image/png' })
+
+  // A cut-out, from the keyboard: C on a point goes to its piece's cut-out tools.
+  await editor.locator('[data-point="back:hemL"]').focus()
+  await page.keyboard.press('c')
+  const cutout = page.getByTestId('pattern-cutout-tools')
+  await expect(cutout).toContainText('Cut-out on Back')
+  const shapeSelect = cutout.getByRole('combobox', { name: 'Shape' })
+  await expect(shapeSelect).toBeFocused()
+  await shapeSelect.selectOption('circle')
+  await cutout.getByRole('spinbutton', { name: 'Across, mm' }).fill('120')
+  await cutout.getByRole('button', { name: 'Add cut-out' }).click()
+  const hole = editor.locator('[data-hole="back:0"]')
+  await expect(hole).toBeFocused()
+  await expect(page.getByTestId('pattern-hole-tools')).toContainText('Back, cut-out 1, 12.0 by 12.0 cm')
+  // Arrow keys move the whole cut-out; each move re-drapes and saves.
+  await page.keyboard.press('Shift+ArrowUp')
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+  const holed = (await savedPattern({ page })).pattern as { pieces: Array<{ id: string; holes?: Array<Array<{ id: string; y: number }>> }> }
+  const backHoles = holed.pieces.find((piece) => piece.id === 'back')!.holes!
+  expect(backHoles).toHaveLength(1)
+  expect(backHoles[0]![0]!.id).toBe('cut0-0')
+  expect(holed.pieces.find((piece) => piece.id === 'front')!.holes).toBeUndefined()
+  await test.info().attach('draped cut-out', { body: await page.screenshot(), contentType: 'image/png' })
 
   // Publishing stores the draped mesh, then the views.
   const designId = new URL(page.url()).searchParams.get('cloud')!

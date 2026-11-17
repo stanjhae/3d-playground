@@ -2,7 +2,18 @@ import { flattenOutline } from './bezier.ts'
 import { expandPieces } from './mirror.ts'
 import type { CanonicalPattern, PatternPiece, PatternPoint } from './pattern-document.ts'
 import { type GeometryIssue, describeGeometryIssue, validateGeometry } from './validate-geometry.ts'
-import { PATTERN_OP_LIMITS, type PatternOp, applyPatternOps, closeSlit, maxSlitMm, slitPointId } from './pattern-ops.ts'
+import {
+  type CutoutShape,
+  type OpsResult,
+  PATTERN_OP_LIMITS,
+  type PatternOp,
+  applyPatternOps,
+  closeSlit,
+  maxSlitMm,
+  placeCutout,
+  slitPointId,
+} from './pattern-ops.ts'
+import { PATTERN_LIMITS } from './pattern-document.ts'
 import { dropFromRoles, freshPointId, removeOutlinePoint, runLength, seamEnds, seamOnEdge, splitEdge } from './outline-edit.ts'
 
 /**
@@ -17,6 +28,8 @@ export type SheetPiece = {
   /** Mirrors are drawn but edited through their source. */
   mirrorOf?: string
   outline: PatternPoint[]
+  /** Cut-outs, each clockwise (a mirror's are its source's, flipped); empty when it has none. */
+  holes: PatternPoint[][]
   /** Where the piece's (0, 0) sits on the sheet, millimetres, y up. */
   offset: [number, number]
   box: { minX: number; minY: number; maxX: number; maxY: number }
@@ -58,6 +71,7 @@ export function layoutSheet({ pattern, rowWidth = 1600 }: { pattern: CanonicalPa
       label: piece.label,
       ...(source?.mirrorOf ? { mirrorOf: source.mirrorOf } : {}),
       outline: piece.outline,
+      holes: piece.holes ?? [],
       offset: [x - box.minX, -(y + h) - box.minY],
       box,
     })
@@ -75,10 +89,26 @@ export function toSheet(piece: SheetPiece, x: number, y: number): [number, numbe
   return [piece.offset[0] + x, -(piece.offset[1] + y)]
 }
 
-/** The piece outline as an SVG path, curves included. */
+/**
+ * The piece as an SVG path, curves included: its outline, then one
+ * subpath per cut-out. Fill it with `fill-rule="evenodd"` so the holes
+ * show through.
+ */
 export function piecePath(piece: SheetPiece): string {
-  const { outline } = piece
+  return [ringPath(piece, piece.outline), ...piece.holes.map((hole) => ringPath(piece, hole))].join(' ')
+}
+
+/** One cut-out's ring as an SVG path. */
+export function holePath(piece: SheetPiece, hole: number): string {
+  return ringPath(piece, piece.holes[hole] ?? [])
+}
+
+function ringPath(piece: SheetPiece, outline: readonly PatternPoint[]): string {
   const parts: string[] = []
+
+  if (outline.length === 0) {
+    return ''
+  }
 
   outline.forEach((point, index) => {
     const [sx, sy] = toSheet(piece, point.x, point.y)
@@ -189,7 +219,8 @@ export function movePoint({
   const next = structuredClone(pattern)
   const target = editTarget({ pattern, pieceId })
   const piece = next.pieces.find((entry) => entry.id === target.pieceId) as PatternPiece | undefined
-  const point = piece?.outline?.find((entry) => entry.id === pointId)
+  // A cut-out's points move like the outline's.
+  const point = [...(piece?.outline ?? []), ...(piece?.holes ?? []).flat()].find((entry) => entry.id === pointId)
 
   if (!point) {
     return pattern
@@ -264,6 +295,18 @@ export function removePoint({ pattern, pieceId, pointId }: { pattern: CanonicalP
   const next = structuredClone(pattern)
   const piece = next.pieces.find((entry) => entry.id === target.pieceId) as PatternPiece | undefined
   const outline = piece?.outline
+  const hole = piece?.holes?.findIndex((ring) => ring.some((point) => point.id === pointId)) ?? -1
+
+  if (piece?.holes && hole >= 0) {
+    const ring = piece.holes[hole]!
+
+    if (ring.length <= PATTERN_LIMITS.pointsPerHole.min) {
+      return { ok: false, message: 'A cut-out needs at least three points. Remove the cut-out instead.' }
+    }
+
+    piece.holes[hole] = removeOutlinePoint({ outline: ring, id: pointId })
+    return { ok: true, pattern: next }
+  }
 
   if (!piece || !outline?.some((point) => point.id === pointId)) {
     return { ok: false, message: `${pointId} isn’t on ${label}.` }
@@ -286,6 +329,105 @@ export function removePoint({ pattern, pieceId, pointId }: { pattern: CanonicalP
   }
 
   return { ok: true, pattern: next }
+}
+
+/** Which cut-out on the piece the user sees a point belongs to, or -1. */
+export function holeOfPoint({ piece, pointId }: { piece: SheetPiece; pointId: string }) {
+  return piece.holes.findIndex((ring) => ring.some((point) => point.id === pointId))
+}
+
+/** Plain words for a cut-out, for screen readers and its toolbar. */
+export function describeHole({ piece, hole }: { piece: SheetPiece; hole: number }) {
+  const ring = piece.holes[hole] ?? []
+  const xs = ring.map((point) => point.x)
+  const ys = ring.map((point) => point.y)
+  const cm = (mm: number) => (mm / 10).toFixed(1)
+  return `${piece.label}, cut-out ${hole + 1}, ${cm(Math.max(...xs) - Math.min(...xs))} by ${cm(Math.max(...ys) - Math.min(...ys))} cm`
+}
+
+/** Moves a whole cut-out by `dx`, `dy` millimetres on the piece the user sees (a mirror's lands on its source). */
+export function moveHole({ pattern, pieceId, hole, dx, dy }: { pattern: CanonicalPattern; pieceId: string; hole: number; dx: number; dy: number }): CanonicalPattern {
+  const target = editTarget({ pattern, pieceId })
+  const next = structuredClone(pattern)
+  const ring = next.pieces.find((entry) => entry.id === target.pieceId)?.holes?.[hole]
+  const mx = Math.round(target.flipX ? -dx : dx)
+  const my = Math.round(dy)
+
+  if (!ring || (mx === 0 && my === 0)) {
+    return pattern
+  }
+
+  const clamp = (value: number) => Math.max(-3000, Math.min(3000, value))
+
+  for (const point of ring) {
+    point.x = clamp(point.x + mx)
+    point.y = clamp(point.y + my)
+  }
+
+  return next
+}
+
+/** The cut-out sizes the editor offers, millimetres. */
+export const CUTOUT_SIZE_LIMITS = PATTERN_OP_LIMITS.cutout
+
+/**
+ * A new cut-out in the middle of the piece the user sees. Like a move, a
+ * mirror's lands on its source, so a pair keeps matching. Refused (with
+ * the attempt, to say why) if it can't be sewn.
+ */
+export function addCutout({
+  pattern,
+  pieceId,
+  shape,
+  wMm,
+  hMm,
+}: {
+  pattern: CanonicalPattern
+  pieceId: string
+  shape: CutoutShape
+  wMm: number
+  hMm: number
+}): OpsResult | { ok: false; message: string } {
+  const target = editTarget({ pattern, pieceId })
+  const next = structuredClone(pattern)
+  const piece = next.pieces.find((entry) => entry.id === target.pieceId)
+
+  if (!piece?.outline) {
+    return { ok: false, message: 'Pick a piece first.' }
+  }
+
+  if ((piece.holes?.length ?? 0) >= PATTERN_LIMITS.holesPerPiece) {
+    return { ok: false, message: `A piece can have ${PATTERN_LIMITS.holesPerPiece} cut-outs at most.` }
+  }
+
+  placeCutout({ piece: piece as PatternPiece & { outline: PatternPoint[] }, op: { op: 'cutout', piece: piece.id, shape, at: 'centre', dx: 0, dy: 0, wMm, hMm } })
+  const issues = validateGeometry({ pattern: next })
+  return issues.length > 0 ? { ok: false, issues, attempted: next } : { ok: true, pattern: next }
+}
+
+/**
+ * The pattern without one cut-out on the piece the user sees. Like a
+ * move, a mirror's lands on its source, so both lose it. A piece left
+ * with none has no `holes` at all, so it hashes as it did before.
+ */
+export function removeCutout({ pattern, pieceId, hole }: { pattern: CanonicalPattern; pieceId: string; hole: number }): CanonicalPattern {
+  const target = editTarget({ pattern, pieceId })
+  const next = structuredClone(pattern)
+  const piece = next.pieces.find((entry) => entry.id === target.pieceId)
+
+  if (!piece?.holes?.[hole]) {
+    return pattern
+  }
+
+  const holes = piece.holes.filter((_, index) => index !== hole)
+
+  if (holes.length > 0) {
+    piece.holes = holes
+  } else {
+    delete piece.holes
+  }
+
+  return next
 }
 
 export type SlitChoice = {
