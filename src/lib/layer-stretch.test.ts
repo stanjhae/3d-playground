@@ -212,3 +212,44 @@ describe('the editor commits a stretch', () => {
     expect(stored(id)).not.toHaveProperty('scaleY')
   })
 })
+
+describe('review fixes: small marks and panel edges', () => {
+  test('a press inside a small mark moves it, however close its edge handles reach', () => {
+    const small = image({ scale: LAYER_SCALE_RANGE.min })
+    const half = layerBox({ layer: small })
+    // Points well inside the box, short of the rim on each axis.
+    for (const local of [
+      { x: 0, y: 0 },
+      { x: half.width * 0.25, y: 0 },
+      { x: 0, y: half.height * 0.25 },
+      { x: -half.width * 0.25, y: -half.height * 0.25 },
+    ]) {
+      expect(hitLayerHandle({ layer: small, ...onPanel({ layer: small, local }) })).toBe('move')
+    }
+
+    // At the rim the edge still answers.
+    expect(hitLayerHandle({ layer: small, ...onPanel({ layer: small, local: { x: half.width / 2, y: 0 } }) })).toBe('right')
+  })
+
+  test('stretching towards the panel edge stops where the far side would have to move', () => {
+    const near = image({ x: 0.85, scale: 0.2 })
+    const box = layerBox({ layer: near })
+    const leftBefore = near.x - box.width / 2
+    const edit = stretchEdge({ layer: near, edge: 'right', from: { x: 0.9, y: 0.5 }, to: { x: 1.4, y: 0.5 } })
+    const after = layerBox({ layer: { ...near, ...edit } as GraphicLayer })
+
+    expect(edit.x).toBeLessThanOrEqual(1)
+    expect(edit.scale).toBeGreaterThan(near.scale)
+    // The left side stays where it was.
+    expect(edit.x - after.width / 2).toBeCloseTo(leftBefore, 4)
+  })
+
+  test('every resize keeps to one range', async () => {
+    const { LAYER_SCALE_RANGE: twoFinger } = await import('./two-finger')
+    const { TRANSFORM_FIELDS } = await import('./transform-fields')
+    expect(twoFinger).toBe(LAYER_SCALE_RANGE)
+    for (const key of ['scale', 'width', 'height'] as const) {
+      expect([TRANSFORM_FIELDS[key].min, TRANSFORM_FIELDS[key].max]).toEqual([LAYER_SCALE_RANGE.min * 100, LAYER_SCALE_RANGE.max * 100])
+    }
+  })
+})

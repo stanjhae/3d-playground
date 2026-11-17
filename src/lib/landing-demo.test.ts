@@ -33,7 +33,6 @@ import {
 import { resolveTemplate } from './template-manifest'
 import { useLandingDemoStore } from './landing-demo-store'
 import { landingPanelRoutes, landingRenderDocument, toSketchPoint, withLandingOverlays } from './landing-real-tee'
-import { PAD_ASPECT_CLASS } from '../components/landing/HeroToolDock'
 
 describe('landing-demo', () => {
   test('maps garments into marketing categories', () => {
@@ -254,8 +253,6 @@ describe('drawing on a side of the landing tee', () => {
       // Top-left and bottom-right of the pad are the panel's own corners.
       expect(padToPanel({ x: 0, y: 0, padAspect: panelAspect, panelAspect })).toEqual({ x: 0, y: 0 })
       expect(padToPanel({ x: 1, y: 1, padAspect: panelAspect, panelAspect })).toEqual({ x: 1, y: 1 })
-      // The literal Tailwind class carries the same shape.
-      expect(PAD_ASPECT_CLASS[panel]).toBe(`aspect-[${panelAspect}]`)
     }
 
     // The pad's top is the panel's top: y runs up the tee from the hem.

@@ -26,7 +26,9 @@ export function twoFingerChange({ start, now }: { start: [Point, Point]; now: [P
 }
 
 /** The size range the inspector's slider allows, so a pinch never escapes it. */
-export const LAYER_SCALE_RANGE = { min: 0.05, max: 0.8 } as const
+import { LAYER_SCALE_RANGE } from './layer-scale'
+
+export { LAYER_SCALE_RANGE }
 
 export function pinchedPlacement({
   scale,

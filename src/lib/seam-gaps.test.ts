@@ -139,3 +139,34 @@ describe('base stripes and check meet at the side seams', () => {
     expect(draw({ version: 6, base }).render.layers.filter((layer) => layer.kind === 'pattern' && layer.garmentPhase)).toHaveLength(4)
   })
 })
+
+function samePixels(a: ArrayLike<number>, b: ArrayLike<number>) {
+  if (a.length !== b.length) return false
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) return false
+  }
+  return true
+}
+
+describe('review fixes: the phased base and live bleed stay cheap', () => {
+  test('a stripe base drawn a second time (from its kept mask) is pixel-for-pixel the same', () => {
+    const base: GarmentBase = { kind: 'stripes', colors: ['#f4efe6', '#1a1c22'], period: 0.08, angle: 0.4 }
+    const first = draw({ version: 6, base }).buffer
+    const again = draw({ version: 6, base }).buffer
+    expect(samePixels(again.pixels, first.pixels)).toBe(true)
+
+    // A colour change reuses the mask but paints the new colour.
+    const recoloured = draw({ version: 6, base: { ...base, colors: ['#f4efe6', '#c0392b'] } }).buffer
+    expect(samePixels(recoloured.pixels, first.pixels)).toBe(false)
+  })
+
+  test('only a stroke near its panel rim needs the edge bled again', async () => {
+    const { strokeReachesRim } = await import('./paint-atlas')
+    const { buffer } = draw({ version: 6 })
+    const stroke = (points: Array<{ x: number; y: number }>) => ({ id: 's', panel: 'front' as const, points, color: '#000000', width: 0.01, tool: 'brush' as const })
+
+    expect(strokeReachesRim({ buffer, stroke: stroke([{ x: 0.4, y: 0.5 }, { x: 0.6, y: 0.5 }]) })).toBe(false)
+    expect(strokeReachesRim({ buffer, stroke: stroke([{ x: 0.5, y: 0.5 }, { x: 0.995, y: 0.5 }]) })).toBe(true)
+    expect(strokeReachesRim({ buffer, stroke: stroke([{ x: 0.5, y: 0.003 }]) })).toBe(true)
+  })
+})

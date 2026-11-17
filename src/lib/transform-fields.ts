@@ -6,6 +6,7 @@
  * React so it can be unit tested.
  */
 
+import { LAYER_SCALE_RANGE } from './layer-scale'
 import { HOUSE_COPY } from './house-copy'
 
 export type TransformKey = 'x' | 'y' | 'scale' | 'rotation'
@@ -62,8 +63,8 @@ export const TRANSFORM_FIELDS: Record<TransformKey | SizeKey, TransformField> = 
     name: HOUSE_COPY.size,
     label: `${HOUSE_COPY.size}, percent`,
     unit: '%',
-    min: 5,
-    max: 80,
+    min: LAYER_SCALE_RANGE.min * 100,
+    max: LAYER_SCALE_RANGE.max * 100,
     ...percent,
   },
   // Stretch one side (W): a word's or image's width (`scale`) and height
@@ -73,8 +74,8 @@ export const TRANSFORM_FIELDS: Record<TransformKey | SizeKey, TransformField> = 
     name: 'Width',
     label: 'Width, percent',
     unit: '%',
-    min: 4,
-    max: 80,
+    min: LAYER_SCALE_RANGE.min * 100,
+    max: LAYER_SCALE_RANGE.max * 100,
     ...percent,
   },
   height: {
@@ -82,8 +83,8 @@ export const TRANSFORM_FIELDS: Record<TransformKey | SizeKey, TransformField> = 
     name: 'Height',
     label: 'Height, percent',
     unit: '%',
-    min: 4,
-    max: 80,
+    min: LAYER_SCALE_RANGE.min * 100,
+    max: LAYER_SCALE_RANGE.max * 100,
     ...percent,
   },
   rotation: {

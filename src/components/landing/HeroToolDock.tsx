@@ -53,17 +53,6 @@ const VIEW_LABEL: Record<(typeof LANDING_CAMERA_VIEWS)[number], string> = {
   right: 'Right',
 }
 
-/**
- * The pad takes its panel's shape (`LANDING_PANEL_ASPECT`), so its ink covers
- * the whole panel. Literal classes for Tailwind; landing-demo.test.ts holds
- * them to the aspects.
- */
-export const PAD_ASPECT_CLASS: Record<string, string> = {
-  front: 'aspect-[0.813]',
-  back: 'aspect-[0.761]',
-  left: 'aspect-[1.31]',
-  right: 'aspect-[1.443]',
-}
 
 /** What a dragged graphic carries: its library path. */
 export const GRAPHIC_DRAG_TYPE = 'application/x-flv-graphic'
@@ -213,10 +202,11 @@ export function HeroToolDock({ live }: { live: boolean }) {
     })
   }
 
-  const padClass = cn(
-    'block h-full max-w-full touch-none rounded-xl border border-dashed border-flv-accent/40 bg-flv-soft',
-    PAD_ASPECT_CLASS[panel],
-  )
+  // The pad takes its panel's shape (`LANDING_PANEL_ASPECT`, from the tee
+  // itself), so its ink covers the whole panel. The live pad sets it as a
+  // style; the prerendered still can't carry one (the CSP refuses inline
+  // styles in the static HTML), so it is drawn about the front's shape.
+  const padClass = 'block h-full max-w-full touch-none rounded-xl border border-dashed border-flv-accent/40 bg-flv-soft'
 
   return (
     <div className="flv-dock flv-panel flex w-full flex-col gap-3 p-3 sm:p-4" data-hero-dock>
@@ -233,6 +223,7 @@ export function HeroToolDock({ live }: { live: boolean }) {
           width={300}
           height={112}
           className={cn(padClass, 'cursor-crosshair')}
+          style={{ aspectRatio: String(panelAspect) }}
           onDragOver={(event) => {
             if (event.dataTransfer.types.includes(GRAPHIC_DRAG_TYPE)) event.preventDefault()
           }}
@@ -263,7 +254,7 @@ export function HeroToolDock({ live }: { live: boolean }) {
           onLostPointerCapture={(event) => finishStroke(event.currentTarget)}
         />
       ) : (
-        <div aria-hidden className={padClass} />
+        <div aria-hidden className={cn(padClass, 'aspect-[4/5]')} />
       )}
       </div>
 
