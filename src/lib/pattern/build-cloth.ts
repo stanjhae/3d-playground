@@ -17,20 +17,31 @@ import { type Point2, triangulatePiece } from './triangulate.ts'
  * 1e-7 goes unstable with one pass per substep, and bending must stay at
  * least ten times softer than stretch or the two fight where cloth curves
  * over the body and it never settles (spike S1 and the template drapes).
+ *
+ * `massScale` (default 1) scales the particle mass of a piece. With one
+ * fabric throughout, a scale acts like the same scale on both compliances
+ * (XPBD weighs a correction by inverse mass against compliance), so it is
+ * folded into the values below; it also decides which side gives at a
+ * seam between two fabrics. Pieces at 1 leave the solver's input as it
+ * was, so the first six fabrics drape exactly as before.
  */
-export const FABRICS: Record<PatternFabric, { stretch: number; bend: number }> = {
+export type ClothFabric = { stretch: number; bend: number; massScale?: number }
+
+export const FABRICS: Record<PatternFabric, ClothFabric> = {
   jersey: { stretch: 2e-6, bend: 4e-5 },
   woven: { stretch: 1e-6, bend: 2e-5 },
   fleece: { stretch: 1.5e-6, bend: 2e-5 },
   denim: { stretch: 6e-7, bend: 1.2e-5 },
   satin: { stretch: 1e-6, bend: 6e-5 },
   firm: { stretch: 5e-7, bend: 1e-5 },
-  // Provisional (pattern-reader R): read but not yet chosen by any writer.
-  // The fabric-drape writer (B3) tunes them against real drapes.
-  linen: { stretch: 8e-7, bend: 1.6e-5 },
-  chiffon: { stretch: 2e-6, bend: 8e-5 },
-  canvas: { stretch: 4e-7, bend: 8e-6 },
-  wool: { stretch: 1.2e-6, bend: 2.4e-5 },
+  // Fabric drives the drape (B3). Chiffon: light, the softest bend, so it
+  // falls in fine folds (effective bend 1e-4 at half mass, past satin).
+  // Canvas: the stiffest of all, and heavy. Linen: crisp, between denim
+  // and woven. Wool: a medium hand, a little heavier than woven.
+  linen: { stretch: 7e-7, bend: 1.4e-5 },
+  chiffon: { stretch: 1.5e-6, bend: 2e-4, massScale: 0.5 },
+  canvas: { stretch: 4e-7, bend: 5e-6, massScale: 1.25 },
+  wool: { stretch: 1.2e-6, bend: 2.5e-5, massScale: 1.2 },
 }
 
 export const DEFAULT_SPACING_MM = 25
@@ -44,10 +55,14 @@ export type ClothPiece = {
   place: Placement
   stretchCompliance: number
   bendCompliance: number
+  /** Scale on the piece's particle mass (1 when unset). */
+  massScale?: number
   /** Metres kept clear of the body beyond the cloth's thickness (outer layers). */
   layerOffset?: number
   /** A waistband: the outline run from the first of these points to the second can't drop. */
   waistband?: readonly [string, string]
+  /** Cut-outs, flattened, each clockwise: free edges inside the outline. */
+  holes?: readonly FlatOutline[]
 }
 
 /** How far a waistband may sag below where it was placed. */
@@ -100,6 +115,23 @@ function sampleRun(points: readonly Point2[], count: number): Point2[] {
 
   out.push(points[points.length - 1]!)
   return out
+}
+
+/**
+ * A hole's ring for the mesh: each corner-to-corner part sampled at about
+ * `spacing` on its own, like a free edge of the outline.
+ */
+function holeRing(flat: FlatOutline, spacing: number): Point2[] {
+  const ring: Point2[] = []
+  const count = flat.corners.length
+
+  for (let c = 0; c < count; c += 1) {
+    const part = between(flat, c, (c + 1) % count)
+    const samples = sampleRun(part, Math.max(1, Math.round(polylineLength(part) / spacing)))
+    ring.push(...samples.slice(0, -1))
+  }
+
+  return ring
 }
 
 /** The flattened outline from corner `start` to corner `end`, counter-clockwise, ends included. */
@@ -156,6 +188,7 @@ export function buildCloth({
   const flat: number[] = []
   const pieceOf: number[] = []
   const layerOffset: number[] = []
+  const invMass: number[] = []
   const holdY: number[] = []
   const triangles: number[] = []
   const links: number[] = []
@@ -230,7 +263,10 @@ export function buildCloth({
       }
     }
 
-    const mesh = triangulatePiece({ outline: boundary, spacing })
+    // Each hole is one more boundary ring after the outline's; seams stay on the outline.
+    const holeRings = (piece.holes ?? []).map((hole) => holeRing(hole, spacing))
+    const holePoints = holeRings.reduce((sum, ring) => sum + ring.length, 0)
+    const mesh = triangulatePiece({ outline: boundary, holes: holeRings, spacing })
     const base = positions.length / 3
 
     mesh.points.forEach((p, index) => {
@@ -239,8 +275,12 @@ export function buildCloth({
       flat.push(p[0], p[1])
       pieceOf.push(pieceIndex)
       layerOffset.push(piece.layerOffset ?? 0)
+      invMass.push(1 / (piece.massScale ?? 1))
+      // `band` counts the outline then the lattice, as it did before holes:
+      // hole points are never on it.
+      const at = index < boundary.length ? index : index < boundary.length + holePoints ? -1 : index - holePoints
       // The band's last sample is the next run's first point.
-      holdY.push(band.has(index) || (band.has(boundary.length) && index === 0) ? wy - WAISTBAND_SLACK_M : -Infinity)
+      holdY.push(band.has(at) || (band.has(boundary.length) && index === 0) ? wy - WAISTBAND_SLACK_M : -Infinity)
     })
 
     for (const run of runs) {
@@ -334,6 +374,8 @@ export function buildCloth({
       stitches: Uint32Array.from(stitches),
       colliders,
       layerOffset: layerOffset.some((offset) => offset > 0) ? Float64Array.from(layerOffset) : undefined,
+      // Only a fabric with its own mass sends weights; the rest drape as before.
+      invMass: invMass.some((w) => w !== 1) ? Float64Array.from(invMass) : undefined,
       holdY: holdY.some((y) => Number.isFinite(y)) ? Float64Array.from(holdY) : undefined,
     },
     pieceOf: Uint16Array.from(pieceOf),
@@ -380,6 +422,10 @@ export function spacingFor({ pattern }: { pattern: CanonicalPattern }) {
 
   for (const piece of expandPieces({ pattern })) {
     area += Math.abs(signedArea(flattenOutline({ outline: piece.outline }).points))
+
+    for (const hole of piece.holes ?? []) {
+      area -= Math.abs(signedArea(flattenOutline({ outline: hole }).points))
+    }
   }
 
   // A triangular lattice holds one particle per s² · √3/2.
@@ -412,8 +458,10 @@ export function clothFromPattern({
       place: placementFor({ place: piece.place, outline: flat.points }),
       stretchCompliance: fabric.stretch,
       bendCompliance: fabric.bend,
+      ...(fabric.massScale !== undefined && fabric.massScale !== 1 ? { massScale: fabric.massScale } : {}),
       layerOffset: layered && !lower(piece.place.anchor) ? LAYER_OFFSET_M : 0,
       waistband: lower(piece.place.anchor) ? waistbandOf(piece) : undefined,
+      holes: piece.holes?.map((hole) => flattenOutline({ outline: hole })),
     }
   })
 

@@ -1,7 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 import { validateImage } from '../image-validate.ts'
-import { PATTERN_OPS, PATTERN_OP_LIMITS, type PatternOp, isPatternOp, slitSeams } from '../pattern/pattern-ops.ts'
+import { PATTERN_ROLES } from '../pattern/pattern-document.ts'
+import {
+  CUTOUT_OFFSET_LIMITS,
+  CUTOUT_SHAPES,
+  PATTERN_OPS,
+  PATTERN_OP_LIMITS,
+  type PatternOp,
+  clampPatternOp,
+  isPatternOp,
+  slitSeams,
+} from '../pattern/pattern-ops.ts'
 import type { PatternTemplate } from '../pattern/templates.ts'
 
 /**
@@ -116,11 +126,18 @@ export const AI_OUTPUT_SCHEMA = {
           op: { type: 'string', enum: [...PATTERN_OPS] },
           mm: { type: 'integer' },
           side: { type: 'string', enum: ['left', 'right', 'both'] },
-          // hemCurve: front, back or all; slit: a piece id. `cleanOps` checks which.
+          // hemCurve: front, back or all; slit and cutout: a piece id. `cleanOps` checks which.
           piece: { type: 'string' },
           seam: { type: 'string' },
+          // cutout only; it has no `mm`.
+          shape: { type: 'string', enum: [...CUTOUT_SHAPES] },
+          at: { type: 'string', enum: ['centre', ...PATTERN_ROLES] },
+          dx: { type: 'integer' },
+          dy: { type: 'integer' },
+          wMm: { type: 'integer' },
+          hMm: { type: 'integer' },
         },
-        required: ['op', 'mm'],
+        required: ['op'],
       },
     },
     notes: { type: 'string' },
@@ -151,6 +168,7 @@ function opsGuide() {
     neckline: 'neckline drop at centre front (0 = as is)',
     sleeve: 'sleeve length change; `side` left, right or both (the wearer’s sides)',
     slit: 'opens a seam this far up from its hem or cuff (a side slit, a vent); `piece` is a piece id, `seam` optionally one of that piece’s slit seams (default: its first). One slit per seam; slit each side for a pair',
+    cutout: `cuts a hole in one piece (a keyhole neckline, a back cut-out); no \`mm\`. \`piece\` is a piece id; \`shape\` ${CUTOUT_SHAPES.join(', ')}; \`at\` centre (default) or one of the piece’s roles, the middle of its points; \`dx\`, \`dy\` move the hole’s centre from there (y up, ${CUTOUT_OFFSET_LIMITS.min} to ${CUTOUT_OFFSET_LIMITS.max} mm; a hole by the neck needs a negative \`dy\`); \`wMm\`, \`hMm\` its width and height (a circle is \`wMm\` across). Keep at least 15 mm of cloth round it; at most 4 per piece`,
   }
   return PATTERN_OPS.map((op) => `- ${op}: ${meaning[op]}, ${PATTERN_OP_LIMITS[op].min} to ${PATTERN_OP_LIMITS[op].max} mm`).join('\n')
 }
@@ -173,7 +191,8 @@ function systemPrompt(template: PatternTemplate) {
 /**
  * Keeps only well-formed edits, clamped to their limits; at most 12. With
  * `pattern`, a slit must name one of its pieces and, if any, a seam a slit
- * can open there.
+ * can open there; a cut-out must name one of its pieces and, if `at` is a
+ * role, one that piece (or the piece it mirrors) has.
  */
 export function cleanOps(raw: unknown, pattern?: PatternTemplate['pattern']): PatternOp[] {
   const pieces = pattern ? new Set(pattern.pieces.map((piece) => piece.id)) : null
@@ -197,8 +216,17 @@ export function cleanOps(raw: unknown, pattern?: PatternTemplate['pattern']): Pa
       continue
     }
 
-    const { min, max } = PATTERN_OP_LIMITS[entry.op]
-    cleaned.push({ ...entry, mm: Math.round(Math.min(max, Math.max(min, entry.mm))) })
+    if (entry.op === 'cutout' && pattern) {
+      const piece = pattern.pieces.find((candidate) => candidate.id === entry.piece)
+      const source = piece?.mirrorOf ? pattern.pieces.find((candidate) => candidate.id === piece.mirrorOf) : undefined
+      const roles = piece?.roles ?? source?.roles
+
+      if (!piece || (entry.at !== undefined && entry.at !== 'centre' && !roles?.[entry.at]?.length)) {
+        continue
+      }
+    }
+
+    cleaned.push(clampPatternOp(entry))
 
     if (cleaned.length === AI_LIMITS.ops) {
       break

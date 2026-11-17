@@ -2,7 +2,7 @@ import { flattenOutline, outlineRun, polylineLength, signedArea } from './bezier
 import { expandPieces } from './mirror.ts'
 import type { CanonicalPattern, PatternPoint } from './pattern-document.ts'
 import type { PanelFrame } from './pattern-uv.ts'
-import type { Point2 } from './triangulate.ts'
+import { type Point2, distanceToPolygon, pointInPolygon } from './triangulate.ts'
 
 /**
  * Whether a pattern can be sewn: every piece a simple, counter-clockwise
@@ -22,6 +22,12 @@ export type GeometryIssue =
   | { code: 'seam-length'; seam: string; aMm: number; bMm: number; allowedMm: number }
   /** A seam's run passes over a point where another seam starts or ends, or runs where another already does. */
   | { code: 'seams-overlap'; seam: string; other: string; piece: string }
+  /** A cut-out (by index in the piece's `holes`) crosses itself, the outline or another cut-out. */
+  | { code: 'hole-crosses'; piece: string; hole: number }
+  | { code: 'hole-outside'; piece: string; hole: number }
+  /** Closer than `GEOMETRY_LIMITS.holeEdgeMm` to the outline or another cut-out. */
+  | { code: 'hole-near-edge'; piece: string; hole: number; distanceMm: number }
+  | { code: 'hole-too-small'; piece: string; hole: number; areaMm2: number }
 
 export const GEOMETRY_LIMITS = {
   /** 25 cm². */
@@ -32,6 +38,10 @@ export const GEOMETRY_LIMITS = {
   sewMm: 5,
   /** An eased seam (a sleeve cap into its armhole) may differ by 6%. */
   easeFraction: 0.06,
+  /** A cut-out keeps this much cloth between it and the edge (or another cut-out). */
+  holeEdgeMm: 15,
+  /** 4 cm². */
+  minHoleAreaMm2: 400,
 } as const
 
 export type { PanelFrame }
@@ -121,6 +131,11 @@ export function validateGeometry({
       }
     })
 
+    // A mirror's holes are its source's, flipped: checked once, on the source.
+    if (piece.holes && !piece.mirrored) {
+      issues.push(...holeIssues({ piece: piece.id, outline: flat.points, holes: piece.holes.map((hole) => flattenOutline({ outline: hole }).points) }))
+    }
+
     const frame = frames?.[piece.panel]
 
     if (frame) {
@@ -153,6 +168,75 @@ export function validateGeometry({
       issues.push({ code: 'seam-length', seam: seam.id, aMm: Math.round(a), bMm: Math.round(b), allowedMm: Math.round(allowed) })
     }
   }
+
+  return issues
+}
+
+function ringsCross(a: readonly Point2[], b: readonly Point2[]) {
+  for (let i = 0; i < a.length; i += 1) {
+    for (let j = 0; j < b.length; j += 1) {
+      if (segmentsCross(a[i]!, a[(i + 1) % a.length]!, b[j]!, b[(j + 1) % b.length]!)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+/** The closest two rings come: each one's points to the other's edges. */
+function ringDistance(a: readonly Point2[], b: readonly Point2[]) {
+  let best = Infinity
+
+  for (const p of a) {
+    best = Math.min(best, distanceToPolygon(p, b))
+  }
+
+  for (const p of b) {
+    best = Math.min(best, distanceToPolygon(p, a))
+  }
+
+  return best
+}
+
+/**
+ * Each cut-out must be a simple ring inside its piece, apart from the
+ * others, with a band of cloth round it and enough area to stay open.
+ * One issue per hole, the first that applies.
+ */
+function holeIssues({ piece, outline, holes }: { piece: string; outline: readonly Point2[]; holes: readonly Point2[][] }): GeometryIssue[] {
+  const issues: GeometryIssue[] = []
+
+  holes.forEach((hole, index) => {
+    const others = holes.filter((_, other) => other !== index)
+
+    if (
+      crossesItself(hole) ||
+      ringsCross(hole, outline) ||
+      others.some((other) => ringsCross(hole, other) || pointInPolygon(hole[0]!, other) || pointInPolygon(other[0]!, hole))
+    ) {
+      issues.push({ code: 'hole-crosses', piece, hole: index })
+      return
+    }
+
+    if (!pointInPolygon(hole[0]!, outline)) {
+      issues.push({ code: 'hole-outside', piece, hole: index })
+      return
+    }
+
+    const distance = Math.min(ringDistance(hole, outline), ...others.map((other) => ringDistance(hole, other)))
+
+    if (distance < GEOMETRY_LIMITS.holeEdgeMm) {
+      issues.push({ code: 'hole-near-edge', piece, hole: index, distanceMm: Math.round(distance) })
+      return
+    }
+
+    const area = Math.abs(signedArea(hole))
+
+    if (area < GEOMETRY_LIMITS.minHoleAreaMm2) {
+      issues.push({ code: 'hole-too-small', piece, hole: index, areaMm2: Math.round(area) })
+    }
+  })
 
   return issues
 }
@@ -228,5 +312,13 @@ export function describeGeometryIssue({ issue, labelOf }: { issue: GeometryIssue
     }
     case 'seams-overlap':
       return `Two seams on ${labelOf(issue.piece)} overlap; each stretch of edge can be sewn only once.`
+    case 'hole-crosses':
+      return `A cut-out on ${labelOf(issue.piece)} crosses itself, the edge or another cut-out.`
+    case 'hole-outside':
+      return `A cut-out on ${labelOf(issue.piece)} lies outside the piece.`
+    case 'hole-near-edge':
+      return `A cut-out on ${labelOf(issue.piece)} is ${(issue.distanceMm / 10).toFixed(1)} cm from the edge or another cut-out; keep at least ${GEOMETRY_LIMITS.holeEdgeMm / 10} cm of cloth round it.`
+    case 'hole-too-small':
+      return `A cut-out on ${labelOf(issue.piece)} is too small to stay open; make it at least ${GEOMETRY_LIMITS.minHoleAreaMm2 / 100} cm².`
   }
 }

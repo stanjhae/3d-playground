@@ -92,7 +92,8 @@ type PieceCommon = {
  * the right). A drawn piece may have cut-outs: `holes`, each a closed ring
  * of points in the piece's frame, run clockwise. Seams and roles name
  * outline points only. A mirror takes its source's holes, so it has none
- * of its own. Read since pattern-reader R; nothing writes them yet.
+ * of its own. Read since pattern-reader R; written since C2 (the `cutout`
+ * op and the editor).
  */
 export type PatternPiece =
   | (PieceCommon & { outline: PatternPoint[]; holes?: PatternPoint[][]; mirrorOf?: undefined })

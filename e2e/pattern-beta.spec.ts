@@ -4,7 +4,7 @@ import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
 
 /**
  * Pattern (beta), Workflow 1 (the suite's build turns `VITE_PATTERN_BETA`
- * on): turn it on, reshape a piece, open a slit, see it drape and save, publish it
+ * on): turn it on, reshape a piece, open a slit, cut a hole, see it drape and save, publish it
  * (which stores the draped mesh), and reload without draping again.
  */
 
@@ -26,7 +26,7 @@ async function savedPattern({ page }: { page: Page }) {
 
 const drapeState = (page: Page) => page.getByTestId('pattern-drape-state')
 
-test('reshape the pattern, slit it, drape it, publish it, and reload without draping', async ({ page }) => {
+test('reshape the pattern, slit it, cut a hole in it, drape it, publish it, and reload without draping', async ({ page }) => {
   test.setTimeout(240_000)
   const email = newEmail({ label: 'pattern' })
   emails.push(email)
@@ -96,6 +96,30 @@ test('reshape the pattern, slit it, drape it, publish it, and reload without dra
   expect(slit.pieces.find((piece) => piece.id === 'front')!.outline.find((point) => point.id === 'sideL-slit-a')!.y).toBe(250)
   await test.info().attach('draped slit', { body: await page.screenshot(), contentType: 'image/png' })
 
+  // A cut-out, from the keyboard: C on a point goes to its piece's cut-out tools.
+  await editor.locator('[data-point="back:hemL"]').focus()
+  await page.keyboard.press('c')
+  const cutout = page.getByTestId('pattern-cutout-tools')
+  await expect(cutout).toContainText('Cut-out on Back')
+  const shapeSelect = cutout.getByRole('combobox', { name: 'Shape' })
+  await expect(shapeSelect).toBeFocused()
+  await shapeSelect.selectOption('circle')
+  await cutout.getByRole('spinbutton', { name: 'Across, mm' }).fill('120')
+  await cutout.getByRole('button', { name: 'Add cut-out' }).click()
+  const hole = editor.locator('[data-hole="back:0"]')
+  await expect(hole).toBeFocused()
+  await expect(page.getByTestId('pattern-hole-tools')).toContainText('Back, cut-out 1, 12.0 by 12.0 cm')
+  // Arrow keys move the whole cut-out; each move re-drapes and saves.
+  await page.keyboard.press('Shift+ArrowUp')
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+  const holed = (await savedPattern({ page })).pattern as { pieces: Array<{ id: string; holes?: Array<Array<{ id: string; y: number }>> }> }
+  const backHoles = holed.pieces.find((piece) => piece.id === 'back')!.holes!
+  expect(backHoles).toHaveLength(1)
+  expect(backHoles[0]![0]!.id).toBe('cut0-0')
+  expect(holed.pieces.find((piece) => piece.id === 'front')!.holes).toBeUndefined()
+  await test.info().attach('draped cut-out', { body: await page.screenshot(), contentType: 'image/png' })
+
   // Publishing stores the draped mesh, then the views.
   const designId = new URL(page.url()).searchParams.get('cloud')!
   await page.goto(`/create?cloud=${designId}&step=share`)
@@ -156,6 +180,40 @@ test('an AI suggestion is previewed, then applied as one undoable edit', async (
   await page.getByRole('button', { name: 'Undo' }).first().click()
   await expectSaved({ page })
   expect((await savedPattern({ page })).pattern.pieces[0].outline[0].y).toBe(0)
+})
+
+test('picking a fabric re-drapes the pattern in it and saves it on the pieces', async ({ page }) => {
+  test.setTimeout(180_000)
+  const email = newEmail({ label: 'pattern-fabric' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'select')
+  await page.goto(url.toString())
+  await expectSaved({ page })
+  await page.getByRole('switch', { name: 'Pattern (beta)' }).click()
+  await expect(page.getByTestId('pattern-editor')).toBeVisible({ timeout: 30_000 })
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+  const runs = Number(await drapeState(page).getAttribute('data-runs'))
+
+  const fabric = page.getByTestId('pattern-fabric')
+  await fabric.getByRole('button', { name: 'Chiffon' }).click()
+  await expect(fabric.getByRole('button', { name: 'Chiffon' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('pattern-cut-from')).toHaveAttribute('data-fabric', 'chiffon')
+  // The pattern's hash moved, so it drapes again.
+  await expect.poll(async () => Number(await drapeState(page).getAttribute('data-runs')), { timeout: 30_000 }).toBeGreaterThan(runs)
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+
+  const saved = (await savedPattern({ page })).pattern as { pieces: Array<{ id: string; fabric?: string }> }
+  expect(saved.pieces.length).toBeGreaterThan(0)
+
+  for (const piece of saved.pieces) {
+    expect(piece.fabric).toBe('chiffon')
+  }
 })
 
 test('trousers start as shorts from a length preset, which drapes and saves', async ({ page }) => {

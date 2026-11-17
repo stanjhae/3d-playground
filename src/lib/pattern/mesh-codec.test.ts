@@ -2,8 +2,13 @@ import { describe, expect, test } from 'vitest'
 
 import { type DrapeMessage, type DrapedMesh, runDrapeJob } from '../cloth/drape-job'
 import { MESH_MAX_BYTES, decodeMesh, encodeMesh, readMeshHeader } from './mesh-codec'
+import { createEmptyCanonicalDocument } from '../canonical-document'
+import { toRenderDocument } from '../render-projection'
 import { fixtureTeePattern } from './pattern-fixtures'
 import { hashPattern } from './pattern-hash'
+import { applyPatternOps } from './pattern-ops'
+import { patternPrintUv } from './pattern-scene'
+import { patternTemplateFor } from './templates'
 
 let draped: DrapedMesh | null = null
 
@@ -60,6 +65,39 @@ describe('stored meshes (FLPM v1)', () => {
     expect(positionError).toBeLessThan(0.0001)
     expect(normalError).toBeLessThan(0.05)
     expect(flatError).toBeLessThan(0.051)
+  }, 20_000)
+
+  test('a drape with a cut-out round-trips too, and every vertex prints inside its panel', async () => {
+    const template = patternTemplateFor({ templateId: 'tee-crew-short', templateVersion: 4 })!
+    const cut = applyPatternOps({ pattern: template.pattern, ops: [{ op: 'cutout', piece: 'back', shape: 'teardrop', dx: 0, dy: 60, wMm: 90, hMm: 140 }] })
+    expect(cut.ok).toBe(true)
+
+    if (!cut.ok) {
+      return
+    }
+
+    const messages: DrapeMessage[] = []
+    runDrapeJob({ type: 'drape', job: 2, pattern: cut.pattern }, (message) => messages.push(message))
+    const done = messages.at(-1)!
+    expect(done.type).toBe('done')
+    const mesh = (done as Extract<DrapeMessage, { type: 'done' }>).mesh
+    const patternHash = await hashPattern({ pattern: cut.pattern })
+    const back = decodeMesh(encodeMesh({ mesh, patternHash }))
+    expect(Array.from(back.indices)).toEqual(Array.from(mesh.indices))
+    expect(Array.from(back.pieceOf)).toEqual(Array.from(mesh.pieceOf))
+    expect(back.positions.every((value, i) => Math.abs(value - mesh.positions[i]!) < 0.0001)).toBe(true)
+
+    const render = toRenderDocument({ document: { ...createEmptyCanonicalDocument({ templateId: 'tee-crew-short', version: 4 }), pattern: cut.pattern } }).document
+    const uv = patternPrintUv({ mesh: back, render: render.pattern!, panelUv: render.panelUv! })
+
+    for (let i = 0; i < back.pieceOf.length; i += 1) {
+      const panel = render.pattern!.renderPanels[cut.pattern.pieces.find((piece) => piece.id === back.pieceIds[back.pieceOf[i]!])!.panel]!
+      const rect = render.panelUv![panel]!
+      expect(uv[i * 2]!).toBeGreaterThanOrEqual(Math.min(rect.u0, rect.u1) - 1e-6)
+      expect(uv[i * 2]!).toBeLessThanOrEqual(Math.max(rect.u0, rect.u1) + 1e-6)
+      expect(uv[i * 2 + 1]!).toBeGreaterThanOrEqual(Math.min(rect.v0, rect.v1) - 1e-6)
+      expect(uv[i * 2 + 1]!).toBeLessThanOrEqual(Math.max(rect.v0, rect.v1) + 1e-6)
+    }
   }, 20_000)
 
   test('anything that is not a whole FLPM file is refused by its header', async () => {
