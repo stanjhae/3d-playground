@@ -162,16 +162,19 @@ export function findLayer({
 /** What a locked layer says when a command would change it (W3). */
 const LOCKED_MESSAGE = 'locked; unlock it to edit'
 
-/** The only change a locked layer takes is being unlocked. */
-function isUnlockOnly({ patch }: { patch: CanonicalLayerPatch }) {
+/**
+ * The only changes a locked layer takes are being unlocked and being shown
+ * or hidden: hiding changes the view, not the item, so it works while locked.
+ */
+function isLockFreePatch({ patch }: { patch: CanonicalLayerPatch }) {
   const keys = Object.entries(patch).filter(([, value]) => value !== undefined)
-  return keys.length > 0 && keys.every(([key, value]) => key === 'locked' && value === false)
+  return keys.length > 0 && keys.every(([key, value]) => (key === 'locked' && value === false) || key === 'visible')
 }
 
 /**
  * Why `command` would change a locked layer, or null. A locked layer can't
  * be moved, restyled, restacked, removed or drawn into until it is
- * unlocked; copying it is fine. A batch is checked command by command
+ * unlocked; hiding, showing or copying it is fine. A batch is checked command by command
  * against the document as the batch leaves it.
  */
 export function lockedIssues({
@@ -207,7 +210,7 @@ export function lockedIssues({
   }
 
   if (command.type === 'updateLayer') {
-    return lockedLayer(command.layerId) && !isUnlockOnly({ patch: command.patch }) ? refuse(command.layerId) : null
+    return lockedLayer(command.layerId) && !isLockFreePatch({ patch: command.patch }) ? refuse(command.layerId) : null
   }
 
   if (

@@ -1,5 +1,6 @@
 import { type FlpResult, call, publicRead } from './client.ts'
 import type { VoteState } from './contract.ts'
+import type { VoteFeedPage } from './publication.ts'
 
 /**
  * Votes on a published design (V1), one per account. Reading works signed
@@ -46,4 +47,29 @@ export function voteCountsLater({ countsFrom, now = new Date() }: { countsFrom: 
 
 export function voteCountLabel({ count }: { count: number }) {
   return `${count} ${count === 1 ? 'vote' : 'votes'}`
+}
+
+/**
+ * One page of the Vote feed (`/vote`). Signed in, the session goes with it,
+ * so the viewer's own designs are left out and each card knows its vote.
+ */
+export function getVoteFeed({
+  garmentId = null,
+  cursor = null,
+  fetchImpl,
+}: {
+  garmentId?: string | null
+  cursor?: string | null
+  fetchImpl?: typeof fetch
+} = {}): Promise<FlpResult<VoteFeedPage>> {
+  const query = new URLSearchParams()
+
+  if (garmentId) query.set('garment', garmentId)
+  if (cursor) query.set('cursor', cursor)
+
+  return publicRead<VoteFeedPage>({
+    path: `public/feed${query.size ? `?${query}` : ''}`,
+    fetchImpl,
+    failed: 'The designs could not load',
+  })
 }

@@ -29,11 +29,9 @@ export function PublicName() {
     }
   }, [])
 
-  if (saved === undefined) {
-    return null
-  }
-
-  const changed = draft.trim() !== (saved ?? '')
+  // Shown, disabled, while the name loads, so the page below doesn't jump.
+  const loading = saved === undefined
+  const changed = !loading && draft.trim() !== (saved ?? '')
 
   return (
     <form
@@ -55,6 +53,7 @@ export function PublicName() {
       <label className="flex flex-col gap-1 font-body text-xs text-flv-muted">
         Public name, shown on designs you publish{COMMUNITY ? ' and comments you post' : ''}
         <input
+          disabled={loading}
           className="min-h-9 w-56 rounded-lg border border-flv-line bg-white px-2 font-body text-sm text-flv-ink"
           value={draft}
           maxLength={40}

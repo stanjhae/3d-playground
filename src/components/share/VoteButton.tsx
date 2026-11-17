@@ -15,20 +15,25 @@ const controlClass =
  * One vote per account on a published design (V1). Signed out, the count
  * shows with a way to sign in and come back here. The count is read apart
  * from the (cached) share page, so it is current.
+ *
+ * `initial` is a state the caller already read for this account (the Vote
+ * feed's rows say whether the viewer voted), so no request is made for it;
+ * the caller remounts the button when the account changes.
  */
-export function VoteButton({ slug }: { slug: string }) {
+export function VoteButton({ slug, initial }: { slug: string; initial?: VoteState }) {
   const status = useSessionStore((state) => state.status)
   const accountEpoch = useSessionStore((state) => state.accountEpoch)
-  const [vote, setVote] = useState<VoteState | null>(null)
+  const [vote, setVote] = useState<VoteState | null>(initial ?? null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Voting asks for the terms once, like the studio (P1).
   const [needsTerms, setNeedsTerms] = useState(false)
   const pendingRef = useRef(false)
+  const preloaded = initial !== undefined
 
   // Re-read when the account changes: "voted" belongs to one account.
   useEffect(() => {
-    if (status === 'loading') {
+    if (status === 'loading' || preloaded) {
       return
     }
 
@@ -44,7 +49,7 @@ export function VoteButton({ slug }: { slug: string }) {
     return () => {
       cancelled = true
     }
-  }, [slug, status, accountEpoch])
+  }, [slug, status, accountEpoch, preloaded])
 
   async function toggle() {
     if (!vote || pendingRef.current) {

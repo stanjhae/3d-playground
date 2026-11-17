@@ -8,21 +8,21 @@ import { BOARD_WINDOWS, type BoardWindow } from '../../lib/flp-api/contract'
 import { getBoard } from '../../lib/flp-api/public-read'
 import type { BoardEntry } from '../../lib/flp-api/publication'
 import { voteCountLabel } from '../../lib/flp-api/votes'
-import { BOARD_WINDOW_LABEL, type BoardSort, boardView } from '../../lib/board-view'
+import { BOARD_WINDOW_LABEL } from '../../lib/board-view'
 import { getGarment } from '../../lib/garments'
 import { GownCredit } from '../editor/GownCredit'
 
 type Load = { state: 'loading' } | { state: 'ready'; designs: BoardEntry[] } | { state: 'failed' }
 
 /**
- * The board (V2): every published design, ranked by counted votes this week,
+ * Ranking (V2): every published design, ranked by counted votes this week,
  * this month or of all time, and within one garment when filtered. Each card
- * opens the design's share page, where people vote.
+ * opens the design's share page. Finding designs to vote on is Vote (/vote).
  */
 export function PublicationBoard() {
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [garmentId, setGarmentId] = useState<string | null>(null)
-  const [chosen, setSort] = useState<BoardSort | 'following'>('top')
+  const [chosen, setSort] = useState<'top' | 'following'>('top')
   const signedIn = useSessionStore((state) => state.status === 'signed-in')
   // Following needs a session: signed out (even mid-visit), it's Rankings again.
   const sort = chosen === 'following' && !(COMMUNITY && signedIn) ? 'top' : chosen
@@ -30,8 +30,7 @@ export function PublicationBoard() {
   const [window, setWindow] = useState<BoardWindow>('all')
   // Every garment seen on the board, so the filter keeps its chips while filtered.
   const [garments, setGarments] = useState<string[]>([])
-  // "New" lists everything newest first, whatever the window.
-  const shownWindow = sort === 'top' ? window : 'all'
+  const shownWindow = following ? 'all' : window
 
   useEffect(() => {
     let cancelled = false
@@ -55,18 +54,21 @@ export function PublicationBoard() {
     }
   }, [shownWindow, garmentId, following])
 
+  // The server ranks (ties share a place); Following is newest first.
   const designs = useMemo(() => (load.state === 'ready' ? load.designs : []), [load])
-  // Following is already newest first.
-  const shown = useMemo(() => boardView({ designs, sort: following ? 'top' : sort }), [designs, sort, following])
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-16">
       <header className="flex flex-col gap-2">
         <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Fashion Leader Vote</p>
-        <h1 className="font-display text-4xl">Vote and rankings</h1>
+        <h1 className="font-display text-4xl">Ranking</h1>
         <p className="font-body text-sm text-flv-muted">
-          Every published design, ranked by votes. Open one to see every side and give it your vote. A new
-          account’s vote counts once the account is a day old.
+          The top designs, ranked by votes. A new account’s vote counts once the account is a day old. To find
+          new designs that need votes, go to{' '}
+          <Link to="/vote" search={{}} className="underline">
+            Vote
+          </Link>
+          .
         </p>
       </header>
 
@@ -74,7 +76,6 @@ export function PublicationBoard() {
         {(
           [
             { id: 'top', label: 'Rankings', hint: 'Most voted first' },
-            { id: 'new', label: 'New', hint: 'Newest first, to vote on' },
             ...(COMMUNITY && signedIn ? [{ id: 'following', label: 'Following', hint: 'Designers you follow, newest first' } as const] : []),
           ] as const
         ).map((tab) => (
@@ -156,7 +157,7 @@ export function PublicationBoard() {
       ) : null}
 
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {shown.map((design, index) => (
+        {designs.map((design, index) => (
           <li key={design.slug} className="flv-panel flex flex-col gap-3 p-4">
             <Link to="/s/$slug" params={{ slug: design.slug }} className="flex flex-col gap-3">
               <div className="relative overflow-hidden rounded-xl border border-flv-line bg-flv-soft">

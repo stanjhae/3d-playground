@@ -381,6 +381,8 @@ type EditorState = {
     layerId: string
     patch: LayerPatch
   }) => void
+  /** Show or hide several layers in one undo step; locked ones too. */
+  setLayersVisible: ({ layerIds, visible }: { layerIds: string[]; visible: boolean }) => void
   setTextFace: ({ textFace }: { textFace: TextFace }) => void
   setTextScale: ({ textScale }: { textScale: number }) => void
   setTypeDraft: ({ typeDraft }: { typeDraft: string }) => void
@@ -749,6 +751,11 @@ function layerPatchChanges({
   layer: DesignDocument['layers'][number]
   patch: LayerPatch
 }) {
+  // A new name is a change on every kind (Rename in the Layers panel).
+  if (patch.label !== undefined && patch.label.trim() !== (layer.label ?? '')) {
+    return true
+  }
+
   if (layer.kind === 'paint') {
     return (
       (patch.visible !== undefined && patch.visible !== layer.visible) ||
@@ -1963,6 +1970,15 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         command: { type: 'updateLayer', layerId, patch },
         extra: { selectedLayerId: layerId },
       })
+    })
+  },
+  setLayersVisible: ({ layerIds, visible }) => {
+    set((state) => {
+      const changing = state.document.layers
+        .filter((layer) => layerIds.includes(layer.id) && layer.visible !== visible)
+        .map((layer) => layer.id)
+
+      return changing.length === 0 ? state : runCommand({ command: { type: 'setVisibility', layerIds: changing, visible } })
     })
   },
   setTextFace: ({ textFace }) => {

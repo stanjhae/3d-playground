@@ -71,7 +71,7 @@ function ProfilePage() {
               Try again
             </button>
           ) : null}
-          <Link to="/vote" className="underline">
+          <Link to="/ranking" className="underline">
             See the rankings
           </Link>
         </div>
