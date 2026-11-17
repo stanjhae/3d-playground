@@ -16,6 +16,9 @@ import { hashPattern } from './pattern-hash'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tests write invalid patterns on purpose
 type Loose = any
 
+/** `hashPattern(fixtureTeePattern())` as stored before holes could be read. */
+const FIXTURE_PATTERN_HASH = 'sha256:cf77cb4d89ab22f48f225b1d91568330fa881799c7a026f7c726bbe347bfe4c3'
+
 function tee(): CanonicalDocument {
   return createEmptyCanonicalDocument()
 }
@@ -137,5 +140,89 @@ describe('what a pattern may hold', () => {
 
   test("a mirrored piece's seams use its source's point ids", () => {
     expect(issues(withPattern((p) => (p.seams[9].a.from = 'hemL')))).toEqual(['$.pattern.seams[9].a.from: not a point on this piece'])
+  })
+})
+
+/** A clockwise diamond on the front, 60 mm across, centred at (0, 300). */
+function diamond(prefix = 'h'): Loose[] {
+  return [
+    { id: `${prefix}0`, x: 0, y: 330 },
+    { id: `${prefix}1`, x: 30, y: 300 },
+    { id: `${prefix}2`, x: 0, y: 270 },
+    { id: `${prefix}3`, x: -30, y: 300, k: 's', hi: [0, 10], ho: [0, -10] },
+  ]
+}
+
+describe('holes (pattern-reader R: read, not yet written)', () => {
+  test('a drawn piece with cut-outs is valid, and a save keeps them exactly', () => {
+    const document = withPattern((p) => (p.pieces[0].holes = [diamond('a'), diamond('b')]))
+    expect(issues(document)).toEqual([])
+
+    const reloaded = JSON.parse(serializeCanonicalDocument({ document }))
+    expect(issues(reloaded)).toEqual([])
+    expect(reloaded.pattern.pieces[0].holes).toEqual(document.pattern.pieces[0].holes)
+  })
+
+  test('the server accepts holes and hashes them with the rest', async () => {
+    const document = withPattern((p) => (p.pieces[0].holes = [diamond()]))
+    const prepared = await prepareContent({ value: document })
+    expect(prepared.ok).toBe(true)
+
+    if (prepared.ok) {
+      expect(prepared.prepared.contentHash).toBe(await hashCanonicalDocument({ document }))
+      expect(prepared.prepared.content.pattern?.pieces[0]?.holes).toEqual(document.pattern.pieces[0].holes)
+      expect(prepared.prepared.contentHash).not.toBe(await hashCanonicalDocument({ document: withPattern() }))
+    }
+  })
+
+  test('a pattern without holes hashes exactly as before the reader', async () => {
+    // Pinned before holes were read: an absent field changes nothing.
+    expect(await hashPattern({ pattern: fixtureTeePattern() })).toBe(FIXTURE_PATTERN_HASH)
+    expect(serializeCanonicalDocument({ document: withPattern() })).not.toContain('holes')
+  })
+
+  test('an empty list is refused, so no hole is only ever written one way', () => {
+    expect(issues(withPattern((p) => (p.pieces[0].holes = [])))).toEqual(['$.pattern.pieces[0].holes: fewer than 1 items'])
+  })
+
+  test('at most four holes, each of 3 to 32 points', () => {
+    const five = Array.from({ length: PATTERN_LIMITS.holesPerPiece + 1 }, (_, i) => diamond(`h${i}x`))
+    expect(issues(withPattern((p) => (p.pieces[0].holes = five)))).toEqual([`$.pattern.pieces[0].holes: more than ${PATTERN_LIMITS.holesPerPiece} items`])
+    expect(issues(withPattern((p) => (p.pieces[0].holes = [diamond().slice(0, 2)])))).toEqual(['$.pattern.pieces[0].holes[0]: fewer than 3 items'])
+    const ring = Array.from({ length: PATTERN_LIMITS.pointsPerHole.max + 1 }, (_, i) => ({ id: `r${i}`, x: i, y: 300 + (i % 2) }))
+    expect(issues(withPattern((p) => (p.pieces[0].holes = [ring])))).toEqual([`$.pattern.pieces[0].holes[0]: more than ${PATTERN_LIMITS.pointsPerHole.max} items`])
+    expect(issues(withPattern((p) => (p.pieces[0].holes = [{ id: 'h0' }])))).toEqual(['$.pattern.pieces[0].holes[0]: expected an array'])
+  })
+
+  test('hole points are points: whole millimetres within reach, ids unique within the piece', () => {
+    expect(issues(withPattern((p) => (p.pieces[0].holes = [diamond().map((point, i) => (i === 1 ? { ...point, x: 4000 } : point))])))).toEqual([
+      '$.pattern.pieces[0].holes[0][1].x: out of range [-3000, 3000]',
+    ])
+    expect(issues(withPattern((p) => (p.pieces[0].holes = [diamond(), diamond()])))).toContain('$.pattern.pieces[0].holes[1][0].id: duplicate id h0')
+    expect(issues(withPattern((p) => (p.pieces[0].holes = [diamond().map((point, i) => (i === 0 ? { ...point, id: 'hemL' } : point))])))).toEqual([
+      '$.pattern.pieces[0].holes[0][0].id: duplicate id hemL',
+    ])
+    expect(issues(withPattern((p) => (p.pieces[0].holes = [diamond().map((point, i) => (i === 0 ? { ...point, z: 1 } : point))])))).toEqual([
+      '$.pattern.pieces[0].holes[0][0].z: unknown field',
+    ])
+    // Another piece may reuse the ids.
+    expect(issues(withPattern((p) => ((p.pieces[0].holes = [diamond()]), (p.pieces[1].holes = [diamond()]))))).toEqual([])
+  })
+
+  test('seams and roles name outline points, never hole points', () => {
+    const holed = (edit: (p: Loose) => void) => withPattern((p) => ((p.pieces[0].holes = [diamond()]), edit(p)))
+    expect(issues(holed((p) => (p.pieces[0].roles.hem = ['h0'])))).toEqual(['$.pattern.pieces[0].roles.hem[0]: not a point on this piece'])
+    expect(issues(holed((p) => (p.seams[0].a.to = 'h1')))).toEqual(['$.pattern.seams[0].a.to: not a point on this piece'])
+  })
+
+  test("a mirrored piece takes its source's holes and has none of its own", () => {
+    expect(issues(withPattern((p) => (p.pieces[3].holes = [diamond()])))).toEqual(["$.pattern.pieces[3].holes: a mirrored piece takes its source's holes"])
+    expect(issues(withPattern((p) => (p.pieces[2].holes = [diamond()])))).toEqual([])
+  })
+})
+
+describe('simulation fabrics (pattern-reader R)', () => {
+  test.each(['linen', 'chiffon', 'canvas', 'wool'])('a piece may name %s', (fabric) => {
+    expect(issues(withPattern((p) => (p.pieces[2].fabric = fabric)))).toEqual([])
   })
 })

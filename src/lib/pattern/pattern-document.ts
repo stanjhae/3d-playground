@@ -25,6 +25,9 @@ export const PATTERN_LIMITS = {
   labelLength: 40,
   /** Point ids a role may name. */
   roleIds: 16,
+  /** Cut-outs in one piece, and the points around each. */
+  holesPerPiece: 4,
+  pointsPerHole: { min: 3, max: 32 },
 } as const
 
 export const PATTERN_POINT_KINDS = ['c', 's'] as const
@@ -44,7 +47,7 @@ export const PATTERN_ANCHORS = [
   'leg-right',
 ] as const
 export const PATTERN_WRAPS = ['plane', 'cylinder'] as const
-export const PATTERN_FABRICS = ['jersey', 'woven', 'fleece', 'denim', 'satin', 'firm'] as const
+export const PATTERN_FABRICS = ['jersey', 'woven', 'fleece', 'denim', 'satin', 'firm', 'linen', 'chiffon', 'canvas', 'wool'] as const
 export const PATTERN_SEAM_KINDS = ['sew', 'ease'] as const
 
 export type PatternRole = (typeof PATTERN_ROLES)[number]
@@ -84,8 +87,16 @@ type PieceCommon = {
   fabric?: PatternFabric
 }
 
-/** A piece drawn in full, or the mirror image of another (a left sleeve of the right). */
-export type PatternPiece = (PieceCommon & { outline: PatternPoint[]; mirrorOf?: undefined }) | (PieceCommon & { mirrorOf: string; outline?: undefined })
+/**
+ * A piece drawn in full, or the mirror image of another (a left sleeve of
+ * the right). A drawn piece may have cut-outs: `holes`, each a closed ring
+ * of points in the piece's frame, run clockwise. Seams and roles name
+ * outline points only. A mirror takes its source's holes, so it has none
+ * of its own. Read since pattern-reader R; nothing writes them yet.
+ */
+export type PatternPiece =
+  | (PieceCommon & { outline: PatternPoint[]; holes?: PatternPoint[][]; mirrorOf?: undefined })
+  | (PieceCommon & { mirrorOf: string; outline?: undefined; holes?: undefined })
 
 export type PatternSeamSide = { piece: string; from: string; to: string }
 
@@ -300,7 +311,7 @@ export function checkPattern({
 
   pieces?.forEach((value, index) => {
     const piecePath = `${path}.pieces[${index}]`
-    const piece = record(report, value, piecePath, ['id', 'panel', 'label', 'panelOrigin', 'place'], ['outline', 'mirrorOf', 'roles', 'fabric'])
+    const piece = record(report, value, piecePath, ['id', 'panel', 'label', 'panelOrigin', 'place'], ['outline', 'mirrorOf', 'roles', 'fabric', 'holes'])
 
     if (!piece) {
       return
@@ -331,6 +342,22 @@ export function checkPattern({
       outline?.forEach((point, pointIndex) => checkPoint(report, point, `${piecePath}.outline[${pointIndex}]`, drawn))
     } else {
       mirrors.push({ path: `${piecePath}.mirrorOf`, piece: String(piece.id), source: piece.mirrorOf })
+    }
+
+    if ('holes' in piece) {
+      if ('mirrorOf' in piece) {
+        report(`${piecePath}.holes`, 'a mirrored piece takes its source\'s holes')
+      } else {
+        // Hole point ids are unique within the piece, outline included, but
+        // only outline points can carry a seam or a role.
+        const seen = new Set(points ?? [])
+        const holes = array(report, piece.holes, `${piecePath}.holes`, 1, PATTERN_LIMITS.holesPerPiece)
+        holes?.forEach((hole, holeIndex) => {
+          const holePath = `${piecePath}.holes[${holeIndex}]`
+          const ring = array(report, hole, holePath, PATTERN_LIMITS.pointsPerHole.min, PATTERN_LIMITS.pointsPerHole.max)
+          ring?.forEach((point, pointIndex) => checkPoint(report, point, `${holePath}[${pointIndex}]`, seen))
+        })
+      }
     }
 
     if (named) {

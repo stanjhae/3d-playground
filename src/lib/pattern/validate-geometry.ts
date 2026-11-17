@@ -1,6 +1,6 @@
 import { flattenOutline, outlineRun, polylineLength, signedArea } from './bezier.ts'
 import { expandPieces } from './mirror.ts'
-import type { CanonicalPattern } from './pattern-document.ts'
+import type { CanonicalPattern, PatternPoint } from './pattern-document.ts'
 import type { PanelFrame } from './pattern-uv.ts'
 import type { Point2 } from './triangulate.ts'
 
@@ -20,6 +20,8 @@ export type GeometryIssue =
   | { code: 'sharp-corner'; piece: string; point: string; degrees: number }
   | { code: 'outside-frame'; piece: string }
   | { code: 'seam-length'; seam: string; aMm: number; bMm: number; allowedMm: number }
+  /** A seam's run passes over a point where another seam starts or ends, or runs where another already does. */
+  | { code: 'seams-overlap'; seam: string; other: string; piece: string }
 
 export const GEOMETRY_LIMITS = {
   /** 25 cm². */
@@ -132,6 +134,7 @@ export function validateGeometry({
   }
 
   const outlineOf = new Map(pieces.map((piece) => [piece.id, piece.outline]))
+  issues.push(...seamOverlaps({ pattern, outlineOf }))
 
   for (const seam of pattern.seams) {
     const length = (side: { piece: string; from: string; to: string }) => {
@@ -148,6 +151,58 @@ export function validateGeometry({
 
     if (Math.abs(a - b) > allowed) {
       issues.push({ code: 'seam-length', seam: seam.id, aMm: Math.round(a), bMm: Math.round(b), allowedMm: Math.round(allowed) })
+    }
+  }
+
+  return issues
+}
+
+/**
+ * Seams on one piece must take turns along its outline: a run may not
+ * pass over another seam's end, nor sew the same stretch twice. The cloth
+ * builder splits the outline at seam ends, so either would leave a seam
+ * that can't pair up.
+ */
+function seamOverlaps({ pattern, outlineOf }: { pattern: CanonicalPattern; outlineOf: Map<string, PatternPoint[]> }): GeometryIssue[] {
+  const issues: GeometryIssue[] = []
+  const sides = pattern.seams.flatMap((seam) => [
+    { seam: seam.id, ...seam.a },
+    { seam: seam.id, ...seam.b },
+  ])
+  const reported = new Set<string>()
+
+  for (const side of sides) {
+    const outline = outlineOf.get(side.piece)
+
+    if (!outline || reported.has(side.seam)) {
+      continue
+    }
+
+    const n = outline.length
+    const start = outline.findIndex((point) => point.id === side.from)
+    const end = outline.findIndex((point) => point.id === side.to)
+
+    if (start < 0 || end < 0) {
+      continue
+    }
+
+    const inside = new Set<string>()
+
+    for (let i = (start + 1) % n; i !== end; i = (i + 1) % n) {
+      inside.add(outline[i]!.id)
+    }
+
+    const other = sides.find(
+      (entry) =>
+        entry !== side &&
+        entry.piece === side.piece &&
+        (inside.has(entry.from) || inside.has(entry.to) || (entry.from === side.from && entry.to === side.to)),
+    )
+
+    if (other) {
+      reported.add(side.seam)
+      reported.add(other.seam)
+      issues.push({ code: 'seams-overlap', seam: side.seam, other: other.seam, piece: side.piece })
     }
   }
 
@@ -171,5 +226,7 @@ export function describeGeometryIssue({ issue, labelOf }: { issue: GeometryIssue
       const diff = Math.abs(issue.aMm - issue.bMm)
       return `A seam’s two sides differ by ${(diff / 10).toFixed(1)} cm; they can differ by ${(issue.allowedMm / 10).toFixed(1)} cm at most.`
     }
+    case 'seams-overlap':
+      return `Two seams on ${labelOf(issue.piece)} overlap; each stretch of edge can be sewn only once.`
   }
 }

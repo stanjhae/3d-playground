@@ -89,14 +89,17 @@ export function buildPatternScene({
   panelUv,
   color,
   roughness = 0.86,
+  seat,
 }: {
   mesh: DrapedMesh
   render: PatternRender
   panelUv: Partial<Record<PanelId, UvRect>>
   color: string
   roughness?: number
+  /** Where the drape stands; the template's model seat by default. A bake passes [0, 0, 0] to keep the mannequin's frame. */
+  seat?: readonly [number, number, number]
 }): Group {
-  const [sx, sy, sz] = patternSeat({ pattern: render.pattern })
+  const [sx, sy, sz] = seat ?? patternSeat({ pattern: render.pattern })
   const positions = new Float32Array(mesh.positions.length)
 
   for (let i = 0; i < positions.length; i += 3) {

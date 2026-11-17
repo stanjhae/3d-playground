@@ -237,3 +237,69 @@ export function studioKeyList({ mod = MOD }: { mod?: string } = {}) {
     { keys: 'Enter in the type field', does: 'Place the word on the active panel' },
   ]
 }
+
+/** What a key does in the pattern editor, on a focused point or edge. */
+export type PatternKeyAction =
+  | { type: 'nudge'; dx: number; dy: number }
+  | { type: 'removePoint' }
+  | { type: 'addPoint' }
+  | { type: 'slit' }
+  | { type: 'deselect' }
+
+/**
+ * Pattern editor keys (Pattern beta). Points and edges are tab stops on
+ * the sheet; these act on the focused one. Millimetres, y up.
+ */
+export function patternKeyAction({
+  key,
+  shiftKey = false,
+  metaKey = false,
+  ctrlKey = false,
+  altKey = false,
+  on,
+}: {
+  key: string
+  shiftKey?: boolean
+  metaKey?: boolean
+  ctrlKey?: boolean
+  altKey?: boolean
+  on: 'point' | 'edge'
+}): PatternKeyAction | null {
+  // Undo, redo and the browser's own shortcuts pass through.
+  if (metaKey || ctrlKey || altKey) {
+    return null
+  }
+
+  if (key === 'Escape') {
+    return { type: 'deselect' }
+  }
+
+  if (on === 'point') {
+    const arrow = ARROWS[key]
+
+    if (arrow) {
+      const step = shiftKey ? 10 : 1
+      return { type: 'nudge', dx: arrow.dx * step + 0, dy: arrow.dy * step + 0 }
+    }
+
+    return key === 'Delete' || key === 'Backspace' ? { type: 'removePoint' } : null
+  }
+
+  if (key === '+' || key === '=' || key === 'Insert') {
+    return { type: 'addPoint' }
+  }
+
+  return key === 's' || key === 'S' ? { type: 'slit' } : null
+}
+
+/** The pattern editor's keys, as its help lists them. */
+export function patternKeyList() {
+  return [
+    { keys: 'Tab', does: 'Move between points and the edges between them' },
+    { keys: 'Arrow keys', does: 'Move the focused point 1 mm (with Shift, 10 mm)' },
+    { keys: 'Delete or Backspace', does: 'Remove the focused point, unless a seam ends there' },
+    { keys: '+ or Insert', does: 'Add a point halfway along the focused edge' },
+    { keys: 'S', does: 'Add a slit on the focused edge’s seam, or adjust its length' },
+    { keys: 'Esc', does: 'Deselect' },
+  ]
+}
