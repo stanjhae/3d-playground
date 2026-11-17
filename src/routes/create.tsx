@@ -635,7 +635,8 @@ function AtelierHome() {
         ) : (
           <div ref={stageRef} className={studioPhoneStageClass()} data-hint-keep-clear data-studio-part="stage">
             {/* The camera views ride the bottom of the garment, as at lg, not a header row of their own. */}
-            {!lgUp && mode === 'design' && showsPreviewRails({ step: createStep }) ? (
+            {/* On Design too, so a phone can pick a view or let the tee turn freely. */}
+            {!lgUp && mode === 'design' && (showsPreviewRails({ step: createStep }) || showsDesignRails({ step: createStep })) ? (
               <div data-stage-bar className="pointer-events-auto absolute inset-x-0 bottom-2 flex justify-center">
                 <CameraPresetBar />
               </div>
