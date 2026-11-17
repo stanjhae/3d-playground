@@ -42,7 +42,7 @@ const moveClass =
 /**
  * The Layers panel on the Design step: every item on the cloth, by panel,
  * top first. Each row shows and hides (locked or not), locks, reorders,
- * renames in place, duplicates and deletes; "Hide others" and "Show all"
+ * renames in place, duplicates and deletes; "Hide others" and "Unhide all"
  * work on the whole list in one undo step.
  */
 export function LayerRail() {
@@ -172,7 +172,7 @@ export function LayerRail() {
               }}
               className={actionClass}
             >
-              Show all
+              Unhide all
             </button>
           </span>
         ) : null}

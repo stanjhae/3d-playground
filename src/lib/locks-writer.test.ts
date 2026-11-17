@@ -140,7 +140,7 @@ describe('locking on the tee', () => {
     expect(stored({ id }).visible).toBe(false)
   })
 
-  test('Hide others and Show all change several layers, locked ones too, in one undo step', () => {
+  test('Hide others and Unhide all change several layers, locked ones too, in one undo step', () => {
     store().addGraphic({ src: GRAPHIC })
     const a = store().selectedLayerId!
     store().addText({ content: 'FLP', x: 0.4, y: 0.5 })

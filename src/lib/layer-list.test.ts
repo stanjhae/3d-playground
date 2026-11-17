@@ -97,7 +97,7 @@ describe('focusAfterDelete', () => {
   })
 })
 
-describe('Hide others and Show all', () => {
+describe('Hide others and Unhide all', () => {
   const hiddenWord = { ...word('b', 'front'), visible: false } as DesignLayer
   const groups = layerListGroups({
     layers: [word('a', 'front'), hiddenWord, word('c', 'front'), word('d', 'back')],

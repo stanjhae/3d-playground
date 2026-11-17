@@ -48,7 +48,7 @@ export type DesignCommand =
       layerId: string
       patch: LayerPatch
     }
-  /** Show or hide several layers as one undo step ("Hide others", "Show all"). */
+  /** Show or hide several layers as one undo step ("Hide others", "Unhide all"). */
   | { type: 'setVisibility'; layerIds: string[]; visible: boolean }
   | { type: 'setStructural'; structural: StructuralParams }
   | { type: 'applyFabric'; override: MaterialOverride }

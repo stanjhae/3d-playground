@@ -184,7 +184,7 @@ export function hideOthersIds({ groups, keepId }: { groups: LayerGroup[]; keepId
   return groups.flatMap((group) => group.rows).filter((row) => row.layer.id !== keepId && row.layer.visible).map((row) => row.layer.id)
 }
 
-/** "Show all": every hidden layer in the list. */
+/** "Unhide all": every hidden layer in the list. */
 export function hiddenLayerIds({ groups }: { groups: LayerGroup[] }) {
   return groups.flatMap((group) => group.rows).filter((row) => !row.layer.visible).map((row) => row.layer.id)
 }

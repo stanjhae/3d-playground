@@ -485,7 +485,7 @@ test('drawing on both sleeves, erasing, and the layer list work from the editor'
   await expect(eye).toHaveAttribute('aria-pressed', 'false')
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.find((layer) => layer.kind === 'text')?.visible, { timeout: 20_000 }).toBe(true)
 
-  // Hide others keeps only the picked layer; Show all brings the rest back.
+  // Hide others keeps only the picked layer; Unhide all brings the rest back.
   const pick = rail.getByRole('button', { name: /^ONE/ })
   if ((await pick.getAttribute('aria-current')) !== 'true') await pick.click()
   await expect(pick).toHaveAttribute('aria-current', 'true')
@@ -496,9 +496,9 @@ test('drawing on both sleeves, erasing, and the layer list work from the editor'
       .map((layer) => `${layer.kind}:${layer.visible}`)
       .sort()
   await expect.poll(visibility, { timeout: 20_000 }).toEqual(['paint:false', 'paint:false', 'paint:false', 'paint:false', 'text:true'])
-  await rail.getByRole('button', { name: 'Show all' }).click()
+  await rail.getByRole('button', { name: 'Unhide all' }).click()
   await expect.poll(async () => Object.values((await savedHead({ page })).content.panels).flatMap((panel) => panel!.layers).every((layer) => layer.visible), { timeout: 20_000 }).toBe(true)
-  await expect(rail.getByRole('button', { name: 'Show all' })).toHaveAttribute('aria-disabled', 'true')
+  await expect(rail.getByRole('button', { name: 'Unhide all' })).toHaveAttribute('aria-disabled', 'true')
 
   // Rename in place: Esc cancels, Enter saves.
   await rail.getByRole('button', { name: 'Rename ONE' }).click()
