@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { COMMUNITY } from '../../lib/community'
 import { getProfile, setDisplayName } from '../../lib/flp-api/client'
 import { failureSentence } from '../../lib/flp-api/plain-messages'
 
@@ -52,7 +53,7 @@ export function PublicName() {
       }}
     >
       <label className="flex flex-col gap-1 font-body text-xs text-flv-muted">
-        Public name, shown on designs you publish
+        Public name, shown on designs you publish{COMMUNITY ? ' and comments you post' : ''}
         <input
           className="min-h-9 w-56 rounded-lg border border-flv-line bg-white px-2 font-body text-sm text-flv-ink"
           value={draft}

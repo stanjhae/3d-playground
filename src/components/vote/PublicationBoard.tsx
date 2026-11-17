@@ -22,8 +22,10 @@ type Load = { state: 'loading' } | { state: 'ready'; designs: BoardEntry[] } | {
 export function PublicationBoard() {
   const [load, setLoad] = useState<Load>({ state: 'loading' })
   const [garmentId, setGarmentId] = useState<string | null>(null)
-  const [sort, setSort] = useState<BoardSort | 'following'>('top')
+  const [chosen, setSort] = useState<BoardSort | 'following'>('top')
   const signedIn = useSessionStore((state) => state.status === 'signed-in')
+  // Following needs a session: signed out (even mid-visit), it's Rankings again.
+  const sort = chosen === 'following' && !(COMMUNITY && signedIn) ? 'top' : chosen
   const following = sort === 'following'
   const [window, setWindow] = useState<BoardWindow>('all')
   // Every garment seen on the board, so the filter keeps its chips while filtered.

@@ -89,7 +89,7 @@ try {
     const reports = await openReports({ admin })
     console.log(
       reports.length
-        ? reports.map((report) => `${report.id}  ${report.createdAt}  ${report.slug}${report.commentId ? ` comment ${report.commentId}` : ''}  ${report.reason}${report.note ? `: ${report.note}` : ''}`).join('\n')
+        ? reports.map((report) => `${report.id}  ${report.createdAt}  ${report.slug}${report.commentId ? ` comment ${report.commentId}${report.comment?.hidden ? ' (hidden)' : ''}` : ''}  ${report.reason}${report.note ? `: ${report.note}` : ''}${report.comment ? `\n    “${report.comment.body}”` : ''}`).join('\n')
         : 'No open reports.',
     )
     process.exit(0)

@@ -2,6 +2,13 @@
 
 Decisions that change scope or behaviour for the alpha (17 November until the entry of 9 Nov 2026, then 1 December until the entry of 11 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 17 Nov 2026: comments and follows are on
+
+**Decided by:** owner ("Enable all that can be enabled").
+
+- `VITE_COMMUNITY` and `FLP_COMMUNITY` are `true` in Vercel Production, so beta has comments on share pages, Follow on public profiles and the Following tab on `/vote`. This replaces the 16 Nov line that kept them off until someone could moderate; moderation is the owner's from now on (`docs/abuse.md`: comment reports, `moderation.mjs hide-comment`).
+- The AI suggestion stays off: there is no Anthropic API key yet.
+
 ## 16 Nov 2026: rankings by period and garment, opt-in profiles, vote rules and reports
 
 **Decided by:** owner, approving the roadmap after the founder's call briefing.
