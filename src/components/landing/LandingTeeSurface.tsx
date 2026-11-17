@@ -6,7 +6,7 @@ import {
   clothPaintActive,
   endClothDrag,
   endClothPaint,
-  moveClothDragOnUv,
+  moveClothDrag,
   startClothDrag,
   startClothPaint,
 } from '../../lib/cloth-pointer'
@@ -15,7 +15,7 @@ import { addLandingStroke, updateLandingGraphicTransform } from '../../lib/landi
 import { useLandingDemoStore } from '../../lib/landing-demo-store'
 import { LANDING_BRUSH_WIDTH, toSketchPoint } from '../../lib/landing-real-tee'
 import { hitPlaceableLayer } from '../../lib/layer-hit'
-import { uvToPanelPoint } from '../../lib/panel-uv'
+import { uvOnPanel, uvToPanelPoint } from '../../lib/panel-uv'
 
 export type LiveStroke = { panel: PanelId; points: { x: number; y: number }[]; color: string }
 
@@ -186,7 +186,9 @@ export function LandingTeeSurface({
         const drag = clothDrag()
 
         if (drag) {
-          const edit = moveClothDragOnUv({ u: picked.uv.u, v: picked.uv.v, rects })
+          const held = clothDrag()
+          // The pointer on the dragged panel, as the studio's drag takes it.
+          const edit = held ? moveClothDrag(uvOnPanel({ panel: held.panel, u: picked.uv.u, v: picked.uv.v, rects })) : null
 
           if (!edit) {
             return

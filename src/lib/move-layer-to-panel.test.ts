@@ -29,7 +29,8 @@ const word = (id: string) => ({
 
 function placed(id: string) {
   const layer = store().document.layers.find((entry) => entry.id === id)
-  return layer && 'panel' in layer ? layer : null
+  // Placed layers only: a section fill has no position.
+  return layer && 'panel' in layer && 'x' in layer ? layer : null
 }
 
 describe('moveLayerToPanel, canonical', () => {
