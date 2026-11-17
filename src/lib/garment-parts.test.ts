@@ -71,6 +71,10 @@ describe('listRailGarments', () => {
       'hoodie',
       'overall',
       'tailored',
+      'vest',
+      'crop',
+      'dress',
+      'trousers',
     ])
   })
 })
@@ -78,6 +82,10 @@ describe('listRailGarments', () => {
 describe('garmentCredit', () => {
   test('hides the house jacket and names the seated gown', () => {
     expect(garmentCredit({ garmentId: 'jacket' })).toBeUndefined()
+    // Our own models, baked from their pattern recipes (roadmap D1).
+    for (const garmentId of ['vest', 'crop', 'dress', 'trousers']) {
+      expect(garmentCredit({ garmentId }), garmentId).toBeUndefined()
+    }
     expect(garmentCredit({ garmentId: 'column' })?.label).toBe(
       'Gown by Style3D CG',
     )
@@ -104,7 +112,7 @@ describe('garmentCredit', () => {
 
 describe('garment paint', () => {
   test('every garment with a template takes ink; the house jacket does not', () => {
-    for (const garmentId of ['tee', 'gown', 'slip', 'mixed', 'coat', 'suit', 'hoodie', 'overall', 'tailored']) {
+    for (const garmentId of ['tee', 'gown', 'slip', 'mixed', 'coat', 'suit', 'hoodie', 'overall', 'tailored', 'vest', 'crop', 'dress', 'trousers']) {
       expect(garmentCanPaint({ garmentId }), garmentId).toBe(true)
     }
     expect(garmentCanPaint({ garmentId: 'jacket' })).toBe(false)

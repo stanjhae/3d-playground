@@ -24,7 +24,7 @@ import {
 } from '../../lib/pattern/editor-model'
 import type { CanonicalPattern } from '../../lib/pattern/pattern-document'
 import { PATTERN_OP_LIMITS, closeSlit } from '../../lib/pattern/pattern-ops'
-import { patternTemplateFor } from '../../lib/pattern/templates'
+import { patternPresetFor, patternPresetsFor, patternTemplateFor } from '../../lib/pattern/templates'
 import { usePatternDrape } from '../../lib/pattern-drape-status'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
 import { patternKeyAction, patternKeyList } from '../../lib/studio-keys'
@@ -457,6 +457,8 @@ export default function PatternEditor() {
         </Suspense>
       ) : null}
 
+      <Presets pattern={stored} onCommit={commit} />
+
       <button
         type="button"
         onClick={() => {
@@ -483,6 +485,41 @@ export default function PatternEditor() {
     </>
   ) : (
     editor
+  )
+}
+
+/**
+ * Other starting patterns the template offers (the trousers' shorts): each
+ * replaces the pattern, as "Reset pattern" does, with the template's frames.
+ */
+function Presets({ pattern, onCommit }: { pattern: CanonicalPattern; onCommit: (next: CanonicalPattern, label: string) => void }) {
+  const { templateId, templateVersion } = pattern.basis
+  const presets = patternPresetsFor({ templateId, templateVersion })
+
+  if (presets.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Start from">
+      <span className={chromeMutedClass()}>Start from</span>
+      {presets.map((preset) => (
+        <button
+          key={preset.id}
+          type="button"
+          onClick={() => {
+            const next = patternPresetFor({ templateId, templateVersion, preset: preset.id })
+
+            if (next) {
+              onCommit(next.pattern, `Pattern set to ${preset.label.toLowerCase()}`)
+            }
+          }}
+          className={cn('min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent', chromeTextClass())}
+        >
+          {preset.label}
+        </button>
+      ))}
+    </div>
   )
 }
 

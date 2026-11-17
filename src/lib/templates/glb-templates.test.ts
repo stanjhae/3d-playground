@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { createEmptyCanonicalDocument, validateCanonicalDocument } from '../canonical-document'
 import { isCanonicalGarment } from '../concept-flags'
-import { garmentPanels } from '../garments'
+import { garmentCredit, garmentPanels } from '../garments'
 import { HOUSE_COPY } from '../house-copy'
 import { toRenderDocument } from '../render-projection'
 import { resolveTemplate, TEE_CREW_SHORT_V3, templateForGarment, type TemplateManifest } from '../template-manifest'
@@ -16,6 +16,10 @@ import { OVERALL_V1 } from './overall'
 import { SLIP_V1 } from './slip'
 import { SUIT_V1 } from './suit'
 import { TAILORED_V1 } from './tailored'
+import { VEST_V1 } from './vest'
+import { CROP_V1 } from './crop'
+import { DRESS_V1 } from './dress'
+import { TROUSERS_V1 } from './trousers'
 
 /** Node's file reader; tests run in Vitest, not the browser bundle. */
 async function readBytes({ path }: { path: string }) {
@@ -44,6 +48,11 @@ const TEMPLATES: Array<{ manifest: TemplateManifest; panels: string[] }> = [
   { manifest: SLIP_V1, panels: ['front', 'back'] },
   { manifest: OVERALL_V1, panels: ['front', 'back'] },
   { manifest: GOWN_V1, panels: ['front', 'back'] },
+  // Roadmap D1: baked from their pattern recipes.
+  { manifest: VEST_V1, panels: ['front', 'back'] },
+  { manifest: CROP_V1, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: DRESS_V1, panels: ['front', 'back'] },
+  { manifest: TROUSERS_V1, panels: ['front', 'back'] },
 ]
 
 describe.each(TEMPLATES)('$manifest.id@$manifest.version (real model)', ({ manifest, panels }) => {
@@ -231,5 +240,36 @@ describe('tee-crew-short@4, kept for the designs pinned to it', () => {
 
     expect(TEE_CREW_SHORT_V5.regions.front!.renderPanel).toBe(TEE_CREW_SHORT_V4.regions.front!.renderPanel)
     expect(TEE_CREW_SHORT_V5.regions.left!.renderPanel).toBe(TEE_CREW_SHORT_V4.regions.left!.renderPanel)
+  })
+})
+
+/**
+ * Roadmap D1: garments baked from their own pattern recipes
+ * (scripts/bake-pattern-glb.mjs). Each GLB is pinned here by its sha256, as
+ * its manifest pins it; a re-bake that moves one needs a new version.
+ */
+const BAKED: Array<{ manifest: TemplateManifest; sha256: string }> = [
+  { manifest: VEST_V1, sha256: '5e19b674bc72996a2974c4d4daf1f71e0bd5e566406563ea84c0e5f31efb7b4c' },
+  { manifest: CROP_V1, sha256: 'f07811266b479674e8352fa56ce1d5766d6a0428dcf46ec27884e8930fde83e2' },
+  { manifest: DRESS_V1, sha256: '0851836303bb52fc7cb67dcd5774cd02f515f7543b80c55e565ecc837670347a' },
+  { manifest: TROUSERS_V1, sha256: 'ec4c131101aca87f8485baee929a8c4988f0eaca1cb635af49a9af657c5378e1' },
+]
+
+describe.each(BAKED)('$manifest.id@$manifest.version (baked from its recipe)', ({ manifest, sha256 }) => {
+  test('is pinned, baked by the pattern baker from its own recipe, and named after its garment', () => {
+    expect(manifest.geometry.sha256).toBe(sha256)
+    expect(manifest.geometry.file).toBe(`/models/${manifest.id}.glb`)
+    expect(manifest.geometry.generator).toBe(`scripts/bake-pattern-glb.mjs (${manifest.id}@${manifest.version})`)
+    expect(manifest.garmentId).toBe(manifest.id)
+  })
+
+  test('is our own model: no third-party credit or licence line', () => {
+    expect(garmentCredit({ garmentId: manifest.garmentId })).toBeUndefined()
+  })
+
+  test('stays within the per-template GLB budget', async () => {
+    const bytes = await readBytes({ path: `public${manifest.geometry.file}` })
+    // scripts/budgets.json glbPerTemplateKiB
+    expect(bytes.byteLength / 1024).toBeLessThanOrEqual(1228.8)
   })
 })

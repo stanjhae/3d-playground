@@ -64,6 +64,8 @@ A document may carry an optional `pattern` block: the garment as flat sewing-pat
 
 `template.id` may also name a template a later release adds: `vest`, `crop`, `dress` or `trousers` (`UPCOMING_TEMPLATE_IDS` in `src/lib/template-manifest.ts`), each named after its garment. This build has no manifest for them, so it doesn't know their panels: a document on one takes its own `panels`, 1 to 8 of them with stable ids. Such a document reads and validates, but the build can't open it: cloud load reports it as unsupported, and the API still refuses to store a design no version it knows can open. The garment ids are in `GARMENT_IDS` too, but `isUpcomingGarment` keeps them out of the rail, the studio, create links and the vote filters until their templates ship.
 
+Since D1 (17 Nov) all four have templates (`vest@1`, `crop@1`, `dress@1`, `trousers@1`), so `UPCOMING_TEMPLATE_IDS` and `UPCOMING_GARMENT_IDS` are empty: a document on one is validated against its manifest's panels and opens like any other. The mechanism stays for the next garment a reader names before its writer ships.
+
 ## Content hashing
 
 `hashCanonicalDocument` returns `sha256:<hex>` over the UTF-8 bytes of `serializeCanonicalDocument`. The serialization:

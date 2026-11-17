@@ -1,10 +1,11 @@
 import type { DesignDocument } from './design-document.ts'
 
 /**
- * Read since pattern-reader R, made by a later release (docs/release.md). Each
- * one's template id is the same word (`UPCOMING_TEMPLATE_IDS`).
+ * Garments a release reads before one makes them (docs/release.md). Each
+ * one's template id is the same word (`UPCOMING_TEMPLATE_IDS`). Pattern-reader
+ * R read the vest, crop, dress and trousers; D1 makes them, so none waits now.
  */
-const UPCOMING_GARMENT_IDS_LIST = ['vest', 'crop', 'dress', 'trousers'] as const
+const UPCOMING_GARMENT_IDS_LIST = [] as const
 
 export const GARMENT_IDS = [
   'gown',
@@ -17,6 +18,11 @@ export const GARMENT_IDS = [
   'tailored',
   'jacket',
   'tee',
+  // Read since pattern-reader R, made since D1.
+  'vest',
+  'crop',
+  'dress',
+  'trousers',
   ...UPCOMING_GARMENT_IDS_LIST,
 ] as const
 

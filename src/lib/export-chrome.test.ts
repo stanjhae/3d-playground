@@ -4,7 +4,7 @@ import type { DesignDocument } from './design-document'
 import { getCanonicalDocument, useEditorStore } from './editor-store'
 import { applyLayerEdit } from './layer-hit'
 import { type AtlasBuffer, bakePublishedArt, rasterizeLayers } from './paint-atlas'
-import { SELECTION_COLOR, meshOutlineVisible } from './selection-chrome'
+import { SELECTION_COLOR, isOpenClothMesh, meshOutlineVisible } from './selection-chrome'
 
 /**
  * #156: published art and captured stills never include the selection
@@ -106,5 +106,8 @@ describe('exports exclude selection chrome (#156)', () => {
     expect(meshOutlineVisible({ canPick: true, isSelected: true, hovered: false, capturingAngles: false })).toBe(true)
     expect(meshOutlineVisible({ canPick: true, isSelected: false, hovered: true, capturingAngles: false })).toBe(true)
     expect(meshOutlineVisible({ canPick: false, isSelected: true, hovered: true, capturingAngles: false })).toBe(false)
+    // A garment draped from its pattern is one open layer: its outline shell would show through the openings.
+    expect(meshOutlineVisible({ canPick: true, isSelected: true, hovered: true, capturingAngles: false, openCloth: isOpenClothMesh({ name: 'body-pattern' }) })).toBe(false)
+    expect(isOpenClothMesh({ name: 'body-front' })).toBe(false)
   })
 })

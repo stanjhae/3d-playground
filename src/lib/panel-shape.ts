@@ -413,25 +413,30 @@ export function cleanPanelShape({ triangles, symmetric }: { triangles: readonly 
   }
 
   // Traced with the inside on the right, outer outlines run clockwise
-  // (negative area) and holes counter-clockwise: take the largest outer one.
-  const outer = contours(mask)
+  // (negative area) and holes counter-clockwise. Take the largest outer one,
+  // and any other piece of real size on the same panel (a dress's bodice
+  // above its skirt); specks from stray triangles stay out.
+  const outers = contours(mask)
     .filter((loop) => area(loop) < 0)
-    .sort((a, b) => area(a) - area(b))[0]
+    .sort((a, b) => area(a) - area(b))
+  const largest = outers[0]
 
-  if (!outer) {
+  if (!largest) {
     return [...triangles]
   }
 
-  const outline = [...outer].reverse()
-
-  const clean = smooth(simplify(outline, 0.004), 3)
-  const contour = clean.map(([x, y]) => new Vector2(x, y))
-  const faces = ShapeUtils.triangulateShape(contour, [])
   const out: number[] = []
 
-  for (const [a, b, c] of faces) {
-    for (const vertex of [a!, b!, c!]) {
-      out.push(clean[vertex]![0], clean[vertex]![1])
+  for (const outer of outers.filter((loop) => area(loop) <= area(largest) * 0.1)) {
+    const outline = [...outer].reverse()
+    const clean = smooth(simplify(outline, 0.004), 3)
+    const contour = clean.map(([x, y]) => new Vector2(x, y))
+    const faces = ShapeUtils.triangulateShape(contour, [])
+
+    for (const [a, b, c] of faces) {
+      for (const vertex of [a!, b!, c!]) {
+        out.push(clean[vertex]![0], clean[vertex]![1])
+      }
     }
   }
 

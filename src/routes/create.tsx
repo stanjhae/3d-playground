@@ -69,7 +69,7 @@ import {
 import { parseCreateSearch } from '../lib/create-search'
 import { loadDraft, saveDraft } from '../lib/design-draft'
 import { createDesign, getDesign } from '../lib/designs-api'
-import { getAssetSources, getCanonicalDocument, useCanEditShape, useEditorStore } from '../lib/editor-store'
+import { getAssetSources, getCanonicalDocument, useCanEditShape, useEditorStore, usePatternAvailable } from '../lib/editor-store'
 import { garmentCanPaint } from '../lib/garments'
 import {
   STUDIO_CHROME_BOTTOM_VAR,
@@ -145,6 +145,8 @@ function AtelierHome() {
   const mode = useEditorStore((state) => state.mode)
   const garmentId = useEditorStore((state) => state.garmentId)
   const shapeEditable = useCanEditShape()
+  // Garments without shape sliders (all but the tee) are edited in Pattern (beta).
+  const patternable = usePatternAvailable()
   const createStep = useEditorStore((state) => state.createStep)
   const designTool = useEditorStore((state) => state.designTool)
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
@@ -648,7 +650,7 @@ function AtelierHome() {
                 <ColorPatternPanel />
               ) : null}
               {showsStructureRail({ step: createStep }) &&
-              (!isCanonicalGarment({ garmentId }) || shapeEditable) ? (
+              (!isCanonicalGarment({ garmentId }) || shapeEditable || patternable) ? (
                 <StructureRail />
               ) : null}
               {showsDesignRails({ step: createStep }) && canPaint ? (

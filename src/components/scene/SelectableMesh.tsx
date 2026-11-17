@@ -24,7 +24,7 @@ import {
   placedType,
 } from '../../lib/layer-hit'
 import { uvToPanelPoint } from '../../lib/panel-uv'
-import { SELECTION_COLOR, meshOutlineVisible } from '../../lib/selection-chrome'
+import { SELECTION_COLOR, isOpenClothMesh, meshOutlineVisible } from '../../lib/selection-chrome'
 
 function pointerUv({
   event,
@@ -331,7 +331,7 @@ export function SelectableMesh({
         setHovered(false)
       }}
     >
-      {meshOutlineVisible({ canPick, isSelected, hovered, capturingAngles }) ? (
+      {meshOutlineVisible({ canPick, isSelected, hovered, capturingAngles, openCloth: isOpenClothMesh({ name }) }) ? (
         <Outlines color={SELECTION_COLOR} thickness={isSelected ? 0.006 : 0.003} />
       ) : null}
       {showCaption ? (

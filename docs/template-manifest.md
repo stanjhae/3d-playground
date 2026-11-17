@@ -119,8 +119,10 @@ A downloaded garment becomes a template with `scripts/build-template.mjs` and a 
 | `tee-crew-short@4` | front, back, left/right sleeve | `public/models/tee-real.glb` (`templates/tee.pieces.json`); new tee designs pin it, and `@1`–`@3` designs keep the procedural tee |
 | `mixed@1`, `coat@1`, `suit@1`, `tailored@1` | front, back, left/right sleeve | `public/models/<id>.glb` (`templates/<id>.pieces.json`) |
 | `slip@1`, `overall@1`, `gown@1` | front, back | `public/models/slip.glb`, `overall.glb`, `garment-print.glb` |
+| `vest@1`, `dress@1`, `trousers@1` | front, back | `public/models/vest.glb`, `dress.glb`, `trousers.glb`, baked from their pattern recipes (see "Baked from a pattern") |
+| `crop@1` | front, back, left/right sleeve | `public/models/crop.glb`, baked from its pattern recipe |
 
-Every garment but the hidden house jacket now has a template; front and back take all of a garment's cloth pieces (the facing test keeps them apart), and sleeves their own nodes. A board look on one of these garments opens in the studio with its cloth colour; its marks and art stay on the original.
+Every garment but the hidden house jacket now has a template (the four D1 garments are our own baked models, with no credit line); front and back take all of a garment's cloth pieces (the facing test keeps them apart), and sleeves their own nodes. A board look on one of these garments opens in the studio with its cloth colour; its marks and art stay on the original.
 
 ## `tee-crew-short@5`: sleeves printed all the way round (16 Nov)
 
@@ -142,6 +144,10 @@ Each garment's current template version has a **pattern template**: the sewing p
 | `coat@1`, `suit@1`, `tailored@1` | A deep-V front, back, two sleeves. The suit adds trousers: a front and a back across both legs |
 | `mixed@1` | A shirt over a two-piece skirt |
 | `slip@1`, `overall@1`, `gown@1` | Front and back: straps and a V, a square bib, or a fitted floor-length bodice |
+| `vest@1` | A sleeveless front and back, cut deep under the arm, with a V front (woven) |
+| `crop@1` | Front, back, two short sleeves; the hem about 80 mm above the waist (jersey) |
+| `dress@1` | A bodice to the waist (woven), sewn there to a flared two-piece skirt (satin). The bodice's hem is the waist seam (role `waist`), so hem edits act on the skirt |
+| `trousers@1` | A front and a back across both legs, full length, at the waist (woven). **Shorts** are a length preset of the same pattern (below) |
 
 - **Built from families.** Templates are built from pattern families (`src/lib/pattern/families.ts`: bodice, set-in sleeve, hood, skirt, trousers), not from baked files. A shipped `patternVersion` must never change, so `templates.test.ts` pins each one by the hash of its pattern and of its frames. If a change to a family moves a pinned hash, give that garment a new `patternVersion` and keep the old one, as template versions are kept.
 - **Frames.** Each panel's pieces are laid into one frame in millimetres: stacked top to bottom, centred, and sized to the GLB panel's aspect (`surface.panelAspect`). Panel-normalised prints keep their proportions on the cloth. A back panel's frame is mirrored, so it reads as seen through the body, as the back panel does today.
@@ -150,6 +156,7 @@ Each garment's current template version has a **pattern template**: the sewing p
   - Shoulders and hips hold cloth with high friction.
   - A skirt or trouser waistband can't sag more than 1.5 cm.
   - Upper garments worn over skirts or trousers sit 8 mm out.
+- **Presets.** A recipe may offer other starting patterns on the same template (`presets` in `templates.ts`; `patternPresetsFor`, `patternPresetFor`). The trousers offer **Shorts**: the same pieces, point ids and seams, cut 420 mm from waist to hem, laid in the trousers' own frames with the waist where the trousers' waist is, so a print at the waist stays put. Pattern mode shows them as "Start from"; "Reset pattern" goes back to full length. A preset is only a pattern a design starts from: the design still pins `trousers@1`, and its stored pattern says it is shorts. `templates.test.ts` pins the preset's hash too.
 - **Simplified for the beta.** Coats and suits have a one-piece deep-V front instead of overlapping lapels (spike S2): overlapping fronts would need cloth-to-cloth collision.
 
 ## Baked from a pattern (roadmap D0)
@@ -184,3 +191,32 @@ pnpm bake:pattern --template tee-crew-short --version 5
 - **Mapping.** The front, back and both sleeves land where `tee-real-v5.glb` puts them, upright, with the back the only mirrored panel. The sleeve frames have the same aspect as `@5`'s wrapped sleeves.
 - **Shape.** The drape is boxier than the Style3D model, and its sleeves stand further out: it measures 67 cm tall by 74 cm across, against the model's 71 by 57 cm. The sleeves print as pattern pieces rather than unrolled tubes.
 - **Not shipped.** `@5` keeps `tee-real-v5.glb`. New garments (roadmap D1) are the first to ship baked GLBs.
+
+## The D1 garments (17 Nov): vest, crop top, dress, trousers
+
+The first garments shipped from their own drape, with no downloaded model:
+
+```bash
+pnpm bake:pattern --template vest --version 1 --garment vest --glb public/models/vest.glb --manifest src/lib/templates/vest.ts
+```
+
+(and the same for `crop`, `dress` and `trousers`). Once a manifest is in the archive, a re-bake gives the same bytes: the frames then take their aspect from the manifest, which is the frame's own, so the layout doesn't move.
+
+| Template | Drape (mannequin frame, metres) | Print frames | GLB |
+| --- | --- | --- | --- |
+| `vest@1` | 0.85 to 1.49 high; hangs from the shoulders to the hip | front, back 72.2 × 83.2 cm | 8.8 KiB |
+| `crop@1` | hem at 1.07 to 1.08, about 80 mm above the dress form's waist (1.0) | front, back 65.0 × 58.5 cm; sleeves 54.9 × 32.7 cm | 9.4 KiB |
+| `dress@1` | bodice and skirt meet at 0.98 to 0.99; hem at 0.31 | front, back 121.6 × 162.4 cm (bodice above skirt) | 16.6 KiB |
+| `trousers@1` | waist at 0.975, hem at 0.04 | front, back 71.0 × 117.0 cm | 12.3 KiB |
+
+Drapes, front, side and back on the drape body (grey; lines at the waist, 1.0 m, and the hip, 0.92 m): [vest](evidence/d1-drape-vest.jpg), [crop top](evidence/d1-drape-crop.jpg), [dress](evidence/d1-drape-dress.jpg), [trousers](evidence/d1-drape-trousers.jpg), [shorts](evidence/d1-drape-trousers-shorts.jpg).
+
+Each is far inside the 1228.8 KiB `glbPerTemplateKiB` budget. `templates.test.ts` checks each settles where it is cut to (the crop's hem 50 to 110 mm above the waist, the dress's bodice meeting its skirt, the trousers at the waist and the ankle), and that the shorts preset hangs at the same waist. `glb-templates.test.ts` pins each GLB's sha256 and runs every check the real models get.
+
+Five things changed along the way:
+
+- **Atlas packing.** `atlas-pack.mjs` started its search at 1 px per unit, which suits boxes in metres. A dress's frames are over a metre and a half tall in millimetres, so two of them didn't fit at that scale and the packer gave up. It now starts lower when it has to; boxes that fit at 1 px per unit pack exactly as before, so no shipped template moves.
+- **Flat sides with more than one piece.** The 2D panel's printable shape kept only the largest outline, so the dress's front showed its skirt and not its bodice. It now keeps every outline at least a tenth the size of the largest (`cleanPanelShape`).
+- **No selection outline on open cloth.** The hover and selection outline is an inflated back-facing shell. On a garment draped from its pattern (one open layer of cloth, mesh `body-pattern`: these GLBs, or the live drape in Pattern mode), the shell showed through the neck, armholes and hem as a gold lining. Such a mesh gets no outline (`isOpenClothMesh`).
+- **Pattern (beta) reaches every garment with a pattern.** The Garment step showed the Pattern (beta) switch only where shape sliders exist, which is the tee alone, so no other garment could open Pattern mode. It now shows wherever the build has Pattern (beta) on and the garment has a pattern template (`create.tsx`). With the beta off, nothing changes.
+- **The garment picker follows a loading design.** Its category was set once, at first render, before a saved design's garment arrived, so a pair of trousers opened on "Tops". It now follows the open garment (`SilhouetteSwitch.tsx`).

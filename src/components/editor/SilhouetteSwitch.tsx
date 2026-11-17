@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Link } from '@tanstack/react-router'
 
@@ -47,6 +47,10 @@ const FIT_LABEL: Partial<Record<GarmentId, string>> = {
   hoodie: FLV_COPY.selectFitRelaxed,
   overall: FLV_COPY.selectFitRelaxed,
   tailored: FLV_COPY.selectFitClassic,
+  vest: FLV_COPY.selectFitClassic,
+  crop: FLV_COPY.selectFitRelaxed,
+  dress: FLV_COPY.selectFitClassic,
+  trousers: FLV_COPY.selectFitClassic,
 }
 
 /** Every fit we mean to offer; each garment has one built so far. */
@@ -69,7 +73,33 @@ function FormGlyph({
     )
   }
 
-  if (garmentId === 'gown' || garmentId === 'slip' || garmentId === 'overall') {
+  if (garmentId === 'crop') {
+    // The tee, cut short.
+    return (
+      <svg viewBox="0 0 48 48" aria-hidden className="h-12 w-12 fill-current">
+        <path d="M16 12 L8 18 L12 22 L16 18 L16 30 L32 30 L32 18 L36 22 L40 18 L32 12 L28 16 L20 16 Z" />
+      </svg>
+    )
+  }
+
+  if (garmentId === 'vest') {
+    // Sleeveless, deep armholes, a V front.
+    return (
+      <svg viewBox="0 0 48 48" aria-hidden className="h-12 w-12 fill-current">
+        <path d="M17 8 L24 22 L31 8 L34 10 Q31 18 35 23 L35 40 L13 40 L13 23 Q17 18 14 10 Z" />
+      </svg>
+    )
+  }
+
+  if (garmentId === 'trousers') {
+    return (
+      <svg viewBox="0 0 48 48" aria-hidden className="h-12 w-12 fill-current">
+        <path d="M14 8 L34 8 L37 41 L27 41 L24 19 L21 41 L11 41 Z" />
+      </svg>
+    )
+  }
+
+  if (garmentId === 'gown' || garmentId === 'slip' || garmentId === 'overall' || garmentId === 'dress') {
     return (
       <svg
         viewBox="0 0 48 48"
@@ -112,6 +142,11 @@ export function SilhouetteSwitch({
   const [category, setCategory] = useState<GarmentCategoryId>(
     garmentCategory({ garmentId: current }),
   )
+  // The garment may arrive after the first render (a saved design loading):
+  // the category follows it.
+  useEffect(() => {
+    setCategory(garmentCategory({ garmentId: current }))
+  }, [current])
   const [sampleColor, setSampleColor] = useState<string>(SAMPLE_COLORS[0].value)
   const [sampleSize, setSampleSize] = useState<SampleSizeId>('L')
   const garments = listGarmentsByCategory({ category }).filter((garment) =>

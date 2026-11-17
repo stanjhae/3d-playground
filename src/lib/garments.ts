@@ -244,6 +244,39 @@ export const GARMENTS: readonly GarmentEntry[] = [
       ...STYLE3D_LICENSE,
     },
   },
+  // Roadmap D1: our own models, baked from their pattern recipes
+  // (scripts/bake-pattern-glb.mjs), so they carry no third-party credit.
+  // Trousers have no GLB variant for shorts: a saved design records its
+  // template, not a variant, so shorts are a length preset of the trousers'
+  // pattern instead (`patternPresetsFor`), in Pattern mode.
+  {
+    id: 'vest',
+    label: 'Vest',
+    src: '/models/vest.glb',
+    parts: partsNamed({ ids: ['body'] }),
+    rail: true,
+  },
+  {
+    id: 'crop',
+    label: 'Crop top',
+    src: '/models/crop.glb',
+    parts: partsNamed({ ids: ['body'] }),
+    rail: true,
+  },
+  {
+    id: 'dress',
+    label: 'Dress',
+    src: '/models/dress.glb',
+    parts: partsNamed({ ids: ['body'] }),
+    rail: true,
+  },
+  {
+    id: 'trousers',
+    label: 'Trousers',
+    src: '/models/trousers.glb',
+    parts: partsNamed({ ids: ['body'] }),
+    rail: true,
+  },
   {
     id: 'jacket',
     label: 'Jacket',

@@ -10,6 +10,10 @@ import { OVERALL_V1 } from './templates/overall.ts'
 import { GOWN_V1 } from './templates/gown.ts'
 import { SUIT_V1 } from './templates/suit.ts'
 import { TAILORED_V1 } from './templates/tailored.ts'
+import { VEST_V1 } from './templates/vest.ts'
+import { CROP_V1 } from './templates/crop.ts'
+import { DRESS_V1 } from './templates/dress.ts'
+import { TROUSERS_V1 } from './templates/trousers.ts'
 
 /**
  * Pinned garment templates (FLP F07 #142). A canonical document names
@@ -275,6 +279,11 @@ const TEMPLATE_ARCHIVE: Record<string, Record<number, TemplateManifest>> = {
   gown: { 1: GOWN_V1 },
   suit: { 1: SUIT_V1 },
   tailored: { 1: TAILORED_V1 },
+  // Roadmap D1: baked from their pattern recipes (scripts/bake-pattern-glb.mjs).
+  vest: { 1: VEST_V1 },
+  crop: { 1: CROP_V1 },
+  dress: { 1: DRESS_V1 },
+  trousers: { 1: TROUSERS_V1 },
 }
 
 /** The version new designs pin, per template: its highest. */
@@ -286,12 +295,13 @@ const CURRENT_VERSIONS: Record<string, TemplateManifest> = Object.fromEntries(
 export const TEMPLATE_IDS: readonly string[] = Object.freeze(Object.keys(TEMPLATE_ARCHIVE))
 
 /**
- * Templates a later release adds (pattern-reader R), named after their
- * garment like the others. This build has no manifest for them, so it can't
- * open one, but a document or publication naming one still reads: it is
- * stored and listed, and opening it says it needs a newer version.
+ * Templates a later release adds, named after their garment like the others.
+ * This build has no manifest for them, so it can't open one, but a document
+ * or publication naming one still reads: it is stored and listed, and opening
+ * it says it needs a newer version. Pattern-reader R named the vest, crop,
+ * dress and trousers here; D1 gave them templates, so none is upcoming now.
  */
-export const UPCOMING_TEMPLATE_IDS: readonly string[] = Object.freeze(['vest', 'crop', 'dress', 'trousers'])
+export const UPCOMING_TEMPLATE_IDS: readonly string[] = Object.freeze([])
 
 /** Every template id the reader accepts: the ones it opens and the upcoming ones. */
 export const READABLE_TEMPLATE_IDS: readonly string[] = Object.freeze([...TEMPLATE_IDS, ...UPCOMING_TEMPLATE_IDS])
