@@ -19,7 +19,9 @@ export function BrandMark() {
   return (
     <>
       {/* Drawn by scripts/build-brand.mjs: 112 × 60 units, shown 28 px tall. */}
-      <img src="/brand/flv-mark.svg" alt={FLV_COPY.brandMark} width={52} height={28} className="block h-7 w-auto shrink-0" />
+      {/* The letters are the link's text, so the picture itself is decorative. */}
+      <img src="/brand/flv-mark.svg" alt="" width={52} height={28} className="block h-7 w-auto shrink-0" />
+      <span className="sr-only">{FLV_COPY.brandMark}</span>
       <span className="hidden font-display text-[0.65rem] leading-[1.1] tracking-normal uppercase sm:block">
         Fashion
         <br />
