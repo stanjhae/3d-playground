@@ -13,6 +13,7 @@ import {
 } from './canonical-commands.ts'
 import {
   type CanonicalDocument,
+  type CanonicalLayer,
   type CanonicalPanelId,
   type CanonicalStroke,
   type Color,
@@ -225,7 +226,7 @@ function translatePatch({
   kind,
 }: {
   patch: LayerPatch
-  kind: 'paint' | 'image' | 'text'
+  kind: CanonicalLayer['kind']
 }): CanonicalLayerPatch {
   const next: CanonicalLayerPatch = {}
 
@@ -242,7 +243,8 @@ function translatePatch({
     }
   }
 
-  if (kind === 'paint') {
+  // A fill has no placement: it covers its panel (reader R2).
+  if (kind === 'paint' || kind === 'fill') {
     return next
   }
 

@@ -182,6 +182,11 @@ function flipsOf(layer: { flipX?: true; flipY?: true }) {
   return { ...(layer.flipX ? { flipX: true } : {}), ...(layer.flipY ? { flipY: true } : {}) }
 }
 
+/** A stretched object's height scale (reader R2); a uniform one carries none. */
+function scaleYOf(layer: { scaleY?: number }) {
+  return layer.scaleY === undefined ? {} : { scaleY: layer.scaleY }
+}
+
 export function toRenderDocument({
   document,
   assetSources = {},
@@ -287,10 +292,43 @@ export function toRenderDocument({
           ...place(layer),
           y: layer.y,
           scale: layer.scale,
+          ...scaleYOf(layer),
           opacity: layer.opacity,
           visible: layer.visible,
           ...(layer.aspect !== 1 ? { aspect: layer.aspect } : {}),
           ...flipsOf(layer),
+          ...surface,
+          ...label,
+          ...locked,
+        })
+        continue
+      }
+
+      if (layer.kind === 'fill') {
+        const { source } = layer
+        const src = 'assetId' in source ? assetSources[source.assetId] : undefined
+
+        if ('assetId' in source && !src) {
+          missingAssets.push(source.assetId)
+        }
+
+        // A mirrored panel turns the other way and runs its phase backwards.
+        const offsetX = layer.offsetX === undefined ? undefined : mirrored ? 1 - layer.offsetX : layer.offsetX
+
+        layers.push({
+          id: layer.id,
+          kind: 'fill',
+          panel: render,
+          source:
+            'assetId' in source
+              ? { kind: 'image', src: src ?? '', aspect: source.aspect, ...(src ? {} : { missing: true as const }) }
+              : { kind: 'pattern', patternId: source.pattern === 'stripes' ? 'stripe' : 'check', colors: [...source.colors] },
+          tile: layer.tile,
+          rotation: mirrorToRender({ mirrored, value: { rotation: layer.rotation } }).rotation,
+          ...(offsetX === undefined ? {} : { offsetX }),
+          ...(layer.offsetY === undefined ? {} : { offsetY: layer.offsetY }),
+          opacity: layer.opacity,
+          visible: layer.visible,
           ...surface,
           ...label,
           ...locked,
@@ -308,6 +346,7 @@ export function toRenderDocument({
         ...place(layer),
         y: layer.y,
         scale: layer.scale,
+        ...scaleYOf(layer),
         opacity: layer.opacity,
         visible: layer.visible,
         ...flipsOf(layer),

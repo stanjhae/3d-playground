@@ -312,3 +312,39 @@ describe('how much of a layer is on its panel', () => {
     expect(live.layers.at(-1)).toMatchObject({ panel: 'left', x: 0.1, surface })
   })
 })
+
+describe('stretched layers (reader R2)', () => {
+  const mark: GraphicLayer = {
+    id: 'mark',
+    kind: 'graphic',
+    panel: 'front',
+    src: '/a.png',
+    x: 0.5,
+    y: 0.5,
+    scale: 0.2,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+  }
+
+  test('scaleY sets the height of the box; scale keeps the width', () => {
+    expect(layerBox({ layer: { ...mark, scaleY: 0.5 } })).toEqual({ width: 0.2, height: 0.5 })
+    expect(layerBox({ layer: { ...mark, aspect: 2, scaleY: 0.5 } })).toEqual({ width: 0.2, height: 0.25 })
+    expect(layerBox({ layer: { ...mark, aspect: 0.5, scaleY: 0.5 } })).toEqual({ width: 0.1, height: 0.5 })
+  })
+
+  test('a uniform layer keeps its box', () => {
+    expect(layerBox({ layer: mark })).toEqual({ width: 0.2, height: 0.2 })
+    expect(layerBox({ layer: { ...mark, aspect: 2 } })).toEqual({ width: 0.2, height: 0.1 })
+  })
+
+  test('a stretched word is taller, not wider', () => {
+    const { src: _src, ...rest } = mark
+    const word = { ...rest, kind: 'text' as const, content: 'FLP', face: 'sans' as const, color: '#1a1c22', scale: 0.1 }
+    const plain = layerBox({ layer: word })
+    const tall = layerBox({ layer: { ...word, scaleY: 0.3 } })
+
+    expect(tall.width).toBe(plain.width)
+    expect(tall.height).toBeCloseTo(0.27)
+  })
+})

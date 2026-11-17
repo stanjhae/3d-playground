@@ -694,6 +694,15 @@ function layerPatchChanges({
     )
   }
 
+  // A fill (reader R2) is hidden, faded or locked from the layer list only.
+  if (layer.kind === 'fill') {
+    return (
+      (patch.visible !== undefined && patch.visible !== layer.visible) ||
+      (patch.opacity !== undefined && patch.opacity !== layer.opacity) ||
+      (patch.locked !== undefined && patch.locked !== Boolean(layer.locked))
+    )
+  }
+
   if (layer.kind !== 'graphic' && layer.kind !== 'text' && layer.kind !== 'pattern') {
     return false
   }

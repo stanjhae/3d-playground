@@ -1,5 +1,4 @@
 import {
-  Box3,
   CapsuleGeometry,
   CylinderGeometry,
   Group,
@@ -9,8 +8,7 @@ import {
   type BufferGeometry,
 } from 'three'
 
-import type { ModelFrame } from './design-document'
-import { SLEEVE_PIVOT, WORN_SLEEVE_DROP, createTeeMesh } from './tee-geometry'
+import { SLEEVE_PIVOT, WORN_SLEEVE_DROP } from './tee-geometry'
 
 export type AvatarMeasurements = {
   height: number
@@ -208,7 +206,7 @@ export function createProceduralAvatar({
     root,
     heightScale,
     garment: {
-      position: [0, GARMENT_LIFT * heightScale, 0.004 * chestScale] as [
+      position: [0, GARMENT_LIFT * heightScale, GARMENT_MOUNT.forward * chestScale] as [
         number,
         number,
         number,
@@ -260,28 +258,24 @@ export function scaleAvatarGroup({
   )
 }
 
-let wornTeeBox: Box3 | null = null
+/** Where the avatar's garment mount sits in the body's own frame: lifted, a hair forward. */
+export const GARMENT_MOUNT = { lift: GARMENT_LIFT, forward: 0.004 } as const
 
 /**
- * Seats a real garment model (the @4 tee) where the worn drawn tee sits on
- * the mannequin: the same height, its collar at the same top, centred on
- * the body. The mannequin's own scale then carries it, as it does the
- * drawn tee, so every preset wears it at its size.
+ * Seats a real garment model on the avatar. Every template model is
+ * modelled in the mannequin's own frame (floor at y = 0, collar on the
+ * neck, hem at the hips: `BODY_LANDMARKS`), the frame the body here is
+ * drawn in, so it is seated as it is: this only cancels the mount's lift
+ * (which is there for the procedural tee, drawn in its own frame). The
+ * mount's scale is the body's (chest across, height up), so the garment
+ * grows and shrinks with each preset exactly as the body does.
+ *
+ * It used to scale the model to the procedural tee's height, which made
+ * the tee 39% too big (hem mid-thigh, collar above the neck).
  */
-export function realGarmentSeat({ frame }: { frame: ModelFrame }): {
+export function realGarmentSeat(): {
   position: [number, number, number]
   scale: number
 } {
-  wornTeeBox ??= new Box3().setFromObject(createTeeMesh({ pose: 'worn' }))
-  const target = wornTeeBox
-  const height = Math.max(1e-6, frame.max[1] - frame.min[1])
-  const scale = (target.max.y - target.min.y) / height
-  const centreX = (frame.min[0] + frame.max[0]) / 2
-  const centreZ = (frame.min[2] + frame.max[2]) / 2
-  const targetZ = (target.min.z + target.max.z) / 2
-
-  return {
-    position: [-centreX * scale, target.max.y - frame.max[1] * scale, targetZ - centreZ * scale],
-    scale,
-  }
+  return { position: [0, -GARMENT_MOUNT.lift, -GARMENT_MOUNT.forward], scale: 1 }
 }

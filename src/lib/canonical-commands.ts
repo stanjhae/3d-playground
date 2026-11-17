@@ -333,7 +333,7 @@ function applyToDocument({
     }
 
     const allowed =
-      found.layer.kind === 'paint'
+      found.layer.kind === 'paint' || found.layer.kind === 'fill'
         ? ['opacity', 'visible', 'name', 'locked']
         : found.layer.kind === 'image'
           ? ['x', 'y', 'scale', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked']
@@ -357,6 +357,12 @@ function applyToDocument({
       }
 
       ;(found.layer as Record<string, unknown>)[key] = value
+    }
+
+    // Scaling a stretched layer back to square makes it uniform (reader R2):
+    // one form per look, so `scaleY` goes.
+    if ('scaleY' in found.layer && found.layer.scaleY === found.layer.scale) {
+      delete found.layer.scaleY
     }
 
     return { ok: true, document: next }

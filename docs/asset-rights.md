@@ -38,9 +38,9 @@ Credits appear wherever a Style3D form is shown, all from `garments.ts`: the stu
 | `images/meadow.jpg` | 1920×1280 photograph; EXIF reads Nikon D7200 | Added in `4436995` from the archived campus app. **No code references it.** | **Removed on 4 Nov.** Unknown photographer and unused. Confirm ownership or delete. |
 | `stills/look-house-ink.png` | Rendered from the app by `scripts/bake-stills.mjs` (Puppeteer screenshots of the seed looks); tee | Script and `data/designs.json` | **Seed content needs confirmation** (see the seed looks section) |
 | `stills/look-midnight-silk.png`, `look-atelier-ivory.png`, `look-oxblood-evening.png`, `look-meadow-walk.png`, `look-slate-denim.png`, `look-wool-hour.png`, `look-blush-first.png` (gown form), `look-cotton-leather.png` (mixed form) | Same baker; these render Style3D forms | Same as above | **Cleared, credit required** (derivatives of CC BY models). **Seed content needs confirmation.** |
-| `og-default.png` | Social card: the landing headline and the baked hero tee, in the bundled fonts. The tee is the CC BY tee ("T-shirt by ajith98adithya (modified)"), credited on the card itself | `bake-og.mjs` (12 Nov, re-baked with the CC BY tee) | **Cleared, credit required** (credit is on the card) |
+| `og-default.png` | Social card: the landing headline and the baked hero tee, in the bundled fonts. The tee is the CC BY tee ("T-shirt by ajith98adithya (modified)"), credited on the card itself | `bake-og.mjs` (12 Nov, re-baked with the CC BY tee; 17 Nov, with the FLV mark) | **Cleared, credit required** (credit is on the card) |
 | `landing/hero-tee-*.webp` | Render of the CC BY tee, standing on its own (no mannequin), with the Cross Flame demo marks from `public/graphics/` (R3) | `bake-landing-poster.mjs` (12 Nov, re-baked with the CC BY tee) | **Cleared, credit required** (render; credited beside the hero); marks follow R3 |
-| `favicon.svg` | Project-made vector | `9745253` | **Cleared** |
+| `favicon.svg`, `apple-touch-icon.png`, `icon-512.png`, `brand/flv-mark.svg`, `brand/flv-mark-mono.svg` | The FLV brand mark, project-made: letters drawn on a grid in code | `scripts/build-brand.mjs` (`pnpm brand`, 17 Nov) | **Cleared** (the project's own mark) |
 
 ## Print graphics (`public/graphics/`, `src/lib/graphics-library.ts`)
 

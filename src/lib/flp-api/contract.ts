@@ -1,5 +1,6 @@
 import {
   type CanonicalDocument,
+  layerAssetId,
   type ValidationIssue,
   validateCanonicalDocument,
 } from '../canonical-document.ts'
@@ -731,20 +732,18 @@ export function sameEmail({ typed, account }: { typed: string; account: string |
  */
 export const LIBRARY_ASSET_PREFIX = 'asset_lib_'
 
-/** `asset_lib_*` ids that name no shipped graphic; nothing could draw them. */
-export function unknownLibraryReferences({ document }: { document: CanonicalDocument }) {
+/** Every asset a document draws (image layers and image fills), with the path of each use. */
+function assetReferences({ document }: { document: CanonicalDocument }) {
   const references: Array<{ assetId: string; path: string }> = []
 
   for (const [panelId, panel] of Object.entries(document.panels)) {
     panel.layers.forEach((layer, index) => {
-      if (
-        layer.kind === 'image' &&
-        layer.assetId.startsWith(LIBRARY_ASSET_PREFIX) &&
-        !isLibraryAssetId({ assetId: layer.assetId })
-      ) {
+      const assetId = layerAssetId({ layer })
+
+      if (assetId) {
         references.push({
-          assetId: layer.assetId,
-          path: `$.panels.${panelId}.layers[${index}].assetId`,
+          assetId,
+          path: `$.panels.${panelId}.layers[${index}].${layer.kind === 'fill' ? 'source.assetId' : 'assetId'}`,
         })
       }
     })
@@ -753,23 +752,17 @@ export function unknownLibraryReferences({ document }: { document: CanonicalDocu
   return references
 }
 
+/** `asset_lib_*` ids that name no shipped graphic; nothing could draw them. */
+export function unknownLibraryReferences({ document }: { document: CanonicalDocument }) {
+  return assetReferences({ document }).filter(
+    ({ assetId }) => assetId.startsWith(LIBRARY_ASSET_PREFIX) && !isLibraryAssetId({ assetId }),
+  )
+}
+
 /**
  * Uploaded assets a document references, with the path of each use, so a
  * save can be refused unless every one is a ready asset of the caller.
  */
 export function uploadedAssetReferences({ document }: { document: CanonicalDocument }) {
-  const references: Array<{ assetId: string; path: string }> = []
-
-  for (const [panelId, panel] of Object.entries(document.panels)) {
-    panel.layers.forEach((layer, index) => {
-      if (layer.kind === 'image' && !layer.assetId.startsWith(LIBRARY_ASSET_PREFIX)) {
-        references.push({
-          assetId: layer.assetId,
-          path: `$.panels.${panelId}.layers[${index}].assetId`,
-        })
-      }
-    })
-  }
-
-  return references
+  return assetReferences({ document }).filter(({ assetId }) => !assetId.startsWith(LIBRARY_ASSET_PREFIX))
 }
