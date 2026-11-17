@@ -1,5 +1,7 @@
 import { patternAvailable } from './pattern-beta'
 import type { CanonicalPattern } from './pattern/pattern-document'
+import { drapeFabricFor, withDrapeFabric } from './pattern/fabric-drape'
+import type { CanonicalCommand } from './canonical-commands'
 import { create } from 'zustand'
 
 import { DEFAULT_AVATAR_MEASUREMENTS } from './avatars'
@@ -623,12 +625,33 @@ function addCopy({ layer }: { layer: PlaceableLayer }) {
   return runCommand({ command, extra: { selectedLayerId: id } })
 }
 
+/**
+ * In Pattern mode, a fabric is also the cloth the pattern is cut from
+ * (B3): every piece but the hood and any trim or band takes it, so the
+ * drape re-runs. Nothing outside Pattern mode, or for a finish with no
+ * cloth behind it.
+ */
+function patternFabricCommand({ fabricId, mapId }: { fabricId: string; mapId?: string }): CanonicalCommand | undefined {
+  const pattern = teeActive() ? tee.stack.document.pattern : undefined
+  const fabric = pattern ? drapeFabricFor({ fabricId, mapId }) : null
+
+  if (!pattern || !fabric) {
+    return undefined
+  }
+
+  const next = withDrapeFabric({ pattern, fabric })
+  return next === pattern ? undefined : { type: 'setPattern', pattern: next }
+}
+
 function runCommand({
   command,
   extra,
+  also,
 }: {
   command: DesignCommand
   extra?: Partial<EditorState>
+  /** A canonical change made in the same undo step (the tee engine only). */
+  also?: CanonicalCommand
 }) {
   // A locked item takes no change but being unlocked (W3); the canonical
   // and v1 command layers refuse too, so no path gets round this.
@@ -637,7 +660,7 @@ function runCommand({
   }
 
   if (teeActive()) {
-    const step = runTranslated({ engine: tee, command })
+    const step = runTranslated({ engine: tee, command, also })
     tee = step.engine
     // A refused command changes nothing else the caller meant to set.
     return syncFromStack({ extra: step.refusal ? { limitNotice: step.refusal } : extra })
@@ -943,6 +966,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
           fabricId: preset.id,
           colorId: preset.id,
         },
+        also: patternFabricCommand({ fabricId: preset.id, mapId: preset.mapId }),
       })
     })
   },

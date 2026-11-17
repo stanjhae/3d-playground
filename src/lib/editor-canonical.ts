@@ -550,17 +550,23 @@ export function runTeeCommand({
 export function runTranslated({
   engine,
   command,
+  also,
 }: {
   engine: TeeEngine
   command: DesignCommand
+  /** A canonical change made with it, as the same undo step (a fabric's drape, B3). */
+  also?: CanonicalCommand
 }): TeeStep {
   const translated = translateCommand({ engine, command })
 
   if (!translated) {
-    return { engine, changed: false }
+    return also ? runTeeCommand({ engine, command: also }) : { engine, changed: false }
   }
 
-  const step = runTeeCommand({ engine, command: translated.command })
+  const step = runTeeCommand({
+    engine,
+    command: also ? { type: 'batch', commands: [translated.command, also] } : translated.command,
+  })
   return step.changed
     ? { ...step, engine: { ...step.engine, assetSources: translated.assetSources } }
     : step
