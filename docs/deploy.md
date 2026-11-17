@@ -166,7 +166,7 @@ In dev, the header names the local stack (`http://127.0.0.1:54321`) exactly. It 
 
 The canonical URL, social image, `robots.txt` and `sitemap.xml` use `VITE_SITE_ORIGIN` if set, otherwise Vercel's production domain, otherwise `https://beta.fashionleadervote.com` (`src/lib/site-origin.ts`). Any deployment whose `VERCEL_ENV` isn't `production` gets a `robots.txt` that disallows everything. The script fails the build if the landing makes a forbidden claim, carries an inline `style` (blocked by the CSP), loses the CSP `<meta>` or ships JSON-LD that doesn't parse.
 
-The hero poster (`public/landing/hero-tee-*.webp`) is baked from the live scene by `pnpm poster`, and the social card (`public/og-default.png`) by `pnpm og`. Re-run both when the tee or the demo design changes.
+The hero poster (`public/landing/hero-tee-*.webp`) is baked from the live scene by `pnpm poster`, and the social card (`public/og-default.png`) by `pnpm og`. Re-run both when the tee or the demo design changes. The FLV mark, favicon and app icons come from `pnpm brand` (`scripts/build-brand.mjs`); re-run `pnpm og` after it.
 
 ## 5. Smoke checks (about 10 minutes)
 

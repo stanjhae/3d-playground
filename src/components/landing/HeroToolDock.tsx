@@ -1,8 +1,19 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { cn } from '../../lib/cn'
 import { LANDING_COPY } from '../../lib/landing-copy'
-import { addLandingStroke, LANDING_CAMERA_VIEWS, LANDING_VIEW_PANEL, padToPanel, stampLandingGraphic } from '../../lib/landing-demo'
+import {
+  addLandingStroke,
+  LANDING_CAMERA_VIEWS,
+  LANDING_PANEL_ASPECT,
+  LANDING_SCALE_STEP,
+  LANDING_VIEW_PANEL,
+  latestLandingGraphicId,
+  padToSketch,
+  removeLandingGraphic,
+  scaleLandingGraphic,
+  stampLandingGraphic,
+} from '../../lib/landing-demo'
 import { useLandingDemoStore } from '../../lib/landing-demo-store'
 import { INK_COLORS } from '../../lib/paint-colors'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
@@ -42,11 +53,50 @@ const VIEW_LABEL: Record<(typeof LANDING_CAMERA_VIEWS)[number], string> = {
   right: 'Right',
 }
 
+/**
+ * The pad takes its panel's shape (`LANDING_PANEL_ASPECT`), so its ink covers
+ * the whole panel. Literal classes for Tailwind; landing-demo.test.ts holds
+ * them to the aspects.
+ */
+export const PAD_ASPECT_CLASS: Record<string, string> = {
+  front: 'aspect-[0.628]',
+  back: 'aspect-[0.629]',
+  left: 'aspect-[1.204]',
+  right: 'aspect-[1.398]',
+}
+
 /** What a dragged graphic carries: its library path. */
 export const GRAPHIC_DRAG_TYPE = 'application/x-flv-graphic'
 
 const chip =
   'inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border font-body text-xs transition-colors'
+
+const chipState = (on: boolean) =>
+  on
+    ? 'border-flv-accent bg-flv-accent text-white'
+    : 'border-flv-line bg-white text-flv-muted hover:border-flv-ink hover:text-flv-ink'
+
+/** Stamps a graphic and picks it, so it can be moved or resized straight away. */
+export function addLandingGraphic(change: Parameters<ReturnType<typeof useLandingDemoStore.getState>['apply']>[0]) {
+  const store = useLandingDemoStore.getState()
+  const before = store.document ? latestLandingGraphicId({ document: store.document }) : null
+  store.apply(change)
+  const after = latestLandingGraphicId({ document: useLandingDemoStore.getState().document! })
+
+  if (after && after !== before) {
+    store.selectLayer(after)
+  }
+}
+
+/** The picked logo goes. */
+function removeSelectedLogo() {
+  const { selectedLayerId, apply, selectLayer } = useLandingDemoStore.getState()
+
+  if (selectedLayerId) {
+    apply((previous) => removeLandingGraphic({ document: previous, layerId: selectedLayerId }))
+    selectLayer(null)
+  }
+}
 
 /**
  * The hero's floating tools: draw, pick an ink, drop a graphic, turn the
@@ -60,11 +110,41 @@ export function HeroToolDock({ live }: { live: boolean }) {
   const setInk = useLandingDemoStore((state) => state.setInk)
   const setCameraView = useLandingDemoStore((state) => state.setCameraView)
   const requestScene = useLandingDemoStore((state) => state.requestScene)
+  const surfaceMode = useLandingDemoStore((state) => state.surfaceMode)
+  const setSurfaceMode = useLandingDemoStore((state) => state.setSurfaceMode)
+  const selectedLayerId = useLandingDemoStore((state) => state.selectedLayerId)
+  const selectedLogo = useLandingDemoStore((state) =>
+    state.selectedLayerId && state.document?.layers.some((layer) => layer.id === state.selectedLayerId && layer.kind === 'graphic')
+      ? state.selectedLayerId
+      : null,
+  )
   const points = useRef<{ x: number; y: number }[]>([])
   const drawing = useRef(false)
   // Ink and graphics land on the side being shown (the wearer's sides).
   const view = cameraView ?? 'front'
   const panel = LANDING_VIEW_PANEL[view]
+  const panelAspect = LANDING_PANEL_ASPECT[panel] ?? 1
+
+  // Delete or Backspace removes the picked logo; Escape lets go of it.
+  useEffect(() => {
+    if (!live || !selectedLayerId) return
+
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault()
+        removeSelectedLogo()
+      } else if (event.key === 'Escape') {
+        useLandingDemoStore.getState().selectLayer(null)
+      }
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [live, selectedLayerId])
 
   function toUv(event: ReactPointerEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
@@ -119,23 +199,24 @@ export function HeroToolDock({ live }: { live: boolean }) {
       const rect = canvas.getBoundingClientRect()
       const padAspect = rect.width / Math.max(1, rect.height)
       apply((previous) => {
-        // The pad's own proportions on the panel, so a circle stays a circle.
-        const panelAspect = previous.panelAspects?.[panel] ?? 1
-        const placed = stroke.map((point) => padToPanel({ ...point, padAspect, panelAspect }))
+        // The pad is the panel's shape, so this is (near enough) one to one.
+        const placed = stroke.map((point) => padToSketch({ ...point, padAspect, panelAspect }))
         return addLandingStroke({ document: previous, points: placed, color: ink, width: 18 / 400, tool: 'brush', panel })
       })
     }
   }
 
   function dropGraphic(src: string, at?: { x: number; y: number; padAspect: number }) {
-    apply((previous) => {
-      const point = at ? padToPanel({ x: at.x, y: at.y, padAspect: at.padAspect, panelAspect: previous.panelAspects?.[panel] ?? 1 }) : null
+    addLandingGraphic((previous) => {
+      const point = at ? padToSketch({ x: at.x, y: at.y, padAspect: at.padAspect, panelAspect }) : null
       return stampLandingGraphic({ document: previous, src, panel, ...(point ? { x: point.x, y: point.y } : {}) })
     })
   }
 
-  const padClass =
-    'block h-28 w-full touch-none rounded-xl border border-dashed border-flv-accent/40 bg-flv-soft'
+  const padClass = cn(
+    'block h-full max-w-full touch-none rounded-xl border border-dashed border-flv-accent/40 bg-flv-soft',
+    PAD_ASPECT_CLASS[panel],
+  )
 
   return (
     <div className="flv-dock flv-panel flex w-full flex-col gap-3 p-3 sm:p-4" data-hero-dock>
@@ -145,6 +226,7 @@ export function HeroToolDock({ live }: { live: boolean }) {
           {COPY.padHint[view]}
         </p>
       </div>
+      <div className="flex h-36 items-center justify-center" data-pad-panel={panel}>
       {live ? (
         <canvas
           aria-label={`Sketch pad: ${COPY.padHint[view]}`}
@@ -183,6 +265,33 @@ export function HeroToolDock({ live }: { live: boolean }) {
       ) : (
         <div aria-hidden className={padClass} />
       )}
+      </div>
+
+      {selectedLogo ? (
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={COPY.logoSelected} data-logo-selected>
+          <p className="mr-auto font-body text-xs text-flv-ink" title={COPY.logoHint}>
+            {COPY.logoSelected}
+            <span className="sr-only"> {COPY.logoHint}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => apply((previous) => scaleLandingGraphic({ document: previous, layerId: selectedLogo, factor: 1 / LANDING_SCALE_STEP }))}
+            className={cn(chip, 'px-3', chipState(false))}
+          >
+            {COPY.logoSmaller}
+          </button>
+          <button
+            type="button"
+            onClick={() => apply((previous) => scaleLandingGraphic({ document: previous, layerId: selectedLogo, factor: LANDING_SCALE_STEP }))}
+            className={cn(chip, 'px-3', chipState(false))}
+          >
+            {COPY.logoLarger}
+          </button>
+          <button type="button" onClick={removeSelectedLogo} className={cn(chip, 'px-3', chipState(false))}>
+            {COPY.logoRemove}
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <fieldset className="flex items-center gap-1.5">
@@ -212,15 +321,28 @@ export function HeroToolDock({ live }: { live: boolean }) {
               type="button"
               aria-pressed={cameraView === view}
               onClick={() => setCameraView(view)}
-              className={cn(chip, 'px-2.5', {
-                'border-flv-accent bg-flv-accent text-white': cameraView === view,
-                'border-flv-line bg-white text-flv-muted hover:border-flv-ink hover:text-flv-ink': cameraView !== view,
-              })}
+              className={cn(chip, 'px-2.5', chipState(cameraView === view))}
             >
               {VIEW_LABEL[view]}
             </button>
           ))}
         </div>
+        {/* Touch scrolls the page over the tee and draws on the pad, so only a mouse or pen gets this. */}
+        {live ? (
+          <div className="hidden items-center gap-1 [@media(pointer:fine)]:flex" role="group" aria-label={COPY.surfaceLabel}>
+            {(['turn', 'draw'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={surfaceMode === mode}
+                onClick={() => setSurfaceMode(mode)}
+                className={cn(chip, 'px-2.5', chipState(surfaceMode === mode))}
+              >
+                {mode === 'turn' ? COPY.surfaceTurn : COPY.surfaceDraw}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2 border-t border-flv-line pt-3" data-claim="concept">

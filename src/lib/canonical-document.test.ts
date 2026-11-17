@@ -337,3 +337,124 @@ describe('template-driven panels', () => {
     expect(result.ok ? [] : result.issues.map((issue) => issue.path)).toEqual(['$.template.id'])
   })
 })
+
+/**
+ * Reader R2: base fabric, stretched layers, whole-panel fills and the
+ * tee's @6. Nothing writes them yet; the reader refuses every malformed form.
+ */
+describe('reader R2 contract', () => {
+  const FILL = {
+    id: 'fill-front',
+    kind: 'fill',
+    visible: true,
+    opacity: 1,
+    source: { pattern: 'stripes', colors: ['#f3efe6', '#1a1c22'] },
+    tile: 0.2,
+    rotation: 0,
+  }
+
+  test('a known base fabric is read on every kind of base', () => {
+    for (const base of BASES) {
+      expect(validateCanonicalDocument({ value: mutate((d) => (d.base = { ...base, fabric: 'linen' })) }).ok, base.kind).toBe(true)
+    }
+  })
+
+  test('an unknown fabric, or a colourway, is refused', () => {
+    expect(issuesFor({ value: mutate((d) => (d.base.fabric = 'tweed')) })).toEqual([
+      { path: '$.base.fabric', message: expect.stringMatching(/^expected one of cotton, silk, /) },
+    ])
+    expect(paths({ value: mutate((d) => (d.base.fabric = 'ivory-silk')) })).toEqual(['$.base.fabric'])
+    expect(paths({ value: mutate((d) => (d.base.fabric = null)) })).toEqual(['$.base.fabric'])
+  })
+
+  test('scaleY takes the bounds of scale, and is left out when uniform', () => {
+    expect(validateCanonicalDocument({ value: mutate((d) => (d.panels.front.layers[1].scaleY = 0.6)) }).ok).toBe(true)
+    expect(validateCanonicalDocument({ value: mutate((d) => (d.panels.back.layers[0].scaleY = 0.05)) }).ok).toBe(true)
+
+    expect(issuesFor({ value: mutate((d) => (d.panels.front.layers[1].scaleY = 0)) })).toEqual([
+      { path: '$.panels.front.layers[1].scaleY', message: 'out of range (0, 1]' },
+    ])
+    expect(issuesFor({ value: mutate((d) => (d.panels.back.layers[0].scaleY = 1.2)) })).toEqual([
+      { path: '$.panels.back.layers[0].scaleY', message: 'out of range (0, 1]' },
+    ])
+    expect(paths({ value: mutate((d) => (d.panels.front.layers[1].scaleY = Number.NaN)) })).toEqual([
+      '$.panels.front.layers[1].scaleY',
+    ])
+    expect(issuesFor({ value: mutate((d) => (d.panels.front.layers[1].scaleY = 0.32)) })).toEqual([
+      { path: '$.panels.front.layers[1].scaleY', message: 'equal to scale; leave it out' },
+    ])
+    expect(paths({ value: mutate((d) => (d.panels.front.layers[0].scaleY = 0.5)) })).toEqual([
+      '$.panels.front.layers[0].scaleY',
+    ])
+  })
+
+  test('a well-formed fill is read, with a pattern or an image', () => {
+    expect(validateCanonicalDocument({ value: mutate((d) => d.panels.right.layers.push(FILL)) }).ok).toBe(true)
+    expect(
+      validateCanonicalDocument({
+        value: mutate((d) =>
+          d.panels.right.layers.push({
+            ...FILL,
+            source: { assetId: 'asset_3f9a1c22b7', aspect: 2 },
+            tile: 1,
+            rotation: -1.2,
+            offsetX: 0.25,
+            offsetY: 0.5,
+            name: 'Roses',
+            locked: true,
+          }),
+        ),
+      }).ok,
+    ).toBe(true)
+  })
+
+  test('a malformed fill is refused with paths', () => {
+    const value = mutate((d) =>
+      d.panels.right.layers.push({
+        ...FILL,
+        x: 0.5,
+        scaleY: 0.5,
+        source: { pattern: 'gradient', colors: ['#FFFFFF', '#000000'] },
+        tile: 0.01,
+        rotation: 4,
+        offsetX: 0,
+        offsetY: 1,
+      }),
+    )
+
+    expect(paths({ value })).toEqual([
+      '$.panels.right.layers[0].x',
+      '$.panels.right.layers[0].scaleY',
+      '$.panels.right.layers[0].source.pattern',
+      '$.panels.right.layers[0].source.colors[0]',
+      '$.panels.right.layers[0].tile',
+      '$.panels.right.layers[0].rotation',
+      '$.panels.right.layers[0].offsetX',
+      '$.panels.right.layers[0].offsetY',
+    ])
+    const { tile: _tile, source: _source, ...bare } = FILL
+    expect(issuesFor({ value: mutate((d) => d.panels.right.layers.push(bare)) }).slice(0, 2)).toEqual([
+      { path: '$.panels.right.layers[0].source', message: 'required' },
+      { path: '$.panels.right.layers[0].tile', message: 'required' },
+    ])
+    expect(
+      paths({ value: mutate((d) => d.panels.right.layers.push({ ...FILL, source: { assetId: 'data:image/png;base64,abc', aspect: 0 } })) }),
+    ).toEqual(['$.panels.right.layers[0].source.assetId', '$.panels.right.layers[0].source.aspect'])
+    expect(
+      paths({
+        value: mutate((d) =>
+          d.panels.right.layers.push({ ...FILL, source: { assetId: 'asset_3f9a1c22b7', aspect: 1, pattern: 'stripes' } }),
+        ),
+      }),
+    ).toEqual(['$.panels.right.layers[0].source.pattern'])
+  })
+
+  test('an empty fill source is refused', () => {
+    expect(issuesFor({ value: mutate((d) => d.panels.right.layers.push({ ...FILL, source: {} })) })).toEqual([
+      { path: '$.panels.right.layers[0].source', message: 'expected an assetId or a pattern' },
+    ])
+    expect(issuesFor({ value: mutate((d) => d.panels.right.layers.push({ ...FILL, source: null })) })).toEqual([
+      { path: '$.panels.right.layers[0].source', message: 'expected an object' },
+    ])
+  })
+})

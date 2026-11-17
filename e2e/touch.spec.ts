@@ -138,3 +138,81 @@ test('two fingers on the 3D garment resize the selected graphic', async ({ page 
 
   await expect.poll(async () => (await scale())! > before * 1.3, { timeout: 30_000 }).toBe(true)
 })
+
+test('a graphic held and dragged from the library by a finger lands where it is let go on the cloth', async ({ page }) => {
+  test.setTimeout(150_000)
+  const email = newEmail({ label: 'touch-drop' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).tap()
+  await expect(page).toHaveURL(/\/create\?cloud=/)
+  await expectSaved({ page })
+  await chooseTool({ page, tool: 'Graphics' })
+
+  const stage = page.locator('canvas[aria-describedby="studio-scene-description"]')
+  const tile = page.locator('button[draggable="true"]').first()
+  await tile.scrollIntoViewIfNeeded()
+  // Where the front's middle is on screen, through the canvas's own lookup.
+  const target = await stage.evaluate((node) => {
+    type Probe = (clientX: number, clientY: number) => { panel: string; x: number; y: number } | null
+    const probe = (node as HTMLCanvasElement & { flvPanelPointAt?: Probe }).flvPanelPointAt!
+    const rect = node.getBoundingClientRect()
+    let best: { x: number; y: number; panelX: number; panelY: number; distance: number } | null = null
+
+    for (let row = 0; row <= 40; row += 1) {
+      for (let column = 0; column <= 40; column += 1) {
+        const x = rect.left + (rect.width * column) / 40
+        const y = rect.top + (rect.height * row) / 40
+        const point = probe(x, y)
+
+        if (point?.panel !== 'front') {
+          continue
+        }
+
+        const distance = Math.hypot(point.x - 0.5, point.y - 0.45)
+
+        if (!best || distance < best.distance) {
+          best = { x, y, panelX: point.x, panelY: point.y, distance }
+        }
+      }
+    }
+
+    return best
+  })
+  expect(target?.distance).toBeLessThan(0.1)
+  const from = (await tile.boundingBox())!
+  const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
+
+  // Hold, then drag: a finger that moved before the hold would be scrolling.
+  const cdp = await page.context().newCDPSession(page)
+  const at = (x: number, y: number) => [{ x, y, id: 1 }]
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(start.x, start.y) })
+  await page.waitForTimeout(500)
+  await expect(page.locator('[data-graphic-ghost]')).toHaveCount(1)
+  for (let step = 1; step <= 16; step += 1) {
+    const t = step / 16
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: at(start.x + (target!.x - start.x) * t, start.y + (target!.y - start.y) * t),
+    })
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+  await expect(page.locator('[data-graphic-ghost]')).toHaveCount(0)
+
+  const placed = async () => {
+    await expectSaved({ page })
+    const designId = new URL(page.url()).searchParams.get('cloud')!
+    return page.evaluate(async (id) => {
+      const token = JSON.parse(localStorage.getItem('flp-auth')!).access_token
+      const response = await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      const { head } = await response.json()
+      type Layer = { kind: string; x: number; y: number }
+      return (head.content.panels.front.layers as Layer[]).filter((layer) => layer.kind === 'image').map(({ x, y }) => ({ x, y }))
+    }, designId)
+  }
+  await expect.poll(async () => (await placed()).length, { timeout: 30_000 }).toBe(1)
+  const [mark] = await placed()
+  expect(mark!.x).toBeCloseTo(target!.panelX, 1)
+  expect(mark!.y).toBeCloseTo(target!.panelY, 1)
+})

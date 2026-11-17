@@ -1,6 +1,6 @@
 import type { PanelId } from './design-document'
 import type { LayerEdit } from './layer-hit'
-import { clamp01, uvOnPanel } from './panel-uv'
+import { clamp01 } from './panel-uv'
 
 export type ClothDrag = {
   layerId: string
@@ -62,34 +62,38 @@ export function clothDrag() {
   return drag
 }
 
-export function moveClothDragOnUv({
-  u,
-  v,
-  rects,
-}: {
-  u: number
-  v: number
-  /** The document's panel rectangles (absent: the tee's). */
-  rects?: Parameters<typeof uvOnPanel>[0]['rects']
-}): LayerEdit | null {
+/**
+ * The edit for the pointer at `x`/`y` on the dragged panel (not clamped:
+ * off the panel it may run past 0–1), the layer keeping its grab offset and
+ * pinned to the panel's edge.
+ */
+export function moveClothDrag({ x, y }: { x: number; y: number }): LayerEdit | null {
   if (!drag) {
     return null
   }
 
-  const current = uvOnPanel({
-    panel: drag.panel,
-    u,
-    v,
-    rects,
-  })
-
   return {
     layerId: drag.layerId,
-    x: clamp01({ value: drag.startX + current.x - drag.originX }),
-    y: clamp01({ value: drag.startY + current.y - drag.originY }),
+    x: clamp01({ value: drag.startX + x - drag.originX }),
+    y: clamp01({ value: drag.startY + y - drag.originY }),
     scale: drag.startScale,
     rotation: drag.startRotation,
+    panel: drag.panel,
   }
+}
+
+/**
+ * The drag crossed a seam onto `panel` at `x`/`y`: the layer goes there,
+ * centred under the pointer (panels can face different ways at a seam, so
+ * the old grab offset would point the wrong way), and follows from there.
+ */
+export function crossClothDrag({ panel, x, y }: { panel: PanelId; x: number; y: number }): LayerEdit | null {
+  if (!drag) {
+    return null
+  }
+
+  drag = { ...drag, panel, originX: x, originY: y, startX: clamp01({ value: x }), startY: clamp01({ value: y }) }
+  return moveClothDrag({ x, y })
 }
 
 export function endClothDrag() {

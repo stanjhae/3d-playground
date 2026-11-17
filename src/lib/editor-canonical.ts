@@ -13,6 +13,7 @@ import {
 } from './canonical-commands.ts'
 import {
   type CanonicalDocument,
+  type CanonicalLayer,
   type CanonicalPanelId,
   type CanonicalStroke,
   type Color,
@@ -225,7 +226,7 @@ function translatePatch({
   kind,
 }: {
   patch: LayerPatch
-  kind: 'paint' | 'image' | 'text'
+  kind: CanonicalLayer['kind']
 }): CanonicalLayerPatch {
   const next: CanonicalLayerPatch = {}
 
@@ -242,7 +243,8 @@ function translatePatch({
     }
   }
 
-  if (kind === 'paint') {
+  // A fill has no placement: it covers its panel (reader R2).
+  if (kind === 'paint' || kind === 'fill') {
     return next
   }
 
@@ -462,6 +464,27 @@ export function translateCommand({
         : []
     })
     return commands.length > 0 ? { assetSources: same, command: { type: 'batch', commands } } : null
+  }
+
+  if (command.type === 'moveLayerToPanel') {
+    const found = findLayer({ document, layerId: command.layerId })
+
+    if (!found || found.layer.kind === 'paint') {
+      return null
+    }
+
+    const panel = canonicalPanel({ renderPanel: command.panel, template: document.template })
+    // The patch is in render space on the panel it lands on.
+    const patch = translatePatch({ patch: fromRender(panel, command.patch ?? {}), kind: found.layer.kind })
+    const place: CanonicalCommand[] = Object.keys(patch).length > 0 ? [{ type: 'updateLayer', layerId: command.layerId, patch }] : []
+
+    return {
+      assetSources: same,
+      command:
+        panel === found.panel
+          ? place[0] ?? { type: 'batch', commands: [] }
+          : { type: 'batch', commands: [{ type: 'moveLayerToPanel', layerId: command.layerId, panel }, ...place] },
+    }
   }
 
   if (command.type === 'applyFabric') {
@@ -893,6 +916,11 @@ export function limitRefusal({
 
   if (command.type === 'copyLayer') {
     return layersOn(command.panel)
+  }
+
+  if (command.type === 'moveLayerToPanel') {
+    const found = findLayer({ document, layerId: command.layerId })
+    return found && found.panel !== command.panel ? layersOn(command.panel) : null
   }
 
   if (command.type === 'updateLayer') {

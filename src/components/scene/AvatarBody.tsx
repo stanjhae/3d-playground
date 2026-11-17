@@ -18,9 +18,9 @@ export function AvatarBody({
   measurements?: AvatarMeasurements
 }) {
   const storeMeasurements = useEditorStore((state) => state.avatarMeasurements)
-  // A real model (the @4 tee) is fitted into the worn tee's place on the body.
-  const modelFrame = useEditorStore((state) => state.document.modelFrame)
-  const realSeat = useMemo(() => (modelFrame ? realGarmentSeat({ frame: modelFrame }) : null), [modelFrame])
+  // A real model is modelled on this body, so it's seated as it is.
+  const realModel = useEditorStore((state) => Boolean(state.document.modelFrame))
+  const realSeat = useMemo(() => (realModel ? realGarmentSeat() : null), [realModel])
   const avatarMeasurements = measurementsProp ?? storeMeasurements
   const [mount, setMount] = useState<{
     root: Group

@@ -1,10 +1,10 @@
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { garmentPanels } from '../../lib/garments'
-import { startGraphicDrag } from '../../lib/graphic-drag'
+import { armTouchGraphicDrag, startGraphicDrag, touchGraphicDragActive } from '../../lib/graphic-drag'
 import {
   GRAPHIC_ASSETS,
   GRAPHIC_CATEGORIES,
@@ -42,6 +42,32 @@ export function GraphicLibrary() {
   const panelLabel = (
     garmentPanels({ garmentId }).find((panel) => panel.id === paintPanel)?.label ?? 'front'
   ).toLowerCase()
+
+  const listRef = useRef<HTMLUListElement | null>(null)
+  const cancelTouchDrag = useRef<(() => void) | null>(null)
+
+  // A finger carrying a graphic must not scroll the library under it. The
+  // listener is there from the first touch, so the browser waits for it.
+  useEffect(() => {
+    const list = listRef.current
+
+    if (!list) {
+      return
+    }
+
+    function holdScroll(event: TouchEvent) {
+      if (touchGraphicDragActive() && event.cancelable) {
+        event.preventDefault()
+      }
+    }
+
+    list.addEventListener('touchmove', holdScroll, { passive: false })
+    return () => {
+      list.removeEventListener('touchmove', holdScroll)
+    }
+  }, [assets.length])
+
+  useEffect(() => () => cancelTouchDrag.current?.(), [])
 
   return (
     <aside className={railFrameClass()}>
@@ -110,15 +136,43 @@ export function GraphicLibrary() {
           </button>
         </div>
       ) : (
-        <ul className="grid max-h-[min(30rem,60vh)] grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2 overflow-y-auto pr-1">
+        <ul ref={listRef} className="grid max-h-[min(30rem,60vh)] grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2 overflow-y-auto pr-1">
           {assets.map((asset) => (
             <li key={asset.id}>
               <button
                 type="button"
                 title={asset.tags.length > 0 ? `${asset.label}: ${asset.tags.join(', ')}` : asset.label}
                 draggable
+                data-graphic-tile={asset.id}
                 onDragStart={(event) => {
                   startGraphicDrag({ dataTransfer: event.dataTransfer, src: asset.src })
+                }}
+                // HTML5 drag never starts from a finger: hold the tile, then
+                // drag it onto a panel or the cloth (`armTouchGraphicDrag`).
+                onPointerDown={(event) => {
+                  if (event.pointerType !== 'touch' || !event.isPrimary) {
+                    return
+                  }
+
+                  const tile = event.currentTarget
+                  // The browser's own long-press drag would cancel this one.
+                  tile.draggable = false
+                  cancelTouchDrag.current?.()
+                  cancelTouchDrag.current = armTouchGraphicDrag({
+                    pointerId: event.pointerId,
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    src: asset.src,
+                    onEnd: () => {
+                      tile.draggable = true
+                      cancelTouchDrag.current = null
+                    },
+                  })
+                }}
+                onContextMenu={(event) => {
+                  if (touchGraphicDragActive()) {
+                    event.preventDefault()
+                  }
                 }}
                 onClick={() => {
                   setDecodeError(null)
@@ -140,7 +194,7 @@ export function GraphicLibrary() {
                     }
                   })
                 }}
-                className="flex min-h-24 w-full flex-col items-center justify-center gap-2 border border-flv-line bg-flv-paper p-2 hover:border-flv-accent"
+                className="flex min-h-24 w-full flex-col items-center justify-center gap-2 border border-flv-line bg-flv-paper p-2 select-none [-webkit-touch-callout:none] hover:border-flv-accent"
               >
                 <img
                   src={asset.src}
@@ -149,6 +203,7 @@ export function GraphicLibrary() {
                   height={56}
                   loading="lazy"
                   decoding="async"
+                  draggable={false}
                   className="h-14 w-full object-contain"
                 />
                 <span className="text-center font-body text-xs leading-tight font-medium text-flv-ink">

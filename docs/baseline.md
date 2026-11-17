@@ -126,7 +126,7 @@ Refreshed 10 November 2026 (P4) on the P4 branch, which is `master` at `34808bf`
 
 | Budget | Limit | Today | Enforced |
 | --- | --- | --- | --- |
-| All JS, gzip | 640 KiB | 566.5 KiB (#372); 571.0 KiB with the graphics library (#373); 602.9 KiB with Pattern (beta) built in (16 Nov) | CI `check` job, `scripts/check-budgets.mjs` |
+| All JS, gzip | 664 KiB | 566.5 KiB (#372); 571.0 KiB with the graphics library (#373); 602.9 KiB with Pattern (beta) built in (16 Nov); 640.9 KiB with the Vote feed and layer panel (#401), about 648 KiB with the fabric, fill and stretch tools (17 Nov) | CI `check` job, `scripts/check-budgets.mjs` |
 | Largest JS chunk, gzip | 310 KiB | 173.2 KiB (`StudioStage`) | CI `check` job, `scripts/check-budgets.mjs` |
 | GLB per garment template | 1.2 MiB | 1.19 MiB max (`coat.glb`, 1,214 KiB, with print UVs, 11 Nov; was `tailored.glb`, 1,149 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
 | Editor first load, all bytes over the wire | 2.0 MiB | 611 KiB (the tee editor, signed in, cold cache) | CI browser tests, `e2e/budgets.spec.ts` |
@@ -144,6 +144,8 @@ On 16 Nov the all-JS limit went from 600 to 640 KiB for Workflow 1 (pattern edit
 - starting a pattern, 0.6 KiB.
 
 The editor's first load and the largest chunk don't change. The new limit also covers the AI assist dialog (behind its own flag) and leaves about 6% headroom.
+
+On 17 Nov the all-JS limit went from 640 to 664 KiB for the founder's second round of feedback: the editable landing demo (#399), reliable drag and drop (#400), the separate Vote feed and the layer panel (#401), the fabric picker and section fills (#402), and stretching one side with the re-baked tee (#403). Together they add about 19 KiB; with all of them the total is about 648 KiB. Each is either on the page it serves (the Vote feed, the landing's tee surface) or a small editor panel, and lazy chunks count toward this limit too, so trimming would mean dropping a requested feature. The largest chunk and the editor's first load stay well inside their own limits. The new limit leaves about 2.5% headroom over the expected total.
 
 The browser budgets run in the CI browser shards against the production build:
 - **First load** reloads the editor of a new tee with the cache cleared and switched off. It then adds up every response's encoded size from the Chrome DevTools Protocol (`Network.loadingFinished`), headers included. That covers what the tee editor loads, including Supabase calls. It is lower than the 1.6 MiB above because the default gown is no longer preloaded on the editor.

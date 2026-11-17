@@ -26,6 +26,16 @@ export type FabricPreset = {
   detailScale?: number
 }
 
+/**
+ * The ten base cloths, one per texture, that a canonical `base.fabric` may
+ * name (reader R2). Colourways ("Ivory Silk") are left out: each carries a
+ * colour of its own, and the document's colour is the base's, so a stored
+ * colourway would say two colours. The first ten `FABRIC_PRESETS`, in order.
+ */
+export const BASE_FABRIC_IDS = ['cotton', 'silk', 'wool', 'denim', 'leather', 'linen', 'satin', 'jersey', 'chiffon', 'canvas'] as const
+
+export type BaseFabricId = (typeof BASE_FABRIC_IDS)[number]
+
 const FABRIC_PRESETS: readonly FabricPreset[] = [
   {
     id: 'cotton',
