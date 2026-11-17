@@ -177,7 +177,10 @@ function RootShell() {
             <BrandMark />
           </Link>
           <nav aria-label="Site" className="flex items-center gap-2 font-body text-sm sm:gap-4">
-            <NavLink to="/" label="Home" active={tab === 'home'} />
+            {/* On a phone the brand mark is the way home, which leaves room for Vote and Ranking. */}
+            <span className="hidden sm:contents">
+              <NavLink to="/" label="Home" active={tab === 'home'} />
+            </span>
             <NavLink to="/create" label="Create" active={tab === 'create'} />
             {/* Voting is the point: Vote (find designs) and Ranking (the top ones) are in the main nav in every build. */}
             <NavLink to="/vote" label="Vote" active={tab === 'vote'} />

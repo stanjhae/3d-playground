@@ -167,6 +167,21 @@ describe('locking on the tee', () => {
     expect([a, b].map((id) => stored({ id }).visible)).toEqual([true, true])
   })
 
+  test('a layer can be renamed, in one undo step, and the name is stored', () => {
+    store().addText({ content: 'FLP', x: 0.4, y: 0.5 })
+    const id = store().selectedLayerId!
+    const undoCount = store().undoCount
+
+    store().updateLayer({ layerId: id, patch: { label: 'Headline' } })
+    expect(stored({ id }).name).toBe('Headline')
+    expect(rendered({ id }).label).toBe('Headline')
+    expect(store().undoCount).toBe(undoCount + 1)
+
+    // The same name again is no step.
+    store().updateLayer({ layerId: id, patch: { label: 'Headline' } })
+    expect(store().undoCount).toBe(undoCount + 1)
+  })
+
   test('a paint layer can be deleted, and new ink starts a new one', () => {
     brushStroke({ y: 0.3 })
     const paint = store().document.layers.find((layer) => layer.kind === 'paint' && layer.strokes.length > 0)!

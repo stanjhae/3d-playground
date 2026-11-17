@@ -684,6 +684,11 @@ function layerPatchChanges({
   layer: DesignDocument['layers'][number]
   patch: LayerPatch
 }) {
+  // A new name is a change on every kind (Rename in the Layers panel).
+  if (patch.label !== undefined && patch.label.trim() !== (layer.label ?? '')) {
+    return true
+  }
+
   if (layer.kind === 'paint') {
     return (
       (patch.visible !== undefined && patch.visible !== layer.visible) ||

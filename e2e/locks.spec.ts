@@ -37,8 +37,7 @@ async function screenPoint({ page, spot }: { page: Page; spot: { x: number; y: n
 test('a locked word is not picked on the panel until it is unlocked', async ({ page }) => {
   const email = newEmail({ label: 'locks' })
   emails.push(email)
-  // Guided, not Pro: the whole Layers panel is for everyone.
-  await signIn({ page, email, pro: false })
+  await signIn({ page, email })
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
 
