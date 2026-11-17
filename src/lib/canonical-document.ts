@@ -17,8 +17,16 @@
  */
 
 import { type GarmentShape, isNeutralShape, NEUTRAL_SHAPE, SHAPE_FIELDS, SHAPE_LIMITS, templateHasShape } from './garment-shape-params.ts'
+import { BASE_FABRIC_IDS, type BaseFabricId } from './fabrics.ts'
 import { type CanonicalPattern, checkPattern } from './pattern/pattern-document.ts'
-import { currentTemplateFor, isUpcomingTemplate, READABLE_TEMPLATE_IDS, resolveTemplate, TEMPLATE_IDS } from './template-manifest.ts'
+import {
+  currentTemplateFor,
+  isUpcomingTemplate,
+  isUpcomingTemplateVersion,
+  READABLE_TEMPLATE_IDS,
+  resolveTemplate,
+  TEMPLATE_IDS,
+} from './template-manifest.ts'
 
 export { TEMPLATE_IDS }
 
@@ -37,7 +45,7 @@ export const BASE_KINDS = ['solid', 'stripes', 'check'] as const
 
 export type BaseKind = (typeof BASE_KINDS)[number]
 
-export const CANONICAL_LAYER_KINDS = ['paint', 'image', 'text'] as const
+export const CANONICAL_LAYER_KINDS = ['paint', 'image', 'text', 'fill'] as const
 
 export type CanonicalLayerKind = (typeof CANONICAL_LAYER_KINDS)[number]
 
@@ -61,7 +69,20 @@ export const CANONICAL_LIMITS = {
   maxIssues: 50,
   /** Panels a document on an upcoming template may name (pattern-reader R). */
   upcomingPanels: 8,
+  /** One repeat of a `fill` layer, as a fraction of its panel's width (reader R2). */
+  minFillTile: 0.05,
+  maxFillTile: 1,
 } as const
+
+/** The cloth a `base.fabric` may name: a base preset of `fabrics.ts` (reader R2). */
+export const CANONICAL_FABRIC_IDS = BASE_FABRIC_IDS
+
+export type CanonicalFabricId = BaseFabricId
+
+/** The patterns a `fill` layer may repeat; the base's own two. */
+export const FILL_PATTERNS = ['stripes', 'check'] as const
+
+export type FillPattern = (typeof FILL_PATTERNS)[number]
 
 /** Stored numbers keep six decimals, so π itself rounds to this bound. */
 export const MAX_ANGLE = 3.141593
@@ -74,19 +95,27 @@ export type TemplateRef = {
 
 export type Color = `#${string}`
 
-export type SolidBase = {
+/**
+ * The garment's cloth (reader R2): a base preset id, on any kind of base.
+ * Left out when unset, so a design without one hashes as it always did.
+ */
+type BaseFabric = {
+  fabric?: CanonicalFabricId
+}
+
+export type SolidBase = BaseFabric & {
   kind: 'solid'
   color: Color
 }
 
-export type StripesBase = {
+export type StripesBase = BaseFabric & {
   kind: 'stripes'
   colors: [Color, Color]
   period: number
   angle: number
 }
 
-export type CheckBase = {
+export type CheckBase = BaseFabric & {
   kind: 'check'
   colors: [Color, Color]
   period: number
@@ -137,6 +166,12 @@ export type Placement = {
   y: number
   scale: number
   rotation: number
+  /**
+   * Height when it differs from the width (reader R2): the object is
+   * stretched along its own y axis. Same bounds as `scale`; left out when
+   * uniform, so `scale` sizes both axes.
+   */
+  scaleY?: number
 }
 
 export type CanonicalPaintLayer = LayerCommon & {
@@ -166,10 +201,41 @@ export type CanonicalTextLayer = LayerCommon &
     color: Color
   }
 
+/** What a `fill` layer repeats: an uploaded image, or stripes or a check. */
+export type FillSource =
+  | {
+      assetId: string
+      /** Natural width / height of the asset, as on an image layer. */
+      aspect: number
+    }
+  | {
+      pattern: FillPattern
+      /** Ground, then stripe (or check) colour, as on the base. */
+      colors: [Color, Color]
+    }
+
+/**
+ * A pattern covering its whole panel (reader R2), drawn in layer order and
+ * clipped to the panel. It has no position: it is selected from the layer
+ * list, never dragged on the panel.
+ */
+export type CanonicalFillLayer = LayerCommon & {
+  kind: 'fill'
+  source: FillSource
+  /** One repeat, as a fraction of the panel's width. */
+  tile: number
+  /** Radians in (−π, π], positive clockwise, about the panel's centre. */
+  rotation: number
+  /** Phase along the pattern's own axes, as a fraction of one repeat; left out when 0. */
+  offsetX?: number
+  offsetY?: number
+}
+
 export type CanonicalLayer =
   | CanonicalPaintLayer
   | CanonicalImageLayer
   | CanonicalTextLayer
+  | CanonicalFillLayer
 
 /** Layers are ordered bottom to top. */
 export type CanonicalPanel = {
@@ -206,7 +272,15 @@ export function panelIdsOf({ document }: { document: Pick<CanonicalDocument, 'pa
 /** The panels a template prints on; the tee's when the template is unknown. */
 export function templatePanelIds({ template }: { template: { id: string; version: number } }) {
   const resolved = resolveTemplate(template)
-  return resolved.ok ? Object.keys(resolved.manifest.regions) : [...CANONICAL_PANEL_IDS]
+
+  if (resolved.ok) {
+    return Object.keys(resolved.manifest.regions)
+  }
+
+  // A version a later release bakes keeps its template's panels (reader R2).
+  return isUpcomingTemplateVersion(template)
+    ? Object.keys(currentTemplateFor({ templateId: template.id }).regions)
+    : [...CANONICAL_PANEL_IDS]
 }
 
 export type ValidationIssue = {
@@ -478,8 +552,12 @@ function checkBase({
     return
   }
 
+  if ('fabric' in value && (value.kind === 'solid' || value.kind === 'stripes' || value.kind === 'check')) {
+    checkEnum({ context, value: value.fabric, path: `${path}.fabric`, options: CANONICAL_FABRIC_IDS })
+  }
+
   if (value.kind === 'solid') {
-    if (checkRecord({ context, value, path, required: ['kind', 'color'] })) {
+    if (checkRecord({ context, value, path, required: ['kind', 'color'], optional: ['fabric'] })) {
       checkColor({ context, value: value.color, path: `${path}.color` })
     }
     return
@@ -491,7 +569,7 @@ function checkBase({
         ? ['kind', 'colors', 'period', 'angle']
         : ['kind', 'colors', 'period']
 
-    if (!checkRecord({ context, value, path, required })) {
+    if (!checkRecord({ context, value, path, required, optional: ['fabric'] })) {
       return
     }
 
@@ -676,6 +754,107 @@ function checkPlacement({
     max: MAX_ANGLE,
     minExclusive: true,
   })
+
+  if ('scaleY' in value) {
+    checkNumber({
+      context,
+      value: value.scaleY,
+      path: `${path}.scaleY`,
+      min: 0,
+      max: CANONICAL_LIMITS.maxObjectScale,
+      minExclusive: true,
+    })
+
+    // One form per look: a uniform object leaves `scaleY` out.
+    if (value.scaleY === value.scale) {
+      report({ context, path: `${path}.scaleY`, message: 'equal to scale; leave it out' })
+    }
+  }
+}
+
+/** A fill's repeat: an uploaded image, or one of the base's two patterns. */
+function checkFillSource({
+  context,
+  value,
+  path,
+}: {
+  context: Context
+  value: unknown
+  path: string
+}) {
+  if (!isRecord(value)) {
+    report({ context, path, message: 'expected an object' })
+    return
+  }
+
+  if ('assetId' in value) {
+    if (!checkRecord({ context, value, path, required: ['assetId', 'aspect'] })) {
+      return
+    }
+
+    if (typeof value.assetId !== 'string' || !ASSET_ID_PATTERN.test(value.assetId)) {
+      report({ context, path: `${path}.assetId`, message: 'expected an asset id' })
+    }
+
+    checkNumber({
+      context,
+      value: value.aspect,
+      path: `${path}.aspect`,
+      min: 1 / CANONICAL_LIMITS.maxImageAspect,
+      max: CANONICAL_LIMITS.maxImageAspect,
+    })
+    return
+  }
+
+  if ('pattern' in value) {
+    if (!checkRecord({ context, value, path, required: ['pattern', 'colors'] })) {
+      return
+    }
+
+    checkEnum({ context, value: value.pattern, path: `${path}.pattern`, options: FILL_PATTERNS })
+    checkColorPair({ context, value: value.colors, path: `${path}.colors` })
+    return
+  }
+
+  report({ context, path, message: 'expected an assetId or a pattern' })
+}
+
+function checkFill({
+  context,
+  value,
+  path,
+}: {
+  context: Context
+  value: Record<string, unknown>
+  path: string
+}) {
+  checkFillSource({ context, value: value.source, path: `${path}.source` })
+  checkNumber({
+    context,
+    value: value.tile,
+    path: `${path}.tile`,
+    min: CANONICAL_LIMITS.minFillTile,
+    max: CANONICAL_LIMITS.maxFillTile,
+  })
+  checkNumber({
+    context,
+    value: value.rotation,
+    path: `${path}.rotation`,
+    min: -MAX_ANGLE,
+    max: MAX_ANGLE,
+    minExclusive: true,
+  })
+
+  // A phase of 0 is written as no phase, and a whole repeat is 0 again.
+  for (const offset of ['offsetX', 'offsetY'] as const) {
+    if (offset in value) {
+      checkNumber({ context, value: value[offset], path: `${path}.${offset}`, min: 0, max: 1, minExclusive: true })
+
+      if (value[offset] === 1) {
+        report({ context, path: `${path}.${offset}`, message: 'a whole repeat; leave it out' })
+      }
+    }
+  }
 }
 
 const LAYER_COMMON_FIELDS = ['id', 'kind', 'visible', 'opacity'] as const
@@ -685,6 +864,14 @@ const LAYER_FIELDS: Record<CanonicalLayerKind, readonly string[]> = {
   paint: [...LAYER_COMMON_FIELDS, 'strokes'],
   image: [...LAYER_COMMON_FIELDS, ...PLACEMENT_FIELDS, 'assetId', 'aspect'],
   text: [...LAYER_COMMON_FIELDS, ...PLACEMENT_FIELDS, 'content', 'face', 'color'],
+  fill: [...LAYER_COMMON_FIELDS, 'source', 'tile', 'rotation'],
+}
+
+const LAYER_OPTIONAL_FIELDS: Record<CanonicalLayerKind, readonly string[]> = {
+  paint: ['name', 'locked'],
+  image: ['name', 'locked', 'flipX', 'flipY', 'scaleY'],
+  text: ['name', 'locked', 'flipX', 'flipY', 'scaleY'],
+  fill: ['name', 'locked', 'offsetX', 'offsetY'],
 }
 
 function checkLayer({
@@ -703,7 +890,7 @@ function checkLayer({
 
   const kind = value.kind
 
-  if (kind !== 'paint' && kind !== 'image' && kind !== 'text') {
+  if (kind !== 'paint' && kind !== 'image' && kind !== 'text' && kind !== 'fill') {
     checkEnum({
       context,
       value: kind,
@@ -719,7 +906,7 @@ function checkLayer({
       value,
       path,
       required: LAYER_FIELDS[kind],
-      optional: kind === 'paint' ? ['name', 'locked'] : ['name', 'locked', 'flipX', 'flipY'],
+      optional: LAYER_OPTIONAL_FIELDS[kind],
     })
   ) {
     return
@@ -763,6 +950,11 @@ function checkLayer({
     strokes?.forEach((stroke, index) => {
       checkStroke({ context, value: stroke, path: `${path}.strokes[${index}]` })
     })
+    return
+  }
+
+  if (kind === 'fill') {
+    checkFill({ context, value, path })
     return
   }
 
@@ -1060,15 +1252,32 @@ export function shapeOf({ document }: { document: Pick<CanonicalDocument, 'shape
 /**
  * Atlas-relative size of an image layer: contained in a `scale`-sided
  * square, longest side equal to `scale`. Aspect 1 is the legacy square.
+ * A stretched image (`scaleY`, reader R2) takes its height from `scaleY`
+ * by the same rule, its width still from `scale`.
  */
 export function imageBox({
   scale,
+  scaleY = scale,
   aspect,
 }: {
   scale: number
+  scaleY?: number
   aspect: number
 }) {
   return aspect >= 1
-    ? { width: scale, height: scale / aspect }
-    : { width: scale * aspect, height: scale }
+    ? { width: scale, height: scaleY / aspect }
+    : { width: scale * aspect, height: scaleY }
+}
+
+/** The asset a layer draws, if any: an image's, or an image fill's (reader R2). */
+export function layerAssetId({ layer }: { layer: CanonicalLayer }): string | null {
+  if (layer.kind === 'image') {
+    return layer.assetId
+  }
+
+  if (layer.kind === 'fill' && 'assetId' in layer.source) {
+    return layer.source.assetId
+  }
+
+  return null
 }

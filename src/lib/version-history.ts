@@ -1,6 +1,7 @@
 import {
   panelIdsOf,
   type CanonicalDocument,
+  type CanonicalLayer,
   type CanonicalPanelId,
   type Color,
 } from './canonical-document.ts'
@@ -158,7 +159,7 @@ export type VersionPreview = {
   base: { label: string; colors: Color[] }
   panels: Array<{
     panel: CanonicalPanelId
-    layers: Array<{ kind: 'paint' | 'image' | 'text'; label: string; hidden: boolean }>
+    layers: Array<{ kind: CanonicalLayer['kind']; label: string; hidden: boolean }>
   }>
   layerCount: number
 }
@@ -183,7 +184,9 @@ export function previewVersion({ document }: { document: CanonicalDocument }): V
           ? `“${layer.content}”`
           : layer.kind === 'image'
             ? 'Graphic'
-            : `Paint · ${layer.strokes.length} stroke${layer.strokes.length === 1 ? '' : 's'}`),
+            : layer.kind === 'fill'
+              ? 'Fill'
+              : `Paint · ${layer.strokes.length} stroke${layer.strokes.length === 1 ? '' : 's'}`),
     })),
   }))
 

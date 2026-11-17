@@ -16,6 +16,14 @@ function mirrorLayer({ layer }: { layer: CanonicalLayer }): CanonicalLayer {
     }
   }
 
+  if (layer.kind === 'fill') {
+    return {
+      ...layer,
+      rotation: layer.rotation === 0 ? 0 : -layer.rotation,
+      ...(layer.offsetX === undefined ? {} : { offsetX: 1 - layer.offsetX }),
+    }
+  }
+
   return { ...layer, x: 1 - layer.x, rotation: layer.rotation === 0 ? 0 : -layer.rotation }
 }
 
