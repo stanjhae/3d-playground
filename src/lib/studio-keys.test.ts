@@ -168,12 +168,32 @@ describe('patternKeyAction', () => {
     expect(patternKeyAction({ key: 'Escape', on: 'edge' })).toEqual({ type: 'deselect' })
   })
 
+  test('C goes to the cut-out tools; on a cut-out, arrows move it and Delete removes it', () => {
+    expect(patternKeyAction({ key: 'c', on: 'point' })).toEqual({ type: 'cutout' })
+    expect(patternKeyAction({ key: 'C', on: 'edge' })).toEqual({ type: 'cutout' })
+    expect(patternKeyAction({ key: 'ArrowDown', shiftKey: true, on: 'hole' })).toEqual({ type: 'nudge', dx: 0, dy: -10 })
+    expect(patternKeyAction({ key: 'Delete', on: 'hole' })).toEqual({ type: 'removeCutout' })
+    expect(patternKeyAction({ key: 'Backspace', on: 'hole' })).toEqual({ type: 'removeCutout' })
+    expect(patternKeyAction({ key: 'Escape', on: 'hole' })).toEqual({ type: 'deselect' })
+    expect(patternKeyAction({ key: '+', on: 'hole' })).toBeNull()
+  })
+
   test('shortcuts with a modifier pass through to undo and the browser', () => {
     expect(patternKeyAction({ key: 'z', metaKey: true, on: 'point' })).toBeNull()
     expect(patternKeyAction({ key: 'Delete', ctrlKey: true, on: 'point' })).toBeNull()
   })
 
   test('the help names every key it handles', () => {
-    expect(patternKeyList().map((entry) => entry.keys)).toEqual(['Tab', 'Arrow keys', 'Delete or Backspace', '+ or Insert', 'S', 'Esc'])
+    expect(patternKeyList().map((entry) => entry.keys)).toEqual([
+      'Tab',
+      'Arrow keys',
+      'Delete or Backspace',
+      '+ or Insert',
+      'S',
+      'C',
+      'Arrow keys on a cut-out',
+      'Delete on a cut-out',
+      'Esc',
+    ])
   })
 })

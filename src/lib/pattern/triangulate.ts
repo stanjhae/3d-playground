@@ -6,9 +6,12 @@
 export type Point2 = readonly [number, number]
 
 export type PieceMesh = {
-  /** Outline points first (in order), then the lattice. */
+  /** Outline points first (in order), then each hole's ring (in order), then the lattice. */
   points: Point2[]
+  /** Points on the outline. */
   boundaryCount: number
+  /** Points on each hole's ring, in hole order, after the outline. */
+  holeCounts: number[]
   triangles: Uint32Array
 }
 
@@ -141,11 +144,34 @@ export function delaunay(points: readonly Point2[]): number[] {
   return out
 }
 
+/** Even-odd inside test over several rings: an outline and its holes. */
+export function pointInRings(p: Point2, rings: readonly (readonly Point2[])[]) {
+  let inside = false
+
+  for (const ring of rings) {
+    if (pointInPolygon(p, ring)) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
 /**
  * The piece's mesh from its closed outline (already resampled at about
- * `spacing`, counter-clockwise, no repeated last point).
+ * `spacing`, counter-clockwise, no repeated last point) and its holes
+ * (resampled the same way, clockwise). Without holes the mesh is exactly
+ * what it was before holes existed.
  */
-export function triangulatePiece({ outline, spacing }: { outline: readonly Point2[]; spacing: number }): PieceMesh {
+export function triangulatePiece({
+  outline,
+  holes = [],
+  spacing,
+}: {
+  outline: readonly Point2[]
+  holes?: readonly (readonly Point2[])[]
+  spacing: number
+}): PieceMesh {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -169,13 +195,18 @@ export function triangulatePiece({ outline, spacing }: { outline: readonly Point
     for (let x = minX + offset; x < maxX; x += spacing) {
       const p: Point2 = [x, y]
 
-      if (pointInPolygon(p, outline) && distanceToPolygon(p, outline) >= margin) {
+      if (
+        pointInPolygon(p, outline) &&
+        distanceToPolygon(p, outline) >= margin &&
+        holes.every((hole) => !pointInPolygon(p, hole) && distanceToPolygon(p, hole) >= margin)
+      ) {
         lattice.push(p)
       }
     }
   }
 
-  const points = [...outline, ...lattice]
+  const rings = [outline, ...holes]
+  const points = [...outline, ...holes.flat(), ...lattice]
   const raw = delaunay(points)
   const triangles: number[] = []
 
@@ -185,10 +216,10 @@ export function triangulatePiece({ outline, spacing }: { outline: readonly Point
     const c = points[raw[t + 2]!]!
     const centroid: Point2 = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3]
 
-    if (pointInPolygon(centroid, outline)) {
+    if (pointInRings(centroid, rings)) {
       triangles.push(raw[t]!, raw[t + 1]!, raw[t + 2]!)
     }
   }
 
-  return { points, boundaryCount: outline.length, triangles: Uint32Array.from(triangles) }
+  return { points, boundaryCount: outline.length, holeCounts: holes.map((hole) => hole.length), triangles: Uint32Array.from(triangles) }
 }

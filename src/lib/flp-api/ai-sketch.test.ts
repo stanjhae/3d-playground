@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { TINY_JPEG } from '../image-fixtures'
+import { type PatternOp, applyPatternOps } from '../pattern/pattern-ops'
 import { patternTemplateFor } from '../pattern/templates'
 import { AI_LIMITS, AI_OUTPUT_SCHEMA, aiEnv, cleanOps, parseAiRequest, sketchToOps } from './ai-sketch'
 
@@ -133,6 +134,48 @@ describe('the AI assist', () => {
       { op: 'hemCurve', piece: 'sideways', mm: 10 },
     ]
     expect(cleanOps(raw, template.pattern)).toEqual([{ op: 'slit', piece: 'back', mm: 30 }])
+    // Without the garment, only the shape is checked.
+    expect(cleanOps(raw)).toHaveLength(3)
+  })
+
+  test('a cut-out comes back as an edit on a named piece, clamped, and Claude is told how to place one', async () => {
+    const answer = {
+      ops: [
+        { op: 'cutout', piece: 'front', shape: 'keyhole', at: 'neck', dx: 0, dy: -150, wMm: 60, hMm: 100 },
+        { op: 'cutout', piece: 'back', shape: 'circle', dx: 0, dy: 9999, wMm: 9999, hMm: 1 },
+      ],
+      notes: 'A keyhole at the neck and a round cut-out on the back.',
+    }
+    const { fetchImpl, seen } = stub({ body: message({ text: JSON.stringify(answer) }) })
+    const result = await sketchToOps({ request: describeTee, template, env, fetchImpl })
+
+    expect(result).toEqual({
+      ok: true,
+      body: {
+        ops: [answer.ops[0], { op: 'cutout', piece: 'back', shape: 'circle', dx: 0, dy: 600, wMm: 300, hMm: 25 }],
+        notes: answer.notes,
+      },
+    })
+    const system = (seen[0]!.body.system as Array<{ text: string }>)[0]!.text
+    expect(system).toMatch(/- cutout: cuts a hole .*, 25 to 300 mm/)
+    const schema = AI_OUTPUT_SCHEMA.properties.ops.items
+    expect(schema.properties.op.enum).toContain('cutout')
+    expect(schema.properties.shape.enum).toEqual(['circle', 'oval', 'teardrop', 'keyhole'])
+    expect(schema.properties.at.enum).toContain('centre')
+    expect(schema.required).toEqual(['op'])
+    // The first one sews; the clamped one is refused by the same checks as a hand edit.
+    expect(applyPatternOps({ pattern: template.pattern, ops: [answer.ops[0] as PatternOp] }).ok).toBe(true)
+  })
+
+  test('a cut-out on a piece or role the garment lacks is dropped', () => {
+    const raw = [
+      { op: 'cutout', piece: 'pocket', shape: 'circle', dx: 0, dy: 0, wMm: 50, hMm: 50 },
+      { op: 'cutout', piece: 'front', shape: 'circle', at: 'hood', dx: 0, dy: 0, wMm: 50, hMm: 50 },
+      { op: 'cutout', piece: 'front', shape: 'star', dx: 0, dy: 0, wMm: 50, hMm: 50 },
+      { op: 'cutout', piece: 'front', shape: 'circle', dx: 0, dy: 0, wMm: 50, hMm: 50, mm: 4 },
+      { op: 'cutout', piece: 'front', shape: 'oval', at: 'centre', dx: 1.6, dy: 0, wMm: 50, hMm: 70 },
+    ]
+    expect(cleanOps(raw, template.pattern)).toEqual([{ op: 'cutout', piece: 'front', shape: 'oval', at: 'centre', dx: 2, dy: 0, wMm: 50, hMm: 70 }])
     // Without the garment, only the shape is checked.
     expect(cleanOps(raw)).toHaveLength(3)
   })

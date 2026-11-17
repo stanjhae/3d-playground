@@ -8,6 +8,7 @@ Decisions that change scope or behaviour for the alpha (17 November until the en
 
 - `VITE_COMMUNITY` and `FLP_COMMUNITY` are `true` in Vercel Production, so beta has comments on share pages, Follow on public profiles and the Following tab on `/vote`. This replaces the 16 Nov line that kept them off until someone could moderate; moderation is the owner's from now on (`docs/abuse.md`: comment reports, `moderation.mjs hide-comment`).
 - The AI suggestion stays off: there is no Anthropic API key yet.
+- **Cut-outs (C2)** are written: a pattern piece may take up to four holes (circle, oval, teardrop or keyhole, then reshaped by hand), from the editor or the AI assist's `cutout` edit. In the editor a cut-out on a mirrored sleeve lands on its source, so the pair keeps matching; the AI's edit names one piece and parts it from its mirror, as a one-sided sleeve edit does. The writer merges 24 h after pattern-reader R (#392) is deployed (`docs/release.md`).
 
 ## 16 Nov 2026: rankings by period and garment, opt-in profiles, vote rules and reports
 
