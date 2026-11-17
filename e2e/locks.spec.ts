@@ -37,7 +37,8 @@ async function screenPoint({ page, spot }: { page: Page; spot: { x: number; y: n
 test('a locked word is not picked on the panel until it is unlocked', async ({ page }) => {
   const email = newEmail({ label: 'locks' })
   emails.push(email)
-  await signIn({ page, email })
+  // Guided, not Pro: the whole Layers panel is for everyone.
+  await signIn({ page, email, pro: false })
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
 
@@ -52,6 +53,9 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   const positionX = page.getByRole('textbox', { name: 'Position X, percent of panel' })
   await expect(select).toHaveAttribute('aria-current', 'true')
   const spot = await wordSpot({ page })
+  for (const action of [`Move ${WORD} to the front`, `Move ${WORD} to the back`, `Duplicate ${WORD}`, `Rename ${WORD}`]) {
+    await expect(rail.getByRole('button', { name: action, exact: true })).toBeVisible()
+  }
 
   // Lock it from the list: its edit controls go off and say why.
   await expect(lock).toHaveAttribute('aria-pressed', 'false')
@@ -62,6 +66,16 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   await expect(select).toHaveAccessibleName(/, locked$/)
   await expect(positionX).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Left to right' })).toBeDisabled()
+  await expect(rail.getByRole('button', { name: `Rename ${WORD}`, exact: true })).toHaveAttribute('aria-disabled', 'true')
+
+  // Hiding is about the view, so it works while locked, and it stays locked.
+  const eye = rail.getByRole('button', { name: `Hide ${WORD}`, exact: true })
+  await eye.click()
+  await expect(eye).toHaveAttribute('aria-pressed', 'true')
+  await expect(rail.getByRole('button', { name: new RegExp(`^${WORD} ?, hidden ?, locked$`) })).toBeVisible()
+  await eye.click()
+  await expect(eye).toHaveAttribute('aria-pressed', 'false')
+  await expect(lock).toHaveAttribute('aria-pressed', 'true')
 
   // Nudge keys and Delete leave it where it is.
   await page.keyboard.press('Escape')

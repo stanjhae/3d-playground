@@ -48,6 +48,8 @@ export type DesignCommand =
       layerId: string
       patch: LayerPatch
     }
+  /** Show or hide several layers as one undo step ("Hide others", "Show all"). */
+  | { type: 'setVisibility'; layerIds: string[]; visible: boolean }
   | { type: 'setStructural'; structural: StructuralParams }
   | { type: 'applyFabric'; override: MaterialOverride }
 
@@ -69,15 +71,19 @@ export function createCommandStack({
   }
 }
 
-/** The only change a locked layer takes is being unlocked. */
-function isUnlockOnly({ patch }: { patch: LayerPatch }) {
+/**
+ * The only changes a locked layer takes are being unlocked and being shown
+ * or hidden: hiding changes the view, not the item, so it works while locked.
+ */
+function isLockFreePatch({ patch }: { patch: LayerPatch }) {
   const keys = Object.entries(patch).filter(([, value]) => value !== undefined)
-  return keys.length > 0 && keys.every(([key, value]) => key === 'locked' && value === false)
+  return keys.length > 0 && keys.every(([key, value]) => (key === 'locked' && value === false) || key === 'visible')
 }
 
 /**
  * Whether `command` would change a locked layer (W3). Locked items can't be
- * moved, restyled, renamed, hidden or removed until they are unlocked; a
+ * moved, restyled, renamed or removed until they are unlocked (hiding and
+ * showing them is fine); a
  * locked paint layer keeps its ink, and new strokes go on a layer above.
  */
 export function editsLockedLayer({
@@ -91,7 +97,7 @@ export function editsLockedLayer({
     isLockedLayer({ layer: document.layers.find((layer) => layer.id === layerId) })
 
   if (command.type === 'updateLayer') {
-    return lockedLayer(command.layerId) && !isUnlockOnly({ patch: command.patch })
+    return lockedLayer(command.layerId) && !isLockFreePatch({ patch: command.patch })
   }
 
   if (command.type === 'removeLayer' || command.type === 'updateText') {
@@ -265,6 +271,15 @@ function applyToDocument({
         visible: true,
         strokes: [],
       })
+    }
+    return next
+  }
+
+  if (command.type === 'setVisibility') {
+    for (const layer of next.layers) {
+      if (command.layerIds.includes(layer.id) && layer.kind !== 'art') {
+        layer.visible = command.visible
+      }
     }
     return next
   }

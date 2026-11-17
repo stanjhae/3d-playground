@@ -62,11 +62,16 @@ test('the landing and all its sections make no claim the alpha cannot back, and 
   await page.goto('/sign-in')
   await expectNoClaims({ page, name: 'sign-in' })
 
-  // The board lists published designs and sends voters to each one (V1, V2).
+  // Vote lists published designs to vote on; Ranking ranks them (V1, V2).
   await page.goto('/vote')
-  await expect(page.getByRole('heading', { name: 'Vote and rankings' })).toBeVisible()
-  await expect(page.getByText('Open one to see every side and give it your vote.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Vote', exact: true })).toBeVisible()
+  await expect(page.getByText(/Designs that need votes come first/)).toBeVisible()
   await expectNoClaims({ page, name: 'vote' })
+
+  await page.goto('/ranking')
+  await expect(page.getByRole('heading', { name: 'Ranking', exact: true })).toBeVisible()
+  await expect(page.getByText('The top designs, ranked by votes.', { exact: false })).toBeVisible()
+  await expectNoClaims({ page, name: 'ranking' })
 })
 
 test('the studio, shared page and privacy page make no such claim, and the page can be reported', async ({ page, browser, request }) => {

@@ -1,4 +1,4 @@
-import { GripVertical } from 'lucide-react'
+import { Eye, EyeOff, GripVertical, Lock, LockOpen } from 'lucide-react'
 import { type PointerEvent as ReactPointerEvent, useId, useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
@@ -9,6 +9,9 @@ import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import {
   focusAfterDelete,
+  hiddenLayerIds,
+  hideOthersIds,
+  LAYER_NAME_MAX,
   LOCKED_REASON,
   layerDeletedMessage,
   layerEdgeMessage,
@@ -16,52 +19,53 @@ import {
   type LayerMove,
   layerListGroups,
   layerMovedMessage,
+  layerRenamedMessage,
+  layersVisibilityMessage,
   layerVisibilityMessage,
+  renamedLayer,
 } from '../../lib/layer-list'
 import { announce } from '../../lib/studio-announcer'
-import {
-  chromeKickerClass,
-  chromeMutedClass,
-  chromeTextClass,
-  railFrameClass,
-} from '../../lib/studio-chrome'
-import { useStudioMode } from '../../lib/studio-mode'
+import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
 
 const actionClass = cn(
   'min-h-11 text-flv-muted hover:text-flv-accent aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:text-flv-muted',
   chromeTextClass(),
 )
 
-const lockClass = cn(
-  'min-h-11 border px-2',
-  chromeTextClass(),
-)
+/** The eye and the lock: always shown, so a row's state reads at a glance. */
+const toggleClass =
+  'grid size-11 shrink-0 place-items-center border text-flv-muted hover:text-flv-accent aria-pressed:border-flv-accent aria-pressed:text-flv-accent'
 
 const moveClass =
   'grid size-11 place-items-center border border-flv-line text-flv-ink hover:text-flv-accent aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:text-flv-ink'
 
+/**
+ * The Layers panel on the Design step: every item on the cloth, by panel,
+ * top first. Each row shows and hides (locked or not), locks, reorders,
+ * renames in place, duplicates and deletes; "Hide others" and "Show all"
+ * work on the whole list in one undo step.
+ */
 export function LayerRail() {
-  const pro = useStudioMode((state) => state.pro)
   const layers = useEditorStore((state) => state.document.layers)
   const garmentId = useEditorStore((state) => state.garmentId)
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
   const selectLayer = useEditorStore((state) => state.selectLayer)
   const updateLayer = useEditorStore((state) => state.updateLayer)
+  const setLayersVisible = useEditorStore((state) => state.setLayersVisible)
   const removeLayer = useEditorStore((state) => state.removeLayer)
   const duplicateLayer = useEditorStore((state) => state.duplicateLayer)
   const moveLayer = useEditorStore((state) => state.moveLayer)
   const moveLayerTo = useEditorStore((state) => state.moveLayerTo)
   /** A row being dragged by its grip, and the row it would land on. */
   const [drag, setDrag] = useState<{ layerId: string; panel: string | null; overId: string | null } | null>(null)
+  /** The row being renamed in place, and what has been typed. */
+  const [renaming, setRenaming] = useState<{ layerId: string; draft: string } | null>(null)
+  const renameDone = useRef(false)
   const listRef = useRef<HTMLDivElement | null>(null)
   const headingId = useId()
   const panels = garmentPanels({ garmentId })
   const groups = layerListGroups({ layers, panels, placement: layerPlacement })
   const orderedIds = groups.flatMap((group) => group.rows.map((row) => row.layer.id))
-
-  if (orderedIds.length === 0) {
-    return null
-  }
 
   /** Focus a control in a row after React has re-rendered the list. */
   function focusRow({ layerId, control }: { layerId: string | null; control: string }) {
@@ -72,9 +76,7 @@ export function LayerRail() {
         return
       }
 
-      const row = layerId
-        ? list.querySelector<HTMLElement>(`[data-layer-row="${CSS.escape(layerId)}"]`)
-        : null
+      const row = layerId ? list.querySelector<HTMLElement>(`[data-layer-row="${CSS.escape(layerId)}"]`) : null
       const target =
         row?.querySelector<HTMLElement>(`[data-layer-control="${control}"]`) ??
         row?.querySelector<HTMLElement>('[data-layer-control="select"]') ??
@@ -110,11 +112,74 @@ export function LayerRail() {
     })
   }
 
+  function finishRename({ save, draft }: { save: boolean; draft: string }) {
+    // Enter or Esc ends it once; the blur as the field goes changes nothing.
+    if (!renaming || renameDone.current) {
+      return
+    }
+
+    renameDone.current = true
+    const { layerId } = renaming
+    const current = groups.flatMap((group) => group.rows).find((row) => row.layer.id === layerId)?.name ?? ''
+    const name = save ? renamedLayer({ draft, current }) : null
+    setRenaming(null)
+
+    if (name) {
+      updateLayer({ layerId, patch: { label: name } })
+      announce({ message: layerRenamedMessage({ name }) })
+    }
+
+    focusRow({ layerId, control: 'select' })
+  }
+
+  const hidden = hiddenLayerIds({ groups })
+  const others = selectedLayerId && orderedIds.includes(selectedLayerId) ? hideOthersIds({ groups, keepId: selectedLayerId }) : []
+
   return (
     <aside className={railFrameClass()} aria-labelledby={headingId}>
-      <h2 id={headingId} className={chromeKickerClass()}>
-        {HOUSE_COPY.onTheCloth}
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-3">
+        <h2 id={headingId} className={chromeKickerClass()}>
+          {HOUSE_COPY.onTheCloth}
+        </h2>
+        {orderedIds.length > 0 ? (
+          <span className="flex gap-3">
+            <button
+              type="button"
+              aria-disabled={others.length > 0 ? undefined : true}
+              title={selectedLayerId ? 'Hide every other layer' : 'Pick a layer first'}
+              onClick={() => {
+                if (others.length === 0) {
+                  return
+                }
+
+                setLayersVisible({ layerIds: others, visible: false })
+                announce({ message: layersVisibilityMessage({ count: others.length, visible: false }) })
+              }}
+              className={actionClass}
+            >
+              Hide others
+            </button>
+            <button
+              type="button"
+              aria-disabled={hidden.length > 0 ? undefined : true}
+              onClick={() => {
+                if (hidden.length === 0) {
+                  return
+                }
+
+                setLayersVisible({ layerIds: hidden, visible: true })
+                announce({ message: layersVisibilityMessage({ count: hidden.length, visible: true }) })
+              }}
+              className={actionClass}
+            >
+              Show all
+            </button>
+          </span>
+        ) : null}
+      </div>
+      {orderedIds.length === 0 ? (
+        <p className={chromeMutedClass()}>Nothing on the cloth yet. What you draw, type or add shows here, one layer each.</p>
+      ) : null}
       <div ref={listRef} className="flex flex-col gap-3">
         {groups.map((group) => {
           const groupId = `${headingId}-${group.panel ?? 'other'}`
@@ -129,14 +194,12 @@ export function LayerRail() {
                 {group.rows.map((row) => {
                   const { layer, name } = row
                   const selected = selectedLayerId === layer.id
-                  const canDuplicate =
-                    layer.kind === 'graphic' ||
-                    layer.kind === 'text' ||
-                    layer.kind === 'pattern'
+                  const canDuplicate = layer.kind === 'graphic' || layer.kind === 'text' || layer.kind === 'pattern'
                   const locked = isLockedLayer({ layer })
                   const lockable = isLockableLayer({ layer })
                   const movable = row.index !== null
                   const reasonId = `${headingId}-${layer.id}-locked`
+                  const editing = renaming?.layerId === layer.id
                   // Off while locked, with the reason beside them (W3).
                   const lockedProps = locked
                     ? { 'aria-disabled': true as const, 'aria-describedby': reasonId, title: LOCKED_REASON }
@@ -166,12 +229,21 @@ export function LayerRail() {
                     focusRow({ layerId: layer.id, control: direction === 'front' ? 'up' : direction === 'back' ? 'down' : direction })
                   }
 
+                  function startRename() {
+                    if (locked) {
+                      return
+                    }
+
+                    renameDone.current = false
+                    setRenaming({ layerId: layer.id, draft: name })
+                  }
+
                   return (
                     <li
                       key={layer.id}
                       data-layer-row={layer.id}
                       data-layer-panel={group.panel ?? undefined}
-                      className={cn('flex flex-wrap items-center gap-x-2 border-l-2 border-t-2 pl-2', {
+                      className={cn('flex flex-wrap items-center gap-x-1.5 border-t-2 border-l-2 pl-1', {
                         'border-l-flv-accent': selected,
                         'border-l-transparent': !selected,
                         'border-t-flv-accent': drag !== null && drag.overId === layer.id && drag.layerId !== layer.id,
@@ -200,33 +272,27 @@ export function LayerRail() {
                           }}
                           onPointerUp={dropDrag}
                           onPointerCancel={() => setDrag(null)}
-                          className="grid min-h-11 w-6 cursor-grab touch-none place-items-center text-flv-muted active:cursor-grabbing"
+                          className="grid min-h-11 w-5 cursor-grab touch-none place-items-center text-flv-muted active:cursor-grabbing"
                         >
                           <GripVertical className="size-4" />
                         </span>
-                      ) : null}
+                      ) : (
+                        <span aria-hidden className="w-5" />
+                      )}
                       <button
                         type="button"
-                        data-layer-control="select"
-                        aria-current={selected ? 'true' : undefined}
+                        data-layer-control="visibility"
+                        aria-label={`${HOUSE_COPY.hideLayer} ${name}`}
+                        aria-pressed={!layer.visible}
+                        title={layer.visible ? `${HOUSE_COPY.hideLayer} ${name}` : `${HOUSE_COPY.showLayer} ${name}`}
                         onClick={() => {
-                          selectLayer({
-                            selectedLayerId: selected ? null : layer.id,
-                          })
+                          // Hiding is about the view, so it works while locked.
+                          updateLayer({ layerId: layer.id, patch: { visible: !layer.visible } })
+                          announce({ message: layerVisibilityMessage({ name, visible: !layer.visible }) })
                         }}
-                        className={cn(
-                          'min-h-11 min-w-0 flex-1 basis-24 truncate text-left',
-                          chromeTextClass(),
-                          {
-                            'text-flv-accent': selected,
-                            'text-flv-muted hover:text-flv-accent': !selected,
-                            'opacity-40': !layer.visible,
-                          },
-                        )}
+                        className={cn(toggleClass, 'border-flv-line')}
                       >
-                        {name}
-                        {layer.visible ? null : <span className="sr-only">, hidden</span>}
-                        {locked ? <span className="sr-only">, locked</span> : null}
+                        {layer.visible ? <Eye aria-hidden className="size-4" /> : <EyeOff aria-hidden className="size-4" />}
                       </button>
                       {lockable ? (
                         <button
@@ -239,14 +305,55 @@ export function LayerRail() {
                             updateLayer({ layerId: layer.id, patch: { locked: !locked } })
                             announce({ message: layerLockMessage({ name, locked: !locked }) })
                           }}
-                          className={cn(lockClass, {
-                            'border-flv-accent text-flv-accent': locked,
-                            'border-flv-line text-flv-muted hover:text-flv-accent': !locked,
-                          })}
+                          className={cn(toggleClass, 'border-flv-line')}
                         >
-                          Lock
+                          {locked ? <Lock aria-hidden className="size-4" /> : <LockOpen aria-hidden className="size-4" />}
                         </button>
                       ) : null}
+                      {editing ? (
+                        <input
+                          // Focus goes straight to the name being edited.
+                          autoFocus
+                          aria-label={`New name for ${name}`}
+                          value={renaming.draft}
+                          maxLength={LAYER_NAME_MAX}
+                          onChange={(event) => setRenaming({ layerId: layer.id, draft: event.target.value })}
+                          onFocus={(event) => event.currentTarget.select()}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              finishRename({ save: true, draft: event.currentTarget.value })
+                            } else if (event.key === 'Escape') {
+                              // Esc here cancels the rename, not the selection.
+                              event.preventDefault()
+                              event.stopPropagation()
+                              finishRename({ save: false, draft: event.currentTarget.value })
+                            }
+                          }}
+                          onBlur={(event) => finishRename({ save: true, draft: event.currentTarget.value })}
+                          className={cn('min-h-11 min-w-0 flex-1 basis-24 border border-flv-accent bg-flv-paper px-2', chromeTextClass())}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          data-layer-control="select"
+                          aria-current={selected ? 'true' : undefined}
+                          title={locked ? name : `${name}. Double-click to rename`}
+                          onClick={() => {
+                            selectLayer({ selectedLayerId: selected ? null : layer.id })
+                          }}
+                          onDoubleClick={startRename}
+                          className={cn('min-h-11 min-w-0 flex-1 basis-24 truncate text-left', chromeTextClass(), {
+                            'text-flv-accent': selected,
+                            'text-flv-muted hover:text-flv-accent': !selected,
+                            'opacity-40': !layer.visible,
+                          })}
+                        >
+                          {name}
+                          {layer.visible ? null : <span className="sr-only">, hidden</span>}
+                          {locked ? <span className="sr-only">, locked</span> : null}
+                        </button>
+                      )}
                       {movable ? (
                         <span className="flex gap-1">
                           <button
@@ -256,9 +363,7 @@ export function LayerRail() {
                             aria-disabled={row.canMoveUp && !locked ? undefined : true}
                             aria-describedby={locked ? reasonId : undefined}
                             title={`Move ${name} up`}
-                            onClick={() => {
-                              move('up')
-                            }}
+                            onClick={() => move('up')}
                             className={moveClass}
                           >
                             <span aria-hidden>↑</span>
@@ -270,9 +375,7 @@ export function LayerRail() {
                             aria-disabled={row.canMoveDown && !locked ? undefined : true}
                             aria-describedby={locked ? reasonId : undefined}
                             title={`Move ${name} down`}
-                            onClick={() => {
-                              move('down')
-                            }}
+                            onClick={() => move('down')}
                             className={moveClass}
                           >
                             <span aria-hidden>↓</span>
@@ -284,30 +387,8 @@ export function LayerRail() {
                           Locked. {LOCKED_REASON}.
                         </span>
                       ) : null}
-                      <span className="flex w-full flex-wrap gap-x-3">
-                        <button
-                          type="button"
-                          data-layer-control="visibility"
-                          aria-label={`${layer.visible ? HOUSE_COPY.hideLayer : HOUSE_COPY.showLayer} ${name}`}
-                          {...lockedProps}
-                          onClick={() => {
-                            if (locked) {
-                              return
-                            }
-
-                            updateLayer({
-                              layerId: layer.id,
-                              patch: { visible: !layer.visible },
-                            })
-                            announce({
-                              message: layerVisibilityMessage({ name, visible: !layer.visible }),
-                            })
-                          }}
-                          className={actionClass}
-                        >
-                          {layer.visible ? HOUSE_COPY.hideLayer : HOUSE_COPY.showLayer}
-                        </button>
-                        {pro && movable ? (
+                      <span className="flex w-full flex-wrap gap-x-3 pl-6">
+                        {movable ? (
                           <>
                             <button
                               type="button"
@@ -315,7 +396,7 @@ export function LayerRail() {
                               aria-disabled={row.canMoveUp && !locked ? undefined : true}
                               aria-describedby={locked ? reasonId : undefined}
                               onClick={() => move('front')}
-                              className={cn(actionClass, 'aria-disabled:opacity-35')}
+                              className={actionClass}
                             >
                               To front
                             </button>
@@ -325,37 +406,18 @@ export function LayerRail() {
                               aria-disabled={row.canMoveDown && !locked ? undefined : true}
                               aria-describedby={locked ? reasonId : undefined}
                               onClick={() => move('back')}
-                              className={cn(actionClass, 'aria-disabled:opacity-35')}
+                              className={actionClass}
                             >
                               To back
                             </button>
                           </>
                         ) : null}
-                        {pro ? (
-                          <>
                         <button
                           type="button"
+                          data-layer-control="rename"
                           aria-label={`${FLV_COPY.layerRename} ${name}`}
                           {...lockedProps}
-                          onClick={() => {
-                            if (locked) {
-                              return
-                            }
-
-                            const next = window.prompt(
-                              FLV_COPY.layerRename,
-                              layer.label ?? name,
-                            )
-
-                            if (next === null) {
-                              return
-                            }
-
-                            updateLayer({
-                              layerId: layer.id,
-                              patch: { label: next },
-                            })
-                          }}
+                          onClick={startRename}
                           className={actionClass}
                         >
                           {FLV_COPY.layerRename}
@@ -364,36 +426,30 @@ export function LayerRail() {
                           <button
                             type="button"
                             aria-label={`${FLV_COPY.layerDuplicate} ${name}`}
-                            onClick={() => {
-                              duplicateLayer({ layerId: layer.id })
-                            }}
+                            onClick={() => duplicateLayer({ layerId: layer.id })}
                             className={actionClass}
                           >
                             {FLV_COPY.layerDuplicate}
                           </button>
                         ) : null}
-                          </>
-                        ) : null}
-                        {layer.kind !== 'paint' ? (
-                          <button
-                            type="button"
-                            aria-label={`${FLV_COPY.layerDelete} ${name}`}
-                            {...lockedProps}
-                            onClick={() => {
-                              if (locked) {
-                                return
-                              }
+                        <button
+                          type="button"
+                          aria-label={`${FLV_COPY.layerDelete} ${name}`}
+                          {...lockedProps}
+                          onClick={() => {
+                            if (locked) {
+                              return
+                            }
 
-                              const next = focusAfterDelete({ orderedIds, deletedId: layer.id })
-                              removeLayer({ layerId: layer.id })
-                              announce({ message: layerDeletedMessage({ name }) })
-                              focusRow({ layerId: next, control: 'select' })
-                            }}
-                            className={actionClass}
-                          >
-                            {FLV_COPY.layerDelete}
-                          </button>
-                        ) : null}
+                            const next = focusAfterDelete({ orderedIds, deletedId: layer.id })
+                            removeLayer({ layerId: layer.id })
+                            announce({ message: layerDeletedMessage({ name }) })
+                            focusRow({ layerId: next, control: 'select' })
+                          }}
+                          className={actionClass}
+                        >
+                          {FLV_COPY.layerDelete}
+                        </button>
                       </span>
                     </li>
                   )

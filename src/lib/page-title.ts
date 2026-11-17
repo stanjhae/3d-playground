@@ -12,6 +12,7 @@ const LABELS: Record<string, string> = {
   '/terms': 'Terms of use',
   '/account-deleted': 'Account deleted',
   '/vote': 'Vote',
+  '/ranking': 'Ranking',
   '/soon': 'Coming soon',
 }
 

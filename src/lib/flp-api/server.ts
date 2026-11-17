@@ -50,6 +50,7 @@ import {
   readPublicDesign,
   readBoard,
   readFollowingBoard,
+  readVoteFeed,
   readPublicProfile,
   readPublicImage,
   unpublish,
@@ -1586,6 +1587,21 @@ export async function handleFlpRequest({
       if (designId === 'following' && !action && request.method === 'GET') {
         return handleFollowingBoard({ request, env })
       }
+    }
+
+    // GET /public/feed — the Vote feed. A session, when sent, leaves out the
+    // viewer's own designs and says which they voted for; a stale token
+    // reads as signed out, as on the vote count.
+    if (designId === 'feed' && !action && request.method === 'GET') {
+      const feedAdmin = createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+      const user = await verifiedUser({ request, admin: feedAdmin })
+
+      return readVoteFeed({
+        admin: feedAdmin,
+        viewerId: user?.userId ?? null,
+        respond,
+        search: new URL(request.url).searchParams,
+      })
     }
 
     // GET /public — the board (V2), ranked by window and garment.

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { RequireSession } from '../components/auth/RequireSession'
 import { cn } from '../lib/cn'
-import { boardView } from '../lib/board-view'
 import { getBoard } from '../lib/flp-api/public-read'
 import { DeleteAccount } from '../components/studio/DeleteAccount'
 import { DesignCard } from '../components/studio/DesignCard'
@@ -180,7 +179,7 @@ function MyStudio() {
 
     void getBoard().then((result) => {
       if (!cancelled && result.ok) {
-        setStandings(new Map(boardView({ designs: result.data }).map((entry) => [entry.slug, { rank: entry.rank, votes: entry.votes }])))
+        setStandings(new Map(result.data.map((entry) => [entry.slug, { rank: entry.rank, votes: entry.votes }])))
       }
     })
 

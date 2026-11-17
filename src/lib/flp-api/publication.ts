@@ -921,6 +921,129 @@ export async function readFollowingBoard({
   return respond({ status: 200, body: { designs: ((data ?? []) as BoardRow[]).map(boardEntry) } })
 }
 
+/**
+ * One design in the Vote feed: what the board shows, without a rank, plus
+ * the viewer's own vote, so a card needs no request of its own.
+ */
+export type FeedEntry = Omit<BoardEntry, 'rank'> & {
+  /** Fewer than 3 counted votes in the last 7 days: shown first. */
+  needsVotes: boolean
+  voted: boolean
+  /** When the viewer's held vote (a new account's) starts counting. */
+  countsFrom?: string
+}
+
+export type VoteFeedPage = { designs: FeedEntry[]; next: string | null }
+
+/** Designs per feed page. */
+export const FEED_PAGE = 24
+
+type FeedRow = Omit<BoardRow, 'rank'> & {
+  feed_group: number
+  voted: boolean
+  counts_from: string | null
+}
+
+type FeedCursor = { group: number; publishedAt: string; slug: string }
+
+/**
+ * The feed's cursor: the last row's group, time and slug, opaque to the
+ * page. The time is kept as the database wrote it, to the microsecond, so
+ * no design at a page edge is skipped or repeated.
+ */
+export function encodeFeedCursor({ group, publishedAt, slug }: FeedCursor) {
+  return btoa(JSON.stringify([group, publishedAt, slug])).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+export function decodeFeedCursor({ cursor }: { cursor: string }): FeedCursor | null {
+  if (cursor.length > 200) {
+    return null
+  }
+
+  try {
+    const value: unknown = JSON.parse(atob(cursor.replace(/-/g, '+').replace(/_/g, '/')))
+
+    if (!Array.isArray(value) || value.length !== 3) {
+      return null
+    }
+
+    const [group, publishedAt, slug] = value as unknown[]
+
+    if ((group !== 0 && group !== 1) || typeof publishedAt !== 'string' || typeof slug !== 'string') {
+      return null
+    }
+
+    return SLUG.test(slug) && !Number.isNaN(Date.parse(publishedAt)) ? { group, publishedAt, slug } : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * GET /public/feed?garment=:id&cursor= — the Vote feed: live designs that
+ * need votes first (fewer than 3 counted this week), then the rest, newest
+ * first in each (`flp_vote_feed`). Signed in, the viewer's own designs are
+ * left out and each row says whether they voted. Paged by cursor, so
+ * nothing drops off the end.
+ */
+export async function readVoteFeed({
+  admin,
+  viewerId,
+  respond,
+  search = new URLSearchParams(),
+}: {
+  admin: SupabaseClient
+  viewerId: string | null
+  respond: Respond
+  search?: URLSearchParams
+}) {
+  const garment = search.get('garment')
+  const template = garment ? templateForGarment({ garmentId: garment })?.id : null
+  const rawCursor = search.get('cursor')
+  const cursor = rawCursor ? decodeFeedCursor({ cursor: rawCursor }) : null
+
+  if ((garment && !template) || (rawCursor && !cursor)) {
+    return respond({ status: 400, body: { error: { code: 'invalid', message: 'Unknown garment or page' } } })
+  }
+
+  const { data, error } = await admin.rpc('flp_vote_feed', {
+    p_viewer_id: viewerId,
+    p_template: template ?? null,
+    p_after_group: cursor?.group ?? null,
+    p_after_published: cursor?.publishedAt ?? null,
+    p_after_slug: cursor?.slug ?? null,
+    p_limit: FEED_PAGE + 1,
+  })
+
+  if (error) {
+    console.error('flp feed read failed', { code: error.code })
+    return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+  }
+
+  // One row past the page says whether there is another.
+  const rows = (data ?? []) as FeedRow[]
+  const page = rows.slice(0, FEED_PAGE)
+  const last = page.at(-1)
+  const body: VoteFeedPage = {
+    designs: page.map((row) => {
+      const { rank: _rank, ...entry } = boardEntry({ ...row, rank: 0 })
+
+      return {
+        ...entry,
+        needsVotes: row.feed_group === 0,
+        voted: row.voted,
+        ...(row.counts_from ? { countsFrom: new Date(row.counts_from).toISOString() } : {}),
+      }
+    }),
+    next:
+      rows.length > FEED_PAGE && last
+        ? encodeFeedCursor({ group: last.feed_group, publishedAt: last.published_at, slug: last.slug })
+        : null,
+  }
+
+  return respond({ status: 200, body })
+}
+
 /** A public profile (`/u/:handle`): its name and live designs, most voted first. */
 export type PublicProfile = {
   handle: string

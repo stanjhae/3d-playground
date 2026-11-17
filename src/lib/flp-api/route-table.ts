@@ -85,6 +85,8 @@ export function flpRoutes({ document, renders }: { document: unknown; renders: u
     { method: 'POST', path: ({ slug }) => `public/${slug}/report`, body: () => ({ reason: 'other' }), scope: 'account' },
     { method: 'GET', path: () => 'public', scope: 'public' },
     { method: 'GET', path: () => 'public?window=week&garment=tee', scope: 'public' },
+    { method: 'GET', path: () => 'public/feed', scope: 'public' },
+    { method: 'GET', path: () => 'public/feed?garment=tee', scope: 'public' },
   ]
 }
 

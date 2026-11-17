@@ -121,7 +121,7 @@ export const LANDING_COPY = {
     ],
   },
   vote: {
-    boardLink: 'See the rankings and vote',
+    boardLink: 'See the rankings',
     eyebrow: 'Voting',
     title: 'Make something.',
     titleAccent: 'Let people vote on it.',

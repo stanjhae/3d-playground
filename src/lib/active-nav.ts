@@ -1,10 +1,11 @@
-export type NavTab = 'home' | 'create' | 'studio' | 'vote' | 'look'
+export type NavTab = 'home' | 'create' | 'studio' | 'vote' | 'ranking' | 'look'
 
 /**
  * Which main tab the page belongs to, so the header can mark it as the
  * steps bar marks its step. Starting a design (`/studio?new=1`, where
  * Create lands) and editing one (`/create?cloud=…`) are Create; the
- * library of saved designs is My Studio; a share page is part of Vote.
+ * library of saved designs is My Studio; a share page is part of Vote,
+ * where people find designs to vote on; Ranking has its own tab.
  */
 export function activeNav({ pathname, search = {} }: { pathname: string; search?: Record<string, unknown> }): NavTab | null {
   if (pathname === '/') {
@@ -21,6 +22,10 @@ export function activeNav({ pathname, search = {} }: { pathname: string; search?
 
   if (pathname === '/vote' || pathname.startsWith('/s/')) {
     return 'vote'
+  }
+
+  if (pathname === '/ranking') {
+    return 'ranking'
   }
 
   if (pathname.startsWith('/look/')) {
