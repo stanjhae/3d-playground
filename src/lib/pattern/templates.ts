@@ -1,5 +1,5 @@
 import { resolveTemplate } from '../template-manifest.ts'
-import { type BodiceSpec, type PatternFrame, bodice, hood, layoutFrames, skirt, sleeves, trousers } from './families.ts'
+import { type BodiceSpec, type PatternFrame, type TrouserSpec, bodice, hood, layoutFrames, skirt, sleeves, trousers } from './families.ts'
 import type { CanonicalPattern, PatternFabric, PatternPiece, PatternSeam } from './pattern-document.ts'
 
 /**
@@ -17,7 +17,18 @@ export type PatternTemplate = {
   frames: Record<string, PatternFrame>
 }
 
-type Recipe = { patternVersion: number; build: () => { pieces: PatternPiece[]; seams: PatternSeam[] } }
+type Built = { pieces: PatternPiece[]; seams: PatternSeam[] }
+
+type Recipe = {
+  patternVersion: number
+  build: () => Built
+  /**
+   * Other starting patterns on the same template (a length, say), laid in
+   * the template's own frames. The pieces and seams keep the template's
+   * ids, so a preset is only a different pattern a design may start from.
+   */
+  presets?: Record<string, { label: string; build: () => Built }>
+}
 
 const SHIRT_NECK = { neck: 'round', armholeIn: 18 } as const
 
@@ -36,6 +47,37 @@ const teeRecipe: Recipe = {
       sleeve: { length: 245, cuffHalf: 175, capHeight: 65 },
       fabric: 'jersey',
     }),
+}
+
+const TROUSER_SPEC: TrouserSpec = { length: 900, waistHalf: 165, hipHalf: 220, hipY: 810, crotchY: 660, cuffOuter: 205, cuffInner: 15, waistAt: 0.99 }
+/** The trousers cut above the knee: the same waist, hip and seams. */
+const SHORTS_SPEC: TrouserSpec = { ...TROUSER_SPEC, length: 420, hipY: 330, crotchY: 180, cuffOuter: 245, cuffInner: 20 }
+
+/** A bodice ending at the waist, sewn there to a flared skirt. */
+function waistedDress(): Built {
+  const waistHalf = 175
+  const top = upper({
+    spec: { hemHalf: waistHalf, armpitHalf: 230, armpitY: 280, shoulderHalf: 150, shoulderY: 480, neckHalf: 80, neckY: 520, frontNeckDip: 110, backNeckDip: 30, ...SHIRT_NECK, armholeIn: 15 },
+    fabric: 'woven',
+  })
+  const lower = skirt({ spec: { length: 600, waistHalf, hipHalf: 260, hipY: 520, hemHalf: 440, waistAt: 0.99 }, fabric: 'satin' })
+
+  // The bodice's hem is the waist seam: hem edits (lengthen, flare, curve) and widening act on the skirt.
+  for (const piece of [top.front, top.back]) {
+    const { hem, side, ...roles } = piece.roles ?? {}
+    piece.roles = { ...roles, waist: hem ?? [] }
+    void side
+  }
+
+  return {
+    pieces: [...top.pieces, ...lower.pieces],
+    seams: [
+      ...top.seams,
+      ...lower.seams,
+      { id: 'waistFront', kind: 'sew', a: { piece: top.front.id, from: 'hemL', to: 'hemR' }, b: { piece: 'skirtFront', from: 'waistR', to: 'waistL' } },
+      { id: 'waistBack', kind: 'sew', a: { piece: top.back.id, from: 'hemL', to: 'hemR' }, b: { piece: 'skirtBack', from: 'waistR', to: 'waistL' } },
+    ],
+  }
 }
 
 const RECIPES: Record<string, Recipe> = {
@@ -185,6 +227,45 @@ const RECIPES: Record<string, Recipe> = {
         fabric: 'satin',
       }),
   },
+
+  // Roadmap D1: garments whose GLBs are baked from these recipes
+  // (scripts/bake-pattern-glb.mjs), with no downloaded model.
+
+  // Sleeveless, cut deep under the arm, with a V front.
+  'vest@1': {
+    patternVersion: 1,
+    build: () =>
+      upper({
+        spec: { hemHalf: 265, armpitHalf: 245, armpitY: 330, shoulderHalf: 150, shoulderY: 600, neckHalf: 85, neckY: 640, frontNeckDip: 270, backNeckDip: 25, neck: 'v', backNeck: 'round', armholeIn: 30 },
+        fabric: 'woven',
+      }),
+  },
+
+  // Short sleeves, the hem about 80 mm above the waist.
+  'crop@1': {
+    patternVersion: 1,
+    build: () =>
+      upper({
+        spec: { hemHalf: 245, armpitHalf: 250, armpitY: 195, shoulderHalf: 170, shoulderY: 395, neckHalf: 78, neckY: 435, frontNeckDip: 85, backNeckDip: 25, ...SHIRT_NECK },
+        sleeve: { length: 200, cuffHalf: 170, capHeight: 60 },
+        fabric: 'jersey',
+      }),
+  },
+
+  // A bodice to the waist, sewn to a flared skirt.
+  'dress@1': {
+    patternVersion: 1,
+    build: () => waistedDress(),
+  },
+
+  // Full length; shorts are a length preset (`PATTERN_PRESETS`).
+  'trousers@1': {
+    patternVersion: 1,
+    build: () => trousers({ spec: TROUSER_SPEC, fabric: 'woven' }),
+    presets: {
+      shorts: { label: 'Shorts', build: () => trousers({ spec: SHORTS_SPEC, fabric: 'woven' }) },
+    },
+  },
 }
 
 const cache = new Map<string, PatternTemplate>()
@@ -231,3 +312,44 @@ export function templateHasPattern({ templateId, templateVersion }: { templateId
 
 /** Every garment template version that has a pattern, as `id@version`. */
 export const PATTERN_TEMPLATE_KEYS = Object.freeze(Object.keys(RECIPES))
+
+export type PatternPreset = { id: string; label: string }
+
+/**
+ * The other starting patterns a template version offers (the trousers'
+ * shorts), by id and label. Empty for most templates.
+ */
+export function patternPresetsFor({ templateId, templateVersion }: { templateId: string; templateVersion: number }): PatternPreset[] {
+  const presets = RECIPES[`${templateId}@${templateVersion}`]?.presets ?? {}
+  return Object.entries(presets).map(([id, preset]) => ({ id, label: preset.label }))
+}
+
+/**
+ * A preset's pattern: the template's own basis and frames, with the preset's
+ * pieces laid in those frames top-aligned to the template's pieces (a waist
+ * stays where the template's waist is, so a print there stays put). Null when
+ * the template has no such preset.
+ */
+export function patternPresetFor({ templateId, templateVersion, preset }: { templateId: string; templateVersion: number; preset: string }): PatternTemplate | null {
+  const build = RECIPES[`${templateId}@${templateVersion}`]?.presets?.[preset]?.build
+  const template = build ? patternTemplateFor({ templateId, templateVersion }) : null
+
+  if (!build || !template) {
+    return null
+  }
+
+  const { pieces, seams } = build()
+  const top = (piece: PatternPiece) => Math.max(...(piece.outline ?? []).map((point) => point.y))
+
+  for (const piece of pieces) {
+    const base = template.pattern.pieces.find((candidate) => candidate.id === piece.id)
+
+    if (!base) {
+      throw new Error(`Preset ${preset} has a piece (${piece.id}) its template lacks`)
+    }
+
+    piece.panelOrigin = [base.panelOrigin[0], base.panelOrigin[1] + top(base) - top(piece)]
+  }
+
+  return { pattern: { ...template.pattern, pieces, seams }, frames: template.frames }
+}

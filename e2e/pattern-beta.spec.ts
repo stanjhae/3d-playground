@@ -215,3 +215,32 @@ test('picking a fabric re-drapes the pattern in it and saves it on the pieces', 
     expect(piece.fabric).toBe('chiffon')
   }
 })
+
+test('trousers start as shorts from a length preset, which drapes and saves', async ({ page }) => {
+  test.setTimeout(180_000)
+  const email = newEmail({ label: 'shorts' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('navigation', { name: 'Site' }).getByRole('link', { name: 'Create' }).click()
+  await page.getByRole('radiogroup', { name: 'Garment' }).getByRole('radio', { name: /^Trousers/ }).click()
+  await page.getByRole('button', { name: 'Create a pair of trousers' }).click()
+  await expectSaved({ page })
+
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'select')
+  await page.goto(url.toString())
+  await expectSaved({ page })
+  await page.getByRole('switch', { name: 'Pattern (beta)' }).click()
+  const editor = page.getByTestId('pattern-editor')
+  await expect(editor).toBeVisible({ timeout: 30_000 })
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+
+  await editor.getByRole('group', { name: 'Start from' }).getByRole('button', { name: 'Shorts' }).click()
+  await expect(drapeState(page)).toHaveAttribute('data-state', 'ready', { timeout: 60_000 })
+  await expectSaved({ page })
+
+  // The same pieces, cut above the knee: 420 mm from hem to waist, not 900.
+  const saved = await savedPattern({ page })
+  const front = (saved.pattern as { pieces: Array<{ id: string; outline: Array<{ id: string; y: number }> }> }).pieces.find((piece) => piece.id === 'trouserFront')!
+  expect(front.outline.find((point) => point.id === 'waistR')!.y).toBe(420)
+})

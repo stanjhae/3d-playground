@@ -550,6 +550,34 @@ test('every garment with a template is on offer, the T-shirt first, and the serv
   expect(await createFromHead({ page, head, template: { id: 'cape', version: 1 } })).toMatchObject({ status: 422 })
 })
 
+test('the baked garments (D1) are on offer in the picker, and each one creates, pins its template and renders', async ({ page }) => {
+  test.setTimeout(240_000)
+  const email = newEmail({ label: 'baked' })
+  emails.push(email)
+  await signIn({ page, email })
+  const site = page.getByRole('navigation', { name: 'Site' })
+
+  for (const { id, label, button } of [
+    { id: 'vest', label: 'Vest', button: 'Create a vest' },
+    { id: 'crop', label: 'Crop top', button: 'Create a crop top' },
+    { id: 'dress', label: 'Dress', button: 'Create a dress' },
+    { id: 'trousers', label: 'Trousers', button: 'Create a pair of trousers' },
+  ]) {
+    await site.getByRole('link', { name: 'Create' }).click()
+    await expect(page.getByRole('heading', { name: 'Start a new design' })).toBeVisible()
+    await page.getByRole('radiogroup', { name: 'Garment' }).getByRole('radio', { name: new RegExp(`^${label}`) }).click()
+    // The studio loads the garment's own baked model.
+    const model = page.waitForResponse((response) => new URL(response.url()).pathname === `/models/${id}.glb`)
+    await page.getByRole('button', { name: button }).click()
+    await expect(page).toHaveURL(/\/create\?cloud=/)
+    await expectSaved({ page })
+    expect((await model).status(), id).toBe(200)
+    await expect(page.getByRole('img', { name: '3D preview' })).toBeAttached({ timeout: 30_000 })
+    await expect(page.getByRole('alert').filter({ hasText: /cannot open|went wrong/i })).toHaveCount(0)
+    expect((await savedHead({ page })).content.template, id).toEqual({ id, version: 1 })
+  }
+})
+
 test('a design on a template version this app cannot open says so, offers nothing to edit, and offers the way back', async ({ page }) => {
   const email = newEmail({ label: 'version' })
   emails.push(email)

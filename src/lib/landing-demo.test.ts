@@ -34,7 +34,7 @@ describe('landing-demo', () => {
     expect(listGarmentsByCategory({ category: 'tops' }).length).toBeGreaterThan(
       0,
     )
-    expect(listGarmentsByCategory({ category: 'bottoms' })).toEqual([])
+    expect(listGarmentsByCategory({ category: 'bottoms' }).map((garment) => garment.id)).toEqual(['trousers'])
     expect(listGarmentsByCategory({ category: 'accessories' })).toEqual([])
   })
 

@@ -22,6 +22,10 @@ export const PATTERN_TEMPLATE_VERSIONS: readonly string[] = [
   'slip@1',
   'overall@1',
   'gown@1',
+  'vest@1',
+  'crop@1',
+  'dress@1',
+  'trousers@1',
 ]
 
 export function patternAvailable({ template }: { template: { id: string; version: number } }) {

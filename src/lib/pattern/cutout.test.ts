@@ -142,6 +142,8 @@ describe('patterns without holes are untouched', () => {
   // Pinned from master before cut-outs: every template's cloth, bit for bit.
   const PINNED: Record<string, string> = {
     'coat@1': '156e72f1',
+    'crop@1': 'fbd83537',
+    'dress@1': 'dfebff18',
     'gown@1': '610e8be8',
     'hoodie@1': 'a9a4bf38',
     'mixed@1': '62713b0d',
@@ -151,6 +153,8 @@ describe('patterns without holes are untouched', () => {
     'tailored@1': '466447b9',
     'tee-crew-short@4': '0ad31dd6',
     'tee-crew-short@5': '0ad31dd6',
+    'trousers@1': '3c48fa2c',
+    'vest@1': '8d98e9da',
   }
 
   test('every template builds the same cloth as before cut-outs', () => {

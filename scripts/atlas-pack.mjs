@@ -30,7 +30,9 @@ export function packPanels({ boxes, size }) {
     return placed
   }
 
-  let low = 1
+  // Boxes in metres fit at 1 px per unit; pattern frames in millimetres as
+  // large as a dress's (over a metre tall) need less than that.
+  let low = fits(1) ? 1 : 0
   let high = size * 10
 
   for (let step = 0; step < 40; step += 1) {

@@ -54,6 +54,20 @@ describe('clean side outlines', () => {
     expect(0.5 - Math.min(...xs)).toBeCloseTo(Math.max(...xs) - 0.5, 1)
   })
 
+  test('keeps every piece of real size on a panel (a bodice above a skirt), but not a speck', () => {
+    const box = (x0: number, y0: number, x1: number, y1: number) => [x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1]
+    const skirt = box(0.1, 0.05, 0.9, 0.45)
+    const bodice = box(0.3, 0.55, 0.7, 0.95)
+    const speck = box(0.02, 0.97, 0.04, 0.99)
+    const clean = cleanPanelShape({ triangles: [...skirt, ...bodice, ...speck], symmetric: false })
+    const ys = clean.filter((_, index) => index % 2 === 1)
+
+    expect(Math.max(...ys)).toBeGreaterThan(0.9)
+    expect(Math.max(...ys)).toBeLessThan(0.96)
+    expect(Math.min(...ys)).toBeLessThan(0.1)
+    expect(coverage(clean)).toBeGreaterThan((coverage(skirt) + coverage(bodice)) * 0.85)
+  })
+
   test('too little to trace is returned as it came', () => {
     expect(cleanPanelShape({ triangles: [0, 0, 1, 0], symmetric: true })).toEqual([0, 0, 1, 0])
   })

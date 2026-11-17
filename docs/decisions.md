@@ -2,6 +2,12 @@
 
 Decisions that change scope or behaviour for the alpha (17 November until the entry of 9 Nov 2026, then 1 December until the entry of 11 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+## 17 Nov 2026: four garments baked from our own patterns
+
+**Decided by:** roadmap D1 (the plan's step D1, after reader R).
+
+- The vest, crop top, dress and trousers ship as our own models, baked from their pattern recipes (`pnpm bake:pattern`), with no third-party credit. Shorts are a length preset of the trousers' pattern (Pattern mode, "Start from: Shorts"), not a separate model: a saved design records its template, not a variant, so a shorts model would need another template id and a reader change first. Shape sliders stay tee-only.
+
 ## 17 Nov 2026: comments and follows are on
 
 **Decided by:** owner ("Enable all that can be enabled").

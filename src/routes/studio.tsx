@@ -69,8 +69,12 @@ function isOn(value: unknown) {
 // Only templates this app can open are offered (F07 #142).
 const TEE = resolveTemplate(createEmptyCanonicalDocument().template)
 
-/** "a coat", "an overall dress". */
+/** "a coat", "an overall dress", "a pair of trousers". */
 function withArticle({ noun }: { noun: string }) {
+  if (/(trousers|shorts)$/.test(noun)) {
+    return `a pair of ${noun}`
+  }
+
   return `${/^[aeiou]/.test(noun) ? 'an' : 'a'} ${noun}`
 }
 

@@ -209,46 +209,41 @@ describe('pattern-reader R', () => {
     })
   })
 
-  test('upcoming garments are named after their templates, which this build reads but cannot open', () => {
-    expect([...UPCOMING_GARMENT_IDS]).toEqual(['vest', 'crop', 'dress', 'trousers'])
-    expect([...UPCOMING_TEMPLATE_IDS]).toEqual([...UPCOMING_GARMENT_IDS])
+  test('the garments R read are made now (D1): each opens on its own template, and none is upcoming', () => {
+    expect([...UPCOMING_GARMENT_IDS]).toEqual([])
+    expect([...UPCOMING_TEMPLATE_IDS]).toEqual([])
 
-    for (const id of UPCOMING_TEMPLATE_IDS) {
+    for (const id of ['vest', 'crop', 'dress', 'trousers']) {
       expect(GARMENT_IDS).toContain(id)
-      expect(TEMPLATE_IDS).not.toContain(id)
+      expect(TEMPLATE_IDS).toContain(id)
       expect(READABLE_TEMPLATE_IDS).toContain(id)
-      expect(resolveTemplate({ id, version: 1 }).ok).toBe(false)
+      expect(resolveTemplate({ id, version: 1 }).ok).toBe(true)
       expect(garmentOfTemplate({ id, version: 1 })).toBe(id)
     }
   })
 
-  test("a document on an upcoming template reads with its own panels", () => {
+  test("a document on a D1 template reads with that template's panels", () => {
     expect(issuesOf(upcoming('vest'))).toEqual([])
-    expect(issuesOf(upcoming('trousers', ['front', 'back', 'leg-left', 'leg-right']))).toEqual([])
-    expect(issuesOf(upcoming('vest', []))).toEqual(['$.panels: expected 1 to 8 panels'])
-    expect(issuesOf(upcoming('vest', ['front', 'bad panel']))).toEqual(['$.panels.bad panel: expected a stable panel id'])
+    expect(issuesOf(upcoming('crop', ['front', 'back', 'left', 'right']))).toEqual([])
+    expect(issuesOf(upcoming('trousers', ['front', 'back', 'leg-left']))).not.toEqual([])
     expect(issuesOf(upcoming('cape', ['front', 'back', 'left', 'right']))).toEqual([expect.stringMatching(/^\$\.template\.id: expected one of /)])
   })
 
-  test('the server still refuses to store a design this build cannot open', async () => {
+  test('the server stores a design on a D1 template', async () => {
     const prepared = await prepareContent({ value: upcoming('dress') })
-    expect(prepared.ok).toBe(false)
+    expect(prepared.ok).toBe(true)
   })
 
-  test('upcoming garments stay out of the rail, studio, search and vote filters', () => {
-    for (const garmentId of UPCOMING_GARMENT_IDS) {
-      expect(isUpcomingGarment({ garmentId })).toBe(true)
-      expect(showsGarmentInStudio({ garmentId })).toBe(false)
-      expect(parseCreateSearch({ search: { garment: garmentId } }).garment).toBeUndefined()
-      expect(boardGarmentOptions({ looks: [{ ...createEmptyDesign({ id: `look-${garmentId}` }), garmentId }] })).toEqual([])
+  test('the D1 garments are offered in the rail, studio, search and vote filters', () => {
+    for (const garmentId of ['vest', 'crop', 'dress', 'trousers'] as const) {
+      expect(isUpcomingGarment({ garmentId })).toBe(false)
+      expect(showsGarmentInStudio({ garmentId })).toBe(true)
+      expect(parseCreateSearch({ search: { garment: garmentId } }).garment).toBe(garmentId)
+      expect(boardGarmentOptions({ looks: [{ ...createEmptyDesign({ id: `look-${garmentId}` }), garmentId }] })).toEqual([garmentId])
+      expect(listRailGarments().map((garment) => garment.id)).toContain(garmentId)
     }
 
-    const shown = [
-      ...listRailGarments(),
-      ...(['tops', 'bottoms', 'outerwear', 'accessories'] as const).flatMap((category) => listGarmentsByCategory({ category })),
-    ].map((garment) => garment.id)
-    expect(shown.filter((id) => isUpcomingGarment({ garmentId: id }))).toEqual([])
-    expect(showsGarmentInStudio({ garmentId: 'tee' })).toBe(true)
-    expect(parseCreateSearch({ search: { garment: 'tee' } }).garment).toBe('tee')
+    expect(listGarmentsByCategory({ category: 'bottoms' }).map((garment) => garment.id)).toEqual(['trousers'])
+    expect(listGarmentsByCategory({ category: 'tops' }).map((garment) => garment.id)).toEqual(expect.arrayContaining(['vest', 'crop']))
   })
 })
