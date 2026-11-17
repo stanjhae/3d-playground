@@ -27,6 +27,7 @@ Signed-out limits apply on Vercel deployments (`VERCEL_ENV` set) or where `FLP_R
 | `publish` | 10 per min per account | renders, publish, unpublish | **Refuse** (503). Publishing puts content in front of the public; a refused publish loses nothing and can be retried. |
 | `details` | 30 per min per account | rename, delete, public name | **Allow**. Cheap, and blocking a rename or delete helps no one. |
 | `vote` | 30 per min per account | cast or retract a vote (V1) | **Allow**. A vote is one per account and can be taken back, so a missed limit costs little. |
+| `report` | 5 per min and 30 per day per account | `POST /api/flp/public/:slug/report` | **Allow**. One open report per account and design caps what a missed limit can store. |
 
 "Fails" means the database returned an error, gave no answer within 1.5 s twice in a row, or (signed out, on a deployment) the server has no Supabase settings. A call that gets no answer (a timeout or a dropped connection) is tried once more before the policy applies, so one slow moment doesn't refuse a publish; an error the database answers with isn't retried. A refused publish shows "This isn't available right now", and the studio doesn't retry it on its own. Each failure is logged as `flp request limit check failed` or `flp rate limit check failed`.
 
@@ -34,9 +35,49 @@ The shared limits are generous on purpose: people behind one address (an office,
 
 A new bucket must choose its policy: `RATE_OUTAGE_POLICY` is typed over every account bucket, and `src/lib/rate-limit.test.ts` pins every choice, so changing one is a visible decision. Update this table with it.
 
+## Vote rules
+
+Set in the database (`20261122090000_flp_rankings_profiles_reports.sql`), so the share page, the board and profiles always agree:
+
+- **One vote per account and design**, as before.
+- **No votes on your own design.** The API answers 409 `own_design`, and the button says "You can't vote for your own design."
+- **Voting takes the current terms of use.** The share page offers "Accept and vote" the first time; reading counts never needs them.
+- **A new account's vote counts once the account is a day old.** The vote is kept from the start and starts counting by itself; the button tells the voter when. Nobody is refused for being new. The age lives in `vote_rules.min_account_age` (24 hours), the same on local and CI databases. Tests age their accounts instead: `setAccountAge` in `src/lib/flp-api/integration-harness.ts` (accounts are two days old unless a test asks for a young one) and `localSql` in the e2e helpers.
+- Rankings count votes cast this week (7 days), this month (30 days) or ever, through `flp_counted_votes`, with the rules above.
+
+### Reviewing votes
+
+When a design climbs suspiciously fast, or a report says votes are arranged:
+
+```bash
+SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs votes <slug or link>
+```
+
+It lists the design's voters that show signs worth a look: three or more accounts made within the same hour, accounts that voted for no other owner, and votes cast within ten minutes of signing up. These are signs, not proof. Look up the accounts before acting. To remove arranged votes, delete those rows from `publication_votes` (or the accounts, under the terms' "votes are your own" rule), and note what you did and why.
+
+## Reports
+
+Signed in, "Report this design" on a share page records a report (`publication_reports`): the design, a reason (`copyright`, `offensive`, `spam`, `other`), an optional note of up to 500 characters, and the reporter's account. Reporting the same design again while a report is open changes nothing. Only the service role reads reports; the owner never learns who reported. Signed out, the link is an email to `VITE_FLP_CONTACT_EMAIL` with the share link in the body, as before, so someone without an account (a rights holder, say) can still report.
+
+```bash
+SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs reports
+```
+
+lists open reports, oldest first. Close each one after deciding:
+
+```bash
+SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs dismiss <report id> --by "<your name>"
+```
+
+```bash
+SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs action <report id> --by "<your name>"
+```
+
+`action` is for a report that led to a takedown or a word with the owner. Take the design down with the commands below first.
+
 ## Takedowns
 
-Reports arrive by email from the share page's "Report this design" link (`VITE_FLP_CONTACT_EMAIL`), with the share link in the body.
+Reports arrive from the share page (see Reports above), with the share link or slug.
 
 ```bash
 SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs status https://beta.fashionleadervote.com/s/<slug>

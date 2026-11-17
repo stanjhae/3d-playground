@@ -7,7 +7,10 @@ import {
   apiErrorFromDatabase,
   checkpointLabelIssues,
   parseCreateDesignRequest,
+  handleFromPath,
+  isHandle,
   parseProfileRequest,
+  parseReportRequest,
   parsePublishVersionRequest,
   parseUpdateDesignRequest,
   parseRestoreVersionRequest,
@@ -250,5 +253,36 @@ describe('design details requests (A06 #150)', () => {
     expect(parseProfileRequest({ value: { displayName: '' } }).ok).toBe(true)
     expect(parseProfileRequest({ value: { displayName: 'x'.repeat(41) } }).ok).toBe(false)
     expect(parseProfileRequest({ value: {} }).ok).toBe(false)
+  })
+
+  test('a handle and the public switch travel together, and a handle has a fixed shape', () => {
+    expect(parseProfileRequest({ value: { handle: 'atelier-a', profilePublic: true } }).ok).toBe(true)
+    expect(parseProfileRequest({ value: { handle: 'Atelier-A', profilePublic: false } }).ok).toBe(true)
+    expect(parseProfileRequest({ value: { handle: null, profilePublic: false } }).ok).toBe(true)
+    expect(parseProfileRequest({ value: { handle: 'atelier-a' } }).ok).toBe(false)
+    expect(parseProfileRequest({ value: { profilePublic: true } }).ok).toBe(false)
+    expect(parseProfileRequest({ value: { handle: 'no spaces', profilePublic: false } }).ok).toBe(false)
+    expect(parseProfileRequest({ value: { handle: 'ok-handle', profilePublic: 'yes' } }).ok).toBe(false)
+  })
+
+  test('handles are 3 to 24 letters, digits or single hyphens', () => {
+    expect(['abc', 'a-b-c', 'studio-2026', 'x'.repeat(24)].every(isHandle)).toBe(true)
+    expect(['ab', '-abc', 'abc-', 'a--b', 'ABC', 'a_b', 'x'.repeat(25)].some(isHandle)).toBe(false)
+  })
+
+  test('a handle from a path is decoded and lower-cased; a malformed escape is just not a handle', () => {
+    expect(handleFromPath('Atelier-A')).toBe('atelier-a')
+    expect(handleFromPath('atelier%2Da')).toBe('atelier-a')
+    expect(handleFromPath('%ZZ')).toBeNull()
+    expect(handleFromPath('%E0%A4%A')).toBeNull()
+    expect(handleFromPath('a b')).toBeNull()
+  })
+
+  test('a report names a known reason and may carry a short note', () => {
+    expect(parseReportRequest({ value: { reason: 'spam' } }).ok).toBe(true)
+    expect(parseReportRequest({ value: { reason: 'copyright', note: 'Copies my print' } }).ok).toBe(true)
+    expect(parseReportRequest({ value: { reason: 'rude' } }).ok).toBe(false)
+    expect(parseReportRequest({ value: { reason: 'other', note: 'x'.repeat(501) } }).ok).toBe(false)
+    expect(parseReportRequest({ value: { note: 'no reason' } }).ok).toBe(false)
   })
 })

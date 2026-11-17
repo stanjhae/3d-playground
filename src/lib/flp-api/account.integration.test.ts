@@ -107,6 +107,8 @@ describe.skipIf(!env)('terms and account deletion against local Supabase (P1)', 
 
     expect(await (await api({ account: a, path: 'profile' })).json()).toEqual({
       displayName: null,
+      handle: null,
+      profilePublic: false,
       termsVersion: null,
       termsAcceptedAt: null,
     })
@@ -130,7 +132,13 @@ describe.skipIf(!env)('terms and account deletion against local Supabase (P1)', 
     }
     expect(again.termsAcceptedAt).toBe(first.termsAcceptedAt)
     const named = await api({ account: a, path: 'profile', method: 'POST', body: { displayName: 'Ada' } })
-    expect(await named.json()).toEqual({ displayName: 'Ada', termsVersion: TERMS_VERSION, termsAcceptedAt: first.termsAcceptedAt })
+    expect(await named.json()).toEqual({
+      displayName: 'Ada',
+      handle: null,
+      profilePublic: false,
+      termsVersion: TERMS_VERSION,
+      termsAcceptedAt: first.termsAcceptedAt,
+    })
 
     // Per account: the other account is still asked.
     expect(await (await api({ account: b, path: 'profile' })).json()).toMatchObject({ termsVersion: null })

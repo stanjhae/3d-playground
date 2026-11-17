@@ -7,7 +7,7 @@ vi.mock('../auth/supabase-client.ts', () => ({
 }))
 
 const { useSessionStore } = await import('../auth/session-store.ts')
-const { castVote, getVoteState, optimisticVote, retractVote, voteCountLabel } = await import('./votes.ts')
+const { castVote, getVoteState, optimisticVote, retractVote, voteCountLabel, voteCountsLater } = await import('./votes.ts')
 const { handleFlpRequest } = await import('./server.ts')
 
 /** Account votes on a published design (V1). */
@@ -74,6 +74,18 @@ describe('the vote button', () => {
     expect(optimisticVote({ state: { count: 4, voted: false } })).toEqual({ count: 5, voted: true })
     expect(optimisticVote({ state: { count: 5, voted: true } })).toEqual({ count: 4, voted: false })
     expect(optimisticVote({ state: { count: 0, voted: true } })).toEqual({ count: 0, voted: false })
+  })
+
+  test('taking back a held vote leaves the count, which never had it', () => {
+    expect(optimisticVote({ state: { count: 3, voted: true, countsFrom: '2026-11-17T12:00:00.000Z' } })).toEqual({ count: 3, voted: false })
+  })
+
+  test('says when a new account\'s vote starts counting', () => {
+    const now = new Date('2026-11-16T12:00:00.000Z')
+    expect(voteCountsLater({ countsFrom: '2026-11-17T09:30:00.000Z', now })).toBe(
+      'Your vote is saved. It counts once your account is a day old, in about 22 hours.',
+    )
+    expect(voteCountsLater({ countsFrom: '2026-11-16T12:10:00.000Z', now })).toMatch(/about 1 hour\.$/)
   })
 
   test('names the count', () => {

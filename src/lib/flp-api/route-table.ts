@@ -82,6 +82,9 @@ export function flpRoutes({ document, renders }: { document: unknown; renders: u
     { method: 'GET', path: ({ slug }) => `public/${slug}/vote`, scope: 'public' },
     { method: 'POST', path: ({ slug }) => `public/${slug}/vote`, scope: 'account' },
     { method: 'DELETE', path: ({ slug }) => `public/${slug}/vote`, scope: 'account' },
+    { method: 'POST', path: ({ slug }) => `public/${slug}/report`, body: () => ({ reason: 'other' }), scope: 'account' },
+    { method: 'GET', path: () => 'public', scope: 'public' },
+    { method: 'GET', path: () => 'public?window=week&garment=tee', scope: 'public' },
   ]
 }
 

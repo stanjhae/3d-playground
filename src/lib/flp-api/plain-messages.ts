@@ -13,6 +13,8 @@ export const PLAIN_ERROR_MESSAGES: Record<string, string> = {
   quota_exceeded: 'This account has reached a limit. Delete something you no longer need and try again.',
   rate_limited: 'Too many requests. Wait a few seconds and try again.',
   taken_down: 'This design was taken down after a report, so it can’t be published. Your design itself is kept. Contact us if you think this is a mistake.',
+  terms_required: 'Accept the current terms of use to do this.',
+  own_design: 'You can’t vote for your own design.',
   internal: 'Something went wrong on our side. Try again.',
   unavailable: 'This isn’t available right now. Try again later.',
 }

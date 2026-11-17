@@ -13,6 +13,7 @@ import type {
   CreateDesignRequest,
   DesignDetails,
   ProfileResponse,
+  ReportRequest,
   RestoreVersionRequest,
   PublicationResponse,
   SaveVersionRequest,
@@ -299,6 +300,24 @@ export function setDisplayName({
   fetchImpl?: typeof fetch
 }) {
   return call<ProfileResponse>({ path: 'profile', method: 'POST', body: { displayName }, fetchImpl })
+}
+
+/** The public profile (`/u/:handle`): a handle, and whether everyone can see it. */
+export function setPublicProfile({
+  handle,
+  profilePublic,
+  fetchImpl,
+}: {
+  handle: string | null
+  profilePublic: boolean
+  fetchImpl?: typeof fetch
+}) {
+  return call<ProfileResponse>({ path: 'profile', method: 'POST', body: { handle, profilePublic }, fetchImpl })
+}
+
+/** Reports a published design to the operators. */
+export function reportDesign({ slug, request, fetchImpl }: { slug: string; request: ReportRequest; fetchImpl?: typeof fetch }) {
+  return call<{ reported: true }>({ path: `public/${encodeURIComponent(slug)}/report`, method: 'POST', body: request, fetchImpl })
 }
 
 /** Records that this account accepted the terms in force (P1). */

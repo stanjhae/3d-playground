@@ -2,9 +2,9 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
+import { ReportDesign } from '../components/share/ReportDesign'
 import { VoteButton } from '../components/share/VoteButton'
 import { getGarment, sideViewAlt } from '../lib/garments'
-import { reportDesignHref } from '../lib/alpha-contact'
 import { useCopyStatus } from '../lib/copy-text'
 import { HOUSE_COPY } from '../lib/house-copy'
 import { pageTitle } from '../lib/page-title'
@@ -178,7 +178,6 @@ function SharedDesign() {
   }
 
   const { design } = state
-  const reportHref = reportDesignHref({ slug })
   const sleeves = SLEEVE_VIEWS.flatMap((view) => {
     const src = design.renders[view.kind]
     return src ? [{ view: { ...view, alt: sideViewAlt({ alt: view.alt, garmentId: design.garmentId }) }, src }] : []
@@ -235,14 +234,12 @@ function SharedDesign() {
         <p>
           {PUBLIC_PREVIEW_DISCLAIMER} Shown on a fixed {getGarment({ garmentId: design.garmentId }).label.toLowerCase()} template.
         </p>
-        <p className="flex gap-4">
-          <a className="underline hover:text-flv-accent" href={reportHref}>
-            Report this design
-          </a>
+        <div className="flex flex-wrap items-start gap-4">
+          <ReportDesign slug={slug} />
           <Link to="/privacy" className="underline hover:text-flv-accent">
             Privacy
           </Link>
-        </p>
+        </div>
       </footer>
     </section>
   )

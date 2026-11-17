@@ -1,4 +1,5 @@
-import type { BoardEntry, PublicDesign } from './publication.ts'
+import type { BoardWindow } from './contract.ts'
+import type { BoardEntry, PublicDesign, PublicProfile } from './publication.ts'
 
 export type PublicReadFailure = 'not_found' | 'unavailable' | 'network'
 
@@ -28,20 +29,53 @@ export async function getPublicDesign({
   }
 }
 
-/** The board (V2): every published design, most voted first; no session needed. */
+/**
+ * The board (V2), ranked by counted votes in `window`, within `garmentId`
+ * when given; no session needed.
+ */
 export async function getBoard({
+  window = 'all',
+  garmentId = null,
   fetchImpl = fetch,
 }: {
+  window?: BoardWindow
+  garmentId?: string | null
   fetchImpl?: typeof fetch
 } = {}): Promise<{ ok: true; data: BoardEntry[] } | { ok: false; code: 'unavailable' | 'network' }> {
+  const query = new URLSearchParams()
+
+  if (window !== 'all') query.set('window', window)
+  if (garmentId) query.set('garment', garmentId)
+
   try {
-    const response = await fetchImpl('/api/flp/public')
+    const response = await fetchImpl(`/api/flp/public${query.size ? `?${query}` : ''}`)
 
     if (response.ok) {
       return { ok: true, data: ((await response.json()) as { designs: BoardEntry[] }).designs }
     }
 
     return { ok: false, code: 'unavailable' }
+  } catch {
+    return { ok: false, code: 'network' }
+  }
+}
+
+/** A public profile (`/u/:handle`); no session needed. */
+export async function getPublicProfile({
+  handle,
+  fetchImpl = fetch,
+}: {
+  handle: string
+  fetchImpl?: typeof fetch
+}): Promise<{ ok: true; data: PublicProfile } | { ok: false; code: PublicReadFailure }> {
+  try {
+    const response = await fetchImpl(`/api/flp/public/u/${encodeURIComponent(handle)}`)
+
+    if (response.ok) {
+      return { ok: true, data: (await response.json()) as PublicProfile }
+    }
+
+    return { ok: false, code: response.status === 404 ? 'not_found' : 'unavailable' }
   } catch {
     return { ok: false, code: 'network' }
   }

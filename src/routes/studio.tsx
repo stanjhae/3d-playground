@@ -10,6 +10,7 @@ import { DeleteAccount } from '../components/studio/DeleteAccount'
 import { DesignCard } from '../components/studio/DesignCard'
 import { ImportPreview } from '../components/studio/ImportPreview'
 import { PublicName } from '../components/studio/PublicName'
+import { PublicProfile } from '../components/studio/PublicProfile'
 import { useSessionStore, waitForSession } from '../lib/auth/session-store'
 import { authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
 import { createEmptyCanonicalDocument } from '../lib/canonical-document'
@@ -515,6 +516,7 @@ function MyStudio() {
       ) : null}
 
       <PublicName />
+      <PublicProfile />
 
       <p role="status" className="sr-only">
         {listNotice}

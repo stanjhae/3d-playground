@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useSessionStore } from '../../lib/auth/session-store'
 import { cn } from '../../lib/cn'
+import { acceptTerms } from '../../lib/flp-api/client'
 import type { VoteState } from '../../lib/flp-api/contract'
-import { castVote, getVoteState, optimisticVote, retractVote, voteCountLabel } from '../../lib/flp-api/votes'
+import { castVote, getVoteState, optimisticVote, retractVote, voteCountLabel, voteCountsLater } from '../../lib/flp-api/votes'
+import { TERMS_VERSION } from '../../lib/terms'
 
 const controlClass =
   'inline-flex min-h-11 items-center justify-center gap-2 border px-4 font-body text-xs tracking-[0.1em] uppercase disabled:opacity-60'
@@ -20,6 +22,8 @@ export function VoteButton({ slug }: { slug: string }) {
   const [vote, setVote] = useState<VoteState | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Voting asks for the terms once, like the studio (P1).
+  const [needsTerms, setNeedsTerms] = useState(false)
   const pendingRef = useRef(false)
 
   // Re-read when the account changes: "voted" belongs to one account.
@@ -60,9 +64,30 @@ export function VoteButton({ slug }: { slug: string }) {
 
     if (result.ok) {
       setVote(result.data)
+    } else if (result.code === 'terms_required') {
+      setVote(before)
+      setNeedsTerms(true)
+    } else if (result.code === 'own_design') {
+      setVote(before)
+      setError('You can’t vote for your own design.')
     } else if (result.code !== 'account-changed') {
       setVote(before)
       setError(before.voted ? `Your vote was not removed. ${result.message}` : `Your vote was not counted. ${result.message}`)
+    }
+  }
+
+  async function acceptAndVote() {
+    pendingRef.current = true
+    setPending(true)
+    const accepted = await acceptTerms({ version: TERMS_VERSION })
+    pendingRef.current = false
+    setPending(false)
+
+    if (accepted.ok) {
+      setNeedsTerms(false)
+      await toggle()
+    } else if (accepted.code !== 'account-changed') {
+      setError(`The terms were not accepted. ${accepted.message}`)
     }
   }
 
@@ -108,6 +133,28 @@ export function VoteButton({ slug }: { slug: string }) {
         </button>
         {count}
       </div>
+      {needsTerms ? (
+        <div className="flex flex-wrap items-center gap-2 font-body text-xs text-flv-ink">
+          <span>
+            To vote, accept the{' '}
+            <Link to="/terms" className="underline" target="_blank">
+              terms of use
+            </Link>
+            .
+          </span>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => void acceptAndVote()}
+            className="inline-flex min-h-9 items-center rounded-full bg-flv-ink px-3 font-medium text-white disabled:opacity-50"
+          >
+            Accept and vote
+          </button>
+        </div>
+      ) : null}
+      {vote.countsFrom ? (
+        <p className="max-w-xs font-body text-xs text-flv-muted">{voteCountsLater({ countsFrom: vote.countsFrom })}</p>
+      ) : null}
       <p role="status" className={error ? 'font-body text-xs text-flv-accent' : 'sr-only'}>
         {error ?? ''}
       </p>

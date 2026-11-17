@@ -5,7 +5,8 @@ import { hasReadyMesh } from './pattern-meshes.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
-import { garmentOfTemplate, READABLE_TEMPLATE_IDS } from '../template-manifest.ts'
+import { garmentOfTemplate, READABLE_TEMPLATE_IDS, templateForGarment } from '../template-manifest.ts'
+import { BOARD_WINDOWS, type BoardWindow, handleFromPath } from './contract.ts'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
   type ApiError,
@@ -813,7 +814,12 @@ export type BoardEntry = {
   title: string
   displayName: string | null
   garmentId: string
+  /** Counted votes in the board's window. */
   votes: number
+  /** Place in the board's window and garment; ties share a place. */
+  rank: number
+  /** The owner's handle when their profile is public. */
+  ownerHandle: string | null
   publishedAt: string
   /** Our stable URL for its front view. */
   image: string
@@ -822,43 +828,139 @@ export type BoardEntry = {
 /** How many designs the board shows: the most voted, over every publication. */
 export const BOARD_LIMIT = 200
 
+type BoardRow = {
+  slug: string
+  title: string
+  display_name: string | null
+  version_seq: number
+  published_at: string
+  template_id: string | null
+  template_version: string | null
+  vote_count: number
+  rank: number
+  owner_handle: string | null
+}
+
+function boardEntry(row: BoardRow): BoardEntry {
+  return {
+    slug: row.slug,
+    title: row.title,
+    displayName: row.display_name,
+    garmentId: garmentOfTemplate({ id: row.template_id, version: row.template_version }),
+    votes: row.vote_count,
+    rank: row.rank,
+    ownerHandle: row.owner_handle,
+    publishedAt: row.published_at,
+    image: publicImagePath({ slug: row.slug, seq: row.version_seq }),
+  }
+}
+
 /**
- * GET /public — the board: every published design with its three base views,
- * its garment (from the version's own template) and its votes, most voted
- * first. Anonymous, like the share pages. One query (`flp_board`), which
- * ranks and counts in the database, so no row cap or URL length bounds it.
+ * GET /public?window=week|month|all&garment=:id — the board: every published
+ * design with its three base views, its garment (from the version's own
+ * template) and its counted votes in the window, ranked within the garment
+ * when one is given. Anonymous, like the share pages. One query
+ * (`flp_board_ranked`), which ranks and counts in the database.
  */
-export async function readBoard({ admin, respond }: { admin: SupabaseClient; respond: Respond }) {
+export async function readBoard({
+  admin,
+  respond,
+  search = new URLSearchParams(),
+}: {
+  admin: SupabaseClient
+  respond: Respond
+  search?: URLSearchParams
+}) {
+  const window = search.get('window') ?? 'all'
+  const garment = search.get('garment')
+  const template = garment ? templateForGarment({ garmentId: garment })?.id : null
+
+  if (!(BOARD_WINDOWS as readonly string[]).includes(window) || (garment && !template)) {
+    return respond({ status: 400, body: { error: { code: 'invalid', message: 'Unknown ranking window or garment' } } })
+  }
+
   try {
-    const { data, error } = await admin.rpc('flp_board', { p_limit: BOARD_LIMIT })
+    const { data, error } = await admin.rpc('flp_board_ranked', {
+      p_window: window as BoardWindow,
+      p_template: template ?? null,
+      p_limit: BOARD_LIMIT,
+    })
 
     if (error) {
       throw error
     }
 
-    const rows = (data ?? []) as Array<{
-      slug: string
-      title: string
-      display_name: string | null
-      version_seq: number
-      published_at: string
-      template_id: string | null
-      template_version: string | null
-      vote_count: number
-    }>
-    const designs: BoardEntry[] = rows.map((row) => ({
-      slug: row.slug,
-      title: row.title,
-      displayName: row.display_name,
-      garmentId: garmentOfTemplate({ id: row.template_id, version: row.template_version }),
-      votes: row.vote_count,
-      publishedAt: row.published_at,
-      image: publicImagePath({ slug: row.slug, seq: row.version_seq }),
-    }))
-
+    const designs = ((data ?? []) as BoardRow[]).map(boardEntry)
     return respond({ status: 200, body: { designs } })
   } catch (error) {
     console.error('flp board read failed', { error })
     return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
   }
+}
+
+/** A public profile (`/u/:handle`): its name and live designs, most voted first. */
+export type PublicProfile = {
+  handle: string
+  displayName: string | null
+  designs: Array<Omit<BoardEntry, 'rank' | 'ownerHandle' | 'displayName'>>
+}
+
+/** GET /public/u/:handle — 404 for an unknown handle and a private profile alike. */
+export async function readPublicProfile({
+  admin,
+  handle,
+  respond,
+}: {
+  admin: SupabaseClient
+  handle: string
+  respond: Respond
+}) {
+  const notFound = () => respond({ status: 404, body: { error: { code: 'not_found', message: 'This profile is not available' } } })
+  const normal = handleFromPath(handle)
+
+  if (!normal) {
+    return notFound()
+  }
+
+  const { data, error } = await admin.rpc('flp_public_profile', { p_handle: normal }).maybeSingle<{
+    handle: string
+    display_name: string | null
+    designs: Array<{
+      slug: string
+      title: string
+      published_at: string
+      template_id: string | null
+      template_version: string | null
+      vote_count: number
+      version_seq: number
+    }>
+  }>()
+
+  if (error) {
+    if (error.code === 'FL404') {
+      return notFound()
+    }
+
+    console.error('flp profile read failed', { code: error.code })
+    return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+  }
+
+  if (!data) {
+    return notFound()
+  }
+
+  const profile: PublicProfile = {
+    handle: data.handle,
+    displayName: data.display_name,
+    designs: data.designs.map((design) => ({
+      slug: design.slug,
+      title: design.title,
+      garmentId: garmentOfTemplate({ id: design.template_id, version: design.template_version }),
+      votes: design.vote_count,
+      publishedAt: design.published_at,
+      image: publicImagePath({ slug: design.slug, seq: design.version_seq }),
+    })),
+  }
+
+  return respond({ status: 200, body: profile })
 }

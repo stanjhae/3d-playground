@@ -2,7 +2,7 @@ import { type APIRequestContext, expect, test } from '@playwright/test'
 
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
-import { deleteAccounts, expectNoCspViolations, expectSaved, newEmail, signIn, watchCsp } from './helpers'
+import { deleteAccounts, expectNoCspViolations, expectSaved, localSql, newEmail, signIn, watchCsp } from './helpers'
 
 /**
  * Account votes on a shared design (V1): signed out the page offers
@@ -64,13 +64,27 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
   await signIn({ page: visitor, email: voter, returnTo: `/s/${slug}` })
   const vote = visitor.getByRole('button', { name: 'Vote', exact: true })
   await expect(vote).toHaveAttribute('aria-pressed', 'false')
+  // A first vote asks for the terms once, then counts.
   await vote.click()
+  await expect(visitor.getByRole('link', { name: 'terms of use' })).toBeVisible()
+  await expect(count).toHaveText('0 votes')
+  const firstVote = visitor.waitForResponse(
+    (response) => response.url().endsWith(`/public/${slug}/vote`) && response.request().method() === 'POST' && response.status() === 200,
+  )
+  await visitor.getByRole('button', { name: 'Accept and vote' }).click()
+  await firstVote
   const voted = visitor.getByRole('button', { name: 'Voted', exact: true })
   await expect(voted).toHaveAttribute('aria-pressed', 'true')
-  await expect(count).toHaveText('1 vote')
+  // A minutes-old account's vote is kept but not counted yet, and it says when it will be.
+  await expect(count).toHaveText('0 votes')
+  await expect(visitor.getByText(/Your vote is saved\. It counts once your account is a day old, in about 2[34] hours\./)).toBeVisible()
+
+  // A day later (made so here), it counts, with nothing more to do.
+  localSql({ sql: `update auth.users set created_at = now() - interval '25 hours' where email = '${voter}'` })
 
   // Kept across a reload, and seen by someone signed out.
   await visitor.reload()
+  await expect(visitor.getByText(/Your vote is saved/)).toHaveCount(0)
   await expect(voted).toBeVisible()
   await expect(count).toHaveText('1 vote')
   const stranger = await browser.newContext()
@@ -82,7 +96,12 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
   await voted.click()
   await expect(vote).toHaveAttribute('aria-pressed', 'false')
   await expect(count).toHaveText('0 votes')
+  // The count moves before the server answers; wait for the vote to land.
+  const landed = visitor.waitForResponse(
+    (response) => response.url().endsWith(`/public/${slug}/vote`) && response.request().method() === 'POST',
+  )
   await vote.click()
+  expect((await landed).status()).toBe(200)
   await expect(count).toHaveText('1 vote')
 
   // Unpublished, the page is gone; published again, the vote is still there.
@@ -94,10 +113,49 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
   await expect(voted).toBeVisible()
   await expect(count).toHaveText('1 vote')
 
-  // The owner sees the count, not the voter's vote.
+  // The owner sees the count, not the voter's vote, and can't vote for their own design.
   await page.goto(`/s/${slug}`)
-  await expect(page.getByRole('button', { name: 'Vote', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  const ownVote = page.getByRole('button', { name: 'Vote', exact: true })
+  await expect(ownVote).toHaveAttribute('aria-pressed', 'false')
   await expect(page.getByTestId('vote-count')).toHaveText('1 vote')
+  await ownVote.click()
+  await expect(page.getByText('You can’t vote for your own design.')).toBeVisible()
+  await expect(ownVote).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByTestId('vote-count')).toHaveText('1 vote')
+
+  // The board ranks it this week, this month and of all time, and within its garment.
+  await visitor.goto('/vote')
+  const card = visitor.getByRole('listitem').filter({ has: visitor.locator(`a[href="/s/${slug}"]`) })
+
+  for (const period of ['This week', 'This month', 'All time']) {
+    await visitor.getByRole('button', { name: period, exact: true }).click()
+    await expect(visitor.getByRole('button', { name: period, exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(card.getByTestId('vote-count')).toContainText('1 vote')
+  }
+
+  await visitor.getByRole('group', { name: 'Filter by garment' }).getByRole('button', { name: 'Tee', exact: true }).click()
+  await expect(card).toBeVisible()
+
+  // The owner turns on a profile; the board links to it, and it lists the design.
+  const handle = `e2e-${Date.now().toString(36)}`
+  await page.goto('/studio')
+  await page.getByRole('textbox', { name: 'Profile handle' }).fill(handle)
+  await page.getByRole('checkbox', { name: 'Show my profile' }).check()
+  await page.getByRole('button', { name: 'Save profile' }).click()
+  await expect(page.getByText('Saved: your profile is public')).toBeVisible()
+  await visitor.goto('/vote')
+  await card.getByRole('link', { name: /^By / }).click()
+  await expect(visitor).toHaveURL(new RegExp(`/u/${handle}$`))
+  await expect(visitor.getByRole('heading', { level: 1 })).toContainText(handle)
+  await expect(visitor.locator(`a[href="/s/${slug}"]`)).toBeVisible()
+
+  // The voter reports the design; reporting again changes nothing.
+  await visitor.goto(`/s/${slug}`)
+  await visitor.getByRole('button', { name: 'Report this design' }).click()
+  await visitor.getByRole('radio', { name: 'It’s spam or advertising' }).check()
+  await visitor.getByRole('textbox', { name: /Anything we should know/ }).fill('Posted twice')
+  await visitor.getByRole('button', { name: 'Send report' }).click()
+  await expect(visitor.getByText('Thanks. An operator will look at this design.')).toBeVisible()
 
   await stranger.close()
   await visitorContext.close()
