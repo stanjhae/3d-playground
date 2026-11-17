@@ -2,9 +2,10 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useState } from 'react'
 
 import { useSessionStore } from '../../lib/auth/session-store'
-import { reportDesign } from '../../lib/flp-api/client'
+import { acceptTerms, reportDesign } from '../../lib/flp-api/client'
 import type { DesignComment } from '../../lib/flp-api/contract'
 import { addComment, getComments, hideComment } from '../../lib/community'
+import { TERMS_VERSION } from '../../lib/terms'
 
 const MAX = 500
 
@@ -21,6 +22,8 @@ export default function Comments({ slug }: { slug: string }) {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  // Commenting asks for the terms once, here, like voting (P1).
+  const [needsTerms, setNeedsTerms] = useState(false)
   const inputId = useId()
 
   useEffect(() => {
@@ -51,7 +54,24 @@ export default function Comments({ slug }: { slug: string }) {
       setDraft('')
       setMessage('Comment posted')
     } else if (result.code !== 'account-changed') {
-      setMessage(result.code === 'terms_required' ? 'Accept the terms of use in My Studio to comment.' : `Not posted. ${result.message}`)
+      if (result.code === 'terms_required') {
+        setNeedsTerms(true)
+      } else {
+        setMessage(`Not posted. ${result.message}`)
+      }
+    }
+  }
+
+  async function acceptAndPost() {
+    setBusy(true)
+    const accepted = await acceptTerms({ version: TERMS_VERSION })
+    setBusy(false)
+
+    if (accepted.ok) {
+      setNeedsTerms(false)
+      await send()
+    } else if (accepted.code !== 'account-changed') {
+      setMessage(`The terms were not accepted. ${accepted.message}`)
     }
   }
 
@@ -136,6 +156,25 @@ export default function Comments({ slug }: { slug: string }) {
               {draft.length}/{MAX}
             </span>
           </div>
+          {needsTerms ? (
+            <div className="flex flex-wrap items-center gap-2 font-body text-xs text-flv-ink">
+              <span>
+                To comment, accept the{' '}
+                <Link to="/terms" className="underline" target="_blank">
+                  terms of use
+                </Link>
+                .
+              </span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void acceptAndPost()}
+                className="inline-flex min-h-9 items-center rounded-full bg-flv-ink px-3 font-medium text-white disabled:opacity-50"
+              >
+                Accept and post
+              </button>
+            </div>
+          ) : null}
         </form>
       ) : status === 'signed-out' ? (
         <Link to="/sign-in" search={{ returnTo: `/s/${slug}` }} className="font-body text-sm underline">

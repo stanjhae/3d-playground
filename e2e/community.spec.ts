@@ -76,6 +76,26 @@ test('comment on a design, hide it as its owner, and follow its designer', async
   await fanPage.getByRole('tab', { name: 'Following' }).click()
   await expect(fanPage.locator(`a[href="/s/${slug}"]`)).toBeVisible()
 
+  // Signing out on the Following tab goes back to the rankings, not an error.
+  await fanPage.getByRole('button', { name: 'Sign out' }).click()
+  await fanPage.goto('/vote')
+  await expect(fanPage.getByRole('tab', { name: 'Following' })).toHaveCount(0)
+  await expect(fanPage.getByRole('tab', { name: 'Rankings' })).toHaveAttribute('aria-selected', 'true')
+  await expect(fanPage.locator(`a[href="/s/${slug}"]`)).toBeVisible()
+
+  // Someone who signs in from the shared link accepts the terms right there to comment.
+  const newcomer = newEmail({ label: 'community-newcomer' })
+  emails.push(newcomer)
+  const newcomerPage = await (await browser.newContext()).newPage()
+  await signIn({ page: newcomerPage, email: newcomer, returnTo: `/s/${slug}` })
+  await newcomerPage.getByRole('textbox', { name: 'Add a comment' }).fill('First time here')
+  await newcomerPage.getByRole('button', { name: 'Post comment' }).click()
+  await expect(newcomerPage.getByRole('link', { name: 'terms of use' })).toBeVisible()
+  await newcomerPage.getByRole('button', { name: 'Accept and post' }).click()
+  await expect(newcomerPage.getByText('First time here')).toBeVisible()
+  await expect(newcomerPage.getByRole('heading', { name: 'Comments (1)' })).toBeVisible()
+  await newcomerPage.context().close()
+
   // The owner can't follow themselves: their page shows the count only.
   await page.goto(`/u/${handle}`)
   await expect(page.getByTestId('follower-count')).toHaveText('1 follower')

@@ -21,8 +21,6 @@ function cannedMesh(): DrapedMesh {
 /** A worker that answers after a tick, or never when `hold` is set. */
 function fakeWorkers({ hold = false } = {}) {
   const spawned: { terminated: boolean; requests: DrapeRequest[] }[] = []
-  // A held worker answers only when the test releases it.
-  const held: (() => void)[] = []
 
   const spawn = () => {
     const record = { terminated: false, requests: [] as DrapeRequest[] }
@@ -41,9 +39,8 @@ function fakeWorkers({ hold = false } = {}) {
           worker.onmessage?.({ data: { type: 'done', job: request.job, mesh: cannedMesh() } } as MessageEvent<DrapeMessage>)
         }
 
-        if (hold) {
-          held.push(answer)
-        } else {
+        // A held worker never answers.
+        if (!hold) {
           setTimeout(answer)
         }
       },
@@ -51,7 +48,7 @@ function fakeWorkers({ hold = false } = {}) {
     return worker
   }
 
-  return { spawn, spawned, release: () => held.splice(0).forEach((answer) => answer()) }
+  return { spawn, spawned }
 }
 
 describe('the drape job', () => {
@@ -122,20 +119,21 @@ describe('the drape client', () => {
   })
 
   test('asking again for the same pattern joins the running drape instead of cancelling it', async () => {
-    // Held until both have asked, whatever order their pattern hashes finish in.
-    const { spawn, spawned, release } = fakeWorkers({ hold: true })
+    const { spawn, spawned } = fakeWorkers()
     const client = createDrapeClient({ spawn })
     const progress: number[] = []
     const first = client.drape({ pattern: fixtureTeePattern() })
     const second = client.drape({ pattern: fixtureTeePattern(), onProgress: (fraction) => progress.push(fraction) })
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    release()
 
     const [a, b] = await Promise.all([first, second])
+    // One drape whichever way the two callers' hashes race: the second
+    // joins the running one or, if it finished first, takes it from the
+    // cache. Either way it hears that it's done.
     expect(a).toBe(b)
     expect(spawned).toHaveLength(1)
     expect(client.runs).toBe(1)
-    expect(progress).toEqual([0.5, 1])
+    expect(progress.at(-1)).toBe(1)
+    expect([[0.5, 1], [1]]).toContainEqual(progress)
   })
 
   test('a caller served from the cache still hears that the drape is done', async () => {

@@ -185,6 +185,8 @@ export type OpenReport = {
   slug: string
   /** Set when the report is about one comment on the design. */
   commentId: string | null
+  /** That comment's text, and whether it's already hidden. */
+  comment: { body: string; hidden: boolean } | null
   reason: string
   note: string | null
   createdAt: string
@@ -194,10 +196,20 @@ export type OpenReport = {
 export async function openReports({ admin }: { admin: SupabaseClient }): Promise<OpenReport[]> {
   const { data, error } = await admin
     .from('publication_reports')
-    .select('id, slug, comment_id, reason, note, created_at')
+    .select('id, slug, comment_id, reason, note, created_at, publication_comments(body, hidden_at)')
     .eq('status', 'open')
     .order('created_at', { ascending: true })
-    .returns<Array<{ id: string; slug: string; comment_id: string | null; reason: string; note: string | null; created_at: string }>>()
+    .returns<
+      Array<{
+        id: string
+        slug: string
+        comment_id: string | null
+        reason: string
+        note: string | null
+        created_at: string
+        publication_comments: { body: string; hidden_at: string | null } | null
+      }>
+    >()
 
   if (error) {
     throw new ModerationError('Reports could not be listed', 'failed')
@@ -207,6 +219,7 @@ export async function openReports({ admin }: { admin: SupabaseClient }): Promise
     id: row.id,
     slug: row.slug,
     commentId: row.comment_id,
+    comment: row.publication_comments ? { body: row.publication_comments.body, hidden: row.publication_comments.hidden_at !== null } : null,
     reason: row.reason,
     note: row.note,
     createdAt: row.created_at,
