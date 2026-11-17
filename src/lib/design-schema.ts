@@ -1,4 +1,5 @@
 import type { DesignDocument } from './design-document.ts'
+import type { DetailId } from './fabric-detail.ts'
 
 /**
  * Garments a release reads before one makes them (docs/release.md). Each
@@ -52,6 +53,21 @@ export type MaterialOverride = {
   roughness?: number
   metalness?: number
   mapId?: string
+  /**
+   * A chosen cloth's own surface (canonical `base.fabric`), written by the
+   * projection so the 3D look never depends on guessing the preset from
+   * its texture. Each is left out when the cloth has none.
+   */
+  sheen?: number
+  sheenRoughness?: number
+  sheenColor?: string
+  clearcoat?: number
+  clearcoatRoughness?: number
+  /** Sheer cloth: below 1 the garment is drawn see-through (chiffon). */
+  opacity?: number
+  /** Surface relief (`fabric-detail.ts`) and its normal-map strength. */
+  detailId?: DetailId
+  detailScale?: number
 }
 
 export type DesignMethod = 'draw' | 'tech' | 'combined'
