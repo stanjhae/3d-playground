@@ -59,8 +59,8 @@ const VIEW_LABEL: Record<(typeof LANDING_CAMERA_VIEWS)[number], string> = {
  * them to the aspects.
  */
 export const PAD_ASPECT_CLASS: Record<string, string> = {
-  front: 'aspect-[0.916]',
-  back: 'aspect-[0.839]',
+  front: 'aspect-[0.813]',
+  back: 'aspect-[0.761]',
   left: 'aspect-[1.31]',
   right: 'aspect-[1.443]',
 }

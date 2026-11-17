@@ -9,7 +9,7 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
   "geometry": {
     "kind": "glb",
     "file": "/models/tee-real-v6.glb",
-    "sha256": "d8f10f494a5b7f330065068605b3531bda45bcbc8995804836c8878f439b9e78",
+    "sha256": "e1caf22984e262546fd379cb969e561e1adb68e649f171bf4bc13020ab638c3a",
     "generator": "scripts/build-template.mjs (templates/tee-v6.pieces.json)",
     "bounds": {
       "min": [
@@ -54,9 +54,9 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
       "renderMirrorX": false,
       "mesh": "body-front",
       "uv": {
-        "u0": 0.48553,
+        "u0": 0.490866,
         "u1": 0.992187,
-        "v0": 0.439138,
+        "v0": 0.375231,
         "v1": 0.992188
       },
       "axes": {
@@ -65,11 +65,11 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
       },
       "landmarks": {},
       "notes": [
-        "Wrapped round the body to the side seams; 63.6 × 69.4 cm."
+        "Wrapped round the body to the side seams; 56.4 × 69.4 cm."
       ],
       "surface": {
         "stretchY": 1,
-        "panelAspect": 0.916116
+        "panelAspect": 0.812572
       },
       "center": [
         -0.046162,
@@ -77,8 +77,8 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
         0.082357
       ],
       "frame": {
-        "x0": -0.33803,
-        "x1": 0.298187,
+        "x0": -0.325301,
+        "x1": 0.239008,
         "y0": 0.902198,
         "y1": 1.59667
       }
@@ -90,8 +90,8 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
       "mesh": "body-back",
       "uv": {
         "u0": 0.007813,
-        "u1": 0.477717,
-        "v0": 0.432019,
+        "u1": 0.483053,
+        "v0": 0.36729,
         "v1": 0.992188
       },
       "axes": {
@@ -100,11 +100,11 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
       },
       "landmarks": {},
       "notes": [
-        "Wrapped round the body to the side seams; 59.0 × 70.3 cm."
+        "Wrapped round the body to the side seams; 53.5 × 70.3 cm."
       ],
       "surface": {
         "stretchY": 1,
-        "panelAspect": 0.838864
+        "panelAspect": 0.760509
       },
       "center": [
         0.005595,
@@ -112,8 +112,8 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
         -0.097663
       ],
       "frame": {
-        "x0": -0.33803,
-        "x1": 0.298187,
+        "x0": -0.325301,
+        "x1": 0.239008,
         "y0": 0.897299,
         "y1": 1.60071
       }
@@ -124,10 +124,10 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
       "renderMirrorX": false,
       "mesh": "body-sleeves",
       "uv": {
-        "u0": 0.291341,
-        "u1": 0.571919,
-        "v0": 0.229822,
-        "v1": 0.424207
+        "u0": 0.323201,
+        "u1": 0.636201,
+        "v0": 0.142631,
+        "v1": 0.359477
       },
       "axes": {
         "x": "across the left sleeve as seen from the left",
@@ -160,9 +160,9 @@ export const TEE_CREW_SHORT_V6: TemplateManifest = {
       "mesh": "body-sleeves",
       "uv": {
         "u0": 0.007813,
-        "u1": 0.283528,
-        "v0": 0.213748,
-        "v1": 0.424207
+        "u1": 0.315388,
+        "v0": 0.124699,
+        "v1": 0.359477
       },
       "axes": {
         "x": "across the right sleeve as seen from the right",

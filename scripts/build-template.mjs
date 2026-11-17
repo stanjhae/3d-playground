@@ -325,12 +325,27 @@ function wrapFrame({ points, toward, right }) {
  * belong to the front and back panels and they meet at the side seams
  * instead of fading out where the cloth turns away from a flat view.
  *
- * Each height has its own elliptical cross-section (half-width `a`,
- * half-depth `b`, measured from the torso's vertices in 2 cm bands). A
- * point's print x is the arc length along that ellipse from the panel's
- * centre line, so near the centre it maps as the flat view did, and a
- * centimetre of cloth stays about a centimetre of print all the way round.
+ * Print x is the cloth's own arc length round the body, measured on the
+ * mesh: in each 2 cm band the torso's outline is traced by angle (the
+ * outermost vertex in each of 180 angle bins, so the inner layer and fine
+ * wrinkles don't count), smoothed, and walked from the panel's centre line.
+ * A centimetre of cloth is then a centimetre of print
+ * at the sides. Across the middle (within 55° of the centre line) print x
+ * is the flat view instead, blending into the arc by 88°: the tee's front
+ * is rounded, and art there is seen from the front, so a square mark stays
+ * square to the eye (an arc length all the way, or the fitted ellipse of
+ * the first cut, squeezed it across the chest). Bands are blended up the
+ * body, so the mapping has no steps.
  */
+/** Torso wrap: flat (as seen) up to this angle from the centre line, arc length from the next. */
+const FLAT_UNTIL = (55 * Math.PI) / 180
+const ARC_FROM = (88 * Math.PI) / 180
+
+function smoothstep({ from, to, value }) {
+  const t = Math.min(1, Math.max(0, (value - from) / (to - from)))
+  return t * t * (3 - 2 * t)
+}
+
 function torsoFrame({ points }) {
   let minX = Infinity
   let maxX = -Infinity
@@ -351,65 +366,113 @@ function torsoFrame({ points }) {
   const cy = (minY + maxY) / 2
   const band = 0.02
   const bands = Math.max(1, Math.ceil((maxY - minY) / band))
-  const halfWidth = new Float64Array(bands)
-  const halfDepth = new Float64Array(bands)
-  for (const [x, y, z] of points) {
-    const index = Math.min(bands - 1, Math.floor((y - minY) / band))
-    halfWidth[index] = Math.max(halfWidth[index], Math.abs(x - cx))
-    halfDepth[index] = Math.max(halfDepth[index], Math.abs(z - cz))
+  const BINS = 180
+  const binOf = (angle) => Math.min(BINS - 1, Math.floor(((angle + Math.PI) / (2 * Math.PI)) * BINS))
+  const angleOfBin = (bin) => -Math.PI + ((bin + 0.5) / BINS) * 2 * Math.PI
+  const viewAngle = ([x, , z], { toward, right }) => {
+    const dx = x - cx
+    const dz = z - cz
+    return Math.atan2(dx * right[0] + dz * right[2], dx * toward[0] + dz * toward[2])
   }
-  // Smooth over neighbouring bands, so the mapping has no steps.
-  const smooth = (values) =>
-    Float64Array.from(values, (_, index) => {
-      let sum = 0
-      let count = 0
-      for (let k = Math.max(0, index - 2); k <= Math.min(bands - 1, index + 2); k += 1) {
-        if (values[k] > 0) {
-          sum += values[k]
-          count += 1
-        }
-      }
-      return count ? sum / count : 0.1
-    })
-  const a = smooth(halfWidth)
-  const b = smooth(halfDepth)
-  const at = (values, y) => {
-    const t = Math.min(bands - 1, Math.max(0, (y - minY) / band - 0.5))
-    const low = Math.floor(t)
-    const high = Math.min(bands - 1, low + 1)
-    return values[low] + (values[high] - values[low]) * (t - low)
-  }
-  // Arc length along the ellipse (a sin t, b cos t) from t = 0 to theta.
-  const arc = (theta, ea, eb) => {
-    const steps = 48
-    const h = theta / steps
-    let sum = 0
-    for (let k = 0; k <= steps; k += 1) {
-      const t = k * h
-      const weight = k === 0 || k === steps ? 1 : k % 2 ? 4 : 2
-      sum += weight * Math.hypot(ea * Math.cos(t), eb * Math.sin(t))
+
+  /** Per band, the arc length from the view's centre line at each angle bin's centre. */
+  const tables = new Map()
+  const tableFor = (view) => {
+    const key = `${view.toward}|${view.right}`
+    if (tables.has(key)) return tables.get(key)
+
+    // Outermost radius per band and angle bin.
+    const radius = Array.from({ length: bands }, () => new Float64Array(BINS))
+    for (const point of points) {
+      const index = Math.min(bands - 1, Math.floor((point[1] - minY) / band))
+      const bin = binOf(viewAngle(point, view))
+      radius[index][bin] = Math.max(radius[index][bin], Math.hypot(point[0] - cx, point[2] - cz))
     }
-    return (sum * h) / 3
+    // Fill empty bins round the circle, then smooth along the angle and up the body.
+    for (const ring of radius) {
+      const known = [...ring.keys()].filter((bin) => ring[bin] > 0)
+      if (!known.length) continue
+      const copy = Float64Array.from(ring)
+      for (let bin = 0; bin < BINS; bin += 1) {
+        if (copy[bin] > 0) continue
+        let before = known.findLast((k) => k < bin) ?? known.at(-1) - BINS
+        let after = known.find((k) => k > bin) ?? known[0] + BINS
+        const at = (k) => copy[((k % BINS) + BINS) % BINS]
+        ring[bin] = at(before) + ((at(after) - at(before)) * (bin - before)) / (after - before)
+      }
+    }
+    const smoothAngle = (ring) =>
+      Float64Array.from(ring, (_, bin) => {
+        let sum = 0
+        for (let k = -2; k <= 2; k += 1) sum += ring[(bin + k + BINS) % BINS]
+        return sum / 5
+      })
+    const rings = radius.map((ring) => (ring.some((value) => value > 0) ? smoothAngle(ring) : null))
+    const smoothed = rings.map((_, index) => {
+      const out = new Float64Array(BINS)
+      let count = 0
+      for (let k = Math.max(0, index - 1); k <= Math.min(bands - 1, index + 1); k += 1) {
+        if (!rings[k]) continue
+        for (let bin = 0; bin < BINS; bin += 1) out[bin] += rings[k][bin]
+        count += 1
+      }
+      return count ? out.map((value) => value / count) : null
+    })
+    // Arc length along each band's outline, from angle 0, at each bin centre.
+    const arcs = smoothed.map((ring) => {
+      if (!ring) return null
+      const xy = (bin) => [Math.sin(angleOfBin(bin)) * ring[bin], Math.cos(angleOfBin(bin)) * ring[bin]]
+      const cumulative = new Float64Array(BINS)
+      for (let bin = 1; bin < BINS; bin += 1) {
+        const [x0, z0] = xy(bin - 1)
+        const [x1, z1] = xy(bin)
+        cumulative[bin] = cumulative[bin - 1] + Math.hypot(x1 - x0, z1 - z0)
+      }
+      // Measured from the centre line (angle 0 lies between the two middle bins).
+      const zero = (cumulative[BINS / 2 - 1] + cumulative[BINS / 2]) / 2
+      return cumulative.map((value) => value - zero)
+    })
+    // Bands with no cloth borrow their nearest neighbour's.
+    for (let index = 0; index < bands; index += 1) {
+      if (arcs[index]) continue
+      let near = null
+      for (let step = 1; step < bands && !near; step += 1) near = arcs[index - step] ?? arcs[index + step] ?? null
+      arcs[index] = near
+    }
+    tables.set(key, arcs)
+    return arcs
+  }
+
+  const arcAt = (arcs, bandIndex, angle) => {
+    const position = ((angle + Math.PI) / (2 * Math.PI)) * BINS - 0.5
+    const low = Math.max(0, Math.min(BINS - 2, Math.floor(position)))
+    const t = position - low
+    const table = arcs[bandIndex]
+    return table[low] + (table[low + 1] - table[low]) * t
   }
 
   return {
     /** Toward the outside of the cloth here (flattened vertically, so shoulder tops count). */
     outward: ([x, y, z]) => norm([x - cx, (y - cy) * 0.5, z - cz]),
     /** Angle around the body from the view's centre line, positive toward the viewer's right. */
-    angle: ([x, y, z], { toward, right }) => {
-      const ea = at(a, y)
-      const eb = at(b, y)
-      const dx = x - cx
-      const dz = z - cz
-      return Math.atan2((dx * right[0] + dz * right[2]) / ea, (dx * toward[0] + dz * toward[2]) / eb)
-    },
-    project: ([x, y, z], { toward, right }) => {
-      const ea = at(a, y)
-      const eb = at(b, y)
-      const dx = x - cx
-      const dz = z - cz
-      const theta = Math.atan2((dx * right[0] + dz * right[2]) / ea, (dx * toward[0] + dz * toward[2]) / eb)
-      return [arc(theta, ea, eb), y]
+    angle: (point, view) => viewAngle(point, view),
+    project: (point, view) => {
+      const arcs = tableFor(view)
+      const t = Math.min(bands - 1, Math.max(0, (point[1] - minY) / band - 0.5))
+      const low = Math.floor(t)
+      const high = Math.min(bands - 1, low + 1)
+      const angle = viewAngle(point, view)
+      const a = arcAt(arcs, low, angle)
+      const b = arcAt(arcs, high, angle)
+      const arc = a + (b - a) * (t - low)
+      // Across the middle of the panel, the flat view: what faces you prints
+      // as you see it, so a square mark looks square from the front. Toward
+      // the sides it turns into the arc length, which reaches the seam.
+      // Both grow with the angle and the arc is never shorter, so the blend
+      // keeps print x in order.
+      const flat = (point[0] - cx) * view.right[0] + (point[2] - cz) * view.right[2]
+      const w = smoothstep({ from: FLAT_UNTIL, to: ARC_FROM, value: Math.abs(angle) })
+      return [flat + (arc - flat) * w, point[1]]
     },
   }
 }
