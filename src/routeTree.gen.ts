@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountDeletedRouteImport } from './routes/account-deleted'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RankingRouteImport } from './routes/ranking'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SoonRouteImport } from './routes/soon'
 import { Route as StudioRouteImport } from './routes/studio'
@@ -40,6 +41,11 @@ const CreateRoute = CreateRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RankingRoute = RankingRouteImport.update({
+  id: '/ranking',
+  path: '/ranking',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/account-deleted': typeof AccountDeletedRoute
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
+  '/ranking': typeof RankingRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/account-deleted': typeof AccountDeletedRoute
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
+  '/ranking': typeof RankingRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/account-deleted': typeof AccountDeletedRoute
   '/create': typeof CreateRoute
   '/privacy': typeof PrivacyRoute
+  '/ranking': typeof RankingRoute
   '/sign-in': typeof SignInRoute
   '/soon': typeof SoonRoute
   '/studio': typeof StudioRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/account-deleted'
     | '/create'
     | '/privacy'
+    | '/ranking'
     | '/sign-in'
     | '/soon'
     | '/studio'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/account-deleted'
     | '/create'
     | '/privacy'
+    | '/ranking'
     | '/sign-in'
     | '/soon'
     | '/studio'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/account-deleted'
     | '/create'
     | '/privacy'
+    | '/ranking'
     | '/sign-in'
     | '/soon'
     | '/studio'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   AccountDeletedRoute: typeof AccountDeletedRoute
   CreateRoute: typeof CreateRoute
   PrivacyRoute: typeof PrivacyRoute
+  RankingRoute: typeof RankingRoute
   SignInRoute: typeof SignInRoute
   SoonRoute: typeof SoonRoute
   StudioRoute: typeof StudioRoute
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ranking': {
+      id: '/ranking'
+      path: '/ranking'
+      fullPath: '/ranking'
+      preLoaderRoute: typeof RankingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountDeletedRoute: AccountDeletedRoute,
   CreateRoute: CreateRoute,
   PrivacyRoute: PrivacyRoute,
+  RankingRoute: RankingRoute,
   SignInRoute: SignInRoute,
   SoonRoute: SoonRoute,
   StudioRoute: StudioRoute,

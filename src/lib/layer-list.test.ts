@@ -3,6 +3,11 @@ import { describe, expect, test } from 'vitest'
 import type { DesignLayer } from './design-document'
 import {
   focusAfterDelete,
+  hiddenLayerIds,
+  hideOthersIds,
+  LAYER_NAME_MAX,
+  layersVisibilityMessage,
+  renamedLayer,
   layerDeletedMessage,
   layerEdgeMessage,
   layerListGroups,
@@ -89,5 +94,39 @@ describe('focusAfterDelete', () => {
     expect(focusAfterDelete({ orderedIds: ['a', 'b', 'c'], deletedId: 'b' })).toBe('c')
     expect(focusAfterDelete({ orderedIds: ['a', 'b', 'c'], deletedId: 'c' })).toBe('b')
     expect(focusAfterDelete({ orderedIds: ['a'], deletedId: 'a' })).toBeNull()
+  })
+})
+
+describe('Hide others and Unhide all', () => {
+  const hiddenWord = { ...word('b', 'front'), visible: false } as DesignLayer
+  const groups = layerListGroups({
+    layers: [word('a', 'front'), hiddenWord, word('c', 'front'), word('d', 'back')],
+    panels,
+    placement: ({ layerId }) => stack[layerId] ?? null,
+  })
+
+  test('hides every other visible layer, on every panel', () => {
+    expect(hideOthersIds({ groups, keepId: 'c' }).sort()).toEqual(['a', 'd'])
+  })
+
+  test('shows every hidden layer', () => {
+    expect(hiddenLayerIds({ groups })).toEqual(['b'])
+  })
+
+  test('says how many changed', () => {
+    expect(layersVisibilityMessage({ count: 1, visible: false })).toBe('1 layer hidden.')
+    expect(layersVisibilityMessage({ count: 3, visible: true })).toBe('3 layers shown.')
+  })
+})
+
+describe('renamedLayer', () => {
+  test('trims and keeps at most the length the document stores', () => {
+    expect(renamedLayer({ draft: '  Logo  ', current: 'Mark' })).toBe('Logo')
+    expect(renamedLayer({ draft: 'x'.repeat(60), current: 'Mark' })).toHaveLength(LAYER_NAME_MAX)
+  })
+
+  test('saves nothing for an empty or unchanged name', () => {
+    expect(renamedLayer({ draft: '   ', current: 'Mark' })).toBeNull()
+    expect(renamedLayer({ draft: 'Mark ', current: 'Mark' })).toBeNull()
   })
 })

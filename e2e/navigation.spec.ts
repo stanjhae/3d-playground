@@ -34,13 +34,20 @@ test('Create starts a new design, My Studio is the library, and the current tab 
   await expectSaved({ page })
   await expect(site.getByRole('link', { name: 'Create' })).toHaveAttribute('aria-current', 'page')
 
-  // Vote is in the main nav, with the rankings and the newest designs.
-  await site.getByRole('link', { name: 'Vote' }).click()
-  await expect(page.getByRole('heading', { name: 'Vote and rankings' })).toBeVisible()
-  await expect(site.getByRole('link', { name: 'Vote' })).toHaveAttribute('aria-current', 'page')
+  // Vote (find designs to vote on) and Ranking (the top ones) are both in the main nav.
+  await site.getByRole('link', { name: 'Vote', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Vote', exact: true })).toBeVisible()
+  await expect(page).toHaveTitle(/^Vote · /)
+  await expect(site.getByRole('link', { name: 'Vote', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(site.getByRole('link', { name: 'Ranking', exact: true })).not.toHaveAttribute('aria-current', 'page')
+
+  await site.getByRole('link', { name: 'Ranking', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Ranking', exact: true })).toBeVisible()
+  await expect(page).toHaveTitle(/^Ranking · /)
+  await expect(site.getByRole('link', { name: 'Ranking', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(site.getByRole('link', { name: 'Vote', exact: true })).not.toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('tab', { name: 'Rankings' })).toHaveAttribute('aria-selected', 'true')
-  await page.getByRole('tab', { name: 'New' }).click()
-  await expect(page.getByRole('tab', { name: 'New' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('group', { name: 'Ranking period' })).toBeVisible()
 })
 
 test('Save privately returns to My Studio, where the card offers Edit and Publish later', async ({ page }) => {

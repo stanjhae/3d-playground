@@ -102,7 +102,7 @@ describe('locking on the tee', () => {
 
     store().updateLayer({ layerId: id, patch: { x: 0.2 } })
     store().updateLayer({ layerId: id, patch: { flipX: true } })
-    store().updateLayer({ layerId: id, patch: { visible: false } })
+    store().updateLayer({ layerId: id, patch: { visible: false, x: 0.2 } })
     store().updateLayer({ layerId: id, patch: { label: 'Renamed' } })
     store().updateLayer({ layerId: id, patch: { locked: false, x: 0.2 } })
     store().nudgeLayer({ layerId: id, dx: 0.01, dy: 0 })
@@ -121,6 +121,78 @@ describe('locking on the tee', () => {
     lock({ id, locked: false })
     store().removeLayer({ layerId: id })
     expect(rendered({ id })).toBeUndefined()
+  })
+
+  test('a locked item still hides and shows, one undo step each, and stays locked', () => {
+    store().addGraphic({ src: GRAPHIC })
+    const id = store().selectedLayerId!
+    lock({ id })
+    const undoCount = store().undoCount
+
+    store().updateLayer({ layerId: id, patch: { visible: false } })
+    expect(stored({ id })).toMatchObject({ visible: false, locked: true })
+    expect(rendered({ id })).toMatchObject({ visible: false })
+    expect(store().undoCount).toBe(undoCount + 1)
+
+    store().updateLayer({ layerId: id, patch: { visible: true } })
+    expect(stored({ id })).toMatchObject({ visible: true, locked: true })
+    store().undoLast()
+    expect(stored({ id }).visible).toBe(false)
+  })
+
+  test('Hide others and Unhide all change several layers, locked ones too, in one undo step', () => {
+    store().addGraphic({ src: GRAPHIC })
+    const a = store().selectedLayerId!
+    store().addText({ content: 'FLP', x: 0.4, y: 0.5 })
+    const b = store().selectedLayerId!
+    store().addGraphic({ src: GRAPHIC })
+    const keep = store().selectedLayerId!
+    lock({ id: b })
+    const undoCount = store().undoCount
+
+    store().setLayersVisible({ layerIds: [a, b], visible: false })
+    expect([a, b, keep].map((id) => stored({ id }).visible)).toEqual([false, false, true])
+    expect(stored({ id: b }).locked).toBe(true)
+    expect(store().undoCount).toBe(undoCount + 1)
+
+    // Nothing to change is no step at all.
+    store().setLayersVisible({ layerIds: [a, b], visible: false })
+    expect(store().undoCount).toBe(undoCount + 1)
+
+    store().setLayersVisible({ layerIds: [a, b], visible: true })
+    expect([a, b].map((id) => stored({ id }).visible)).toEqual([true, true])
+    store().undoLast()
+    expect([a, b].map((id) => stored({ id }).visible)).toEqual([false, false])
+    store().undoLast()
+    expect([a, b].map((id) => stored({ id }).visible)).toEqual([true, true])
+  })
+
+  test('a layer can be renamed, in one undo step, and the name is stored', () => {
+    store().addText({ content: 'FLP', x: 0.4, y: 0.5 })
+    const id = store().selectedLayerId!
+    const undoCount = store().undoCount
+
+    store().updateLayer({ layerId: id, patch: { label: 'Headline' } })
+    expect(stored({ id }).name).toBe('Headline')
+    expect(rendered({ id }).label).toBe('Headline')
+    expect(store().undoCount).toBe(undoCount + 1)
+
+    // The same name again is no step.
+    store().updateLayer({ layerId: id, patch: { label: 'Headline' } })
+    expect(store().undoCount).toBe(undoCount + 1)
+  })
+
+  test('a paint layer can be deleted, and new ink starts a new one', () => {
+    brushStroke({ y: 0.3 })
+    const paint = store().document.layers.find((layer) => layer.kind === 'paint' && layer.strokes.length > 0)!
+    store().removeLayer({ layerId: paint.id })
+    expect(store().document.layers.some((layer) => layer.kind === 'paint' && layer.strokes.length > 0)).toBe(false)
+
+    brushStroke({ y: 0.4 })
+    expect(store().document.layers.filter((layer) => layer.kind === 'paint' && layer.strokes.length > 0)).toHaveLength(1)
+    store().undoLast()
+    store().undoLast()
+    expect(store().document.layers.find((layer) => layer.id === paint.id)).toBeDefined()
   })
 
   test('a locked item is not picked on the cloth; the click reaches what is under it', () => {
@@ -173,8 +245,11 @@ describe('locking on the tee', () => {
     expect(JSON.stringify(stored({ id: paint.id }).strokes)).toBe(strokes)
     expect(stored({ id: layers[1]!.id }).strokes).toEqual([])
 
+    // Its opacity stays; hiding it is still fine.
+    store().updateLayer({ layerId: paint.id, patch: { opacity: 0.5 } })
+    expect(stored({ id: paint.id }).opacity).toBe(1)
     store().updateLayer({ layerId: paint.id, patch: { visible: false } })
-    expect(stored({ id: paint.id }).visible).toBe(true)
+    expect(stored({ id: paint.id }).visible).toBe(false)
   })
 })
 
@@ -210,6 +285,7 @@ describe('the commands underneath', () => {
     for (const command of [
       { type: 'updateLayer', layerId: 'mark', patch: { x: 0.1 } },
       { type: 'updateLayer', layerId: 'mark', patch: { flipY: true } },
+      { type: 'updateLayer', layerId: 'mark', patch: { visible: false, name: 'Mark' } },
       { type: 'removeLayer', layerId: 'mark' },
       { type: 'moveLayer', layerId: 'mark', toIndex: 0 },
       { type: 'removeStroke', strokeId: 's1' },
@@ -233,6 +309,10 @@ describe('the commands underneath', () => {
       },
     })
     expect(freed.ok && freed.stack.document.panels.front.layers[1]).toMatchObject({ x: 0.1 })
+
+    // Hiding and showing is about the view: a locked layer takes it.
+    const hidden = applyCanonicalCommand({ stack, command: { type: 'updateLayer', layerId: 'mark', patch: { visible: false } } })
+    expect(hidden.ok && hidden.stack.document.panels.front.layers[1]).toMatchObject({ visible: false, locked: true })
   })
 
   test('concept garments lock and unlock the same way, and refuse edits while locked', () => {
@@ -259,6 +339,11 @@ describe('the commands underneath', () => {
     ] as const) {
       expect(applyCommand({ stack: locked, command })).toBe(locked)
     }
+
+    const hidden = applyCommand({ stack: locked, command: { type: 'updateLayer', layerId: 'mark', patch: { visible: false } } })
+    expect(hidden.document.layers[0]).toMatchObject({ visible: false, locked: true })
+    const shown = applyCommand({ stack: hidden, command: { type: 'setVisibility', layerIds: ['mark'], visible: true } })
+    expect(shown.document.layers[0]).toMatchObject({ visible: true, locked: true })
 
     const back = applyCommand({ stack: locked, command: { type: 'updateLayer', layerId: 'mark', patch: { locked: false } } })
     expect(back.document.layers[0]).not.toHaveProperty('locked')

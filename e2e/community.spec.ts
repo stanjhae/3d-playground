@@ -72,13 +72,13 @@ test('comment on a design, hide it as its owner, and follow its designer', async
   await follow.click()
   await expect(fanPage.getByRole('button', { name: 'Following', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(fanPage.getByTestId('follower-count')).toHaveText('1 follower')
-  await fanPage.goto('/vote')
+  await fanPage.goto('/ranking')
   await fanPage.getByRole('tab', { name: 'Following' }).click()
   await expect(fanPage.locator(`a[href="/s/${slug}"]`)).toBeVisible()
 
   // Signing out on the Following tab goes back to the rankings, not an error.
   await fanPage.getByRole('button', { name: 'Sign out' }).click()
-  await fanPage.goto('/vote')
+  await fanPage.goto('/ranking')
   await expect(fanPage.getByRole('tab', { name: 'Following' })).toHaveCount(0)
   await expect(fanPage.getByRole('tab', { name: 'Rankings' })).toHaveAttribute('aria-selected', 'true')
   await expect(fanPage.locator(`a[href="/s/${slug}"]`)).toBeVisible()

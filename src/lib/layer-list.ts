@@ -178,3 +178,34 @@ export function focusAfterDelete({
 
   return rest[Math.min(at, rest.length - 1)]!
 }
+
+/** "Hide others": every visible layer in the list but the one kept. */
+export function hideOthersIds({ groups, keepId }: { groups: LayerGroup[]; keepId: string }) {
+  return groups.flatMap((group) => group.rows).filter((row) => row.layer.id !== keepId && row.layer.visible).map((row) => row.layer.id)
+}
+
+/** "Unhide all": every hidden layer in the list. */
+export function hiddenLayerIds({ groups }: { groups: LayerGroup[] }) {
+  return groups.flatMap((group) => group.rows).filter((row) => !row.layer.visible).map((row) => row.layer.id)
+}
+
+export function layersVisibilityMessage({ count, visible }: { count: number; visible: boolean }) {
+  const items = `${count} ${count === 1 ? 'layer' : 'layers'}`
+  return visible ? `${items} shown.` : `${items} hidden.`
+}
+
+/** Longest layer name the document keeps. */
+export const LAYER_NAME_MAX = 40
+
+/**
+ * A typed layer name, trimmed and cut to what the document keeps; null when
+ * it is empty or unchanged, so nothing is saved.
+ */
+export function renamedLayer({ draft, current }: { draft: string; current: string }) {
+  const name = draft.trim().slice(0, LAYER_NAME_MAX)
+  return name && name !== current ? name : null
+}
+
+export function layerRenamedMessage({ name }: { name: string }) {
+  return `Renamed to ${name}.`
+}

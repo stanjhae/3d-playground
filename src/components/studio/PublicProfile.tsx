@@ -35,13 +35,12 @@ export function PublicProfile() {
     }
   }, [])
 
-  if (saved === undefined) {
-    return null
-  }
-
+  // Shown, disabled, while the profile loads, so the page below doesn't jump.
+  const loading = saved === undefined
+  const current: Saved = saved ?? { handle: null, profilePublic: false }
   const typed = handle.trim().toLowerCase()
   const valid = typed === '' || isHandle(typed)
-  const changed = typed !== (saved.handle ?? '') || shown !== saved.profilePublic
+  const changed = !loading && (typed !== (current.handle ?? '') || shown !== current.profilePublic)
 
   return (
     <form
@@ -79,6 +78,7 @@ export function PublicProfile() {
             @
           </span>
           <input
+            disabled={loading}
             className="min-h-9 w-44 rounded-lg border border-flv-line bg-white px-2 font-body text-sm text-flv-ink"
             value={handle}
             maxLength={24}
@@ -97,6 +97,7 @@ export function PublicProfile() {
       <label className="flex min-h-9 items-center gap-2 font-body text-xs text-flv-ink">
         <input
           type="checkbox"
+          disabled={loading}
           className="size-4"
           checked={shown}
           onChange={(event) => {
@@ -113,8 +114,8 @@ export function PublicProfile() {
       >
         Save profile
       </button>
-      {saved.profilePublic && saved.handle ? (
-        <Link to="/u/$handle" params={{ handle: saved.handle }} className="min-h-9 content-center font-body text-xs underline">
+      {current.profilePublic && current.handle ? (
+        <Link to="/u/$handle" params={{ handle: current.handle }} className="min-h-9 content-center font-body text-xs underline">
           View profile
         </Link>
       ) : null}

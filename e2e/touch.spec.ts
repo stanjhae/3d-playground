@@ -153,7 +153,8 @@ test('a graphic held and dragged from the library by a finger lands where it is 
   const tile = page.locator('button[draggable="true"]').first()
   await tile.scrollIntoViewIfNeeded()
   // Where the front's middle is on screen, through the canvas's own lookup.
-  const target = await stage.evaluate((node) => {
+  // The model may still be loading on a slow device: look until it's there.
+  const findFront = () => stage.evaluate((node) => {
     type Probe = (clientX: number, clientY: number) => { panel: string; x: number; y: number } | null
     const probe = (node as HTMLCanvasElement & { flvPanelPointAt?: Probe }).flvPanelPointAt!
     const rect = node.getBoundingClientRect()
@@ -179,7 +180,8 @@ test('a graphic held and dragged from the library by a finger lands where it is 
 
     return best
   })
-  expect(target?.distance).toBeLessThan(0.1)
+  await expect.poll(async () => (await findFront())?.distance ?? 1, { timeout: 30_000 }).toBeLessThan(0.1)
+  const target = await findFront()
   const from = (await tile.boundingBox())!
   const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
 

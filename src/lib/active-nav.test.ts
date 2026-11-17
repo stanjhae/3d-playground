@@ -10,6 +10,7 @@ describe('activeNav', () => {
     expect(activeNav({ pathname: '/studio' })).toBe('studio')
     expect(activeNav({ pathname: '/vote' })).toBe('vote')
     expect(activeNav({ pathname: '/s/abc123' })).toBe('vote')
+    expect(activeNav({ pathname: '/ranking' })).toBe('ranking')
     expect(activeNav({ pathname: '/look/1' })).toBe('look')
     expect(activeNav({ pathname: '/privacy' })).toBeNull()
   })
