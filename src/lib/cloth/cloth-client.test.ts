@@ -21,6 +21,8 @@ function cannedMesh(): DrapedMesh {
 /** A worker that answers after a tick, or never when `hold` is set. */
 function fakeWorkers({ hold = false } = {}) {
   const spawned: { terminated: boolean; requests: DrapeRequest[] }[] = []
+  // A held worker answers only when the test releases it.
+  const held: (() => void)[] = []
 
   const spawn = () => {
     const record = { terminated: false, requests: [] as DrapeRequest[] }
@@ -34,18 +36,22 @@ function fakeWorkers({ hold = false } = {}) {
       postMessage: (request: DrapeRequest) => {
         record.requests.push(request)
 
-        if (!hold) {
-          setTimeout(() => {
-            worker.onmessage?.({ data: { type: 'progress', job: request.job, fraction: 0.5 } } as MessageEvent<DrapeMessage>)
-            worker.onmessage?.({ data: { type: 'done', job: request.job, mesh: cannedMesh() } } as MessageEvent<DrapeMessage>)
-          })
+        const answer = () => {
+          worker.onmessage?.({ data: { type: 'progress', job: request.job, fraction: 0.5 } } as MessageEvent<DrapeMessage>)
+          worker.onmessage?.({ data: { type: 'done', job: request.job, mesh: cannedMesh() } } as MessageEvent<DrapeMessage>)
+        }
+
+        if (hold) {
+          held.push(answer)
+        } else {
+          setTimeout(answer)
         }
       },
     }
     return worker
   }
 
-  return { spawn, spawned }
+  return { spawn, spawned, release: () => held.splice(0).forEach((answer) => answer()) }
 }
 
 describe('the drape job', () => {
@@ -116,17 +122,29 @@ describe('the drape client', () => {
   })
 
   test('asking again for the same pattern joins the running drape instead of cancelling it', async () => {
-    const { spawn, spawned } = fakeWorkers()
+    // Held until both have asked, whatever order their pattern hashes finish in.
+    const { spawn, spawned, release } = fakeWorkers({ hold: true })
     const client = createDrapeClient({ spawn })
     const progress: number[] = []
     const first = client.drape({ pattern: fixtureTeePattern() })
     const second = client.drape({ pattern: fixtureTeePattern(), onProgress: (fraction) => progress.push(fraction) })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    release()
 
     const [a, b] = await Promise.all([first, second])
     expect(a).toBe(b)
     expect(spawned).toHaveLength(1)
     expect(client.runs).toBe(1)
     expect(progress).toEqual([0.5, 1])
+  })
+
+  test('a caller served from the cache still hears that the drape is done', async () => {
+    const { spawn } = fakeWorkers()
+    const client = createDrapeClient({ spawn })
+    await client.drape({ pattern: fixtureTeePattern() })
+    const progress: number[] = []
+    await client.drape({ pattern: fixtureTeePattern(), onProgress: (fraction) => progress.push(fraction) })
+    expect(progress).toEqual([1])
   })
 
   test('a stored mesh is used without draping', async () => {
