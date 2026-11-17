@@ -16,7 +16,7 @@ import { type DesignTool, liveStrokeLayerId, useEditorStore } from '../../lib/ed
 import { surfaceGesture } from '../../lib/surface-gesture'
 import { outsideVeil, usePanelShapes } from '../../lib/panel-shape'
 import { PanelShapeLoader } from './PanelShapeLoader'
-import { carriesGraphic, droppedGraphic } from '../../lib/graphic-drag'
+import { GRAPHIC_DROP_EVENT, type GraphicDropDetail, carriesGraphic, droppedGraphic } from '../../lib/graphic-drag'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
 import { acceptsPointer } from '../../lib/palm-rejection'
@@ -32,6 +32,7 @@ import {
   hitPlaceableLayer,
   layerVoice,
   placedType,
+  rotateHandleBelow,
   wordEditShouldCommit,
   wordEditorWidth,
   type LayerHandle,
@@ -45,7 +46,7 @@ import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { cn } from '../../lib/cn'
 import { BringToFront, Copy, Trash2 } from 'lucide-react'
-import { announce } from '../../lib/studio-announcer'
+import { LOCKED_NOTICE, announce, flashNotice } from '../../lib/studio-announcer'
 import { PanelShapeIcon } from './PanelShapeIcon'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
@@ -93,6 +94,24 @@ function panelFromEvent({
   return {
     x: Math.min(1, Math.max(0, x)),
     y: Math.min(1, Math.max(0, y)),
+  }
+}
+
+/**
+ * The panel under a screen point: a panel canvas (with the point on it) or
+ * a panel's tab (no point), from their `data-panel-target`.
+ */
+function panelUnder({ clientX, clientY }: { clientX: number; clientY: number }) {
+  const element = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-panel-target]')
+  const panel = element?.dataset.panelTarget as PanelId | undefined
+
+  if (!element || !panel) {
+    return null
+  }
+
+  return {
+    panel,
+    point: element instanceof HTMLCanvasElement ? panelFromEvent({ event: { clientX, clientY }, node: element }) : null,
   }
 }
 
@@ -216,7 +235,9 @@ function paintPanelSurface({
     context.arc(frame.width / 2, frame.height / 2, 5, 0, Math.PI * 2)
     context.fill()
     context.beginPath()
-    context.arc(0, -frame.height / 2 - frame.rotateGap, 5, 0, Math.PI * 2)
+    // Below the box when above it would be off the panel's top.
+    const rotateY = frame.height / 2 + frame.rotateGap
+    context.arc(0, rotateHandleBelow({ layer: selected }) ? rotateY : -rotateY, 5, 0, Math.PI * 2)
     context.fill()
     context.restore()
   }
@@ -329,7 +350,9 @@ function SelectionToolbar({
   const top = (frame.y - frame.height / 2 - frame.rotateGap) / canvasHeight
   const below = top < 0.14
   const left = Math.min(0.85, Math.max(0.15, frame.x / canvasWidth))
-  const at = below ? (frame.y + frame.height / 2) / canvasHeight : top
+  // Clear of the rotate handle when it has moved below the box.
+  const bottom = frame.y + frame.height / 2 + (rotateHandleBelow({ layer }) ? frame.rotateGap + 6 : 0)
+  const at = below ? bottom / canvasHeight : top
   const name = layerVoice({ layer })
   const button =
     'inline-flex size-9 items-center justify-center rounded-full text-flv-ink hover:bg-flv-soft hover:text-flv-accent'
@@ -567,12 +590,23 @@ function PaintSurface({
       }
     }
 
-    const hit = hitPlaceableLayer({
+    const top = hitPlaceableLayer({
       document: liveDocument,
       panel,
       x: point.x,
       y: point.y,
+      withLocked: true,
     })
+
+    // A locked item is selected and says why it stays put; the press never
+    // becomes a stroke or clears the selection (W3).
+    if (top && top.kind !== 'pattern' && top.locked) {
+      selectLayer({ selectedLayerId: top.id })
+      flashNotice({ message: LOCKED_NOTICE })
+      return
+    }
+
+    const hit = top
     // One rule for the panels and the cloth (`surface-gesture.ts`).
     const word = paintTool === 'type' && designTool === 'text' ? placedType({ typeDraft }) : null
     const gesture = surfaceGesture({
@@ -656,6 +690,14 @@ function PaintSurface({
       !acceptsPointer({ pointerType: event.pointerType }) ||
       isOtherPointer({ pointerId: event.pointerId })
     ) {
+      return
+    }
+
+    // An undo or redo mid-drag ended the edit: the drag ends with it and
+    // nothing it held is put back on release.
+    if (drag && useEditorStore.getState().activeLayerEdit === null) {
+      dragRef.current = null
+      setSnapGuides([])
       return
     }
 
@@ -774,6 +816,22 @@ function PaintSurface({
       const openWord =
         drag.handle === 'move' && !drag.moved && drag.layerKind === 'text'
       dragRef.current = null
+      const onto = drag.handle === 'move' && drag.moved ? panelUnder({ clientX: event.clientX, clientY: event.clientY }) : null
+      const edit = useEditorStore.getState().activeLayerEdit
+
+      // Let go over another panel, or its tab: the item moves there.
+      if (onto && onto.panel !== panel && edit) {
+        // The view follows the item to its new panel.
+        useEditorStore.getState().showPanel({ panel: onto.panel })
+        useEditorStore.getState().moveLayerToPanel({
+          layerId: edit.layerId,
+          panel: onto.panel,
+          x: onto.point?.x ?? edit.x,
+          y: onto.point?.y ?? edit.y,
+        })
+        return
+      }
+
       endLayerEdit()
 
       if (openWord) {
@@ -795,6 +853,34 @@ function PaintSurface({
     endStroke()
   }
 
+  // A graphic carried by a finger from the library (`graphic-drag.ts`).
+  useEffect(() => {
+    const node = canvasRef.current
+
+    if (!node) {
+      return
+    }
+
+    function onTouchDrop(event: Event) {
+      const detail = (event as CustomEvent<GraphicDropDetail>).detail
+      const target = canvasRef.current
+
+      if (!target) {
+        return
+      }
+
+      detail.handled = true
+      const point = panelFromEvent({ event: detail, node: target })
+      onActivate()
+      useEditorStore.getState().addGraphic({ src: detail.src, panel, x: point.x, y: point.y })
+    }
+
+    node.addEventListener(GRAPHIC_DROP_EVENT, onTouchDrop)
+    return () => {
+      node.removeEventListener(GRAPHIC_DROP_EVENT, onTouchDrop)
+    }
+  })
+
   return (
     <div
       className={cn('relative border bg-flv-soft', {
@@ -808,6 +894,7 @@ function PaintSurface({
         width={canvasSize.width}
         height={canvasSize.height}
         role="img"
+        data-panel-target={panel}
         aria-label={`${HOUSE_COPY.designPanel} ${label}${active ? ', active' : ''}`}
         // A tab stop per panel (#163): focusing one makes it the panel a
         // typed word lands on, with no pointer needed.
@@ -1038,6 +1125,8 @@ export function PaintCanvas({
             <button
               key={panel.id}
               type="button"
+              // An item dragged onto a tab moves to that panel.
+              data-panel-target={panel.id}
               aria-pressed={paintPanel === panel.id}
               onClick={() => {
                 showPanel({ panel: panel.id })

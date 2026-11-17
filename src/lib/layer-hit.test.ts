@@ -12,6 +12,7 @@ import {
   layerShareOnPanel,
   layerVoice,
   placedType,
+  rotateHandleBelow,
   wordEditorWidth,
   wordEditShouldCommit,
 } from './layer-hit'
@@ -239,6 +240,76 @@ describe('how much of a layer is on its panel', () => {
     const turned = layerShareOnPanel({ layer: graphic({ x: 0, y: 0, rotation: Math.PI / 4 }) })
     expect(turned).toBeGreaterThan(0.15)
     expect(turned).toBeLessThan(0.35)
+  })
+
+  test('near the top of the panel the rotate handle sits below the box, where a press reaches it', () => {
+    const near = (y: number) => ({
+      id: 'mark-top',
+      kind: 'graphic' as const,
+      panel: 'front' as const,
+      src: 'data:image/png;base64,abc',
+      x: 0.5,
+      y,
+      scale: 0.2,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+    })
+
+    expect(rotateHandleBelow({ layer: near(0.5) })).toBe(false)
+    expect(layerHandleLocal({ layer: near(0.5) }).rotate.y).toBeGreaterThan(0)
+
+    const top = near(0.9)
+    const handles = layerHandleLocal({ layer: top })
+    expect(rotateHandleBelow({ layer: top })).toBe(true)
+    expect(handles.rotate.y).toBeLessThan(0)
+    // On the panel, and still found as the rotate handle.
+    expect(top.y + handles.rotate.y).toBeGreaterThan(0)
+    expect(hitLayerHandle({ layer: top, x: top.x, y: top.y + handles.rotate.y })).toBe('rotate')
+  })
+
+  test('a press can find a locked item when asked, to say why it stays put', () => {
+    const document = createEmptyDocument({ garmentId: 'tee' })
+    document.layers.push({
+      id: 'mark-locked',
+      kind: 'graphic',
+      panel: 'front',
+      src: 'data:image/png;base64,abc',
+      x: 0.5,
+      y: 0.5,
+      scale: 0.2,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      locked: true,
+    })
+
+    expect(hitPlaceableLayer({ document, panel: 'front', x: 0.5, y: 0.5 })).toBeNull()
+    expect(hitPlaceableLayer({ document, panel: 'front', x: 0.5, y: 0.5, withLocked: true })?.id).toBe('mark-locked')
+  })
+
+  test('a live edit carried onto another panel shows there, measured on its surface', () => {
+    const document = createEmptyDocument({ garmentId: 'tee' })
+    document.layers.push({
+      id: 'mark-carried',
+      kind: 'graphic',
+      panel: 'front',
+      src: 'data:image/png;base64,abc',
+      x: 0.5,
+      y: 0.5,
+      scale: 0.2,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      surface: { stretchY: 1, panelAspect: 0.6 },
+    })
+    const surface = { stretchY: 1.2, panelAspect: 1.4 }
+    const live = applyLayerEdit({
+      document,
+      edit: { layerId: 'mark-carried', x: 0.1, y: 0.6, scale: 0.2, rotation: 0, panel: 'left', surface },
+    })
+
+    expect(live.layers.at(-1)).toMatchObject({ panel: 'left', x: 0.1, surface })
   })
 })
 
