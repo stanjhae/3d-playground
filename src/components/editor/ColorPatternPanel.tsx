@@ -16,6 +16,7 @@ import {
   chromeTextClass,
   railFrameClass,
 } from '../../lib/studio-chrome'
+import { FabricGrid, GarmentMaterialHint } from './FabricChooser'
 import { SurfaceChooser } from './SurfaceChooser'
 
 const PATTERN_OPTIONS: { id: BasePatternId; label: string }[] = [
@@ -53,7 +54,7 @@ function finishLacksRealMap({ fabricId }: { fabricId: string }) {
 
 export function ColorPatternPanel() {
   const garmentId = useEditorStore((state) => state.garmentId)
-  // The v2 tee has Solid/Stripes/Check bases and a fixed material.
+  // Canonical garments have Solid/Stripes/Check bases and a saved fabric.
   const v2Tee = isCanonicalGarment({ garmentId })
   const basePatternId = useEditorStore((state) => state.basePatternId)
   const baseFinishId = useEditorStore((state) => state.baseFinishId)
@@ -63,9 +64,12 @@ export function ColorPatternPanel() {
   const applyFabric = useEditorStore((state) => state.applyFabric)
   const fabricId = useEditorStore((state) => state.fabricId)
   const overrides = useEditorStore((state) => state.overrides)
+  const baseFabricId = useEditorStore((state) => state.baseFabricId)
   const finish = BASE_FINISH_PRESETS.find((entry) => entry.id === baseFinishId)
+  // A canonical garment's cloth is the document's (writer W).
+  const clothFabricId = v2Tee ? baseFabricId : fabricId
   const activeFabric =
-    getFabricById({ id: fabricId ?? finish?.fabricId ?? 'cotton' }) ??
+    getFabricById({ id: clothFabricId ?? finish?.fabricId ?? 'cotton' }) ??
     getFabricById({ id: 'cotton' })
   const activeColor =
     overrides.find((entry) => entry.meshName === 'body')?.color ??
@@ -137,7 +141,16 @@ export function ColorPatternPanel() {
           </button>
         ))}
       </div>
-      {v2Tee ? null : (
+      {v2Tee ? (
+        <>
+          <fieldset className="flex flex-col gap-2" data-testid="fabric-chooser">
+            <legend className={chromeKickerClass()}>{HOUSE_COPY.fabric}</legend>
+            <FabricGrid />
+          </fieldset>
+          <SurfaceChooser />
+          <GarmentMaterialHint />
+        </>
+      ) : (
       <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.finish}</p>
@@ -188,12 +201,18 @@ export function ColorPatternPanel() {
       ) : null}
       </>
       )}
-      {fabricId ? (
+      {clothFabricId ? (
         <div className="flex gap-3">
           <button
             type="button"
             onClick={() => {
-              applyFabric({ fabricId, colorId: fabricId })
+              // A canonical cloth keeps the chosen colour: this puts its own back.
+              if (v2Tee) {
+                applyBaseColor({ color: activeFabric?.color ?? '#f3efe6' })
+                return
+              }
+
+              applyFabric({ fabricId: clothFabricId, colorId: clothFabricId })
             }}
             className={cn(
               'min-h-11 text-flv-muted hover:text-flv-accent',

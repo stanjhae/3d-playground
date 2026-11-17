@@ -47,6 +47,7 @@ export const HOUSE_COPY = {
   baseColor: 'Cloth color',
   patternFill: 'Pattern',
   finish: 'Finish',
+  fabric: 'Fabric',
   surface: 'Surface',
   solid: 'Solid',
   gradient: 'Gradient',

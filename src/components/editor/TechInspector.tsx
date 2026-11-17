@@ -1,4 +1,6 @@
 import {
+  Suspense,
+  lazy,
   useEffect,
   useId,
   useRef,
@@ -36,6 +38,8 @@ import {
   type SizeKey,
   type TransformKey,
 } from '../../lib/transform-fields'
+
+const FillInspector = lazy(() => import('./FillInspector'))
 
 type DraftPose = {
   x: number
@@ -207,6 +211,15 @@ export function TechInspector() {
       opacity: layer.opacity,
     })
   }, [layer])
+
+  // A whole-side fill has its own settings (writer W).
+  if (layer?.kind === 'fill') {
+    return (
+      <Suspense fallback={null}>
+        <FillInspector layer={layer} />
+      </Suspense>
+    )
+  }
 
   if (
     !layer ||

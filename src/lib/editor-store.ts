@@ -59,7 +59,7 @@ import {
   type DesignSnapshot,
 } from './design-snapshots'
 import type { SurfaceChoice } from './fabric-detail'
-import { getFabricById } from './fabrics'
+import { baseFabricFor, getFabricById } from './fabrics'
 import { isSafeLayerSrc } from './look-thumbnail'
 import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from './paint-colors'
 import {
@@ -77,11 +77,24 @@ import {
   teeRenderDocument,
   undoTee,
 } from './editor-canonical'
-import type { ImportNote } from './legacy-import'
-import { type CanonicalDocument, CANONICAL_LIMITS } from './canonical-document'
-import { findLayer, replaceDocument, replaceDocumentUndoable } from './canonical-commands'
+import { type ImportNote, toColor, wrapAngle } from './legacy-import'
+import {
+  type CanonicalDocument,
+  type CanonicalFabricId,
+  type CanonicalFillLayer,
+  type CanonicalPanelId,
+  type FillPattern,
+  CANONICAL_LIMITS,
+  panelIdsOf,
+} from './canonical-document'
+import {
+  type CanonicalFillPatch,
+  findLayer,
+  replaceDocument,
+  replaceDocumentUndoable,
+} from './canonical-commands'
 import { upgradeToCurrentTemplate } from './template-upgrade'
-import { canonicalPanel, renderPanel, renderPanelSurface } from './render-projection'
+import { canonicalPanel, renderPanel, renderPanelSurface, rendersMirrored } from './render-projection'
 import { NUDGE_MERGE_MS } from './studio-keys'
 import { clampShape, type GarmentShape, templateHasShape } from './garment-shape-params'
 import { roundPlacement } from './transform-fields'
@@ -121,6 +134,22 @@ export const BASE_FINISH_PRESETS = [
 ] as const
 
 export type BaseFinishId = (typeof BASE_FINISH_PRESETS)[number]['id'] | string
+
+/**
+ * A fill's settings as the studio shows them (writer W): in render space,
+ * like every layer the store hands out, so a mirrored back turns the way it
+ * looks. `colors` is for a stripe or check fill only.
+ */
+export type FillPatch = {
+  tile?: number
+  rotation?: number
+  offsetX?: number
+  offsetY?: number
+  colors?: [string, string]
+}
+
+/** A new fill's repeat: about five across the panel. */
+export const DEFAULT_FILL_TILE = 0.2
 
 type EditorState = {
   mode: EditorMode
@@ -181,6 +210,12 @@ type EditorState = {
   studioEnv: StudioEnvMode
   basePatternId: BasePatternId
   baseFinishId: BaseFinishId
+  /**
+   * The garment's saved cloth on a canonical garment (`base.fabric`, writer
+   * W), read from the document so undo and reloads keep the picker true.
+   * Null when none is chosen, and on the legacy stack.
+   */
+  baseFabricId: CanonicalFabricId | null
   /** Surface relief shown on chosen fabrics; a view setting, not saved. */
   surface: SurfaceChoice
   setMode: ({ mode }: { mode: EditorMode }) => void
@@ -194,6 +229,30 @@ type EditorState = {
     colorId: string
   }) => void
   applyBaseColor: ({ color }: { color: string }) => void
+  /**
+   * Choose the garment's cloth (writer W) as one undo step, keeping its
+   * colour; in Pattern mode the pieces are cut from it too. Null clears it.
+   * Canonical garments only.
+   */
+  setBaseFabric: ({ fabricId }: { fabricId: CanonicalFabricId | null }) => void
+  /**
+   * Cover a whole side with a repeat (writer W): one `fill` layer on the
+   * panel being worked on, or one on every panel, as one undo step. An
+   * image fill repeats `replaceLayerId`'s image, which it replaces, or
+   * `image`; a pattern fill repeats stripes or a check in two colours.
+   * Canonical garments only; returns the new layer ids.
+   */
+  addSectionFill: ({
+    source,
+    sides,
+  }: {
+    source:
+      | { kind: 'image'; replaceLayerId: string }
+      | { kind: 'pattern'; pattern: FillPattern; colors: [string, string] }
+    sides: 'this' | 'all'
+  }) => string[]
+  /** Change a fill's repeat, turn, phase or colours as one undo step (writer W). */
+  updateFill: ({ layerId, patch }: { layerId: string; patch: FillPatch }) => void
   undoLast: () => void
   redoLast: () => void
   canUndo: () => boolean
@@ -322,6 +381,8 @@ type EditorState = {
     layerId: string
     patch: LayerPatch
   }) => void
+  /** Show or hide several layers in one undo step; locked ones too. */
+  setLayersVisible: ({ layerIds, visible }: { layerIds: string[]; visible: boolean }) => void
   setTextFace: ({ textFace }: { textFace: TextFace }) => void
   setTextScale: ({ textScale }: { textScale: number }) => void
   setTypeDraft: ({ typeDraft }: { typeDraft: string }) => void
@@ -558,6 +619,8 @@ function syncFromStack({
       limitNotice: documentNotice({ document: tee.stack.document }),
       // The picker follows the document, so undo and reopening keep it true.
       basePatternId: TEE_BASE_PATTERN[tee.stack.document.base.kind],
+      // So does the fabric (writer W): a reload shows the saved cloth.
+      baseFabricId: tee.stack.document.base.fabric ?? null,
       ...extra,
     }
   }
@@ -571,6 +634,7 @@ function syncFromStack({
     undoCount: commandStack.past.length,
     redoCount: commandStack.future.length,
     limitNotice: null,
+    baseFabricId: null,
     ...extra,
   }
 }
@@ -687,6 +751,11 @@ function layerPatchChanges({
   layer: DesignDocument['layers'][number]
   patch: LayerPatch
 }) {
+  // A new name is a change on every kind (Rename in the Layers panel).
+  if (patch.label !== undefined && patch.label.trim() !== (layer.label ?? '')) {
+    return true
+  }
+
   if (layer.kind === 'paint') {
     return (
       (patch.visible !== undefined && patch.visible !== layer.visible) ||
@@ -825,6 +894,7 @@ const INITIAL_EDITOR_STATE = {
   studioEnv: 'studio' as StudioEnvMode,
   basePatternId: 'solid' as BasePatternId,
   baseFinishId: 'matte' as BaseFinishId,
+  baseFabricId: null as CanonicalFabricId | null,
   surface: 'preset' as SurfaceChoice,
 }
 
@@ -964,6 +1034,17 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     })
   },
   applyFabric: ({ fabricId, colorId }) => {
+    // A canonical garment stores the cloth, not its colour (writer W).
+    if (teeActive()) {
+      const base = baseFabricFor({ fabricId }) ?? baseFabricFor({ fabricId: colorId })
+
+      if (base) {
+        get().setBaseFabric({ fabricId: base })
+      }
+
+      return
+    }
+
     set((state) => {
       if (!state.selectedMeshName) {
         return state
@@ -1012,6 +1093,152 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
           colorId: finish?.id ?? color,
         },
       })
+    })
+  },
+  setBaseFabric: ({ fabricId }) => {
+    if (!teeActive()) {
+      return
+    }
+
+    set(() => {
+      const preset = fabricId ? getFabricById({ id: fabricId }) : undefined
+      const drape = preset ? patternFabricCommand({ fabricId: preset.id, mapId: preset.mapId }) : undefined
+      const command: CanonicalCommand = { type: 'setFabric', fabric: fabricId }
+      const step = runTeeCommand({ engine: tee, command: drape ? { type: 'batch', commands: [command, drape] } : command })
+
+      if (step.refusal) {
+        return syncFromStack({ extra: { limitNotice: step.refusal } })
+      }
+
+      tee = step.engine
+      return syncFromStack()
+    })
+  },
+  addSectionFill: ({ source, sides }) => {
+    if (!teeActive()) {
+      return []
+    }
+
+    const state = get()
+    const document = tee.stack.document
+    const template = document.template
+    let fillSource: CanonicalFillLayer['source']
+    let replace: string | null = null
+    let here: CanonicalPanelId = canonicalPanel({ renderPanel: state.paintPanel, template })
+
+    if (source.kind === 'image') {
+      const found = findLayer({ document, layerId: source.replaceLayerId })
+
+      if (!found || found.layer.kind !== 'image' || found.layer.locked) {
+        return []
+      }
+
+      fillSource = { assetId: found.layer.assetId, aspect: found.layer.aspect }
+      replace = found.layer.id
+      here = found.panel
+    } else {
+      const ground = toColor({ value: source.colors[0] })
+      const ink = toColor({ value: source.colors[1] })
+
+      if (!ground || !ink) {
+        return []
+      }
+
+      fillSource = { pattern: source.pattern, colors: [ground, ink] }
+    }
+
+    const panels = sides === 'all' ? panelIdsOf({ document }) : [here]
+    const ids = panels.map(() => createObjectId({ prefix: 'fill' }))
+    const commands: CanonicalCommand[] = [
+      ...(replace ? [{ type: 'removeLayer' as const, layerId: replace }] : []),
+      ...panels.map((panel, index) => ({
+        type: 'addLayer' as const,
+        panel,
+        // Defaults are written as they are: a fill always carries its tile
+        // and turn, and leaves out a zero phase.
+        layer: {
+          id: ids[index]!,
+          kind: 'fill' as const,
+          visible: true,
+          opacity: 1,
+          source: structuredClone(fillSource),
+          tile: DEFAULT_FILL_TILE,
+          rotation: 0,
+        },
+      })),
+    ]
+    const step = runTeeCommand({ engine: tee, command: { type: 'batch', commands } })
+
+    if (step.refusal || !step.changed) {
+      set(syncFromStack({ extra: step.refusal ? { limitNotice: step.refusal } : {} }))
+      return []
+    }
+
+    tee = step.engine
+    // The fill on the side being worked on is the one selected.
+    const selected = ids[panels.indexOf(here)] ?? ids[0]!
+    set(syncFromStack({ extra: { selectedLayerId: selected, activeLayerEdit: null } }))
+    return ids
+  },
+  updateFill: ({ layerId, patch }) => {
+    if (!teeActive()) {
+      return
+    }
+
+    set((state) => {
+      const found = findLayer({ document: tee.stack.document, layerId })
+
+      if (!found || found.layer.kind !== 'fill') {
+        return state
+      }
+
+      // The studio shows a mirrored panel (the @2 back) as seen from behind:
+      // its turn and sideways phase run the other way in the document.
+      const mirrored = rendersMirrored({ template: tee.stack.document.template, panel: found.panel })
+      const next: CanonicalFillPatch = {}
+
+      if (patch.tile !== undefined) {
+        next.tile = Math.min(CANONICAL_LIMITS.maxFillTile, Math.max(CANONICAL_LIMITS.minFillTile, patch.tile))
+      }
+
+      if (patch.rotation !== undefined) {
+        next.rotation = wrapAngle({ value: mirrored ? -patch.rotation : patch.rotation })
+      }
+
+      const phase = (value: number) => {
+        const wrapped = ((value % 1) + 1) % 1
+        // Six decimals are kept, so a phase that rounds to a whole repeat is none.
+        return Math.round(wrapped * 1e6) >= 1e6 ? 0 : wrapped
+      }
+
+      if (patch.offsetX !== undefined) {
+        const value = phase(patch.offsetX)
+        next.offsetX = mirrored && value !== 0 ? phase(1 - value) : value
+      }
+
+      if (patch.offsetY !== undefined) {
+        next.offsetY = phase(patch.offsetY)
+      }
+
+      if (patch.colors) {
+        const ground = toColor({ value: patch.colors[0] })
+        const ink = toColor({ value: patch.colors[1] })
+
+        if (!ground || !ink) {
+          return state
+        }
+
+        next.colors = [ground, ink]
+      }
+
+      const step = runTeeCommand({ engine: tee, command: { type: 'updateFill', layerId, patch: next } })
+
+      if (!step.changed) {
+        return step.refusal ? { limitNotice: step.refusal } : state
+      }
+
+      tee = step.engine
+      return syncFromStack({ extra: { selectedLayerId: layerId } })
     })
   },
   undoLast: () => {
@@ -1768,6 +1995,15 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         command: { type: 'updateLayer', layerId, patch },
         extra: { selectedLayerId: layerId },
       })
+    })
+  },
+  setLayersVisible: ({ layerIds, visible }) => {
+    set((state) => {
+      const changing = state.document.layers
+        .filter((layer) => layerIds.includes(layer.id) && layer.visible !== visible)
+        .map((layer) => layer.id)
+
+      return changing.length === 0 ? state : runCommand({ command: { type: 'setVisibility', layerIds: changing, visible } })
     })
   },
   setTextFace: ({ textFace }) => {

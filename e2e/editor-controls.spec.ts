@@ -372,12 +372,12 @@ test('switching panels keeps each layer, its values and the chosen tool settings
   await saved({ read: async () => (await layers({ page, panel: 'Back', kind: 'text' }))[0]?.x }).toBeCloseTo(0.7)
 
   const rail = page.getByRole('complementary', { name: 'Layers' })
-  await rail.getByRole('button', { name: /FRONT/ }).first().click()
+  await rail.getByRole('button', { name: /^FRONT/ }).click()
   await expect(x).toHaveValue('70')
   await expect(panelCanvas({ page, panel: 'Front' })).toHaveAttribute('aria-label', /, active$/)
   await expect(page.getByRole('button', { name: 'Oxblood' }).last()).toHaveAttribute('aria-pressed', 'true')
 
-  await rail.getByRole('button', { name: /BACK/ }).first().click()
+  await rail.getByRole('button', { name: /^BACK/ }).click()
   await expect(x).toHaveValue('30')
   await expect(panelCanvas({ page, panel: 'Back' })).toHaveAttribute('aria-label', /, active$/)
 

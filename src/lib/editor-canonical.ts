@@ -459,6 +459,17 @@ export function translateCommand({
     }
   }
 
+  if (command.type === 'setVisibility') {
+    // One undo step: every layer that exists and would change, together.
+    const commands: CanonicalCommand[] = command.layerIds.flatMap((layerId) => {
+      const found = findLayer({ document, layerId })
+      return found && found.layer.visible !== command.visible
+        ? [{ type: 'updateLayer' as const, layerId, patch: { visible: command.visible } }]
+        : []
+    })
+    return commands.length > 0 ? { assetSources: same, command: { type: 'batch', commands } } : null
+  }
+
   if (command.type === 'moveLayerToPanel') {
     const found = findLayer({ document, layerId: command.layerId })
 

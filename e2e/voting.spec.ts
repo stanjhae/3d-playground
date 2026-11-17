@@ -1,4 +1,4 @@
-import { type APIRequestContext, expect, test } from '@playwright/test'
+import { type APIRequestContext, type Page, expect, test } from '@playwright/test'
 
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
@@ -124,7 +124,7 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
   await expect(page.getByTestId('vote-count')).toHaveText('1 vote')
 
   // The board ranks it this week, this month and of all time, and within its garment.
-  await visitor.goto('/vote')
+  await visitor.goto('/ranking')
   const card = visitor.getByRole('listitem').filter({ has: visitor.locator(`a[href="/s/${slug}"]`) })
 
   for (const period of ['This week', 'This month', 'All time']) {
@@ -143,7 +143,7 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
   await page.getByRole('checkbox', { name: 'Show my profile' }).check()
   await page.getByRole('button', { name: 'Save profile' }).click()
   await expect(page.getByText('Saved: your profile is public')).toBeVisible()
-  await visitor.goto('/vote')
+  await visitor.goto('/ranking')
   await card.getByRole('link', { name: /^By / }).click()
   await expect(visitor).toHaveURL(new RegExp(`/u/${handle}$`))
   await expect(visitor.getByRole('heading', { level: 1 })).toContainText(handle)
@@ -160,6 +160,89 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
   await stranger.close()
   await visitorContext.close()
   expectNoCspViolations({ violations })
+})
+
+test('a new design shows on Vote, is voted on from its card, and then counts on Ranking', async ({ page, browser, request }) => {
+  test.setTimeout(150_000)
+  const owner = newEmail({ label: 'feed-owner' })
+  const voter = newEmail({ label: 'feed-voter' })
+  emails.push(owner, voter)
+
+  await signIn({ page, email: owner })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+  const { token, seq } = await page.evaluate(async (id) => {
+    const accessToken = JSON.parse(localStorage.getItem('flp-auth')!).access_token as string
+    const response = await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    return { token: accessToken, seq: (await response.json()).headSeq as number }
+  }, designId)
+  const headers = { Authorization: `Bearer ${token}` }
+  const data = Buffer.from(TINY_JPEG).toString('base64')
+  const renders = PUBLIC_RENDER_KINDS.map((kind: string) => ({ kind, data }))
+  expect((await request.post(`/api/flp/designs/${designId}/renders`, { headers, data: { seq, renders } })).status()).toBeLessThan(300)
+  const published = await request.post(`/api/flp/designs/${designId}/publication`, { headers, data: { seq } })
+  const slug = ((await published.json()) as { slug: string }).slug
+
+  /** The design's card on Vote, loading more pages until it shows. */
+  async function feedCard({ on }: { on: Page }) {
+    const card = on.getByRole('listitem').filter({ has: on.locator(`a[href="/s/${slug}"]`) })
+    await expect(on.getByRole('heading', { name: 'Vote', exact: true })).toBeVisible()
+    await expect(on.getByText('Loading designs…')).toHaveCount(0)
+
+    for (let page = 0; page < 20 && (await card.count()) === 0; page += 1) {
+      const more = on.getByRole('button', { name: 'Load more' })
+      if ((await more.count()) === 0) break
+      await more.click()
+      await expect(more.or(on.locator(`a[href="/s/${slug}"]`)).first()).toBeVisible()
+    }
+
+    return card
+  }
+
+  // The owner doesn't see their own design to vote on.
+  await page.goto('/vote')
+  await expect(page.getByRole('heading', { name: 'Vote', exact: true })).toBeVisible()
+  await expect(page.getByText('Loading designs…')).toHaveCount(0)
+  await expect(page.locator(`a[href="/s/${slug}"]`)).toHaveCount(0)
+
+  // Signed out: it's there, needing votes, with no Vote button and a way to sign in.
+  const visitorContext = await browser.newContext()
+  const visitor = await visitorContext.newPage()
+  await visitor.goto('/vote')
+  let card = await feedCard({ on: visitor })
+  await expect(card.getByText('Needs votes')).toBeVisible()
+  await expect(card.getByTestId('vote-count')).toHaveText('0 votes')
+  await expect(visitor.getByRole('button', { name: 'Vote', exact: true })).toHaveCount(0)
+  await visitor.getByRole('link', { name: 'Sign in to vote' }).click()
+  await expect(visitor).toHaveURL(/\/sign-in\?/)
+  expect(new URL(visitor.url()).searchParams.get('returnTo')).toBe('/vote')
+
+  // A day-old voter votes from the card, accepting the terms there.
+  await signIn({ page: visitor, email: voter, returnTo: '/vote' })
+  localSql({ sql: `update auth.users set created_at = now() - interval '25 hours' where email = '${voter}'` })
+  await visitor.reload()
+  card = await feedCard({ on: visitor })
+  const vote = card.getByRole('button', { name: 'Vote', exact: true })
+  await expect(vote).toHaveAttribute('aria-pressed', 'false')
+  await vote.click()
+  await card.getByRole('button', { name: 'Accept and vote' }).click()
+  await expect(card.getByRole('button', { name: 'Voted', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(card.getByTestId('vote-count')).toHaveText('1 vote')
+
+  // Read back with the feed, the card knows the vote without asking again.
+  await visitor.reload()
+  card = await feedCard({ on: visitor })
+  await expect(card.getByRole('button', { name: 'Voted', exact: true })).toBeVisible()
+
+  // Ranking shows the count.
+  await visitor.getByRole('link', { name: 'Ranking', exact: true }).first().click()
+  await expect(visitor.getByRole('heading', { name: 'Ranking', exact: true })).toBeVisible()
+  const ranked = visitor.getByRole('listitem').filter({ has: visitor.locator(`a[href="/s/${slug}"]`) })
+  await expect(ranked.getByTestId('vote-count')).toHaveText('1 vote')
+  await expect(ranked.getByLabel(/^Rank \d+$/)).toBeVisible()
+
+  await visitorContext.close()
 })
 
 test('the guest board vote endpoint is retired', async ({ request }) => {

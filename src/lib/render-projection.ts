@@ -1,9 +1,12 @@
 import {
   type CanonicalDocument,
+  type CanonicalFabricId,
   type CanonicalPanelId,
   panelIdsOf,
 } from './canonical-document.ts'
 import type { DesignDocument, DesignLayer, PanelId, PanelSurface } from './design-document.ts'
+import type { MaterialOverride } from './design-schema.ts'
+import { getFabricById } from './fabrics.ts'
 import { templateHasShape } from './garment-shape-params.ts'
 import { CURRENT_TEMPLATE, type TemplateManifest, resolveTemplate } from './template-manifest.ts'
 
@@ -187,6 +190,37 @@ function scaleYOf(layer: { scaleY?: number }) {
   return layer.scaleY === undefined ? {} : { scaleY: layer.scaleY }
 }
 
+/**
+ * The 3D surface of a chosen cloth (`base.fabric`, writer W): the preset's
+ * finish, texture and relief. Its colour is not here: the cloth tints and
+ * textures the garment's own colour, it never recolours it.
+ */
+export function fabricSurface({ fabric }: { fabric: CanonicalFabricId }): Omit<MaterialOverride, 'meshName' | 'color'> {
+  const preset = getFabricById({ id: fabric })
+
+  if (!preset) {
+    return { roughness: 0.86, metalness: 0 }
+  }
+
+  const optional = {
+    mapId: preset.mapId,
+    sheen: preset.sheen,
+    sheenRoughness: preset.sheenRoughness,
+    sheenColor: preset.sheenColor,
+    clearcoat: preset.clearcoat,
+    clearcoatRoughness: preset.clearcoatRoughness,
+    opacity: preset.opacity,
+    detailId: preset.detailId,
+    detailScale: preset.detailScale,
+  }
+
+  return {
+    roughness: preset.roughness,
+    metalness: preset.metalness,
+    ...Object.fromEntries(Object.entries(optional).filter(([, value]) => value !== undefined)),
+  }
+}
+
 export function toRenderDocument({
   document,
   assetSources = {},
@@ -366,8 +400,9 @@ export function toRenderDocument({
       garmentId: manifest.garmentId as DesignDocument['garmentId'],
       garmentVersion: manifest.geometry.kind === 'procedural' ? 2 : manifest.version,
       structural: { ...manifest.geometry.structural },
-      overrides:
-        base.kind === 'solid' && baseColor === manifest.material.color
+      overrides: base.fabric
+        ? [{ meshName: 'body', color: baseColor, ...fabricSurface({ fabric: base.fabric }) }]
+        : base.kind === 'solid' && baseColor === manifest.material.color
           ? []
           : [{ meshName: 'body', color: baseColor, roughness: 0.86, metalness: 0 }],
       ...panelAspects({ manifest }),

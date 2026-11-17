@@ -36,9 +36,9 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().selectedMeshName).toBe('collar')
   })
 
-  // Per-mesh fabric is a concept-garment feature; the tee base is v2.
+  // Per-mesh fabric is a legacy-stack feature (the house jacket).
   test('applyFabric is a no-op without a selection or known preset', () => {
-    useEditorStore.getState().setGarmentId({ garmentId: 'gown' })
+    useEditorStore.getState().setGarmentId({ garmentId: 'jacket' })
     useEditorStore.getState().selectMesh({ selectedMeshName: null })
     useEditorStore.getState().applyFabric({
       fabricId: 'ivory-silk',
@@ -131,8 +131,9 @@ describe('useEditorStore', () => {
     })
     useEditorStore.getState().setGarmentId({ garmentId: 'tee' })
 
+    // The tee stores the cloth a colourway is (writer W), and keeps its colour.
     expect(useEditorStore.getState().overrides).toHaveLength(1)
-    expect(useEditorStore.getState().fabricId).toBe('ivory-silk')
+    expect(useEditorStore.getState().baseFabricId).toBe('silk')
 
     useEditorStore.getState().setGarmentId({ garmentId: 'slip' })
 
@@ -140,6 +141,7 @@ describe('useEditorStore', () => {
     expect(useEditorStore.getState().selectedMeshName).toBe('body')
     expect(useEditorStore.getState().overrides).toEqual([])
     expect(useEditorStore.getState().fabricId).toBeNull()
+    expect(useEditorStore.getState().baseFabricId).toBeNull()
     expect(useEditorStore.getState().colorId).toBeNull()
     expect(useEditorStore.getState().studioView).toBe('cloth')
   })

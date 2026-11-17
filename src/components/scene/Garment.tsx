@@ -42,6 +42,7 @@ import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { detailNormalMap } from '../../lib/fabric-detail'
 import { FABRIC_MAP_SRC } from '../../lib/fabric-maps'
+import { readGarmentMaterial, useGarmentMaterialProbe } from '../../lib/garment-material-probe'
 import { createClothingMesh } from '../../lib/tee-geometry'
 import { createShapeRig } from '../../lib/garment-shape'
 import { ClothingPoseContext } from './clothing-pose'
@@ -424,6 +425,11 @@ export function SeatedForm({
           }
         }
       }
+    }
+
+    // The studio's garment reports its cloth, so the 3D look is checkable.
+    if (picking) {
+      useGarmentMaterialProbe.setState({ probe: readGarmentMaterial({ meshes }) })
     }
 
     lerpClock.current = picking ? 0 : 1

@@ -413,6 +413,24 @@ export function getFabricById({ id }: { id: string }) {
   return fabricById.get(id)
 }
 
+export function isBaseFabricId(id: string | null | undefined): id is BaseFabricId {
+  return typeof id === 'string' && (BASE_FABRIC_IDS as readonly string[]).includes(id)
+}
+
+/**
+ * The base cloth a preset is (writer W): itself for a base preset, else the
+ * base preset with its texture ("Blush Silk" is silk). Null for none.
+ */
+export function baseFabricFor({ fabricId }: { fabricId: string }): BaseFabricId | null {
+  if (isBaseFabricId(fabricId)) {
+    return fabricId
+  }
+
+  const mapId = getFabricById({ id: fabricId })?.mapId
+  const base = mapId ? FABRIC_PRESETS.find((preset) => preset.mapId === mapId && isBaseFabricId(preset.id)) : undefined
+  return base && isBaseFabricId(base.id) ? base.id : null
+}
+
 export function getFabricByMapId({ mapId }: { mapId: string }) {
   return fabricByMapId.get(mapId)
 }
