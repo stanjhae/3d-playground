@@ -12,6 +12,7 @@
     "generate": "node scripts/generate-routes.mjs",
     "garments": "node scripts/build-jacket.mjs",
     "tee": "node scripts/build-tee.mjs",
+    "bake:pattern": "node scripts/bake-pattern-glb.mjs",
     "graphics": "node scripts/build-graphics.mjs",
     "fabric-maps": "node scripts/build-fabric-maps.mjs",
     "stills": "node scripts/bake-stills.mjs",
