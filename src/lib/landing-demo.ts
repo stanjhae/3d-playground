@@ -1,3 +1,4 @@
+import { currentTemplateFor } from './template-manifest'
 import { CONCEPT_FEATURES, showsGarmentInStudio } from './concept-flags'
 import type { AvatarMeasurements } from './avatar-geometry'
 import {
@@ -373,16 +374,18 @@ export const LANDING_VIEW_PANEL: Record<LandingCameraView, PanelId> = {
 
 /**
  * Width / height of each panel of the landing's real tee, keyed by the
- * sketch's own panel names (what `LANDING_VIEW_PANEL` writes). The pad takes
- * this shape, so its ink covers the whole panel, sleeves included.
- * landing-demo.test.ts checks them against the template the hero renders.
+ * sketch's own panel names (what `LANDING_VIEW_PANEL` writes), which are the
+ * tee's render panels. Read from the tee the hero draws, so a re-baked tee
+ * brings its own shapes. The pad takes this shape, so its ink covers the
+ * whole panel, sleeves included. landing-demo.test.ts checks them against
+ * the rendered tee.
  */
-export const LANDING_PANEL_ASPECT: Record<string, number> = {
-  front: 0.813,
-  back: 0.761,
-  left: 1.31,
-  right: 1.443,
-}
+export const LANDING_PANEL_ASPECT: Record<string, number> = Object.fromEntries(
+  Object.values(currentTemplateFor({ templateId: 'tee-crew-short' }).regions).map((region) => [
+    region.renderPanel,
+    region.surface?.panelAspect ?? 1,
+  ]),
+)
 
 /**
  * A point on the wide sketch pad, placed on a panel without stretching:

@@ -1,3 +1,4 @@
+import { LAYER_SCALE_RANGE, clampLayerScale } from './layer-scale'
 import type {
   DesignDocument,
   DesignLayer,
@@ -393,11 +394,14 @@ export function hitLayerHandle({
   // The nearest handle within reach wins, so the top edge and the rotate
   // handle just above it can each be grabbed.
   let nearest: { handle: LayerHandle; distance: number } | null = null
+  // Edges answer only near the rim: a press in the middle of a mark always
+  // moves it, however small the mark (its edge reaches would cover it).
+  const core = Math.abs(local.x) < half.width * 0.6 && Math.abs(local.y) < half.height * 0.6
 
   for (const handle of ['scale', 'rotate', ...LAYER_EDGES] as const) {
     const at = handles[handle]
 
-    if (!at) {
+    if (!at || (core && isEdgeHandle(handle))) {
       continue
     }
 
@@ -505,12 +509,9 @@ export function layerVoice({
   return 'Look'
 }
 
-/** The smallest and largest a drag may make a side (as `scale` and `scaleY`). */
-export const LAYER_SCALE_RANGE = { min: 0.04, max: 0.6 } as const
+export { LAYER_SCALE_RANGE }
 
-function clampScale(value: number) {
-  return Math.min(LAYER_SCALE_RANGE.max, Math.max(LAYER_SCALE_RANGE.min, value))
-}
+const clampScale = clampLayerScale
 
 /**
  * Dragging one edge of a layer (stretch one side, W): only that side moves.
@@ -544,14 +545,34 @@ export function stretchEdge({
   // The side's length now, in true units; at least the smallest a layer may be.
   const length = horizontal ? box.width * aspect : box.height
   const start = horizontal ? layer.scale : scaleY
-  const next = clampScale(start * Math.max(0.01, (length + sign * along) / Math.max(1e-6, length)))
-  // Measured on the new box, since a box never gets smaller than its minimum.
-  const after = layerBox({ layer: { ...layer, ...(horizontal ? { scale: next } : layer.kind === 'pattern' ? { scale: next } : { scaleY: next }) } as PlaceableLayer })
-  const grown = (horizontal ? after.width * aspect : after.height) - length
-  // The centre follows the moving side by half its growth.
-  const shift = (sign * grown) / 2
-  const x = layer.x + (horizontal ? shift * cos : -shift * sin) / aspect
-  const y = layer.y + (horizontal ? shift * sin : shift * cos)
+  const wanted = clampScale(start * Math.max(0.01, (length + sign * along) / Math.max(1e-6, length)))
+  // The centre for a given size: it follows the moving side by half the
+  // growth, measured on the new box (a box never gets smaller than its minimum).
+  const placed = (size: number) => {
+    const after = layerBox({ layer: { ...layer, ...(horizontal ? { scale: size } : layer.kind === 'pattern' ? { scale: size } : { scaleY: size }) } as PlaceableLayer })
+    const shift = (sign * ((horizontal ? after.width * aspect : after.height) - length)) / 2
+    return {
+      x: layer.x + (horizontal ? shift * cos : -shift * sin) / aspect,
+      y: layer.y + (horizontal ? shift * sin : shift * cos),
+    }
+  }
+  const fits = ({ x, y }: { x: number; y: number }) => x >= 0 && x <= 1 && y >= 0 && y <= 1
+  let next = wanted
+
+  // Past the panel's edge the centre would have to be clamped, which would
+  // move the side that should stay put; stretch only as far as it fits.
+  if (!fits(placed(wanted)) && fits(placed(start))) {
+    let [low, high] = [start, wanted]
+
+    for (let step = 0; step < 24; step += 1) {
+      const middle = (low + high) / 2
+      ;[low, high] = fits(placed(middle)) ? [middle, high] : [low, middle]
+    }
+
+    next = low
+  }
+
+  const { x, y } = placed(next)
 
   return {
     x: Math.min(1, Math.max(0, x)),

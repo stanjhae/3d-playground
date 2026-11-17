@@ -821,6 +821,65 @@ function drawGarmentPhasedPattern({
 }) {
   const rect = atlasSourceRect({ panel: layer.panel, width: buffer.width, height: buffer.height, rects: buffer.panelUv })
   const clip = buffer.clip ?? panelPixelBox({ buffer, panel: layer.panel })
+  const row0 = Math.max(0, clip.y0)
+  const row1 = Math.min(buffer.height, clip.y1)
+  const column0 = Math.max(0, clip.x0)
+  const column1 = Math.min(buffer.width, clip.x1)
+  const mask = phasedPatternMask({ buffer, layer, phase, period, rect, row0, row1, column0, column1 })
+  const span = column1 - column0
+
+  for (let row = row0; row < row1; row += 1) {
+    const at = (row - row0) * span
+
+    for (let column = column0; column < column1; column += 1) {
+      if (mask[at + column - column0]) {
+        writePixel({ buffer, index: (row * buffer.width + column) * 4, ...color })
+      }
+    }
+  }
+}
+
+/**
+ * Which pixels of a panel a garment-phased stripe or check inks, worked out
+ * once per pattern and panel and kept: the per-pixel trigonometry and
+ * pattern test cost a full panel (a million pixels at 2048) on every atlas
+ * compile otherwise, while the base rarely changes. Colours aren't part of
+ * it, so a colour change reuses the mask.
+ */
+const PHASED_MASKS = new Map<string, Uint8Array>()
+const PHASED_MASK_LIMIT = 8
+
+function phasedPatternMask({
+  buffer,
+  layer,
+  phase,
+  period,
+  rect,
+  row0,
+  row1,
+  column0,
+  column1,
+}: {
+  buffer: AtlasBuffer
+  layer: Extract<DesignLayer, { kind: 'pattern' }>
+  phase: NonNullable<Extract<DesignLayer, { kind: 'pattern' }>['garmentPhase']>
+  period: number
+  rect: ReturnType<typeof atlasSourceRect>
+  row0: number
+  row1: number
+  column0: number
+  column1: number
+}) {
+  const key = JSON.stringify([buffer.width, buffer.height, layer.patternId, period, phase, rect, row0, row1, column0, column1])
+  const cached = PHASED_MASKS.get(key)
+
+  if (cached) {
+    // Most recent last, so the oldest is the one dropped.
+    PHASED_MASKS.delete(key)
+    PHASED_MASKS.set(key, cached)
+    return cached
+  }
+
   const { frame } = phase
   // Atlas pixels per metre of print space. Panels share one scale up the
   // garment, so this is the same on every panel and the bands keep their
@@ -829,22 +888,32 @@ function drawGarmentPhasedPattern({
   const band = Math.max(1, (period * buffer.width) / 2)
   const cos = Math.cos(-phase.angle)
   const sin = Math.sin(-phase.angle)
+  const span = Math.max(0, column1 - column0)
+  const mask = new Uint8Array(Math.max(0, row1 - row0) * span)
 
-  for (let row = Math.max(0, clip.y0); row < Math.min(buffer.height, clip.y1); row += 1) {
+  for (let row = row0; row < row1; row += 1) {
     // Canonical y runs up, atlas rows down: measured downward from the origin.
     const y = -(frame.y1 - ((row + 0.5 - rect.sourceY) / rect.sourceHeight) * (frame.y1 - frame.y0)) * perY
 
-    for (let column = Math.max(0, clip.x0); column < Math.min(buffer.width, clip.x1); column += 1) {
+    for (let column = column0; column < column1; column += 1) {
       const across = (column + 0.5 - rect.sourceX) / rect.sourceWidth
       const x = (frame.x0 + (phase.mirrorX ? 1 - across : across) * (frame.x1 - frame.x0)) * perY
       const u = x * cos - y * sin
       const v = x * sin + y * cos
 
       if (periodicInk({ patternId: layer.patternId, x: u / band, y: v / band })) {
-        writePixel({ buffer, index: (row * buffer.width + column) * 4, ...color })
+        mask[(row - row0) * span + column - column0] = 1
       }
     }
   }
+
+  PHASED_MASKS.set(key, mask)
+
+  if (PHASED_MASKS.size > PHASED_MASK_LIMIT) {
+    PHASED_MASKS.delete(PHASED_MASKS.keys().next().value!)
+  }
+
+  return mask
 }
 
 /**
@@ -1095,6 +1164,24 @@ function clipToPanel({
   panel: Stroke['panel']
 }): AtlasBuffer {
   return { ...buffer, clip: panelPixelBox({ buffer, panel }) }
+}
+
+/**
+ * Whether any dab of `stroke` lands within reach of its panel's rim, where
+ * it would change the edge pixels the bleed spreads outward. Generous: the
+ * widest dab (full pressure) plus two pixels.
+ */
+export function strokeReachesRim({ buffer, stroke }: { buffer: AtlasBuffer; stroke: Stroke }) {
+  const rect = atlasSourceRect({ panel: stroke.panel, width: buffer.width, height: buffer.height, rects: buffer.panelUv })
+  const reach = stroke.width * 1.25 * buffer.width + 2
+
+  return stroke.points.some(
+    (point) =>
+      point.x * rect.sourceWidth < reach ||
+      (1 - point.x) * rect.sourceWidth < reach ||
+      point.y * rect.sourceHeight < reach ||
+      (1 - point.y) * rect.sourceHeight < reach,
+  )
 }
 
 /** How far each panel's edge pixels bleed into the gap around it: 8 px at 1024, 16 at 2048. */
@@ -1547,8 +1634,18 @@ export function createLiveAtlas({ enabled = true }: { enabled?: boolean } = {}) 
       }
     }
 
-    // Only the stroke's panel changed, so only its edge bleeds again.
-    bleedPanels({ buffer: out, panels: [extraStroke.panel] })
+    // Only the stroke's panel changed, and only ink that reaches its rim
+    // changes the edge pixels the bleed copies; elsewhere the band from the
+    // cached compile still holds, so a live stroke skips the work. An
+    // isolated layer is drawn back over a base compiled without it, so its
+    // own strokes on the panel count too.
+    const layerAtRim =
+      plan.kind === 'isolated' &&
+      plan.layer.strokes.some((stroke) => stroke.panel === extraStroke.panel && strokeReachesRim({ buffer: out, stroke }))
+
+    if (layerAtRim || strokeReachesRim({ buffer: out, stroke: extraStroke })) {
+      bleedPanels({ buffer: out, panels: [extraStroke.panel] })
+    }
 
     return out
   }

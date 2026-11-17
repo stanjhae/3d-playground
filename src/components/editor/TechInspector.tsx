@@ -1,3 +1,4 @@
+import { LAYER_SCALE_RANGE } from '../../lib/layer-scale'
 import {
   Suspense,
   lazy,
@@ -369,8 +370,8 @@ export function TechInspector() {
         <div className="flex items-start gap-2">
           <input
             type="range"
-            min={0.05}
-            max={0.8}
+            min={LAYER_SCALE_RANGE.min}
+            max={LAYER_SCALE_RANGE.max}
             step={0.01}
             aria-label={TRANSFORM_FIELDS.scale.name}
             className="min-h-9 min-w-0 flex-1 accent-[var(--color-flv-accent)]"

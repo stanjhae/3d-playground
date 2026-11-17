@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { createEmptyCanonicalDocument } from './canonical-document'
-import { canUpgradeTemplate, upgradeToCurrentTemplate } from './template-upgrade'
+import { currentTemplateFor, resolveTemplate } from './template-manifest'
+import { canUpgradeTemplate, upgradeKeepsSize, upgradeToCurrentTemplate } from './template-upgrade'
 
 function teeOn({ version }: { version: number }) {
   const document = createEmptyCanonicalDocument({ version })
@@ -60,8 +61,8 @@ describe('upgradeToCurrentTemplate', () => {
     expect(ink?.kind === 'paint' ? ink.strokes[0]!.points : null).toEqual([0.9, 0.2, 0.75, 0.4])
   })
 
-  it('re-pins @2 to @5 with their stored placements unchanged (their back already mirrors)', () => {
-    for (const version of [2, 3, 4, 5]) {
+  it('re-pins the procedural @2 and @3 with their stored placements unchanged (their back already mirrors)', () => {
+    for (const version of [2, 3]) {
       const source = teeOn({ version })
       const result = upgradeToCurrentTemplate({ document: source })
 
@@ -69,6 +70,43 @@ describe('upgradeToCurrentTemplate', () => {
       if (!result.ok) return
       expect(result.document.panels).toEqual(source.panels)
     }
+  })
+
+  it('moves the real tee @4 and @5 to @6 keeping each mark\'s size and place on the cloth', () => {
+    const to = currentTemplateFor({ templateId: 'tee-crew-short' })
+
+    for (const version of [4, 5]) {
+      const source = teeOn({ version })
+      const result = upgradeToCurrentTemplate({ document: source })
+      expect(result.ok && result.changed).toBe(true)
+      if (!result.ok) return
+      const from = resolveTemplate(source.template)
+      if (!from.ok) throw new Error('unknown template')
+
+      // On the cloth, in centimetres of the (shared) panel height: atlas pixels over pixels per height.
+      const onCloth = (manifest: typeof to, panel: string, layer: { x: number; scale: number }) => {
+        const region = manifest.regions[panel]!
+        const perHeight = (region.uv.v1 - region.uv.v0) * manifest.atlas.height
+        return {
+          size: (layer.scale * manifest.atlas.width) / perHeight,
+          fromMiddle: (layer.x - 0.5) * region.surface!.panelAspect,
+        }
+      }
+
+      const before = source.panels.front!.layers[0] as { x: number; scale: number }
+      const after = result.document.panels.front!.layers[0] as { x: number; scale: number }
+      const was = onCloth(from.manifest, 'front', before)
+      const now = onCloth(to, 'front', after)
+      expect(now.size).toBeCloseTo(was.size, 6)
+      expect(now.fromMiddle).toBeCloseTo(was.fromMiddle, 6)
+      expect(after.scale).not.toBeCloseTo(before.scale, 3)
+    }
+  })
+
+  it('says marks keep their size only when coming from the real tee', () => {
+    expect(upgradeKeepsSize({ document: teeOn({ version: 5 }) })).toBe(true)
+    expect(upgradeKeepsSize({ document: teeOn({ version: 4 }) })).toBe(true)
+    expect(upgradeKeepsSize({ document: teeOn({ version: 2 }) })).toBe(false)
   })
 
   it('leaves a design already on the newest version alone', () => {
