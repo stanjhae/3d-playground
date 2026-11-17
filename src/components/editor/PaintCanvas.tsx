@@ -30,6 +30,8 @@ import {
   panelTrueAspect,
   hitLayerHandle,
   hitPlaceableLayer,
+  isBaseFill,
+  movableOnSurface,
   isEdgeHandle,
   layerStretches,
   layerVoice,
@@ -205,7 +207,8 @@ function paintPanelSurface({
     context.drawImage(veil, 0, 0, canvas.width, canvas.height)
   }
 
-  if (selected && selected.panel === panel) {
+  // A hidden layer, or the garment's own base pattern, gets no frame to grab.
+  if (selected && selected.panel === panel && selected.visible && !isBaseFill({ layer: selected })) {
     const frame = canvasLayerFrame({
       layer: selected,
       width: canvas.width,
@@ -577,7 +580,7 @@ function PaintSurface({
         ? event.pressure
         : undefined
 
-    if (selected && selected.panel === panel && (selected.kind === 'pattern' || !selected.locked)) {
+    if (selected && selected.panel === panel && movableOnSurface({ layer: selected })) {
       const handle = hitLayerHandle({
         layer: selected,
         x: point.x,
@@ -979,7 +982,7 @@ function PaintSurface({
       />
       {guides ? <PanelGuideOverlay guides={guides} /> : null}
       {snapGuides.length ? <SnapGuideOverlay guides={snapGuides} /> : null}
-      {selected && selected.panel === panel && !editingWord ? (
+      {selected && selected.panel === panel && selected.visible && !isBaseFill({ layer: selected }) && !editingWord ? (
         <SelectionToolbar layer={selected} canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
       ) : null}
       {editingWord && selected?.kind === 'text' && selected.panel === panel ? (

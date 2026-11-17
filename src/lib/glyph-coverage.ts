@@ -79,6 +79,11 @@ export function glyphMessage({ text, face }: { text: string; face: CanonicalText
     return null
   }
 
+  // Emoji are pictures, not letters: no type face prints them, so say what to do instead.
+  if (characters.every((character) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(character))) {
+    return `Emoji can't be printed as text. Remove ${characters.length > 1 ? 'them' : 'it'}, or add a picture from Graphics instead.`
+  }
+
   const shown = characters.slice(0, 5)
   const more = characters.length - shown.length
   const other: CanonicalTextFace = face === 'display' ? 'sans' : 'display'

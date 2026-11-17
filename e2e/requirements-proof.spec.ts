@@ -342,7 +342,7 @@ test('a failed unpublish shows the error, says it is still published, and can be
   url.searchParams.set('step', 'share')
   await page.goto(url.toString())
   await expectSaved({ page })
-  const unpublish = page.getByRole('button', { name: 'Unpublish' })
+  const unpublish = page.getByRole('button', { name: 'Unpublish', exact: true })
   await expect(unpublish).toBeVisible()
 
   const publication = '**/api/flp/designs/*/publication'
@@ -356,6 +356,7 @@ test('a failed unpublish shows the error, says it is still published, and can be
       : route.continue(),
   )
   await unpublish.click()
+  await page.getByRole('button', { name: 'Yes, unpublish' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Still published' })).toContainText('Injected failure')
   await expect(unpublish).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Publish publicly…' })).toHaveCount(0)
@@ -363,6 +364,7 @@ test('a failed unpublish shows the error, says it is still published, and can be
 
   await page.unroute(publication)
   await unpublish.click()
+  await page.getByRole('button', { name: 'Yes, unpublish' }).click()
   await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeVisible()
   expect((await request.get(`/api/flp/public/${slug}`)).status()).toBe(404)
 })

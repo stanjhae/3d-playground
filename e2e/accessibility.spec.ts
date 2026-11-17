@@ -271,7 +271,12 @@ test('save, history, publishing and sharing work from the keyboard alone', async
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(href)
   await expect(page.getByRole('status').filter({ hasText: 'Link copied.' })).toBeVisible()
 
-  await tabTo({ page, target: page.getByRole('button', { name: 'Unpublish' }) })
+  await tabTo({ page, target: page.getByRole('button', { name: 'Unpublish', exact: true }) })
+  await page.keyboard.press('Enter')
+  // The question opens with the safe choice focused; Tab reaches the action.
+  await expect(page.getByRole('button', { name: 'Keep it published' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'Yes, unpublish' })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeFocused()
   await expect(page.getByRole('status').filter({ hasText: 'Unpublished.' })).toBeVisible()

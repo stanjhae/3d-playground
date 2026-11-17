@@ -403,7 +403,11 @@ function AtelierHome() {
         ...previous,
         step: current,
       }),
-      replace: true,
+      // Each step the designer moves to is a history entry, so browser Back
+      // returns to the previous step (the ?step= effect above applies it)
+      // instead of leaving the studio. Filling in a missing step on entry
+      // replaces, so Back from the first step still leaves.
+      replace: search.step === undefined,
     })
   }, [createStep, navigate, search.step])
 

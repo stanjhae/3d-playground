@@ -135,7 +135,8 @@ test('create → edit → save → publish → view signed out → unpublish →
   expect(JSON.stringify(payload)).not.toContain(email)
 
   // Unpublish: the public page is gone at once.
-  await page.getByRole('button', { name: 'Unpublish' }).click()
+  await page.getByRole('button', { name: 'Unpublish', exact: true }).click()
+  await page.getByRole('button', { name: 'Yes, unpublish' }).click()
   await expect(page.getByRole('button', { name: 'Publish publicly…' })).toBeVisible()
   await anonymous.reload()
   await expect(anonymous.getByRole('heading', { name: 'This design is not available' })).toBeVisible()

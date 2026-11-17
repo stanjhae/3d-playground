@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
 import { type DesignThumbnail, designThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { type DesignSummary, deleteDesign, unpublishDesign, updateDesign } from '../../lib/flp-api/client'
 import { voteCountLabel } from '../../lib/flp-api/votes'
 import { buttonClass } from '../ui/Button'
@@ -42,6 +43,7 @@ export function DesignCard({
   const [mode, setMode] = useState<'view' | 'rename' | 'confirm-delete'>('view')
   const [title, setTitle] = useState(design.title)
   const [busy, setBusy] = useState(false)
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const dialog = useRef<HTMLDialogElement>(null)
   const renameButton = useRef<HTMLButtonElement>(null)
@@ -110,6 +112,8 @@ export function DesignCard({
     setError(null)
     const result = await unpublishDesign({ designId: design.id })
     setBusy(false)
+
+    setConfirmUnpublish(false)
 
     if (result.ok) {
       onUnpublished?.()
@@ -192,7 +196,7 @@ export function DesignCard({
               className={smallButton}
               disabled={busy}
               aria-label={`Unpublish ${design.title}`}
-              onClick={() => void unpublish()}
+              onClick={() => setConfirmUnpublish(true)}
             >
               {busy ? 'Unpublishing…' : 'Unpublish'}
             </button>
@@ -252,6 +256,22 @@ export function DesignCard({
           {error}
         </p>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmUnpublish}
+        title={`Unpublish “${design.title}”?`}
+        confirmLabel="Yes, unpublish"
+        busyLabel="Unpublishing…"
+        cancelLabel="Keep it published"
+        busy={busy}
+        onConfirm={() => void unpublish()}
+        onCancel={() => setConfirmUnpublish(false)}
+      >
+        <p>
+          Its public link stops working straight away and it leaves the board. Its votes are kept if you publish it again.
+          The design stays in My Studio.
+        </p>
+      </ConfirmDialog>
 
       <dialog
         ref={dialog}

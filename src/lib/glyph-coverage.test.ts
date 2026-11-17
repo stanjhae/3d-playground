@@ -74,6 +74,15 @@ describe('glyphMessage', () => {
     )
   })
 
+  test('says plainly that emoji are not printed as text', () => {
+    expect(glyphMessage({ text: 'FLV 🔥', face: 'display' })).toBe(
+      "Emoji can't be printed as text. Remove it, or add a picture from Graphics instead.",
+    )
+    expect(glyphMessage({ text: '👍🏽 ❤️', face: 'sans' })).toBe(
+      "Emoji can't be printed as text. Remove them, or add a picture from Graphics instead.",
+    )
+  })
+
   test('is null for drawable text', () => {
     expect(glyphMessage({ text: 'FLP 2026', face: 'display' })).toBeNull()
   })
