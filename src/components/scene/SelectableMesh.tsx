@@ -11,6 +11,7 @@ import {
   endClothPaint,
   moveClothDrag,
   startClothDrag,
+  clothGestureActive,
   startClothPaint,
 } from '../../lib/cloth-pointer'
 import { anchorFromHit, clothDragStep } from '../../lib/cloth-drag-ray'
@@ -295,6 +296,13 @@ export function SelectableMesh({
         // Not inking, placing or dragging: leave the press to the orbit so
         // the garment turns instead of collecting stray ink.
         if (gesture === 'none') {
+          return
+        }
+
+        // The second finger of a pinch or two-finger turn lands here too:
+        // the gesture already dropped the first finger's line, so this press
+        // must not start another one (a turn left a stroke behind on phones).
+        if (clothGestureActive()) {
           return
         }
 

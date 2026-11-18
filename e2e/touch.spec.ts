@@ -218,3 +218,49 @@ test('a graphic held and dragged from the library by a finger lands where it is 
   expect(mark!.x).toBeCloseTo(target!.panelX, 1)
   expect(mark!.y).toBeCloseTo(target!.panelY, 1)
 })
+
+test('on a phone the camera views fit one row on Design, and a two-finger turn lets go of a held side', async ({ page }) => {
+  // Review of #406: the views now show on the phone Design step, so they must
+  // not wrap over the garment; and Draw's two-finger turn must let go of
+  // Back as a one-finger drag does, instead of springing back.
+  test.setTimeout(150_000)
+  const email = newEmail({ label: 'touch-held-turn' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).tap()
+  await expect(page).toHaveURL(/\/create\?cloud=/)
+  await expectSaved({ page })
+  await chooseTool({ page, tool: 'Draw' })
+
+  const camera = page.getByRole('radiogroup', { name: 'Camera' })
+  await expect(camera).toBeVisible()
+  const fit = await camera.evaluate((bar) => ({ height: bar.getBoundingClientRect().height, overflow: bar.scrollWidth - bar.clientWidth }))
+  // One row of 44 px buttons, not two, and nothing scrolled out of sight.
+  expect(fit.height).toBeLessThan(80)
+  expect(fit.overflow).toBeLessThanOrEqual(0)
+
+  await camera.getByRole('radio', { name: 'Back', exact: true }).tap()
+  await expect(camera.getByRole('radio', { name: 'Back', exact: true })).toHaveAttribute('aria-checked', 'true')
+
+  // Two fingers side by side, moved together across the garment.
+  const stage = (await page.locator('canvas[aria-describedby="studio-scene-description"]').boundingBox())!
+  const cx = stage.x + stage.width / 2
+  const cy = stage.y + stage.height / 2
+  const cdp = await page.context().newCDPSession(page)
+  const fingers = (shift: number) => [
+    { x: cx - 20 + shift, y: cy, id: 1 },
+    { x: cx + 20 + shift, y: cy, id: 2 },
+  ]
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(-40) })
+  for (let step = 1; step <= 10; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(-40 + step * 8) })
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+
+  await expect(camera.getByRole('radio', { name: 'Orbit', exact: true })).toHaveAttribute('aria-checked', 'true')
+  // Two fingers turn; they never draw.
+  for (const panel of ['front', 'back'] as const) {
+    expect(await savedStrokes({ page, panel })).toHaveLength(0)
+  }
+})

@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 
 import { endClothDrag, endClothPaint, holdClothForGesture } from '../../lib/cloth-pointer'
 import { useEditorStore } from '../../lib/editor-store'
+import { HAND_TURN_PX } from '../../lib/studio-camera'
 import { type Point, pinchedPlacement, twoFingerChange } from '../../lib/two-finger'
 
 type OrbitLike = {
@@ -112,10 +113,9 @@ export function ClothTwoFinger() {
         useEditorStore.getState().moveLayerEdit({ edit: { layerId: gesture.layerId, x: gesture.x, y: gesture.y, ...placed } })
       } else if (controls) {
         // A held view (Back, a sleeve) would pull the camera back: a turn by
-        // hand lets go of it, as a one-finger orbit drag does (`StudioOrbit`).
-        const store = useEditorStore.getState()
-        if (store.cameraPreset !== 'orbit' && !store.capturingAngles && Math.hypot(change.pan.x, change.pan.y) > 4) {
-          store.setCameraPreset({ cameraPreset: 'orbit' })
+        // hand lets go of it, as a one-finger drag does (`StudioCamera`).
+        if (Math.hypot(change.pan.x, change.pan.y) > HAND_TURN_PX) {
+          useEditorStore.getState().releaseHeldView()
         }
 
         controls.setAzimuthalAngle(gesture.azimuth - change.pan.x * TURN_PER_PX)

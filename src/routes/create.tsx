@@ -637,8 +637,8 @@ function AtelierHome() {
             {/* The camera views ride the bottom of the garment, as at lg, not a header row of their own. */}
             {/* On Design too, so a phone can pick a view or let the tee turn freely. */}
             {!lgUp && mode === 'design' && (showsPreviewRails({ step: createStep }) || showsDesignRails({ step: createStep })) ? (
-              <div data-stage-bar className="pointer-events-auto absolute inset-x-0 bottom-2 flex justify-center">
-                <CameraPresetBar />
+              <div data-stage-bar className="pointer-events-auto absolute inset-x-2 bottom-2 flex justify-center">
+                <CameraPresetBar compact />
               </div>
             ) : null}
           </div>
