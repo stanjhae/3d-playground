@@ -2,7 +2,9 @@
 
 **Status:** research note, 12 Nov 2026. Written for the founder's MVP review, which asked whether users could change a garment's shape, cut and proportions in 2D and have the 3D garment follow. That is the founder's "Workflow 1". Nothing here is a product claim, and `docs/claims-audit.md` still applies, including "no live AI anywhere".
 
-## Status, 16 Nov 2026: Tier 2 is being built
+## Status, 16 Nov 2026: Tiers 2 and 3 are built
+
+(Updated 18 Nov: every phase below is merged. What's left, the costs and the build-or-buy question are in **Effort and cost** at the end.)
 
 The owner chose to build Tiers 2 and 3 in full: in-browser simulation, all garments, Pattern mode as an opt-in beta, and the AI assist behind flags. The decision and its design rules are in `docs/decisions.md` (16 Nov). The phases are:
 
@@ -16,7 +18,7 @@ The owner chose to build Tiers 2 and 3 in full: in-browser simulation, all garme
 | 5 | The Pattern (beta) editor, behind `VITE_PATTERN_BETA` | Built (#383) |
 | 6 | The AI suggestion, behind `VITE_AI_ASSIST` and `FLP_AI_ASSIST` | Built (#384) |
 
-Both flags are off until the owner turns them on (`docs/deploy.md`).
+Both flags are off until the owner turns them on (`docs/deploy.md`). On 18 Nov, `VITE_PATTERN_BETA` is set in Vercel Production; whether to `true` is for the owner to confirm. `VITE_AI_ASSIST` is not set, and there is no Anthropic key.
 
 **Spike S1 (tee drape), measured.** A four-piece tee: front, back, a sleeve and its mirror, ten seams.
 - At 25 mm spacing it has about 1,560 particles and 2,850 triangles. It settles in about 3 s of simulated time, which took 0.4–0.6 s in node on a desktop.
@@ -120,15 +122,38 @@ Making it fast and deterministic enough for autosave, publishing and stored rend
 | Prints follow | Yes (same UVs) | Yes (pieces are UV islands) | Inherited from the tier it targets |
 | Depends on | Nothing new | Tier 1 is helpful, not required | Tier 1 or Tier 2 |
 
-## Recommended path
+## Effort and cost (added 18 Nov 2026)
 
-1. **Now:** finish making Workflow 2 smooth (plan Phases 1–5), then ship **Tier 1** on the tee (Phase 6). Measure whether testers use the shape controls, and which ones.
-2. **Next:** a time-boxed **Tier 2 spike**. Pick one tee pattern (front, back, two sleeves), build the pattern document and validator, and drape it with an off-the-shelf or server-side solver. Answer three questions:
-   - Can we make it deterministic enough to hash and publish?
-   - How fast is it in a browser?
-   - Do panel-normalised prints map cleanly onto pattern pieces?
+The founder asked (call agenda, round 3) for development effort, costs, and whether to build, integrate or license. All figures are estimates for this team, a single developer working with AI coding help. They aren't quotes.
 
-   Go or no-go on full Tier 2 from that.
-3. **Later:** add **Tier 3** as an assistant that outputs Tier 1 parameters first, and Tier 2 patterns once Tier 2 exists. Keep it out of the critical path and out of site claims until it really works.
+### What it took, and what's left
 
-Each tier is optional in the UI. A beginner stays in Workflow 2, and an ambitious designer opts into shape, then pattern. That's how creative freedom grows without making the MVP harder to use.
+| | Built so far | Left before it's a dependable feature for testers |
+| --- | --- | --- |
+| Tier 1: shape sliders | Done on the tee (Phase 6) | Same sliders on the newer garments: about 1–2 weeks |
+| Tier 2: Pattern (beta) | Pattern document, cloth solver, 2D editor, cut-outs, fabric-driven drape, stored meshes (#378–#383, #394, #395) | Real-phone drape timing (target under 6 s for a tee), a tester round, and fixes from it: about 3–6 weeks |
+| Tier 3: AI suggestion | Built behind two flags, with no key set (#384) | An API key, a cost cap per account and overall, moderation of inputs, and a claims-audit entry: about 1–2 weeks once Tier 2 is open to testers |
+
+### Running costs
+
+- **Tiers 1 and 2:** no per-use cost. The cloth simulation runs in the user's browser, and the drape is stored once per published version, in the database and storage we already pay for.
+- **Tier 3:** each AI suggestion is one request to Claude Opus 5.5 (`claude-opus-5-5`, $4 per million input tokens, $20 per million output, at low effort). One sketch image plus the prompt is about 3,500 tokens in and 1,000–2,000 out, so about **3–5 cents per suggestion**.
+  - The default cap of 30 suggestions per account per day (`FLP_AI_DAILY_LIMIT`) bounds the worst case at about **$1.50 per account per day**. A real tester would use a few.
+  - A cheaper model could cut this. Claude Sonnet 5.5 costs about half as much, and Claude Haiku 5.5 a small fraction of a cent. But a smaller model would need checking on the same sketches first, since suggestions must stay valid patterns.
+  - Before turning it on, set an overall monthly spending limit in the Anthropic console.
+
+### Build, integrate or license
+
+- **Professional garment tools (CLO3D, Browzwear VStitcher, Marvelous Designer):** desktop applications for fashion professionals, licensed per seat. They do pattern-to-3D simulation very well, but they aren't made to run inside a consumer website for every visitor. Using one here would need a commercial agreement with the vendor; ask them whether an embeddable or server licence exists and at what price. They are a good reference for what "good drape" looks like, and a possible export target later (designers could take a pattern into them).
+- **AI image-to-3D services (TRELLIS, Hunyuan3D and similar):** they produce a convincing-looking surface, but no pattern pieces or printable areas, so they can't be edited, printed on or made. They don't fit as the core.
+- **Building on our own pattern core (current approach):** the result is editable, printable and stays in our own document format and pipeline. The cost is the remaining work above, and the risk is drape quality and speed on low-end phones.
+
+**Recommendation:** keep building on our own pattern core, use AI only as an assistant that produces Tier 1 settings or Tier 2 patterns, and revisit licensing only if testers say the drape quality isn't good enough.
+
+## Recommended path (updated 18 Nov 2026)
+
+1. **Now:** validate the current editor (Workflow 2 plus the Tier 1 shape sliders) with outside testers and the mockup-video campaign. Measure which shape controls they use.
+2. **Next:** open Pattern (beta) to a small group, measure drape time on real phones, and fix what they find. Go or no-go on making it a standard mode depends on that round.
+3. **Then:** turn on the AI suggestion for the same group, with spending caps, once Pattern (beta) holds up. Add the claims-audit entry first, and keep AI out of site claims until it really works.
+
+Each tier stays optional in the UI. A beginner stays in Workflow 2, and an ambitious designer opts into shape, then pattern. That's how creative freedom grows without making the MVP harder to use.

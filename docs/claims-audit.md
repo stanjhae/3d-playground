@@ -36,7 +36,7 @@ The mockups are `IMG-20260915-WA00xx.jpg`, supplied by the founder (S10 in #125)
 | WA0017 | AI model-shoot presets and results | A conditional downstream still-image experiment. | **Hidden** | The Coming soon section doesn't render with the flag off. With it on, it says "Live generation is not built yet" (`LandingSoon.tsx`). No AI service exists. Rights to `public/stills/*`: #138. |
 | WA0019 | Runway/video studio | Future pipeline. Any sample clip is illustrative. | **Hidden** | As WA0017. With the flag on: "Motion generation is not built yet". No video exists. |
 | WA0022 | Personal work, draft save, publishing, visibility | Account workspace, private by default, a public link to a chosen version. Comments on shared designs and a Following list of designers you follow are on beta (17 Nov, `docs/decisions.md`); no remix rights. | **Working** | `e2e/journey.spec.ts` (create → save → publish → view signed out → unpublish → delete), `e2e/isolation.spec.ts`, My Studio (`e2e/my-studio.spec.ts`). The landing's Share stage is a badged sample: its visibility choice is **Private / Published by link**, matching the real model, and its button reads "Publish from My Studio". |
-| WA0028 | Discovery and rankings | A separate concept phase. No live rankings and no traction inferred. | **Working** (votes); rankings **hidden** | Real voting: one vote per account on a shared design (`VoteButton.tsx`, `publication_votes` primary key, `votes.integration.test.ts`). The count is read from the database, never claimed. Rankings on `/vote` are built only from counted account votes (`flp_board_ranked`, by period and garment; see `docs/abuse.md` for what counts). The landing's sample "Top designs" is hidden; with the flag on it says "Sample ranking from the legacy guest board. Not live traction." |
+| WA0028 | Discovery and rankings | A separate concept phase. No live rankings and no traction inferred. | **Working** (votes and rankings) | Real voting: one vote per account on a shared design (`VoteButton.tsx`, `publication_votes` primary key, `votes.integration.test.ts`). The count is read from the database, never claimed. Rankings on `/ranking` are built only from counted account votes, and `/vote` is a discovery feed that lists designs with fewest recent votes first (`flp_vote_feed`) (`flp_board_ranked`, by period and garment; see `docs/abuse.md` for what counts). The landing's sample "Top designs" is hidden; with the flag on it says "Sample ranking from the legacy guest board. Not live traction." |
 
 ## Every visible claim
 
@@ -121,7 +121,7 @@ Removed with the rebuild: the six-stage walkthrough (Select, Fit, Color, Design,
 | Category | Status |
 | --- | --- |
 | Counts | None on the landing. The only number is a shared design's live vote count, read from the database. |
-| Rankings | No ranking exists from account votes. The sample "Top designs" is hidden. |
+| Rankings | `/ranking` ranks published designs by counted account votes only, never by a number we supply. The landing's sample "Top designs" is hidden. |
 | Offers ("10K", free access) | Removed on 1 Nov, and pinned out by `claims.spec.ts`. |
 | AI | No live AI on the site. The AI suggestion in Pattern (beta) exists behind owner flags and is off. When on, it sends a sketch or words to Anthropic's Claude and returns edits you preview and apply. It is never described as designing. Model shoot and video are hidden. Graphics are curated and called Graphics. |
 | Vector conversion | Not claimed anywhere. |
