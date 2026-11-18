@@ -1,9 +1,12 @@
 import { BufferAttribute, type BufferGeometry, Matrix4, Vector3 } from 'three'
 
-import { type GarmentShape, isNeutralShape } from './garment-shape-params.ts'
+import { eraseFrame, GARMENT_SHAPE_MAPS, type ShapeMap } from './garment-shape-maps.ts'
+import { type GarmentShape, isNeutralShape, shapeSpecFor } from './garment-shape-params.ts'
 
 /**
- * Parametric shape v1: sliders that deform the real tee (template v4).
+ * Parametric shape v1: sliders that deform the real tee (template v4). The
+ * other garments' region maps are in `garment-shape-maps.ts`; the rig and
+ * `deformGeometry` here run any of them.
  *
  * The garment keeps its mesh: every vertex moves, none is added or removed,
  * and UVs (fabric and print) are untouched, so prints, strokes and graphics
@@ -35,8 +38,10 @@ export {
   SHAPE_FIELDS,
   SHAPE_LIMITS,
   type ShapeField,
+  shapeSpecFor,
   templateHasShape,
 } from './garment-shape-params.ts'
+export type { ShapeMap } from './garment-shape-maps.ts'
 
 /** What each mesh of the v4 tee is to the deformer. */
 export type ShapePart = 'body' | 'sleeves' | 'collar'
@@ -309,8 +314,10 @@ export function deformPositions({
   }
 
   const { centerX, hemY, armpitY, collar } = frame
-  const drop = (armpitY - hemY) * shape.bodyLength
-  const neckDrop = NECK_DROP * shape.necklineDepth
+  const bodyLength = shape.bodyLength ?? 0
+  const bodyWidth = shape.bodyWidth ?? 0
+  const drop = (armpitY - hemY) * bodyLength
+  const neckDrop = NECK_DROP * (shape.necklineDepth ?? 0)
 
   for (let index = 0; index < out.length; index += 3) {
     const x = positions[index]!
@@ -321,7 +328,7 @@ export function deformPositions({
     if (part === 'sleeves') {
       const plus = x >= centerX
       const sleeve = plus ? frame.sleeves.plusX : frame.sleeves.minusX
-      const amount = plus ? shape.leftSleeveLength : shape.rightSleeveLength
+      const amount = (plus ? shape.leftSleeveLength : shape.rightSleeveLength) ?? 0
 
       if (sleeve && amount !== 0) {
         const weight = seamDistance({ seam: sleeve.seam, x, y, z }) / sleeve.reach
@@ -337,8 +344,8 @@ export function deformPositions({
         dy -= clamp01((armpitY - y) / (armpitY - hemY)) * drop
       }
 
-      if (shape.bodyWidth !== 0 && y < armpitY) {
-        dx += (x - centerX) * shape.bodyWidth * smoothstep(0, WIDTH_EASE, armpitY - y)
+      if (bodyWidth !== 0 && y < armpitY) {
+        dx += (x - centerX) * bodyWidth * smoothstep(0, WIDTH_EASE, armpitY - y)
       }
     }
 
@@ -386,18 +393,21 @@ export function deformGeometry({
   part,
   shape,
   frame,
+  map = TEE_SHAPE_MAP,
 }: {
   geometry: BufferGeometry
   toGarment: Matrix4
-  part: ShapePart
+  part: string
   shape: GarmentShape
-  frame: ShapeFrame
+  frame: unknown
+  /** The template's region map; the tee's by default. */
+  map?: ShapeMap
 }): BufferGeometry {
   if (isNeutralShape({ shape })) {
     return geometry
   }
 
-  const moved = deformPositions({
+  const moved = map.deform({
     positions: garmentSpacePositions({ geometry, toGarment }),
     part,
     shape,
@@ -420,10 +430,30 @@ export function deformGeometry({
   return out
 }
 
+/** The tee's region map (template v4 on): measured from its parts when first shaped. */
+export const TEE_SHAPE_MAP: ShapeMap = eraseFrame<ShapeFrame>({
+  parts: TEE_V4_SHAPE_PARTS,
+  measure: ({ parts }) => measureShapeFrame({ parts: parts as ShapeMeasurePart[] }),
+  deform: ({ positions, part, shape, frame }) => deformPositions({ positions, part: part as ShapePart, shape, frame }),
+})
+
+/**
+ * The region map a rendered garment deforms with, by its garment id and
+ * version (`DesignDocument.garmentId`, `garmentVersion`), or null when its
+ * model has none and ignores `shape`.
+ */
+export function shapeMapFor({ garmentId, garmentVersion }: { garmentId: string; garmentVersion: number }): ShapeMap | null {
+  if (garmentId === 'tee') {
+    return shapeSpecFor({ template: { id: 'tee-crew-short', version: garmentVersion } }) ? TEE_SHAPE_MAP : null
+  }
+
+  return shapeSpecFor({ template: { id: garmentId, version: garmentVersion } }) ? (GARMENT_SHAPE_MAPS[garmentId] ?? null) : null
+}
+
 type RigMesh = { name: string; geometry: BufferGeometry; matrixWorld: Matrix4 }
 
 /** The shape map's part for a mesh, by its own name or an ancestor's. */
-function partOf({ names, parts }: { names: string[]; parts: Record<string, ShapePart> }) {
+function partOf({ names, parts }: { names: string[]; parts: Record<string, string> }) {
   for (const name of names) {
     if (parts[name]) {
       return parts[name]
@@ -442,11 +472,15 @@ function partOf({ names, parts }: { names: string[]; parts: Record<string, Shape
 export function createShapeRig<M extends RigMesh>({
   root,
   meshes,
-  parts = TEE_V4_SHAPE_PARTS,
+  map = TEE_SHAPE_MAP,
+  parts = map?.parts ?? {},
 }: {
   root: { matrixWorld: Matrix4; updateMatrixWorld: (force?: boolean) => void }
   meshes: (M & { parent?: { name: string; parent?: unknown } | null })[]
-  parts?: Record<string, ShapePart>
+  /** The template's region map (the tee's by default); null: the model has none. */
+  map?: ShapeMap | null
+  /** Which meshes it reaches; the map's own by default, `{}` for none. */
+  parts?: Record<string, string>
 }) {
   root.updateMatrixWorld(true)
   const fromRoot = new Matrix4().copy(root.matrixWorld).invert()
@@ -464,7 +498,7 @@ export function createShapeRig<M extends RigMesh>({
       ? [{ mesh, part, original: mesh.geometry, toGarment: new Matrix4().multiplyMatrices(fromRoot, mesh.matrixWorld) }]
       : []
   })
-  let frame: ShapeFrame | null | undefined
+  let frame: unknown
   let current: GarmentShape | null = null
 
   return {
@@ -479,8 +513,8 @@ export function createShapeRig<M extends RigMesh>({
 
       current = next
 
-      if (next && frame === undefined) {
-        frame = measureShapeFrame({
+      if (next && frame === undefined && map) {
+        frame = map.measure({
           parts: rigged.map(({ part, original, toGarment }) => ({
             part,
             positions: garmentSpacePositions({ geometry: original, toGarment }),
@@ -491,8 +525,8 @@ export function createShapeRig<M extends RigMesh>({
       for (const entry of rigged) {
         const previous = entry.mesh.geometry
         entry.mesh.geometry =
-          next && frame
-            ? deformGeometry({ geometry: entry.original, toGarment: entry.toGarment, part: entry.part, shape: next, frame })
+          next && frame && map
+            ? deformGeometry({ geometry: entry.original, toGarment: entry.toGarment, part: entry.part, shape: next, frame, map })
             : entry.original
 
         if (previous !== entry.original && previous !== entry.mesh.geometry) {

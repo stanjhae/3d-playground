@@ -56,7 +56,7 @@ export function baseColorOf({ document }: { document: CanonicalDocument }) {
  * `teeStillScale` fits it back in.
  */
 export function teeOutlinePoints({ shape }: { shape?: GarmentShape }) {
-  const s = shape ?? NEUTRAL_SHAPE
+  const s = { ...NEUTRAL_SHAPE, ...shape }
   const sleeve = ({ shoulder, armpit, cuffTop, cuffBottom, length }: Record<'shoulder' | 'armpit' | 'cuffTop' | 'cuffBottom', [number, number]> & { length: number }) => {
     const reach = 1 + length
     return {

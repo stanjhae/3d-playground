@@ -1,29 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { shapeOf } from '../../lib/canonical-document'
 import { useEditorStore } from '../../lib/editor-store'
 import {
   clampShapeValue,
   type GarmentShape,
-  SHAPE_CONTROLS,
-  SHAPE_LIMITS,
+  neutralShapeFor,
   type ShapeField,
+  type ShapeSpec,
   shapeValueLabel,
 } from '../../lib/garment-shape-params'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
 
-const SLEEVES: readonly ShapeField[] = ['leftSleeveLength', 'rightSleeveLength']
-
-/** The fields one slider moves: both sleeves while they are mirrored. */
-function linkedFields({ field, mirrored }: { field: ShapeField; mirrored: boolean }) {
-  return mirrored && SLEEVES.includes(field) ? SLEEVES : [field]
+/** The fields one slider moves: both of the pair (sleeves, legs) while they are mirrored. */
+function linkedFields({ field, mirrored, spec }: { field: ShapeField; mirrored: boolean; spec: ShapeSpec }) {
+  const pair: readonly ShapeField[] = spec.pair?.fields ?? []
+  return mirrored && pair.includes(field) ? pair : [field]
 }
 
 function ShapeSlider({
   field,
   label,
   step,
+  limits,
   value,
   onPreview,
   onCommit,
@@ -31,6 +30,7 @@ function ShapeSlider({
   field: ShapeField
   label: string
   step: number
+  limits: { min: number; max: number }
   value: number
   onPreview: (value: number) => void
   onCommit: (value: number) => void
@@ -65,8 +65,8 @@ function ShapeSlider({
         type="range"
         name={field}
         aria-label={label}
-        min={SHAPE_LIMITS[field].min}
-        max={SHAPE_LIMITS[field].max}
+        min={limits.min}
+        max={limits.max}
         step={step}
         value={value}
         onChange={(event) => onPreview(Number.parseFloat(event.target.value))}
@@ -76,56 +76,66 @@ function ShapeSlider({
   )
 }
 
-/** Parametric shape v1: sliders that deform the real tee (template v4). */
-export function ShapeRail() {
+/**
+ * Parametric shape: sliders that deform the garment's real model, the ones
+ * its template's shape map offers (`shapeSpecFor`).
+ */
+export function ShapeRail({ spec }: { spec: ShapeSpec }) {
   const stored = useEditorStore((state) => state.document.shape)
   const preview = useEditorStore((state) => state.shapePreview)
   const previewShape = useEditorStore((state) => state.previewShape)
   const setShape = useEditorStore((state) => state.setShape)
-  const shape: GarmentShape = preview ?? shapeOf({ document: { shape: stored } })
-  const [mirrored, setMirrored] = useState(() => shape.leftSleeveLength === shape.rightSleeveLength)
+  const shape: GarmentShape = preview ?? stored ?? neutralShapeFor({ spec })
+  const value = (field: ShapeField) => shape[field] ?? 0
+  const pair = spec.pair
+  const [mirrored, setMirrored] = useState(() => !pair || value(pair.fields[0]) === value(pair.fields[1]))
 
-  const patchFor = ({ field, value }: { field: ShapeField; value: number }) =>
+  const patchFor = ({ field, value: next }: { field: ShapeField; value: number }) =>
     Object.fromEntries(
-      linkedFields({ field, mirrored }).map((linked) => [linked, clampShapeValue({ field: linked, value })]),
-    ) as Partial<GarmentShape>
+      linkedFields({ field, mirrored, spec }).map((linked) => [linked, clampShapeValue({ field: linked, value: next, spec })]),
+    ) as GarmentShape
 
   return (
     <aside className={railFrameClass()} data-testid="shape-rail">
       <p className={chromeKickerClass()}>{HOUSE_COPY.cut}</p>
-      <label className={`flex min-h-11 items-center gap-2 ${chromeTextClass()}`}>
-        <input
-          type="checkbox"
-          checked={mirrored}
-          onChange={(event) => {
-            const next = event.target.checked
-            setMirrored(next)
+      {pair ? (
+        <label className={`flex min-h-11 items-center gap-2 ${chromeTextClass()}`}>
+          <input
+            type="checkbox"
+            checked={mirrored}
+            onChange={(event) => {
+              const next = event.target.checked
+              setMirrored(next)
 
-            // Locking evens the sleeves out to the wearer's left one.
-            if (next && shape.leftSleeveLength !== shape.rightSleeveLength) {
-              setShape({ shape: { rightSleeveLength: shape.leftSleeveLength } })
-            }
-          }}
-          className="accent-flv-accent"
-        />
-        Mirror sleeves
-      </label>
-      {SHAPE_CONTROLS.filter((control) => !(mirrored && control.field === 'rightSleeveLength')).map((control) => (
-        <ShapeSlider
-          key={control.field}
-          field={control.field}
-          label={mirrored && control.field === 'leftSleeveLength' ? 'Sleeves' : control.label}
-          step={control.step}
-          value={shape[control.field]}
-          onPreview={(value) => previewShape({ shape: { ...shape, ...patchFor({ field: control.field, value }) } })}
-          onCommit={(value) => setShape({ shape: patchFor({ field: control.field, value }) })}
-        />
-      ))}
+              // Locking evens the pair out to the wearer's left one.
+              if (next && value(pair.fields[0]) !== value(pair.fields[1])) {
+                setShape({ shape: { [pair.fields[1]]: value(pair.fields[0]) } })
+              }
+            }}
+            className="accent-flv-accent"
+          />
+          {pair.label}
+        </label>
+      ) : null}
+      {spec.controls
+        .filter((control) => !(mirrored && pair && control.field === pair.fields[1]))
+        .map((control) => (
+          <ShapeSlider
+            key={control.field}
+            field={control.field}
+            label={mirrored && pair && control.field === pair.fields[0] ? pair.together : control.label}
+            step={control.step}
+            limits={spec.limits[control.field]!}
+            value={value(control.field)}
+            onPreview={(next) => previewShape({ shape: { ...shape, ...patchFor({ field: control.field, value: next }) } })}
+            onCommit={(next) => setShape({ shape: patchFor({ field: control.field, value: next }) })}
+          />
+        ))}
       <button
         type="button"
         disabled={!stored}
         onClick={() => {
-          setShape({ shape: { leftSleeveLength: 0, rightSleeveLength: 0, bodyLength: 0, bodyWidth: 0, necklineDepth: 0 } })
+          setShape({ shape: neutralShapeFor({ spec }) })
         }}
         className={`min-h-11 border border-flv-line px-3 text-flv-muted hover:text-flv-accent disabled:opacity-40 ${chromeTextClass()}`}
       >

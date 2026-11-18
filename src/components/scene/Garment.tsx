@@ -47,7 +47,7 @@ import { detailNormalMap } from '../../lib/fabric-detail'
 import { FABRIC_MAP_SRC } from '../../lib/fabric-maps'
 import { readGarmentMaterial, useGarmentMaterialProbe } from '../../lib/garment-material-probe'
 import { createClothingMesh } from '../../lib/tee-geometry'
-import { createShapeRig, garmentSpacePositions } from '../../lib/garment-shape'
+import { createShapeRig, garmentSpacePositions, shapeMapFor } from '../../lib/garment-shape'
 import { fitGarment } from '../../lib/garment-fit'
 import { ClothingPoseContext, GarmentFitContext } from './clothing-pose'
 import { SelectableMesh } from './SelectableMesh'
@@ -370,6 +370,9 @@ export function SeatedForm({
   // Its own cache: the tee leaves pending words out.
   const [liveAtlas] = useState(() => createLiveAtlas({ enabled: LIVE_STROKE_CACHE }))
 
+  // The model's shape map (`garment-shape-maps.ts`), by its garment and version.
+  const shapeMap = shapeMapFor({ garmentId: inkDocument.garmentId, garmentVersion: inkDocument.garmentVersion })
+
   const { tree, meshes, baseMaterials, shapeRig, toGarment } = useMemo(() => {
     const root = scene.clone(true)
     cloneObjectMaterials({ root })
@@ -381,11 +384,11 @@ export function SeatedForm({
     const fromRoot = new Matrix4().copy(root.matrixWorld).invert()
     const toGarment = meshes.map((mesh) => new Matrix4().multiplyMatrices(fromRoot, mesh.matrixWorld))
     // Before the graph comes apart: the rig reads each mesh's place in it.
-    const shapeRig = createShapeRig({ root, meshes, ...(clothDetail ? { parts: {} } : {}) })
+    const shapeRig = createShapeRig({ root, meshes, map: clothDetail ? null : shapeMap })
     const tree = detachChildren({ object: root })
 
     return { tree, meshes, baseMaterials, shapeRig, toGarment }
-  }, [clothDetail, scene])
+  }, [clothDetail, scene, shapeMap])
 
   // Parametric shape: the studio's slider preview while dragging, else the document's.
   const shapePreview = useEditorStore((state) => state.shapePreview)
