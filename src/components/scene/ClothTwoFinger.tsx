@@ -111,6 +111,13 @@ export function ClothTwoFinger() {
         const placed = pinchedPlacement({ scale: gesture.scale, rotation: gesture.rotation, change })
         useEditorStore.getState().moveLayerEdit({ edit: { layerId: gesture.layerId, x: gesture.x, y: gesture.y, ...placed } })
       } else if (controls) {
+        // A held view (Back, a sleeve) would pull the camera back: a turn by
+        // hand lets go of it, as a one-finger orbit drag does (`StudioOrbit`).
+        const store = useEditorStore.getState()
+        if (store.cameraPreset !== 'orbit' && !store.capturingAngles && Math.hypot(change.pan.x, change.pan.y) > 4) {
+          store.setCameraPreset({ cameraPreset: 'orbit' })
+        }
+
         controls.setAzimuthalAngle(gesture.azimuth - change.pan.x * TURN_PER_PX)
         controls.setPolarAngle(
           Math.min(controls.maxPolarAngle, Math.max(controls.minPolarAngle, gesture.polar - change.pan.y * TURN_PER_PX)),
