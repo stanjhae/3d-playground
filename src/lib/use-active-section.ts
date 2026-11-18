@@ -51,20 +51,27 @@ export function useActiveSection({ ids }: { ids: readonly string[] }) {
   const key = ids.join(' ')
 
   useEffect(() => {
-    const elements = key
-      .split(' ')
-      .map((id) => document.getElementById(id))
-      .filter((element): element is HTMLElement => element !== null)
+    const sectionIds = key.split(' ')
     let frame = 0
 
+    // Looked up on every measure, not once: the header lives in the app
+    // shell and can mount before the landing's sections exist (a visit from
+    // another page, the landing's code still loading) or while the
+    // prerendered copy is still in place, which is then removed. A list
+    // taken once stays empty or detached, and nothing is ever underlined.
     const measure = () => {
       frame = 0
+      const sections = sectionIds
+        .map((id) => document.getElementById(id))
+        .filter((element): element is HTMLElement => element !== null && element.isConnected)
+        .map((element) => {
+          const box = element.getBoundingClientRect()
+          return { id: element.id, top: box.top, bottom: box.bottom }
+        })
+
       setActive(
         sectionInBand({
-          sections: elements.map((element) => {
-            const box = element.getBoundingClientRect()
-            return { id: element.id, top: box.top, bottom: box.bottom }
-          }),
+          sections,
           viewportHeight: window.innerHeight,
           atEnd: window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2,
         }),
@@ -79,11 +86,16 @@ export function useActiveSection({ ids }: { ids: readonly string[] }) {
     measure()
     window.addEventListener('scroll', schedule, { passive: true })
     window.addEventListener('resize', schedule)
+    // The sections arriving (or the prerendered copy leaving) moves no
+    // scrollbar, so measure again when the page's elements change.
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, { childList: true, subtree: true })
 
     return () => {
       window.cancelAnimationFrame(frame)
       window.removeEventListener('scroll', schedule)
       window.removeEventListener('resize', schedule)
+      observer.disconnect()
     }
   }, [key])
 
