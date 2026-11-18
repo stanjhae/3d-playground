@@ -1,0 +1,66 @@
+{
+  "$comment": "Tee @7: @6 with both sleeves printing all round, the same on each side (founder, round 2: the right sleeve left bare streaks). Each sleeve's axis comes from its surface normals (sleeveAxis), and its fold flanks print, since the sleeve is one layer of cloth (sleeveFolds), and the two lay out as mirror images in one shared rectangle (mirrorSleeves). @4 to @6 stay as they are.",
+  "templateId": "tee-crew-short",
+  "version": 7,
+  "garmentId": "tee",
+  "glb": "public/models/tee-real.glb",
+  "out": "public/models/tee-real-v7.glb",
+  "manifest": "src/lib/templates/tee-v7.ts",
+  "atlas": 2048,
+  "color": "#ffffff",
+  "facingMin": 0.05,
+  "padding": 16,
+  "closeSleeveSeam": true,
+  "sleeveAxis": "normals",
+  "sleeveFolds": true,
+  "mirrorSleeves": true,
+  "frames": true,
+  "panels": [
+    {
+      "id": "front",
+      "label": "Front",
+      "view": "front",
+      "pieces": [
+        {
+          "node": "body-front"
+        }
+      ],
+      "wrap": "torso"
+    },
+    {
+      "id": "back",
+      "label": "Back",
+      "view": "back",
+      "pieces": [
+        {
+          "node": "body-back"
+        }
+      ],
+      "wrap": "torso"
+    },
+    {
+      "id": "left",
+      "label": "Left sleeve",
+      "view": "left",
+      "pieces": [
+        {
+          "node": "body-sleeves",
+          "piece": "+x"
+        }
+      ],
+      "wrap": true
+    },
+    {
+      "id": "right",
+      "label": "Right sleeve",
+      "view": "right",
+      "pieces": [
+        {
+          "node": "body-sleeves",
+          "piece": "-x"
+        }
+      ],
+      "wrap": true
+    }
+  ]
+}

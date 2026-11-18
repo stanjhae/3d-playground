@@ -21,6 +21,7 @@ import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
 import { SNAP_PIXELS, type SnapGuide, snapMove, snapRotation, snapTargets } from '../../lib/panel-snap'
 import { acceptsPointer } from '../../lib/palm-rejection'
 import { claimDrawingPointer, isOtherPointer } from '../../lib/pointer-owner'
+import { type Point, pinchedPlacement, twoFingerChange } from '../../lib/two-finger'
 import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { useLayerImages } from '../../lib/layer-images'
@@ -72,6 +73,11 @@ function panelCanvasSize({ aspect }: { aspect: number }) {
 }
 /** Centres each panel at the canvas's 6:7 aspect, however its cell is shaped. */
 const PANEL_FRAME_CLASS = 'grid min-h-0 flex-1 place-items-center [container-type:size]'
+
+/** Two fingers resizing and turning a mark, or a pinch over whose fingers are still down. */
+type PinchState =
+  | { kind: 'pinch'; start: [Point, Point]; layerId: string; x: number; y: number; scale: number; rotation: number }
+  | { kind: 'spent' }
 
 type DragState = {
   handle: LayerHandle
@@ -556,6 +562,139 @@ function PaintSurface({
     })
   }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, panel, selected, shapeSrc, shapes])
 
+  // Two fingers on a selected mark resize and turn it, as on the cloth
+  // (`ClothTwoFinger`). Whatever the first finger began (a stroke, a drag)
+  // is dropped, and the pinch is one undo step. Until every finger lifts,
+  // the panel's own handlers ignore the fingers, so no stray line or drag
+  // follows the pinch.
+  const pinchRef = useRef<PinchState | null>(null)
+
+  useEffect(() => {
+    const node = canvasRef.current
+
+    if (!node) {
+      return
+    }
+
+    const touches = new Map<number, Point>()
+    // The mark selected when the first finger landed: that finger's press may
+    // have cleared it (a stroke starts on bare cloth) before the second came.
+    let selectedAtFirstTouch: string | null = null
+    const pair = (): [Point, Point] => {
+      const [a, b] = [...touches.values()]
+      return [a!, b!]
+    }
+
+    function begin() {
+      const state = useEditorStore.getState()
+      const layer =
+        selectedPlaceable({ document: state.document, selectedLayerId: state.selectedLayerId }) ??
+        selectedPlaceable({ document: state.document, selectedLayerId: selectedAtFirstTouch })
+
+      if (!layer || layer.panel !== panel || !movableOnSurface({ layer })) {
+        return
+      }
+
+      if (state.selectedLayerId !== layer.id) {
+        state.selectLayer({ selectedLayerId: layer.id })
+      }
+
+      // The first finger's stroke goes, unrecorded; its drag goes back to where it began.
+      if (state.activeStroke) {
+        state.discardStroke()
+      }
+
+      dragRef.current = null
+      setSnapGuides([])
+      const start = { layerId: layer.id, x: layer.x, y: layer.y, scale: layer.scale, rotation: layer.rotation }
+
+      if (useEditorStore.getState().activeLayerEdit) {
+        state.moveLayerEdit({ edit: start })
+      } else {
+        state.startLayerEdit({ edit: start })
+      }
+
+      pinchRef.current = { kind: 'pinch', start: pair(), ...start }
+    }
+
+    function onPointerDown(event: PointerEvent) {
+      // A touch while the pen is in use is a palm: it never pinches.
+      if (event.pointerType !== 'touch' || !acceptsPointer({ pointerType: event.pointerType })) {
+        return
+      }
+
+      if (touches.size === 0) {
+        selectedAtFirstTouch = useEditorStore.getState().selectedLayerId
+      }
+
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+      if (touches.size === 2 && !pinchRef.current) {
+        begin()
+      }
+    }
+
+    function onPointerMove(event: PointerEvent) {
+      if (!touches.has(event.pointerId)) {
+        return
+      }
+
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      const pinch = pinchRef.current
+
+      if (pinch?.kind !== 'pinch' || touches.size !== 2) {
+        return
+      }
+
+      const placed = pinchedPlacement({
+        scale: pinch.scale,
+        rotation: pinch.rotation,
+        change: twoFingerChange({ start: pinch.start, now: pair() }),
+      })
+      useEditorStore.getState().moveLayerEdit({ edit: { layerId: pinch.layerId, x: pinch.x, y: pinch.y, ...placed } })
+    }
+
+    function onPointerUp(event: PointerEvent) {
+      if (!touches.delete(event.pointerId)) {
+        return
+      }
+
+      // The first finger up ends the pinch (one undo step); the rest of the
+      // hand is ignored until it's all off the panel.
+      if (pinchRef.current?.kind === 'pinch') {
+        const state = useEditorStore.getState()
+
+        if (state.activeLayerEdit?.layerId === pinchRef.current.layerId) {
+          state.endLayerEdit()
+        }
+
+        pinchRef.current = { kind: 'spent' }
+      }
+
+      if (touches.size === 0) {
+        pinchRef.current = null
+      }
+    }
+
+    node.addEventListener('pointerdown', onPointerDown, { capture: true })
+    window.addEventListener('pointermove', onPointerMove, { capture: true })
+    window.addEventListener('pointerup', onPointerUp, { capture: true })
+    window.addEventListener('pointercancel', onPointerUp, { capture: true })
+
+    return () => {
+      node.removeEventListener('pointerdown', onPointerDown, { capture: true })
+      window.removeEventListener('pointermove', onPointerMove, { capture: true })
+      window.removeEventListener('pointerup', onPointerUp, { capture: true })
+      window.removeEventListener('pointercancel', onPointerUp, { capture: true })
+
+      if (pinchRef.current?.kind === 'pinch') {
+        useEditorStore.getState().endLayerEdit()
+      }
+
+      pinchRef.current = null
+    }
+  }, [canvasRef, dragRef, panel])
+
   function handlePointerDown({
     event,
   }: {
@@ -565,6 +704,7 @@ function PaintSurface({
 
     if (
       !node ||
+      pinchRef.current ||
       !acceptsPointer({ pointerType: event.pointerType }) ||
       !claimDrawingPointer({ pointerId: event.pointerId, pointerType: event.pointerType })
     ) {
@@ -709,9 +849,11 @@ function PaintSurface({
     const node = canvasRef.current
     const drag = dragRef.current
 
-    // A resting palm moving while the pen draws must not add to the stroke.
+    // A resting palm moving while the pen draws must not add to the stroke,
+    // and a pinch's fingers move the mark, not the stroke or the drag.
     if (
       !node ||
+      pinchRef.current ||
       !acceptsPointer({ pointerType: event.pointerType }) ||
       isOtherPointer({ pointerId: event.pointerId })
     ) {
@@ -838,7 +980,7 @@ function PaintSurface({
   }: {
     event: ReactPointerEvent<HTMLCanvasElement>
   }) {
-    if (isOtherPointer({ pointerId: event.pointerId })) {
+    if (isOtherPointer({ pointerId: event.pointerId }) || pinchRef.current) {
       return
     }
 
@@ -968,7 +1110,7 @@ function PaintSurface({
           handlePointerUp({ event })
         }}
         onPointerCancel={(event) => {
-          if (isOtherPointer({ pointerId: event.pointerId })) {
+          if (isOtherPointer({ pointerId: event.pointerId }) || pinchRef.current) {
             return
           }
 

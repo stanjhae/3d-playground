@@ -88,6 +88,11 @@ This release reads four additions. The writers (plan section W) merge right afte
 - **`scaleY`** is written by the 2D editor: the mid-edge handles stretch one side (left and right change `scale`, top and bottom `scaleY`, the opposite edge staying put), Shift on the corner sizes width and height freely, and the inspector's Width and Height fields (with Keep proportions) take exact values. `updateLayer` accepts `scaleY` on image and text layers; the corner and Size keep a stretched layer's proportions.
 - **`tee-crew-short@6`** has its manifest (`src/lib/templates/tee-v6.ts`) and is the tee's current version: new tee designs pin it, and designs on `@5` and earlier keep theirs (`docs/template-manifest.md`).
 
+### The tee's @7 (18 Nov)
+
+- **`tee-crew-short@7`**: the tee re-baked so both sleeves print all round and lay out as mirror images (`docs/template-manifest.md`). It has its manifest (`src/lib/templates/tee-v7.ts`) and is the tee's current version: new tee designs pin it, and designs on `@6` and earlier keep theirs until their author takes the upgrade. Its panels are the tee's (`front`, `back`, `left`, `right`), so nothing in the document's shape changes.
+- **Reader and writer land together.** It was never listed in `UPCOMING_TEMPLATE_VERSIONS`, so a build before it reads a design on `@7` against the tee's panels, validates it, and reports the version as one it cannot open (`unsupported-version`), never dropping anything. `optional-fields.test.ts` loads, round-trips and hashes a design on it.
+
 ## Content hashing
 
 `hashCanonicalDocument` returns `sha256:<hex>` over the UTF-8 bytes of `serializeCanonicalDocument`. The serialization:

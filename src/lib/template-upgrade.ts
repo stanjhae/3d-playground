@@ -30,17 +30,62 @@ function mirrorLayer({ layer }: { layer: CanonicalLayer }): CanonicalLayer {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 /**
+ * Versions whose sleeve print runs down the arm: the tee's `@5` and `@6`
+ * unrolled each sleeve about an axis found from its vertices' spread, which
+ * came out pointing up, so panel y ran from the shoulder to the cuff and a
+ * mark drawn upright on the flat sleeve showed upside down on the 3D one.
+ * `@7` finds the axis from the sleeve's surface and runs up it again.
+ */
+const SLEEVES_RUN_DOWN: Readonly<Record<string, readonly number[]>> = { 'tee-crew-short': [5, 6] }
+
+function runsDown({ manifest, panel }: { manifest: TemplateManifest; panel: string }) {
+  return (panel === 'left' || panel === 'right') && (SLEEVES_RUN_DOWN[manifest.id]?.includes(manifest.version) ?? false)
+}
+
+/** `value · scale + offset`, along one panel axis. */
+type AxisMap = { scale: number; offset: number }
+
+export type PhysicalMapping = {
+  /** Multiply object scales, `scaleY` and stroke widths by it. */
+  size: number
+  /** Where a point's panel x goes. */
+  x: AxisMap
+  /**
+   * Where a mark's panel y goes. With `turnsOver` the panel's vertical
+   * sense reverses (a sleeve that ran down the arm now runs up it): the
+   * mark moves to where it sat on the cloth, but keeps its shape as drawn,
+   * so it now reads the right way up on the garment too.
+   */
+  y: AxisMap
+  turnsOver: boolean
+}
+
+const IDENTITY: AxisMap = { scale: 1, offset: 0 }
+const isIdentity = ({ scale, offset }: AxisMap) => Math.abs(scale - 1) < 1e-6 && Math.abs(offset) < 1e-6
+
+/** Whether a panel's rectangle is its frame's shape, so panel coordinates run linearly across the frame. */
+function frameIsBox({ manifest, region }: { manifest: TemplateManifest; region: TemplateManifest['regions'][string] }) {
+  const { frame, uv } = region
+  if (!frame) return false
+  const rectAspect = ((uv.u1 - uv.u0) * manifest.atlas.width) / ((uv.v1 - uv.v0) * manifest.atlas.height)
+  return Math.abs(rectAspect / ((frame.x1 - frame.x0) / (frame.y1 - frame.y0)) - 1) < 0.01
+}
+
+/**
  * How one panel's marks map from one version to another so they keep their
- * real size and place on the cloth, or null when that can't be known.
+ * real size and place on the cloth, or null when that can't be known (or
+ * nothing moves).
  *
  * Sizes are fractions of atlas width, so a mark's size on the cloth is its
- * atlas pixels over the panel's pixels per centimetre. Versions baked from
- * the same garment (equal geometry bounds, so equal panel heights) give
- * pixels per centimetre from each panel's atlas height alone; the panel's
- * true width-to-height ratio (`surface.panelAspect`) then gives its width.
- * - `size`: multiply object scales, `scaleY` and stroke widths by it.
- * - `across`: x moves about the panel's middle by it (wider panel, smaller
- *   share), and a fill's repeat (a fraction of panel width) with it.
+ * atlas pixels over the panel's pixels per centimetre.
+ * - Where both versions give the panel's print-space frame (metres, from
+ *   the tee's `@6`) and its rectangle has the frame's shape, the frames say
+ *   exactly where each point lies on the cloth.
+ * - Otherwise versions baked from the same garment (equal geometry bounds,
+ *   so equal panel heights) give pixels per centimetre from each panel's
+ *   atlas height alone; the panel's true width-to-height ratio
+ *   (`surface.panelAspect`) then gives its width, and x moves about the
+ *   panel's middle (wider panel, smaller share).
  */
 export function physicalMapping({
   from,
@@ -50,7 +95,7 @@ export function physicalMapping({
   from: TemplateManifest
   to: TemplateManifest
   panel: string
-}): { size: number; across: number } | null {
+}): PhysicalMapping | null {
   const a = from.regions[panel]
   const b = to.regions[panel]
   const sameGarment =
@@ -68,33 +113,67 @@ export function physicalMapping({
     return null
   }
 
+  const turnsOver = runsDown({ manifest: from, panel }) !== runsDown({ manifest: to, panel })
   const pixelsPerHeight = (manifest: TemplateManifest, region: typeof a) => (region.uv.v1 - region.uv.v0) * manifest.atlas.height
-  const size = (pixelsPerHeight(to, b) / pixelsPerHeight(from, a)) * (from.atlas.width / to.atlas.width)
-  const across = a.surface.panelAspect / b.surface.panelAspect
-  return Math.abs(size - 1) < 1e-6 && Math.abs(across - 1) < 1e-6 ? null : { size, across }
+  let mapping: PhysicalMapping
+
+  if (frameIsBox({ manifest: from, region: a }) && frameIsBox({ manifest: to, region: b })) {
+    const [f, t] = [a.frame!, b.frame!]
+    const perMetre = (manifest: TemplateManifest, region: typeof a) => pixelsPerHeight(manifest, region) / (region.frame!.y1 - region.frame!.y0)
+    // A panel running down the arm has y0 at the cuff end of its frame: up
+    // the arm is −y in its print space (the bake's notes and frames say so).
+    const fromUp = (value: number) => (runsDown({ manifest: from, panel }) ? -1 : 1) * (f.y0 + value * (f.y1 - f.y0))
+    const toY = (up: number) => ((runsDown({ manifest: to, panel }) ? -up : up) - t.y0) / (t.y1 - t.y0)
+    const y0 = toY(fromUp(0))
+    mapping = {
+      size: (perMetre(to, b) / perMetre(from, a)) * (from.atlas.width / to.atlas.width),
+      x: { scale: (f.x1 - f.x0) / (t.x1 - t.x0), offset: (f.x0 - t.x0) / (t.x1 - t.x0) },
+      y: { scale: toY(fromUp(1)) - y0, offset: y0 },
+      turnsOver,
+    }
+  } else {
+    const across = a.surface.panelAspect / b.surface.panelAspect
+    mapping = {
+      size: (pixelsPerHeight(to, b) / pixelsPerHeight(from, a)) * (from.atlas.width / to.atlas.width),
+      x: { scale: across, offset: 0.5 - 0.5 * across },
+      y: turnsOver ? { scale: -1, offset: 1 } : IDENTITY,
+      turnsOver,
+    }
+  }
+
+  return Math.abs(mapping.size - 1) < 1e-6 && isIdentity(mapping.x) && isIdentity(mapping.y) ? null : mapping
 }
 
-function keepPhysical({ layer, size, across }: { layer: CanonicalLayer; size: number; across: number }): CanonicalLayer {
-  const x = (value: number) => clamp(0.5 + (value - 0.5) * across, 0, 1)
+function keepPhysical({ layer, mapping }: { layer: CanonicalLayer; mapping: PhysicalMapping }): CanonicalLayer {
+  const { size, turnsOver } = mapping
+  const x = (value: number) => clamp(value * mapping.x.scale + mapping.x.offset, 0, 1)
+  const y = (value: number) => clamp(value * mapping.y.scale + mapping.y.offset, 0, 1)
   const scale = (value: number) => clamp(value * size, 1e-4, CANONICAL_LIMITS.maxObjectScale)
 
   if (layer.kind === 'paint') {
+    // A drawing moves as one piece: where the panel turns over, its middle
+    // goes where it sat on the cloth and its strokes keep their shape round
+    // it (scaled with the cloth), so lettering still reads as drawn.
+    const ys = layer.strokes.flatMap((stroke) => stroke.points.filter((_, index) => index % 2 === 1))
+    const middle = ys.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 0.5
+    const pointY = turnsOver ? (value: number) => clamp(y(middle) + (value - middle) * Math.abs(mapping.y.scale), 0, 1) : y
+
     return {
       ...layer,
       strokes: layer.strokes.map((stroke) => ({
         ...stroke,
         width: clamp(stroke.width * size, CANONICAL_LIMITS.minStrokeWidth, CANONICAL_LIMITS.maxStrokeWidth),
-        points: stroke.points.map((value, index) => (index % 2 === 0 ? x(value) : value)),
+        points: stroke.points.map((value, index) => (index % 2 === 0 ? x(value) : pointY(value))),
       })),
     }
   }
 
   if (layer.kind === 'fill') {
-    return { ...layer, tile: clamp(layer.tile * across, CANONICAL_LIMITS.minFillTile, CANONICAL_LIMITS.maxFillTile) }
+    return { ...layer, tile: clamp(layer.tile * mapping.x.scale, CANONICAL_LIMITS.minFillTile, CANONICAL_LIMITS.maxFillTile) }
   }
 
   const scaled = scale(layer.scale)
-  const moved = { ...layer, x: x(layer.x), scale: scaled }
+  const moved = { ...layer, x: x(layer.x), y: y(layer.y), scale: scaled }
 
   if (layer.scaleY === undefined) {
     return moved
@@ -121,7 +200,7 @@ function keepPhysical({ layer, size, across }: { layer: CanonicalLayer; size: nu
  * mirrored). Those panels are mirrored so marks keep the side of the body
  * their author put them on.
  *
- * Between versions of the same garment (the real tee's `@4`, `@5`, `@6`)
+ * Between versions of the same garment (the real tee's `@4` to `@7`)
  * marks keep their real size and place on the cloth (`physicalMapping`):
  * a wider panel or a coarser atlas would otherwise show them larger, or
  * nearer the sides. From older procedural versions placement numbers carry
@@ -158,7 +237,7 @@ export function upgradeToCurrentTemplate({ document }: { document: CanonicalDocu
           (from.manifest.regions[panel]?.renderMirrorX ?? false) !== (to.regions[panel]?.renderMirrorX ?? false)
 
         const mapping = physicalMapping({ from: from.manifest, to, panel })
-        const placed = mapping ? layers.map((layer) => keepPhysical({ layer, ...mapping })) : layers
+        const placed = mapping ? layers.map((layer) => keepPhysical({ layer, mapping })) : layers
 
         return [panel, { layers: flips ? placed.map((layer) => mirrorLayer({ layer })) : placed }]
       }),

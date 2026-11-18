@@ -3,11 +3,12 @@ import { describe, expect, test } from 'vitest'
 import { createEmptyDocument } from './design-document'
 import {
   addLandingStroke,
-  applyLandingPattern,
   cameraViewAzimuth,
   colorWithOpacity,
   garmentCategory,
   LANDING_CAMERA_POSITIONS,
+  LANDING_CAMERA_VIEWS,
+  LANDING_VIEW_LABEL,
   LANDING_PANEL_ASPECT,
   LANDING_SCALE_STEP,
   LANDING_VIEW_PANEL,
@@ -16,21 +17,18 @@ import {
   landingClothOverrides,
   latestLandingGraphicId,
   listGarmentsByCategory,
-  pickCannedStillGrid,
   removeLandingGraphic,
   scaleLandingGraphic,
   resolveLandingStrokeTool,
+  sideAtAzimuth,
   sampleSizeMeasurements,
   stampLandingGraphic,
   studioEnvAppearance,
   studioStageBackdrop,
   updateLandingGraphicTransform,
-  videoStillForScene,
-  CANNED_STILLS,
-  SHOOT_PRESETS,
-  VIDEO_SCENES,
 } from './landing-demo'
-import { resolveTemplate } from './template-manifest'
+import { garmentPanels } from './garments'
+import { currentTemplateFor, resolveTemplate } from './template-manifest'
 import { useLandingDemoStore } from './landing-demo-store'
 import { landingPanelRoutes, landingRenderDocument, toSketchPoint, withLandingOverlays } from './landing-real-tee'
 
@@ -43,26 +41,6 @@ describe('landing-demo', () => {
     )
     expect(listGarmentsByCategory({ category: 'bottoms' }).map((garment) => garment.id)).toEqual(['trousers'])
     expect(listGarmentsByCategory({ category: 'accessories' })).toEqual([])
-  })
-
-  test('picks a stable canned still grid from a seed', () => {
-    const first = pickCannedStillGrid({ seed: 'streetwear', count: 4 })
-    const second = pickCannedStillGrid({ seed: 'streetwear', count: 4 })
-    expect(first).toEqual(second)
-    expect(first).toHaveLength(4)
-    expect(
-      first.every((src) =>
-        CANNED_STILLS.includes(src as (typeof CANNED_STILLS)[number]),
-      ),
-    ).toBe(true)
-  })
-
-  test('maps video scenes onto canned stills', () => {
-    expect(VIDEO_SCENES.length).toBeGreaterThan(0)
-    expect(SHOOT_PRESETS.some((preset) => preset.id === 'streetwear')).toBe(
-      true,
-    )
-    expect(videoStillForScene({ sceneId: 'front' })).toMatch(/^\/stills\//)
   })
 
   test('stamps and transforms landing graphics', () => {
@@ -92,7 +70,7 @@ describe('landing-demo', () => {
     }
   })
 
-  test('adds landing strokes and pattern layers', () => {
+  test('adds landing strokes', () => {
     const empty = createEmptyDocument({ garmentId: 'tee' })
     const inked = addLandingStroke({
       document: empty,
@@ -109,21 +87,6 @@ describe('landing-demo', () => {
       expect(paint.strokes).toHaveLength(1)
     }
 
-    const patterned = applyLandingPattern({
-      document: inked,
-      patternId: 'stripe',
-      color: '#ff6a3d',
-    })
-    expect(patterned.layers.some((layer) => layer.kind === 'pattern')).toBe(
-      true,
-    )
-
-    const cleared = applyLandingPattern({
-      document: patterned,
-      patternId: 'solid',
-      color: '#ff6a3d',
-    })
-    expect(cleared.layers.some((layer) => layer.kind === 'pattern')).toBe(false)
   })
 
   test('maps camera views to azimuth and known seats', () => {
@@ -237,7 +200,9 @@ describe('landing-demo', () => {
 
 describe('drawing on a side of the landing tee', () => {
   test("each view draws on its own panel, sleeves by the wearer's side", () => {
-    const resolved = resolveTemplate({ id: 'tee-crew-short', version: 4 })
+    const resolved = resolveTemplate({ id: 'tee-crew-short', version: 7 })
+    // The hero draws on the tee a new design opens on.
+    expect(currentTemplateFor({ templateId: 'tee-crew-short' }).version).toBe(7)
     expect(resolved.ok).toBe(true)
 
     if (resolved.ok) {
@@ -245,6 +210,47 @@ describe('drawing on a side of the landing tee', () => {
         expect(LANDING_VIEW_PANEL[view]).toBe(resolved.manifest.regions[view]!.renderPanel)
       }
     }
+  })
+
+  test('the views are named and ordered as the studio names its tabs', () => {
+    const studio = garmentPanels({ garmentId: 'tee' }).map((panel) => panel.label)
+    expect(LANDING_CAMERA_VIEWS.map((view) => LANDING_VIEW_LABEL[view])).toEqual(studio)
+    // And each names the panel it draws on.
+    expect(LANDING_CAMERA_VIEWS.map((view) => LANDING_VIEW_PANEL[view])).toEqual(
+      garmentPanels({ garmentId: 'tee' }).map((panel) => panel.id),
+    )
+  })
+
+  test('a hand turn lands on the side the camera faces', () => {
+    expect(sideAtAzimuth({ azimuth: 0 })).toBe('front')
+    expect(sideAtAzimuth({ azimuth: Math.PI })).toBe('back')
+    expect(sideAtAzimuth({ azimuth: -Math.PI + 0.1 })).toBe('back')
+    // The wearer's left is +x (`LANDING_CAMERA_POSITIONS`).
+    expect(sideAtAzimuth({ azimuth: Math.PI / 2 })).toBe('left')
+    expect(sideAtAzimuth({ azimuth: -Math.PI / 2 })).toBe('right')
+    // A sleeve's own seat looks at it from a front quarter: still the sleeve.
+    expect(sideAtAzimuth({ azimuth: 0.73, previous: 'left' })).toBe('left')
+    // Near an edge the side holds, and changes once clearly past it.
+    expect(sideAtAzimuth({ azimuth: Math.PI / 6 - 0.05, previous: 'left' })).toBe('left')
+    expect(sideAtAzimuth({ azimuth: Math.PI / 6 - 0.2, previous: 'left' })).toBe('front')
+    expect(sideAtAzimuth({ azimuth: 4 * Math.PI })).toBe('front')
+  })
+
+  test('the store follows a hand turn, never the turntable', () => {
+    const store = useLandingDemoStore
+    store.setState({ cameraView: null, side: 'front', handTurned: false })
+    store.getState().syncSide(Math.PI)
+    expect(store.getState().side).toBe('front')
+
+    store.getState().setCameraView('left')
+    expect(store.getState().side).toBe('left')
+    store.getState().syncSide(Math.PI)
+    expect(store.getState().side).toBe('left')
+
+    store.getState().releaseCameraView()
+    store.getState().syncSide(Math.PI)
+    expect(store.getState().side).toBe('back')
+    store.setState({ cameraView: null, side: 'front', handTurned: false })
   })
 
   test("the pad takes its panel's shape, so ink reaches every edge of it", () => {

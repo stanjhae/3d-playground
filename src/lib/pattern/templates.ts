@@ -86,6 +86,8 @@ const RECIPES: Record<string, Recipe> = {
   'tee-crew-short@5': teeRecipe,
   // The same tee, its front and back wrapped round to the side seams (seam gaps, 17 Nov): wider body frames.
   'tee-crew-short@6': teeRecipe,
+  // The same tee, both sleeves printing all round and laid out as mirror images (round 2): equal sleeve frames.
+  'tee-crew-short@7': teeRecipe,
 
   'hoodie@1': {
     patternVersion: 1,

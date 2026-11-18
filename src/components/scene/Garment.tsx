@@ -2,13 +2,16 @@ import { useGLTF, useTexture } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Suspense, lazy, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  BufferAttribute,
   CanvasTexture,
   Color,
+  Matrix4,
   Mesh,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
   RepeatWrapping,
   SRGBColorSpace,
+  Vector3,
   type Object3D,
   type Texture,
 } from 'three'
@@ -44,8 +47,9 @@ import { detailNormalMap } from '../../lib/fabric-detail'
 import { FABRIC_MAP_SRC } from '../../lib/fabric-maps'
 import { readGarmentMaterial, useGarmentMaterialProbe } from '../../lib/garment-material-probe'
 import { createClothingMesh } from '../../lib/tee-geometry'
-import { createShapeRig } from '../../lib/garment-shape'
-import { ClothingPoseContext } from './clothing-pose'
+import { createShapeRig, garmentSpacePositions } from '../../lib/garment-shape'
+import { fitGarment } from '../../lib/garment-fit'
+import { ClothingPoseContext, GarmentFitContext } from './clothing-pose'
 import { SelectableMesh } from './SelectableMesh'
 
 const PatternGarment = lazy(() => import('./PatternGarment'))
@@ -366,17 +370,21 @@ export function SeatedForm({
   // Its own cache: the tee leaves pending words out.
   const [liveAtlas] = useState(() => createLiveAtlas({ enabled: LIVE_STROKE_CACHE }))
 
-  const { tree, meshes, baseMaterials, shapeRig } = useMemo(() => {
+  const { tree, meshes, baseMaterials, shapeRig, toGarment } = useMemo(() => {
     const root = scene.clone(true)
     cloneObjectMaterials({ root })
     stampAncestorNames({ root })
     const baseMaterials = captureMeshMaterials({ root })
     const meshes = listMeshes({ root })
+    // Each mesh into the model's own frame (the body's, on a figure), for the try-on fit.
+    root.updateMatrixWorld(true)
+    const fromRoot = new Matrix4().copy(root.matrixWorld).invert()
+    const toGarment = meshes.map((mesh) => new Matrix4().multiplyMatrices(fromRoot, mesh.matrixWorld))
     // Before the graph comes apart: the rig reads each mesh's place in it.
     const shapeRig = createShapeRig({ root, meshes, ...(clothDetail ? { parts: {} } : {}) })
     const tree = detachChildren({ object: root })
 
-    return { tree, meshes, baseMaterials, shapeRig }
+    return { tree, meshes, baseMaterials, shapeRig, toGarment }
   }, [clothDetail, scene])
 
   // Parametric shape: the studio's slider preview while dragging, else the document's.
@@ -390,6 +398,52 @@ export function SeatedForm({
   }, [invalidate, shape, shapeRig])
 
   useEffect(() => () => shapeRig.dispose(), [shapeRig])
+
+  // On a figure, the cloth eases out over its bust and hips; after the shape,
+  // and undone before the shape changes again.
+  const fitTo = useContext(GarmentFitContext)
+
+  useLayoutEffect(() => {
+    if (!fitTo) {
+      return
+    }
+
+    const before = meshes.map((mesh) => mesh.geometry)
+    const fitted = fitGarment({
+      measurements: fitTo,
+      parts: meshes.map((mesh, index) => ({
+        name: mesh.name,
+        positions: garmentSpacePositions({ geometry: before[index]!, toGarment: toGarment[index]! }),
+      })),
+    }).positions
+    const after = meshes.map((mesh, index) => {
+      const back = new Matrix4().copy(toGarment[index]!).invert()
+      const point = new Vector3()
+      const positions = fitted[index]!
+
+      for (let at = 0; at < positions.length; at += 3) {
+        point.fromArray(positions, at).applyMatrix4(back).toArray(positions, at)
+      }
+
+      const geometry = before[index]!.clone()
+      geometry.setAttribute('position', new BufferAttribute(positions, 3))
+      geometry.computeBoundingBox()
+      geometry.computeBoundingSphere()
+      mesh.geometry = geometry
+      return geometry
+    })
+    invalidate()
+
+    return () => {
+      meshes.forEach((mesh, index) => {
+        if (mesh.geometry === after[index]) {
+          mesh.geometry = before[index]!
+        }
+        after[index]!.dispose()
+      })
+      invalidate()
+    }
+  }, [fitTo, invalidate, meshes, shape, shapeRig, toGarment])
 
   useLayoutEffect(() => {
     for (const texture of Object.values(loadedMaps)) {

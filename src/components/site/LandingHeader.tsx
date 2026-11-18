@@ -53,7 +53,8 @@ export function LandingHeader({
   return (
     <header className="flv-landing-header fixed inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-flv-ink sm:px-6 sm:pt-4 sm:pb-4">
       {home}
-      <nav aria-label="Site" className="hidden items-center gap-7 font-body text-sm lg:flex">
+      {/* From tablet width up, so the section in view is underlined there too. */}
+      <nav aria-label="Site" className="hidden items-center gap-4 font-body text-sm md:flex lg:gap-7">
         {LANDING_LINKS.map((link) => (
           <a
             key={link.href}
@@ -80,7 +81,9 @@ export function LandingHeader({
               key={link.href}
               href={link.href}
               aria-current={active === link.href.slice(1) ? 'location' : undefined}
-              className={cn(MENU_LINK_CLASS, { 'font-medium text-flv-accent': active === link.href.slice(1) })}
+              className={cn(MENU_LINK_CLASS, {
+                'font-medium text-flv-accent underline decoration-flv-accent decoration-2 underline-offset-4': active === link.href.slice(1),
+              })}
             >
               {link.label}
             </a>

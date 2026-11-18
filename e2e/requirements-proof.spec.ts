@@ -581,7 +581,7 @@ test('every garment with a template is on offer, the T-shirt first, and the serv
   await expectSaved({ page })
   const head = await savedHead({ page })
   // New tees pin the real T-shirt.
-  expect(head.content.template).toEqual({ id: 'tee-crew-short', version: 6 })
+  expect(head.content.template).toEqual({ id: 'tee-crew-short', version: 7 })
 
   expect(await createFromHead({ page, head, template: { id: 'cape', version: 1 } })).toMatchObject({ status: 422 })
 })

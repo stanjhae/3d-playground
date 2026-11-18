@@ -30,7 +30,7 @@ import {
   writeStudioSort,
 } from '../lib/my-studio-list'
 import { failureSentence } from '../lib/flp-api/plain-messages'
-import { consumeLandingHandoff, peekLandingHandoff } from '../lib/landing-handoff'
+import { clearLandingHandoff, consumeLandingHandoff, peekLandingHandoff } from '../lib/landing-handoff'
 import type { CanonicalDocument } from '../lib/canonical-document'
 import type { PendingAsset } from '../lib/legacy-import'
 import { uploadPendingAssets } from '../lib/legacy-assets'
@@ -130,7 +130,7 @@ function MyStudio() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [listNotice, setListNotice] = useState('')
   const designsHeading = useRef<HTMLHeadingElement | null>(null)
-  const [landing] = useState(() => peekLandingHandoff())
+  const [landing, setLanding] = useState(() => peekLandingHandoff())
   // A landing design is shown before and after conversion, then created
   // only when the person chooses (F06 #141).
   const conversion = useMemo(() => (landing ? initialStudioDocument({ handoff: landing }) : null), [landing])
@@ -354,6 +354,25 @@ function MyStudio() {
     setListNotice(`Copied as ${title}.`)
   }
 
+  /** The landing sketch is set aside: the usual garment choice comes back. */
+  function startFresh() {
+    clearLandingHandoff()
+    setLanding(null)
+    setPreviewing(false)
+    setUploadState(null)
+  }
+
+  const startFreshButton = (
+    <button
+      type="button"
+      className="min-h-9 font-body text-sm text-flv-muted underline underline-offset-2 hover:text-flv-ink disabled:opacity-50"
+      disabled={creating}
+      onClick={startFresh}
+    >
+      Start fresh instead
+    </button>
+  )
+
   const shown = list.status === 'ready' ? visibleDesigns({ designs: list.designs, query, sort }) : []
 
   // Create: choosing what to make, apart from the library of what's made.
@@ -377,6 +396,7 @@ function MyStudio() {
             <button type="button" className={buttonClass} disabled={creating || !TEE.ok} onClick={() => setPreviewing(true)}>
               {creating ? 'Creating…' : 'Create from your landing design'}
             </button>
+            {startFreshButton}
           </div>
         ) : (
           <div role="radiogroup" aria-label="Garment" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -508,6 +528,7 @@ function MyStudio() {
                   ? 'Create a T-shirt'
                   : `Create ${withArticle({ noun: getGarment({ garmentId: newGarment }).label.toLowerCase() })}`}
           </button>
+          {conversion?.fromLanding ? startFreshButton : null}
           <button
             type="button"
             className="min-h-9 font-body text-sm text-flv-muted underline underline-offset-2 hover:text-flv-ink disabled:opacity-50"
