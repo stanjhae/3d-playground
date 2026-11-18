@@ -108,6 +108,9 @@ describe('exports exclude selection chrome (#156)', () => {
     expect(meshOutlineVisible({ canPick: false, isSelected: true, hovered: true, capturingAngles: false })).toBe(false)
     // A garment draped from its pattern is one open layer: its outline shell would show through the openings.
     expect(meshOutlineVisible({ canPick: true, isSelected: true, hovered: true, capturingAngles: false, openCloth: isOpenClothMesh({ name: 'body-pattern' }) })).toBe(false)
+    // So is every piece of a template-built garment (it carries print UVs), such as the real tee's front.
+    expect(isOpenClothMesh({ name: 'body-front', printUv: true })).toBe(true)
+    // The early drawn tee is a closed shell: its outline stays.
     expect(isOpenClothMesh({ name: 'body-front' })).toBe(false)
   })
 })

@@ -465,7 +465,7 @@ export function SelectableMesh({
         setHovered(false)
       }}
     >
-      {meshOutlineVisible({ canPick, isSelected, hovered, capturingAngles, openCloth: isOpenClothMesh({ name }) }) ? (
+      {meshOutlineVisible({ canPick, isSelected, hovered, capturingAngles, openCloth: isOpenClothMesh({ name, printUv: Boolean(mesh.geometry.getAttribute('uv1')) }) }) ? (
         <Outlines color={SELECTION_COLOR} thickness={isSelected ? 0.006 : 0.003} />
       ) : null}
       {showCaption ? (
