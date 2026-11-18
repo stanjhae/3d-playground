@@ -2,6 +2,10 @@
 
 Decisions that change scope or behaviour for the alpha (17 November until the entry of 9 Nov 2026, then 1 December until the entry of 11 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
+
+## 18 Nov 2026: Pattern (beta) is on for beta
+
+**Decided by:** owner. `VITE_PATTERN_BETA=true` in Vercel Production (beta.fashionleadervote.com), redeployed the same day. Both preconditions in `docs/deploy.md` held: the pattern reader has been live since 13 Nov (#378), and migration `20261120090000_flp_pattern_meshes` was already on the database. Proof: `/privacy` on beta lists the Pattern (beta) drape, a line only a flag-on build has. The AI suggestion stays off (`VITE_AI_ASSIST`/`FLP_AI_ASSIST` unset, no key), so `docs/claims-audit.md` still says no live AI.
 ## 17 Nov 2026: four garments baked from our own patterns
 
 **Decided by:** roadmap D1 (the plan's step D1, after reader R).

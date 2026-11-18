@@ -1,5 +1,7 @@
 # Reply to the founder's MVP review (12 Nov 2026)
 
+> **Later rounds:** see [founder-feedback-reply-2.md](founder-feedback-reply-2.md). Since this reply, Pattern (beta) and the AI suggestion have been built behind flags, so section 8's "larger, later stage" is out of date; `docs/research/2d-to-3d.md` has the current state.
+
 The founder tested the alpha on a phone and on a desktop from the point of view of a brand-new user, before it goes to outside testers, and sent detailed feedback in eight areas. This file has a ready-to-send reply. It answers each point and says whether the behaviour is **intentional**, a **bug** (with the plan phase that fixes it) or **planned**.
 
 **Notes before sending:**
