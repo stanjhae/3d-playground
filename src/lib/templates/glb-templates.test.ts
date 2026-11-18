@@ -12,6 +12,7 @@ import { HOODIE_V1 } from './hoodie'
 import { TEE_CREW_SHORT_V4 } from './tee-v4'
 import { TEE_CREW_SHORT_V5 } from './tee-v5'
 import { TEE_CREW_SHORT_V6 } from './tee-v6'
+import { TEE_CREW_SHORT_V7 } from './tee-v7'
 import { COAT_V1 } from './coat'
 import { GOWN_V1 } from './gown'
 import { MIXED_V1 } from './mixed'
@@ -43,7 +44,7 @@ function glbJson({ bytes }: { bytes: Uint8Array }) {
 
 const TEMPLATES: Array<{ manifest: TemplateManifest; panels: string[] }> = [
   { manifest: HOODIE_V1, panels: ['front', 'back', 'left', 'right', 'hood-left', 'hood-right'] },
-  { manifest: TEE_CREW_SHORT_V6, panels: ['front', 'back', 'left', 'right'] },
+  { manifest: TEE_CREW_SHORT_V7, panels: ['front', 'back', 'left', 'right'] },
   { manifest: MIXED_V1, panels: ['front', 'back', 'left', 'right'] },
   { manifest: COAT_V1, panels: ['front', 'back', 'left', 'right'] },
   { manifest: SUIT_V1, panels: ['front', 'back', 'left', 'right'] },
@@ -337,6 +338,116 @@ describe('tee-crew-short@6: the sides print (seam gaps, 17 Nov)', () => {
     for (const panel of ['front', 'back', 'left', 'right'] as const) {
       expect(TEE_CREW_SHORT_V6.regions[panel]!.renderPanel).toBe(TEE_CREW_SHORT_V5.regions[panel]!.renderPanel)
       expect(TEE_CREW_SHORT_V6.regions[panel]!.renderMirrorX).toBe(TEE_CREW_SHORT_V5.regions[panel]!.renderMirrorX)
+    }
+  })
+})
+
+describe('tee-crew-short@6, kept for the designs pinned to it', () => {
+  test('still resolves, and its GLB is unchanged', async () => {
+    expect(resolveTemplate({ id: 'tee-crew-short', version: 6 })).toEqual({ ok: true, manifest: TEE_CREW_SHORT_V6 })
+    const digest = await crypto.subtle.digest('SHA-256', await readBytes({ path: `public${TEE_CREW_SHORT_V6.geometry.file}` }))
+    const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+    expect(sha256).toBe(TEE_CREW_SHORT_V6.geometry.sha256)
+  })
+})
+
+/**
+ * Per sleeve and per body piece: the share of its cloth, by area, whose
+ * triangles print. The two sleeves are one mesh node (`body-sleeves`), told
+ * apart by side: the wearer's left at +x.
+ */
+async function printedArea({ file }: { file: string }) {
+  // @ts-expect-error untyped CommonJS module
+  const draco3d = (await import('draco3dgltf')) as { default: { createDecoderModule: () => Promise<unknown> } }
+  const io = new NodeIO()
+    .registerExtensions([KHRDracoMeshCompression])
+    .registerDependencies({ 'draco3d.decoder': await draco3d.default.createDecoderModule() })
+  const document = await io.readBinary(await readBytes({ path: `public${file}` }))
+  const sums: Record<string, { area: number; printed: number }> = {}
+  /** Per piece, sums for the correlation of printed triangles' height with their print v. */
+  const rise: Record<string, number[]> = {}
+
+  for (const node of document.getRoot().listNodes()) {
+    const m = node.getWorldMatrix()
+    for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
+      const position = primitive.getAttribute('POSITION')!
+      const uv = primitive.getAttribute('TEXCOORD_1')!
+      const indices = primitive.getIndices()!.getArray()!
+      const world = (index: number) => {
+        const [x, y, z] = position.getElement(index, [0, 0, 0]) as [number, number, number]
+        return [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]] as const
+      }
+
+      for (let corner = 0; corner < indices.length; corner += 3) {
+        const [a, b, c] = [world(indices[corner]!), world(indices[corner + 1]!), world(indices[corner + 2]!)]
+        const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]
+        const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]
+        const area = Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2
+        const name = node.getName() === 'body-sleeves' ? (a[0] + b[0] + c[0] > 0 ? 'left sleeve' : 'right sleeve') : node.getName()
+        const entry = (sums[name] ??= { area: 0, printed: 0 })
+        entry.area += area
+        if (uv.getElement(indices[corner]!, [0, 0])[0]! < 0) continue
+        entry.printed += area
+        const height = (a[1] + b[1] + c[1]) / 3
+        const printV = [0, 1, 2].reduce((sum, k) => sum + uv.getElement(indices[corner + k]!, [0, 0])[1]!, 0) / 3
+        const r = (rise[name] ??= [0, 0, 0, 0, 0, 0])
+        ;[1, height, printV, height * height, printV * printV, height * printV].forEach((value, k) => (r[k]! += value))
+      }
+    }
+  }
+
+  const correlation = ([n, y, v, yy, vv, yv]: number[]) => (yv! / n! - (y! / n!) * (v! / n!)) / Math.sqrt((yy! / n! - (y! / n!) ** 2) * (vv! / n! - (v! / n!) ** 2))
+  return {
+    printed: Object.fromEntries(Object.entries(sums).map(([name, { area, printed }]) => [name, printed / area])),
+    /** +1 where print v runs up the garment as the body's does, −1 where it runs down. */
+    rise: Object.fromEntries(Object.entries(rise).map(([name, r]) => [name, correlation(r)])),
+  }
+}
+
+describe('tee-crew-short@7: both sleeves print all round, the same on each side (round 2)', () => {
+  test('each sleeve prints at least 97% of its cloth, within 1.5 points of the other, where @6 left the right sleeve 9% bare', async () => {
+    const v6 = (await printedArea({ file: TEE_CREW_SHORT_V6.geometry.file })).printed
+    const v7 = (await printedArea({ file: TEE_CREW_SHORT_V7.geometry.file })).printed
+
+    // @6: the wearer's right sleeve left about twice the left's bare streaks.
+    expect(v6['right sleeve']!).toBeLessThan(0.92)
+    expect(v6['left sleeve']! - v6['right sleeve']!).toBeGreaterThan(0.03)
+
+    for (const sleeve of ['left sleeve', 'right sleeve']) expect(v7[sleeve]!, sleeve).toBeGreaterThanOrEqual(0.97)
+    expect(Math.abs(v7['left sleeve']! - v7['right sleeve']!)).toBeLessThanOrEqual(0.015)
+    // The body is as @6 left it.
+    for (const node of ['body-front', 'body-back']) expect(v7[node]!, node).toBeGreaterThan(0.99)
+    expect(v7['body-collar']).toBe(0)
+  }, 30_000)
+
+  test('a sleeve\'s panel runs up the arm, as the body\'s does, where @6 ran it down (marks showed upside down)', async () => {
+    const v6 = (await printedArea({ file: TEE_CREW_SHORT_V6.geometry.file })).rise
+    const v7 = (await printedArea({ file: TEE_CREW_SHORT_V7.geometry.file })).rise
+
+    for (const piece of ['body-front', 'body-back']) expect(v7[piece]!, piece).toBeGreaterThan(0.9)
+    for (const sleeve of ['left sleeve', 'right sleeve']) {
+      expect(v6[sleeve]!, sleeve).toBeLessThan(-0.9)
+      expect(v7[sleeve]!, sleeve).toBeGreaterThan(0.9)
+    }
+  }, 30_000)
+
+  test('the two sleeves lay out as mirror images in rectangles of one size', () => {
+    const { left, right } = TEE_CREW_SHORT_V7.regions
+    const size = ({ uv }: { uv: { u0: number; u1: number; v0: number; v1: number } }) => [uv.u1 - uv.u0, uv.v1 - uv.v0]
+    expect(size(right!)[0]).toBeCloseTo(size(left!)[0]!, 5)
+    expect(size(right!)[1]).toBeCloseTo(size(left!)[1]!, 5)
+    expect(right!.surface).toEqual(left!.surface)
+    expect(right!.notes).toEqual(left!.notes)
+    // Panel x runs the other way round the right sleeve: its frame is the left's, flipped across.
+    expect([right!.frame!.x0, right!.frame!.x1]).toEqual([-left!.frame!.x1, -left!.frame!.x0])
+    expect([right!.frame!.y0, right!.frame!.y1]).toEqual([left!.frame!.y0, left!.frame!.y1])
+  })
+
+  test('the body is unchanged from @6, and the panels render the same', () => {
+    for (const panel of ['front', 'back'] as const) expect(TEE_CREW_SHORT_V7.regions[panel]).toEqual(TEE_CREW_SHORT_V6.regions[panel])
+    for (const panel of ['front', 'back', 'left', 'right'] as const) {
+      expect(TEE_CREW_SHORT_V7.regions[panel]!.renderPanel).toBe(TEE_CREW_SHORT_V6.regions[panel]!.renderPanel)
+      expect(TEE_CREW_SHORT_V7.regions[panel]!.renderMirrorX).toBe(TEE_CREW_SHORT_V6.regions[panel]!.renderMirrorX)
     }
   })
 })

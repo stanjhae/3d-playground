@@ -159,9 +159,20 @@ export function shapesFromScene({
     }
   })
 
-  // Front and back are symmetrical pieces; sleeves keep their own shape.
+  // Front and back are symmetrical pieces. The two sleeves are one piece
+  // mirrored, so they share one outline, the right's flipped across.
+  const { left, right } = shapes
+
   for (const panel of Object.keys(shapes) as PanelId[]) {
+    if ((panel === 'left' || panel === 'right') && left && right) {
+      continue
+    }
+
     shapes[panel] = cleanPanelShape({ triangles: shapes[panel]!, symmetric: panel === 'front' || panel === 'back' })
+  }
+
+  if (left && right) {
+    Object.assign(shapes, cleanSleevePair({ left, right }))
   }
 
   return shapes
@@ -401,17 +412,52 @@ export function cleanPanelShape({ triangles, symmetric }: { triangles: readonly 
   let mask = blur(blur(rasterise(triangles)))
 
   if (symmetric) {
-    const mirrored = new Float32Array(mask.length)
-
-    for (let y = 0; y < GRID; y += 1) {
-      for (let x = 0; x < GRID; x += 1) {
-        mirrored[y * GRID + x] = (mask[y * GRID + x]! + mask[y * GRID + (GRID - 1 - x)]!) / 2
-      }
-    }
-
-    mask = mirrored
+    mask = mirroredAverage(mask)
   }
 
+  return outline({ mask, fallback: triangles })
+}
+
+/** The mask averaged with its own mirror image, about the centre line. */
+function mirroredAverage(mask: Float32Array) {
+  const out = new Float32Array(mask.length)
+
+  for (let y = 0; y < GRID; y += 1) {
+    for (let x = 0; x < GRID; x += 1) {
+      out[y * GRID + x] = (mask[y * GRID + x]! + mask[y * GRID + (GRID - 1 - x)]!) / 2
+    }
+  }
+
+  return out
+}
+
+/** Flips panel-space triangles across: x → 1 − x. */
+function flipAcross(triangles: readonly number[]) {
+  return triangles.map((value, index) => (index % 2 === 0 ? 1 - value : value))
+}
+
+/**
+ * The two sleeves' outlines as one: a sleeve is one pattern piece cut
+ * twice, mirrored, and the right sleeve's panel runs the other way round
+ * the arm, so its shape is the left's flipped across. The 3D model's two
+ * sleeves hang a little differently, so their traced edges never quite
+ * agree; averaging the left's mask with the right's, flipped, gives one
+ * smooth outline drawn the same on both tabs (founder, round 2: "the flat
+ * templates look uneven").
+ */
+export function cleanSleevePair({ left, right }: { left: readonly number[]; right: readonly number[] }): { left: number[]; right: number[] } {
+  if (left.length < 6 || right.length < 6) {
+    return { left: cleanPanelShape({ triangles: left, symmetric: false }), right: cleanPanelShape({ triangles: right, symmetric: false }) }
+  }
+
+  const a = blur(blur(rasterise(left)))
+  const b = blur(blur(rasterise(flipAcross(right))))
+  const shared = outline({ mask: a.map((value, index) => (value + b[index]!) / 2), fallback: left })
+  return { left: shared, right: flipAcross(shared) }
+}
+
+/** A mask's outline, simplified and rounded, as triangles; `fallback` when nothing of size is traced. */
+function outline({ mask, fallback }: { mask: Float32Array; fallback: readonly number[] }): number[] {
   // Traced with the inside on the right, outer outlines run clockwise
   // (negative area) and holes counter-clockwise. Take the largest outer one,
   // and any other piece of real size on the same panel (a dress's bodice
@@ -422,7 +468,7 @@ export function cleanPanelShape({ triangles, symmetric }: { triangles: readonly 
   const largest = outers[0]
 
   if (!largest) {
-    return [...triangles]
+    return [...fallback]
   }
 
   const out: number[] = []
@@ -440,5 +486,5 @@ export function cleanPanelShape({ triangles, symmetric }: { triangles: readonly 
     }
   }
 
-  return out.length > 0 ? out : [...triangles]
+  return out.length > 0 ? out : [...fallback]
 }

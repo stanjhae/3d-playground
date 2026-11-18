@@ -8,7 +8,7 @@ import {
   type AvatarMeasurements,
 } from '../../lib/avatar-geometry'
 import { useEditorStore } from '../../lib/editor-store'
-import { ClothingPoseContext } from './clothing-pose'
+import { ClothingPoseContext, GarmentFitContext } from './clothing-pose'
 
 export function AvatarBody({
   children,
@@ -22,6 +22,9 @@ export function AvatarBody({
   const realModel = useEditorStore((state) => Boolean(state.document.modelFrame))
   const realSeat = useMemo(() => (realModel ? realGarmentSeat() : null), [realModel])
   const avatarMeasurements = measurementsProp ?? storeMeasurements
+  // The tee eases out over each figure's bust and hips (garment-fit.ts).
+  const fitsTee = useEditorStore((state) => state.garmentId === 'tee')
+  const fit = realSeat && fitsTee ? avatarMeasurements : null
   const [mount, setMount] = useState<{
     root: Group
     garment: ReturnType<typeof createProceduralAvatar>['garment']
@@ -64,7 +67,7 @@ export function AvatarBody({
         <ClothingPoseContext.Provider value="worn">
           {realSeat ? (
             <group position={realSeat.position} scale={realSeat.scale}>
-              {children}
+              <GarmentFitContext.Provider value={fit}>{children}</GarmentFitContext.Provider>
             </group>
           ) : (
             children

@@ -365,20 +365,51 @@ describe('reader R2', () => {
     }
   })
 
-  test('tee-crew-short@6, read since R2, is baked now: current, and it opens', async () => {
+  test('tee-crew-short@6, read since R2, is baked: it opens, and the tee has moved on to @7', async () => {
     const document = { ...createEmptyCanonicalDocument(), template: { id: 'tee-crew-short', version: 6 } }
     const resolved = resolveTemplate(document.template)
 
     // The seam-gaps writer baked it, so it is no longer upcoming.
     expect(isUpcomingTemplateVersion(document.template)).toBe(false)
-    expect(currentTemplateFor({ templateId: 'tee-crew-short' }).version).toBe(6)
     expect(issuesOf(document)).toEqual([])
     expect(resolved.ok).toBe(true)
     expect(garmentOfTemplate(document.template)).toBe('tee')
     expect((await prepareContent({ value: document })).ok).toBe(true)
-    // An unbaked version still reads as "this app cannot open".
-    const later = resolveTemplate({ id: 'tee-crew-short', version: 7 })
+  })
+})
+
+/**
+ * The tee's @7 (round 2): both sleeves print all round and lay out as
+ * mirror images. Its reader and writer land together, so the floor moves to
+ * the release carrying it from the first design saved on it
+ * (docs/release.md). Builds before it read such a design but can't open it.
+ */
+describe('tee-crew-short@7', () => {
+  test('is current: a new tee pins it, and it reads, validates, opens and hashes stably', async () => {
+    const document = createEmptyCanonicalDocument()
+    document.panels.left!.layers = [image({})]
+    document.panels.right!.layers = [{ ...STRIPE_FILL, id: 'fill-right' }]
+    const serialized = serializeCanonicalDocument({ document })
+    const reloaded = readCanonicalDocument({ value: JSON.parse(serialized) })
+
+    expect(document.template).toEqual({ id: 'tee-crew-short', version: 7 })
+    expect(currentTemplateFor({ templateId: 'tee-crew-short' }).version).toBe(7)
+    expect(isUpcomingTemplateVersion(document.template)).toBe(false)
+    expect(issuesOf(document)).toEqual([])
+    expect(resolveTemplate(document.template).ok).toBe(true)
+    expect(garmentOfTemplate(document.template)).toBe('tee')
+    expect(reloaded.ok && serializeCanonicalDocument({ document: reloaded.document })).toBe(serialized)
+    expect(await hashCanonicalDocument({ document: JSON.parse(serialized) })).toBe(await hashCanonicalDocument({ document }))
+    expect((await prepareContent({ value: JSON.parse(serialized) })).ok).toBe(true)
+  })
+
+  test('a build before it reads the design on the tee\'s panels and says it cannot open it', () => {
+    // What a build without @7 does with an unknown version: the tee's panels
+    // validate, and opening reports the version, never dropping anything.
+    const later = resolveTemplate({ id: 'tee-crew-short', version: 8 })
+    expect(!later.ok && later.reason).toBe('unsupported-version')
     expect(!later.ok && later.message).toMatch(/cannot open/)
+    expect(issuesOf({ ...createEmptyCanonicalDocument(), template: { id: 'tee-crew-short', version: 8 } })).toEqual([])
   })
 })
 

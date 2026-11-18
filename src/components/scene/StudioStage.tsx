@@ -303,6 +303,21 @@ export function StudioCamera({
   // The sleeve views aim at their sleeve; every other preset at the garment.
   const presetAim = fitted ? fitted.target : presetTarget({ preset: seatPreset })
 
+  const controls = useThree((state) => state.controls) as
+    | { target: { set: (x: number, y: number, z: number) => void } }
+    | null
+    | undefined
+
+  // While a view holds the camera, the orbit turns about that view's aim, so
+  // a hand turn starts from what's on screen instead of jumping to the centre.
+  useLayoutEffect(() => {
+    if (freeOrbit || !controls) {
+      return
+    }
+
+    controls.target.set(presetAim[0], presetAim[1], presetAim[2])
+  }, [controls, freeOrbit, presetAim])
+
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
     camera.far = STUDIO_CAMERA.far
@@ -494,6 +509,9 @@ export function StudioStage({
   )
 }
 
+/** How far a press must turn the camera before it counts as turning by hand. */
+const HAND_TURN_RADIANS = 0.04
+
 export function StudioOrbit({
   intro = false,
   turntable = false,
@@ -525,7 +543,13 @@ export function StudioOrbit({
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
   // A graphic being dragged across the cloth holds the view as ink does.
   const draggingLayer = useEditorStore((state) => state.activeLayerEdit !== null)
-  const controlsRef = useRef<{ enabled: boolean } | null>(null)
+  const controlsRef = useRef<{
+    enabled: boolean
+    getAzimuthalAngle: () => number
+    getPolarAngle: () => number
+  } | null>(null)
+  // The angles when a press began, so only a real turn (not a tap) lets go.
+  const pressAngles = useRef<{ azimuth: number; polar: number } | null>(null)
   // A held view doesn't disable the orbit: a drag lets go of it (`onTurn`).
   const orbitEnabled = enabled && !painting && !draggingLayer && !capturingAngles
 
@@ -580,8 +604,30 @@ export function StudioOrbit({
         onStart={() => {
           setSpinning(false)
           onTurn?.()
+          const orbit = controlsRef.current
+          pressAngles.current = orbit ? { azimuth: orbit.getAzimuthalAngle(), polar: orbit.getPolarAngle() } : null
+        }}
+        onChange={() => {
+          // The studio: a held view (Back, a sleeve) springs back each frame,
+          // so a hand turn hands the camera to the orbit and it stays turned.
+          // Picking a side again turns it back (founder review 2, point 2).
+          const start = pressAngles.current
+          const orbit = controlsRef.current
+          if (onTurn || !start || !orbit?.enabled) {
+            return
+          }
+
+          const turned =
+            Math.abs(orbit.getAzimuthalAngle() - start.azimuth) > HAND_TURN_RADIANS ||
+            Math.abs(orbit.getPolarAngle() - start.polar) > HAND_TURN_RADIANS
+          const state = useEditorStore.getState()
+          if (turned && state.cameraPreset !== 'orbit' && !state.capturingAngles) {
+            pressAngles.current = null
+            state.setCameraPreset({ cameraPreset: 'orbit' })
+          }
         }}
         onEnd={() => {
+          pressAngles.current = null
           if (turntable && !reducedMotion && !lockedView) {
             setSpinning(true)
           }
