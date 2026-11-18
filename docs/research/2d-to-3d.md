@@ -18,7 +18,7 @@ The owner chose to build Tiers 2 and 3 in full: in-browser simulation, all garme
 | 5 | The Pattern (beta) editor, behind `VITE_PATTERN_BETA` | Built (#383) |
 | 6 | The AI suggestion, behind `VITE_AI_ASSIST` and `FLP_AI_ASSIST` | Built (#384) |
 
-Both flags are off until the owner turns them on (`docs/deploy.md`). On 18 Nov, `VITE_PATTERN_BETA` is set in Vercel Production; whether to `true` is for the owner to confirm. `VITE_AI_ASSIST` is not set, and there is no Anthropic key.
+Both flags are off until the owner turns them on (`docs/deploy.md`). On 18 Nov the owner turned `VITE_PATTERN_BETA` on (`true`) in Vercel Production, so Pattern (beta) is on for everyone on beta; migration `20261120090000_flp_pattern_meshes` was already on the database. `VITE_AI_ASSIST` is not set, and there is no Anthropic key.
 
 **Spike S1 (tee drape), measured.** A four-piece tee: front, back, a sleeve and its mirror, ten seams.
 - At 25 mm spacing it has about 1,560 particles and 2,850 triangles. It settles in about 3 s of simulated time, which took 0.4–0.6 s in node on a desktop.
@@ -153,7 +153,7 @@ The founder asked (call agenda, round 3) for development effort, costs, and whet
 ## Recommended path (updated 18 Nov 2026)
 
 1. **Now:** validate the current editor (Workflow 2 plus the Tier 1 shape sliders) with outside testers and the mockup-video campaign. Measure which shape controls they use.
-2. **Next:** open Pattern (beta) to a small group, measure drape time on real phones, and fix what they find. Go or no-go on making it a standard mode depends on that round.
+2. **Next (Pattern (beta) is on since 18 Nov):** watch how testers use it, measure drape time on real phones, and fix what they find. Go or no-go on making it a standard mode depends on that round.
 3. **Then:** turn on the AI suggestion for the same group, with spending caps, once Pattern (beta) holds up. Add the claims-audit entry first, and keep AI out of site claims until it really works.
 
 Each tier stays optional in the UI. A beginner stays in Workflow 2, and an ambitious designer opts into shape, then pattern. That's how creative freedom grows without making the MVP harder to use.

@@ -11,7 +11,7 @@ This file has a ready-to-send reply covering all four. It's in the same style as
 **Notes before sending:**
 
 - **Live on beta:** everything below is merged into master, which deploys to beta. The PR numbers are for us, so drop them from the message if you like.
-- **Your parts:** three things are yours to fill in before sending. They're marked **[you]**: the call transcript, the video concepts, and whether Pattern (beta) is switched on in production.
+- **Your parts:** two things are yours to fill in before sending. They're marked **[you]**: the call transcript and the video concepts.
 - **What's not claimed:** nothing promises a date, or anything `docs/claims-audit.md` doesn't allow. There is still **no live AI** on the site. The AI suggestion is built, but it's off and has no API key.
 - **Re-checking on beta:** after these merges, re-check on beta with screenshots before sending. The landing on a phone, the right sleeve and the try-on are the ones the founder will try first.
 
@@ -76,7 +76,8 @@ Thank you for the second round of testing, the call, and the follow-up list. Bel
 - **Pattern editing (the full Workflow 1): built as an opt-in beta, "Pattern (beta)".**
   - The garment becomes flat pattern pieces you can reshape and cut holes into, and the 3D garment is rebuilt by simulating the fabric in the browser.
   - It works on all garments, and the fabric choice changes how it drapes.
-  - It's a beta because it still needs testing on real phones and real tester feedback. **[you: whether it's switched on for testers on beta yet.]**
+  - It's a beta because it still needs testing on real phones and real tester feedback.
+  - **It's switched on for everyone on beta now:** turn on "Pattern (beta)" on the Garment step of any design. Your normal designs aren't affected unless you switch it on.
 - **AI: built, but switched off.**
   - It turns a sketch or a short description into suggested pattern changes. You see the suggestion and choose whether to apply it.
   - It never invents a garment from nothing. Its output is always a normal, editable pattern.
@@ -139,7 +140,7 @@ Chijindu
 | 2 | Drop a graphic on the landing | Lands where dropped; outline and visible hint; touch | #399, #409 |
 | 3 | Rankings | Built: periods, garment filter | #389, #401 |
 | 3 | Garments and materials | 13 garments, 10 fabrics in 3D | #388, #394–#396, #402 |
-| 3 | AI and 2D-to-3D | Shape sliders live; Pattern (beta) built; AI built but off | #378–#384, `docs/research/2d-to-3d.md` |
+| 3 | AI and 2D-to-3D | Shape sliders live; Pattern (beta) on for everyone on beta (18 Nov); AI built but off | #378–#384, `docs/research/2d-to-3d.md` |
 | 4 | Mockup videos, pitch | For us to decide | — |
 | 5 | Landing logos, drawing, turning | Fixed, on touch too | #399, #409 |
 | 5 | 2D/3D gaps, drag and drop, FLV mark | Fixed | #397, #400, #403, #407, #408 |
