@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react'
 
 import { HeroStage } from '../components/landing/HeroStage'
@@ -34,18 +34,34 @@ function LandingPage() {
   // Read before the layout effect removes it: the prerendered page already
   // played the entrance, so the live one doesn't play it again.
   const [hadStatic] = useState(() => Boolean(window.document.getElementById(STATIC_LANDING_ID)))
+  const router = useRouter()
 
   useLayoutEffect(() => {
     // Over the prerendered page the live one has the same layout, so the
     // reader's place is kept as it is. Without it (dev, a client-side visit)
     // a #section link is honoured once the sections exist.
+    const readerAt = window.scrollY
+
     if (releaseStaticShell()) {
+      // The router sends the page to the top once this first render settles.
+      // On a slow connection the reader has often scrolled the prerendered
+      // page by then, and was thrown back to the top (found on beta, 18 Nov).
+      // Put them back where they were, after the router's reset.
+      if (readerAt > 0) {
+        const stop = router.subscribe('onRendered', () => {
+          stop()
+          window.clearTimeout(giveUp)
+          window.scrollTo({ top: readerAt, behavior: 'instant' })
+        })
+        const giveUp = window.setTimeout(stop, 5000)
+      }
+
       return
     }
 
     const target = window.location.hash ? window.document.getElementById(window.location.hash.slice(1)) : null
     target?.scrollIntoView({ block: 'start' })
-  }, [])
+  }, [router])
 
   useEffect(() => {
     void trackAssumption({ name: 'viewed_demo' })
