@@ -17,7 +17,18 @@ export const CAMERA_BAR_PRESETS: { id: CameraPreset; label: string }[] = [
   { id: 'orbit', label: HOUSE_COPY.angleOrbit },
 ]
 
-export function CameraPresetBar() {
+/** Phone labels: one row fits a 320 px screen. The full name stays the accessible one. */
+const COMPACT_LABELS: Partial<Record<CameraPreset, string>> = {
+  left: 'R sleeve',
+  right: 'L sleeve',
+}
+
+export function CameraPresetBar({
+  compact = false,
+}: {
+  /** Phones: one row that never wraps over the garment, with short sleeve labels. */
+  compact?: boolean
+} = {}) {
   const cameraPreset = useEditorStore((state) => state.cameraPreset)
   const setCameraPreset = useEditorStore((state) => state.setCameraPreset)
 
@@ -25,13 +36,17 @@ export function CameraPresetBar() {
     <RadioGroup
       as="nav"
       aria-label="Camera"
-      className="flex flex-wrap justify-center gap-x-3 rounded-xl border border-flv-line bg-flv-paper/92 px-3 py-2"
+      className={cn('flex justify-center rounded-xl border border-flv-line bg-flv-paper/92 py-2', {
+        'flex-wrap gap-x-3 px-3': !compact,
+        'max-w-full flex-nowrap gap-x-2.5 overflow-x-auto px-2.5 whitespace-nowrap': compact,
+      })}
     >
       {CAMERA_BAR_PRESETS.map((preset) => (
         <button
           key={preset.id}
           type="button"
           role="radio"
+          aria-label={preset.label}
           aria-checked={cameraPreset === preset.id}
           onClick={() => {
             setCameraPreset({ cameraPreset: preset.id })
@@ -41,7 +56,7 @@ export function CameraPresetBar() {
             'text-flv-muted hover:text-flv-accent': cameraPreset !== preset.id,
           })}
         >
-          {preset.label}
+          {compact ? (COMPACT_LABELS[preset.id] ?? preset.label) : preset.label}
         </button>
       ))}
     </RadioGroup>

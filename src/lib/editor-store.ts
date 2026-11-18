@@ -268,8 +268,8 @@ type EditorState = {
   /**
    * Picking a side in the 2D editor: it becomes the side being drawn on and
    * the 3D view turns to it (founder review, 16 Nov). Only a change of side
-   * turns it. A hand turn sets the camera to `orbit` (`StudioOrbit`), so the
-   * turned view stays while drawing on the same side.
+   * turns it. A hand turn or zoom calls `releaseHeldView`, so the turned view
+   * stays while drawing on the same side.
    */
   showPanel: ({ panel }: { panel: PanelId }) => void
   setPaintTool: ({ paintTool }: { paintTool: EditorPaintTool }) => void
@@ -297,6 +297,12 @@ type EditorState = {
   }) => void
   resetAvatarMeasurements: () => void
   setCameraPreset: ({ cameraPreset }: { cameraPreset: CameraPreset }) => void
+  /**
+   * A turn or zoom by hand lets go of a held side (Back, a sleeve): the camera
+   * becomes `orbit`, so it stays where the hand left it. Picking a side again
+   * turns it back. No-op while stills are being captured.
+   */
+  releaseHeldView: () => void
   setCapturingAngles: ({
     capturingAngles,
   }: {
@@ -1460,6 +1466,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setCameraPreset: ({ cameraPreset }) => {
     set({ cameraPreset })
+  },
+  releaseHeldView: () => {
+    set((state) => (state.cameraPreset === 'orbit' || state.capturingAngles ? state : { cameraPreset: 'orbit' }))
   },
   setCapturingAngles: ({ capturingAngles }) => {
     set({ capturingAngles })

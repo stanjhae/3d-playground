@@ -42,6 +42,11 @@ export function clothHeld() {
   return drag !== null || painting || gesturing
 }
 
+/** Whether two fingers hold the cloth (a pinch or a two-finger turn). */
+export function clothGestureActive() {
+  return gesturing
+}
+
 /** A two-finger gesture takes or lets go of the cloth. */
 export function holdClothForGesture({ held }: { held: boolean }) {
   gesturing = held
