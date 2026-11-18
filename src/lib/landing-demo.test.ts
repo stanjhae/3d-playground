@@ -200,9 +200,9 @@ describe('landing-demo', () => {
 
 describe('drawing on a side of the landing tee', () => {
   test("each view draws on its own panel, sleeves by the wearer's side", () => {
-    const resolved = resolveTemplate({ id: 'tee-crew-short', version: 6 })
+    const resolved = resolveTemplate({ id: 'tee-crew-short', version: 7 })
     // The hero draws on the tee a new design opens on.
-    expect(currentTemplateFor({ templateId: 'tee-crew-short' }).version).toBe(6)
+    expect(currentTemplateFor({ templateId: 'tee-crew-short' }).version).toBe(7)
     expect(resolved.ok).toBe(true)
 
     if (resolved.ok) {
