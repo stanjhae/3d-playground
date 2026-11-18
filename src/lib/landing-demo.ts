@@ -1,5 +1,5 @@
 import { currentTemplateFor } from './template-manifest'
-import { CONCEPT_FEATURES, showsGarmentInStudio } from './concept-flags'
+import { showsGarmentInStudio } from './concept-flags'
 import type { AvatarMeasurements } from './avatar-geometry'
 import {
   applyCommand,
@@ -100,61 +100,6 @@ export function pickerCategories() {
 /** Why a saved design's other garments can't be picked, and the way out. */
 export const LOCKED_GARMENT_NOTE = 'Saved designs keep their garment. Start a new design to switch.'
 
-export const SHOOT_PRESETS = [
-  { id: 'studio', label: 'Studio' },
-  { id: 'editorial', label: 'Editorial' },
-  { id: 'streetwear', label: 'Streetwear' },
-  { id: 'runway', label: 'Runway' },
-  { id: 'urban', label: 'Urban' },
-  { id: 'minimal', label: 'Minimal' },
-  { id: 'social', label: 'Social Media' },
-] as const
-
-export type ShootPresetId = (typeof SHOOT_PRESETS)[number]['id']
-
-export const SHOOT_CONFIG_FIELDS = [
-  {
-    id: 'style',
-    label: 'Style',
-    options: ['Urban Streetwear', 'Editorial', 'Minimal Studio'],
-  },
-  {
-    id: 'location',
-    label: 'Location',
-    options: ['City / Urban', 'Studio', 'Outdoor'],
-  },
-  {
-    id: 'lighting',
-    label: 'Lighting',
-    options: ['Editorial Lighting', 'Soft Daylight', 'Hard Contrast'],
-  },
-  {
-    id: 'pose',
-    label: 'Pose',
-    options: ['Full Body', 'Three Quarter', 'Close Up'],
-  },
-  {
-    id: 'camera',
-    label: 'Camera Angle',
-    options: ['Eye Level', 'Low Angle', 'High Angle'],
-  },
-  {
-    id: 'lens',
-    label: 'Lens Style',
-    options: ['35mm (Natural)', '50mm', '85mm Portrait'],
-  },
-  {
-    id: 'background',
-    label: 'Background',
-    options: ['Urban Concrete', 'Seamless', 'Meadow'],
-  },
-  {
-    id: 'format',
-    label: 'Format',
-    options: ['4K (High Resolution)', '1080p', 'Square Social'],
-  },
-] as const
-
 export const CANNED_STILLS = [
   '/stills/look-atelier-ivory.png',
   '/stills/look-blush-first.png',
@@ -166,106 +111,6 @@ export const CANNED_STILLS = [
   '/stills/look-slate-denim.png',
   '/stills/look-wool-hour.png',
 ] as const
-
-export function pickCannedStillGrid({
-  seed,
-  count = 4,
-}: {
-  seed: string
-  count?: number
-}): string[] {
-  const offset =
-    [...seed].reduce((sum, char) => sum + char.charCodeAt(0), 0) %
-    CANNED_STILLS.length
-  const results: string[] = []
-
-  for (let index = 0; index < count; index += 1) {
-    results.push(CANNED_STILLS[(offset + index) % CANNED_STILLS.length]!)
-  }
-
-  return results
-}
-
-export const VIDEO_SCENES = [
-  { id: 'front', label: 'Front Reveal', duration: '0:03' },
-  { id: 'left', label: 'Left Turn', duration: '0:03' },
-  { id: 'back', label: 'Back View', duration: '0:03' },
-  { id: 'right', label: 'Right Sweep', duration: '0:03' },
-  { id: 'close', label: 'Detail Close', duration: '0:03' },
-] as const
-
-export type VideoSceneId = (typeof VIDEO_SCENES)[number]['id']
-
-export const VIDEO_SETTINGS = [
-  {
-    id: 'format',
-    label: 'Format',
-    options: ['9:16 Reel (Instagram)', '1:1 Social Post', '16:9 Campaign'],
-  },
-  {
-    id: 'duration',
-    label: 'Duration',
-    options: ['15 Seconds', '30 Seconds', '60 Seconds'],
-  },
-  {
-    id: 'camera',
-    label: 'Camera Movement',
-    options: ['Dynamic (Auto)', 'Static', 'Orbit'],
-  },
-  {
-    id: 'transitions',
-    label: 'Transitions',
-    options: ['Cinematic', 'Hard Cut', 'Fade'],
-  },
-  {
-    id: 'music',
-    label: 'Music',
-    options: ['Modern / Hip Hop', 'Ambient', 'Editorial'],
-  },
-  {
-    id: 'logo',
-    label: 'Logo Placement',
-    options: ['Bottom Left', 'Bottom Right', 'None'],
-  },
-  {
-    id: 'text',
-    label: 'Text Overlay',
-    options: ['From Idea to Reality', 'Wear Your Vision', 'None'],
-  },
-  {
-    id: 'lighting',
-    label: 'Lighting',
-    options: ['Editorial', 'Soft', 'Night'],
-  },
-] as const
-
-export const VIDEO_EXPORT_PRESETS = [
-  { id: 'reel', label: '9:16 Reel' },
-  { id: 'short', label: '9:16 Short' },
-  { id: 'square', label: '1:1 Social Post' },
-  { id: 'campaign', label: '16:9 Campaign Video' },
-] as const
-
-export function videoStillForScene({
-  sceneId,
-}: {
-  sceneId: VideoSceneId
-}): string {
-  const index = VIDEO_SCENES.findIndex((scene) => scene.id === sceneId)
-  return CANNED_STILLS[Math.max(0, index) % CANNED_STILLS.length]!
-}
-
-const ALL_LANDING_PATTERNS = [
-  { id: 'solid', label: 'Solid' },
-  { id: 'stripe', label: 'Stripes' },
-  { id: 'check', label: 'Check' },
-  { id: 'gradient', label: 'Gradient' },
-] as const
-
-/** A saved design has no gradient, so it's a concept like the other garments. */
-export const LANDING_PATTERN_OPTIONS = CONCEPT_FEATURES
-  ? ALL_LANDING_PATTERNS
-  : ALL_LANDING_PATTERNS.filter((pattern) => pattern.id !== 'gradient')
 
 export const LANDING_TEXTURE_OPTIONS = [
   { id: 'standard', label: 'Standard' },
@@ -351,19 +196,33 @@ export function resolveLandingStrokeTool({
   return { tool: 'brush', widthScale: 1 }
 }
 
+/**
+ * The views, in the studio's tab order and with its names
+ * (`garmentPanels`, landing-demo.test.ts holds them together): Front, Back,
+ * then the wearer's right sleeve and left sleeve.
+ */
 export const LANDING_CAMERA_VIEWS = [
   'front',
   'back',
-  'left',
   'right',
+  'left',
 ] as const
 
 export type LandingCameraView = (typeof LANDING_CAMERA_VIEWS)[number]
 
+/** Each view's button, as the studio names the side. */
+export const LANDING_VIEW_LABEL: Record<LandingCameraView, string> = {
+  front: 'Front',
+  back: 'Back',
+  right: 'Right sleeve',
+  left: 'Left sleeve',
+}
+
 /**
  * The render panel each view draws on. Views are the wearer's sides; the
  * tee's render panels name sleeves by mesh side, so the wearer's left sleeve
- * is render panel `right` (template v4, checked in landing.test.ts).
+ * is render panel `right` (the current tee template, checked in
+ * landing-demo.test.ts).
  */
 export const LANDING_VIEW_PANEL: Record<LandingCameraView, PanelId> = {
   front: 'front',
@@ -421,6 +280,36 @@ export const LANDING_CAMERA_POSITIONS: Record<
   // Sides are the wearer's, as on the studio's tabs: Left shows the left sleeve (+x).
   left: [4.1, 1.48, 0],
   right: [-4.1, 1.48, 0],
+}
+
+const FRONT_EDGE = Math.PI / 6
+const BACK_EDGE = (5 * Math.PI) / 6
+/** How far past an edge the camera must go before the side changes, so it doesn't flicker on one. */
+const SIDE_HYSTERESIS = 0.12
+
+function sideZone({ side, azimuth, widen }: { side: LandingCameraView; azimuth: number; widen: number }) {
+  const turn = Math.abs(azimuth)
+
+  if (side === 'front') return turn <= FRONT_EDGE + widen
+  if (side === 'back') return turn >= BACK_EDGE - widen
+  const sign = side === 'left' ? 1 : -1
+  return sign * azimuth > FRONT_EDGE - widen && sign * azimuth < BACK_EDGE + widen
+}
+
+/**
+ * The side a camera at `azimuth` (radians round the tee, 0 = the front,
+ * +π/2 = the wearer's left) mostly shows: a sixth of the turn each for the
+ * front and back, the rest for the sleeves, which show from a quarter view.
+ * `previous` is kept until the camera is clearly past its edge.
+ */
+export function sideAtAzimuth({ azimuth, previous }: { azimuth: number; previous?: LandingCameraView }): LandingCameraView {
+  const angle = Math.atan2(Math.sin(azimuth), Math.cos(azimuth))
+
+  if (previous && sideZone({ side: previous, azimuth: angle, widen: SIDE_HYSTERESIS })) {
+    return previous
+  }
+
+  return LANDING_CAMERA_VIEWS.find((side) => sideZone({ side, azimuth: angle, widen: 0 })) ?? 'front'
 }
 
 export function cameraViewAzimuth({
@@ -669,53 +558,6 @@ export function addLandingStroke({
         color: colorWithOpacity({ color, opacity }),
         width: width * resolved.widthScale,
         tool: resolved.tool,
-      },
-    },
-  }).document
-}
-
-export function applyLandingPattern({
-  document,
-  patternId,
-  color,
-  panel = 'front',
-}: {
-  document: DesignDocument
-  patternId: 'solid' | 'stripe' | 'check' | 'gradient'
-  color: string
-  panel?: PanelId
-}): DesignDocument {
-  let next = document
-
-  for (const layer of [...next.layers]) {
-    if (layer.kind === 'pattern') {
-      next = applyCommand({
-        stack: createCommandStack({ document: next }),
-        command: { type: 'removeLayer', layerId: layer.id },
-      }).document
-    }
-  }
-
-  if (patternId === 'solid') {
-    return next
-  }
-
-  return applyCommand({
-    stack: createCommandStack({ document: next }),
-    command: {
-      type: 'addPattern',
-      layer: {
-        id: createObjectId({ prefix: 'print' }),
-        kind: 'pattern',
-        patternId,
-        panel,
-        color,
-        x: 0.5,
-        y: 0.5,
-        scale: 1,
-        rotation: 0,
-        opacity: 0.85,
-        visible: true,
       },
     },
   }).document
