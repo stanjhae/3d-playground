@@ -166,6 +166,29 @@ describe('shape (parametric shape v1)', () => {
       serializeCanonicalDocument({ document }),
     )
   })
+
+  test('shapes on the hoodie, vest, crop top, dress and trousers read, project, and serialize stably', () => {
+    const shapes = {
+      hoodie: { leftSleeveLength: -0.3, rightSleeveLength: 0.1, bodyLength: 0.2, bodyWidth: -0.05 },
+      vest: { bodyLength: 0.1, bodyWidth: 0.05, necklineDepth: 0.4 },
+      crop: { bodyLength: 0.8, bodyWidth: 0, necklineDepth: 0.2 },
+      dress: { bodyLength: -0.4, bodyWidth: 0.1, hemFlare: 0.5 },
+      trousers: { leftLegLength: -0.7, rightLegLength: -0.6, waistWidth: 0.1 },
+    } as const
+
+    for (const [templateId, shape] of Object.entries(shapes)) {
+      const document: CanonicalDocument = {
+        ...createEmptyCanonicalDocument({ templateId: templateId as keyof typeof shapes }),
+        shape,
+      }
+
+      expect(issuesOf(document), templateId).toEqual([])
+      expect(toRenderDocument({ document }).document.shape, templateId).toEqual(shape)
+      expect(serializeCanonicalDocument({ document: JSON.parse(serializeCanonicalDocument({ document })) })).toBe(
+        serializeCanonicalDocument({ document }),
+      )
+    }
+  })
 })
 
 /**

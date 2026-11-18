@@ -16,7 +16,16 @@
  * See docs/canonical-document.md.
  */
 
-import { type GarmentShape, isNeutralShape, NEUTRAL_SHAPE, SHAPE_FIELDS, SHAPE_LIMITS, templateHasShape } from './garment-shape-params.ts'
+import {
+  type GarmentShape,
+  isNeutralShape,
+  neutralShapeFor,
+  SHAPE_FIELDS,
+  SHAPE_LIMITS,
+  type ShapeField,
+  type ShapeLimits,
+  shapeSpecFor,
+} from './garment-shape-params.ts'
 import { BASE_FABRIC_IDS, type BaseFabricId } from './fabrics.ts'
 import { type CanonicalPattern, checkPattern } from './pattern/pattern-document.ts'
 import {
@@ -243,9 +252,10 @@ export type CanonicalPanel = {
 }
 
 /**
- * Parametric shape (v1): five fractions, 0 neutral, within `SHAPE_LIMITS`.
- * Stored only when one is off neutral, and only on a template with a shape
- * map (`templateHasShape`), so an unshaped design hashes as it always did.
+ * Parametric shape (v1): the template's fields (`shapeSpecFor`; the tee's
+ * five), each a fraction, 0 neutral, within the template's limits. Stored
+ * only when one is off neutral, and only on a template with a shape map
+ * (`templateHasShape`), so an unshaped design hashes as it always did.
  */
 export type CanonicalShape = GarmentShape
 
@@ -1055,30 +1065,30 @@ function checkShape({
   path: string
   template: unknown
 }) {
-  const shape = checkRecord({ context, value, path, required: SHAPE_FIELDS })
+  const ref = template as { id?: unknown; version?: unknown } | undefined
+  const known = typeof ref?.id === 'string' && typeof ref.version === 'number'
+  const spec = known ? shapeSpecFor({ template: { id: ref.id as string, version: ref.version as number } }) : null
+  // Without a shape map, the fields are checked as the tee's (shape v1).
+  const fields: readonly ShapeField[] = spec?.fields ?? SHAPE_FIELDS
+  const limits: ShapeLimits = spec?.limits ?? SHAPE_LIMITS
+  const shape = checkRecord({ context, value, path, required: fields })
 
   if (!shape) {
     return
   }
 
-  for (const field of SHAPE_FIELDS) {
+  for (const field of fields) {
     if (field in shape) {
-      checkNumber({ context, value: shape[field], path: `${path}.${field}`, ...SHAPE_LIMITS[field] })
+      checkNumber({ context, value: shape[field], path: `${path}.${field}`, ...limits[field]! })
     }
   }
 
   // One form per look: a neutral shape is written as no shape.
-  if (isNeutralShape({ shape: shape as Partial<GarmentShape> })) {
+  if (isNeutralShape({ shape: shape as GarmentShape })) {
     report({ context, path, message: 'neutral; leave it out' })
   }
 
-  const ref = template as { id?: unknown; version?: unknown } | undefined
-
-  if (
-    typeof ref?.id === 'string' &&
-    typeof ref.version === 'number' &&
-    !templateHasShape({ template: { id: ref.id, version: ref.version } })
-  ) {
+  if (known && !spec) {
     report({ context, path, message: 'this template has no shape' })
   }
 }
@@ -1226,16 +1236,24 @@ export function migrateCanonicalDocument({ value }: { value: unknown }): unknown
     return rest
   }
 
-  if (!isRecord(shape) || Object.keys(shape).some((key) => !(SHAPE_FIELDS as readonly string[]).includes(key))) {
+  const template = isRecord(value.template) ? value.template : null
+  const spec =
+    template && typeof template.id === 'string' && typeof template.version === 'number'
+      ? shapeSpecFor({ template: { id: template.id, version: template.version } })
+      : null
+  // Without a shape map, the fields are read as the tee's (shape v1).
+  const fields: readonly string[] = spec?.fields ?? SHAPE_FIELDS
+
+  if (!isRecord(shape) || Object.keys(shape).some((key) => !fields.includes(key))) {
     return value
   }
 
-  if (isNeutralShape({ shape: shape as Partial<GarmentShape> })) {
+  if (isNeutralShape({ shape: shape as GarmentShape })) {
     const { shape: _dropped, ...rest } = value
     return rest
   }
 
-  const filled = Object.fromEntries(SHAPE_FIELDS.map((field) => [field, field in shape ? shape[field] : 0]))
+  const filled = Object.fromEntries(fields.map((field) => [field, field in shape ? shape[field] : 0]))
   return { ...value, shape: filled }
 }
 
@@ -1244,9 +1262,10 @@ export function readCanonicalDocument({ value }: { value: unknown }): Validation
   return validateCanonicalDocument({ value: migrateCanonicalDocument({ value }) })
 }
 
-/** The document's shape, neutral when it stores none. */
-export function shapeOf({ document }: { document: Pick<CanonicalDocument, 'shape'> }): CanonicalShape {
-  return document.shape ?? { ...NEUTRAL_SHAPE }
+/** The document's shape, its template's neutral one (the tee's without a map) when it stores none. */
+export function shapeOf({ document }: { document: Pick<CanonicalDocument, 'shape' | 'template'> }): CanonicalShape {
+  const spec = shapeSpecFor({ template: document.template })
+  return document.shape ?? (spec ? neutralShapeFor({ spec }) : Object.fromEntries(SHAPE_FIELDS.map((field) => [field, 0])))
 }
 
 /**

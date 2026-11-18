@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 
 import { cn } from '../../lib/cn'
 import { nextCreateStep } from '../../lib/create-steps'
-import { useCanEditShape, useEditorStore, usePatternAvailable } from '../../lib/editor-store'
+import { useEditorStore, usePatternAvailable, useShapeSpec } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { garmentStructural } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
@@ -25,7 +25,7 @@ export function StructureRail() {
   const createStep = useEditorStore((state) => state.createStep)
   const setCreateStep = useEditorStore((state) => state.setCreateStep)
   const fields = garmentStructural({ garmentId })
-  const shaped = useCanEditShape()
+  const shapeSpec = useShapeSpec()
   const patternable = usePatternAvailable()
   const inPattern = useEditorStore((state) => Boolean(state.document.pattern))
 
@@ -38,16 +38,16 @@ export function StructureRail() {
           <Suspense fallback={<p className={chromeMutedClass()}>Opening the pattern…</p>}>
             <PatternEditor />
           </Suspense>
-        ) : shaped ? (
-          <ShapeRail />
+        ) : shapeSpec ? (
+          <ShapeRail key={garmentId ?? ''} spec={shapeSpec} />
         ) : null}
       </div>
     )
   }
 
   // A model with a shape map gets sliders in place of the crew/v, crop/long toggles.
-  if (shaped) {
-    return <ShapeRail />
+  if (shapeSpec) {
+    return <ShapeRail key={garmentId ?? ''} spec={shapeSpec} />
   }
 
   if (fields.length === 0) {
