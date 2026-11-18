@@ -1,0 +1,115 @@
+<!doctype html>
+<!--
+  A dev-only page (never built) that shows the tee's @6 and @7 sleeves side
+  by side, printed the way the studio prints them (`toRenderDocument`,
+  `rasterizeLayers`, `bindInkMap`): each sleeve filled with a check (a
+  whole-panel fill layer) and the word "UP" drawn upright on its panel, seen
+  from its own side and from below, at the underarm. Cloth that never prints
+  shows the plain garment colour.
+
+    pnpm dev, then open /scripts/sleeves-compare.html (?distance=0.4 for a closer look)
+
+  docs/evidence/sleeves-v7-left-right.png was taken from it (round 2).
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sleeve comparison</title>
+    <style>
+      body { margin: 0; background: #f4f1ec; font: 14px/1.4 system-ui, sans-serif; color: #222; }
+      #grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 8px; }
+      figure { margin: 0; background: #fff; border-radius: 6px; overflow: hidden; }
+      figcaption { padding: 6px 10px; border-bottom: 1px solid #eee; }
+      canvas { display: block; width: 100%; aspect-ratio: 1; }
+    </style>
+  </head>
+  <body>
+    <div id="grid"></div>
+    <script type="module">
+      import * as THREE from 'three'
+      import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+      import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+      import { createEmptyCanonicalDocument } from '/src/lib/canonical-document.ts'
+      import { toRenderDocument } from '/src/lib/render-projection.ts'
+      import { rasterizeLayers } from '/src/lib/paint-atlas.ts'
+      import { bindInkMap } from '/src/lib/apply-ink.ts'
+      import { resolveTemplate } from '/src/lib/template-manifest.ts'
+
+      const loader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('/draco/'))
+      // Canonical sleeves are the wearer's: `right` hangs at −x.
+      const VIEWS = [
+        { sleeve: 'right', title: 'wearer’s right sleeve, from the side', from: [-1, 0.05, 0] },
+        { sleeve: 'right', title: 'wearer’s right sleeve, from below', from: [-0.35, -1, 0.25] },
+        { sleeve: 'left', title: 'wearer’s left sleeve, from the side', from: [1, 0.05, 0] },
+        { sleeve: 'left', title: 'wearer’s left sleeve, from below', from: [0.35, -1, 0.25] },
+      ]
+
+      function design(version) {
+        const document = createEmptyCanonicalDocument({ templateId: 'tee-crew-short', version })
+        for (const sleeve of ['left', 'right']) {
+          document.panels[sleeve].layers = [
+            { id: `fill-${sleeve}`, kind: 'fill', visible: true, opacity: 1, source: { pattern: 'check', colors: ['#f2c14e', '#1f3a5f'] }, tile: 0.12, rotation: 0 },
+            { id: `word-${sleeve}`, kind: 'text', visible: true, opacity: 1, x: 0.5, y: 0.5, scale: 0.09, rotation: 0, content: 'UP', face: 'sans', color: '#c0392b' },
+          ]
+        }
+        return toRenderDocument({ document }).document
+      }
+
+      async function garment(version) {
+        const { manifest } = resolveTemplate({ id: 'tee-crew-short', version })
+        const render = design(version)
+        const buffer = rasterizeLayers({ document: render, width: render.atlasSize, height: render.atlasSize })
+        const canvas = document.createElement('canvas')
+        canvas.width = buffer.width
+        canvas.height = buffer.height
+        canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(buffer.pixels), buffer.width, buffer.height), 0, 0)
+        const ink = new THREE.CanvasTexture(canvas)
+        ink.colorSpace = THREE.SRGBColorSpace
+        const gltf = await loader.loadAsync(manifest.geometry.file)
+        const meshes = []
+        gltf.scene.traverse((child) => {
+          if (!child.isMesh) return
+          child.material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.86, side: THREE.DoubleSide })
+          meshes.push(child)
+        })
+        bindInkMap({ meshes, inkMap: ink, printUv: true })
+        return { scene: gltf.scene, manifest }
+      }
+
+      function view({ sleeve, title, from, version, model, manifest }) {
+        const figure = document.createElement('figure')
+        figure.dataset.shot = `v${version}-${sleeve}-${from[1] < -0.5 ? 'below' : 'side'}`
+        const caption = document.createElement('figcaption')
+        caption.textContent = `@${version}: ${title}`
+        const canvas = document.createElement('canvas')
+        figure.append(caption, canvas)
+        document.getElementById('grid').append(figure)
+        const size = 420
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
+        renderer.setPixelRatio(1)
+        renderer.setSize(size, size, false)
+        renderer.setClearColor('#ffffff')
+        const scene = new THREE.Scene()
+        scene.add(new THREE.HemisphereLight('#ffffff', '#999999', 2.4))
+        const direction = new THREE.Vector3(...from).normalize()
+        const sun = new THREE.DirectionalLight('#ffffff', 1.2)
+        sun.position.copy(direction.clone().multiplyScalar(3))
+        scene.add(sun)
+        scene.add(model.clone())
+        const centre = new THREE.Vector3(...manifest.regions[sleeve].center)
+        const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 20)
+        camera.position.copy(centre.clone().add(direction.multiplyScalar(Number(new URLSearchParams(location.search).get('distance') ?? 0.75))))
+        camera.up.set(0, direction.y < -0.5 ? 0 : 1, direction.y < -0.5 ? -1 : 0)
+        camera.lookAt(centre)
+        renderer.render(scene, camera)
+      }
+
+      for (const version of [6, 7]) {
+        const { scene, manifest } = await garment(version)
+        for (const entry of VIEWS) view({ ...entry, version, model: scene, manifest })
+      }
+      document.body.dataset.ready = 'true'
+    </script>
+  </body>
+</html>

@@ -164,7 +164,7 @@ test('an AI suggestion is previewed, then applied as one undoable edit', async (
   await assist.getByRole('button', { name: 'Suggest' }).click()
   await expect(assist.getByRole('status')).toContainText('Longer body and a long left sleeve.')
   expect(asked.prompt).toBe('A long tee with one long sleeve')
-  expect(asked.template).toEqual({ id: 'tee-crew-short', version: 6 })
+  expect(asked.template).toEqual({ id: 'tee-crew-short', version: 7 })
 
   // Previewed, not saved yet.
   expect((await savedPattern({ page })).pattern.pieces[0].outline[0].y).toBe(0)
