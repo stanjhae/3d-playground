@@ -31,13 +31,14 @@ function storageFor({ url }: { url: string }) {
   return { cookies: [], origins: [{ origin: new URL(url).origin, localStorage: [{ name: 'flp-pro-tools', value: 'on' }] }] }
 }
 
-// Pattern (beta), the AI suggestion and the community (comments, follows) are off in production until the owner
+// Pattern (beta), shape sliders beyond the tee, the AI suggestion and the community (comments, follows) are off in production until the owner
 // turns them on; the suite drives them (the AI route itself is mocked in the browser, so no request leaves for
 // Anthropic). FLP_COMMUNITY turns the community routes on in the dev API.
 const appEnv = {
   VITE_FLP_REQUIRE_AUTH: 'true',
   VITE_FLP_CONTACT_EMAIL: 'alpha@example.test',
   VITE_PATTERN_BETA: 'true',
+  VITE_SHAPE_ALL_GARMENTS: 'true',
   VITE_AI_ASSIST: 'true',
   VITE_COMMUNITY: 'true',
   FLP_COMMUNITY: 'true',

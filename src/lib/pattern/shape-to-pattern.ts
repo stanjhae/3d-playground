@@ -10,7 +10,11 @@ import type { PatternOp } from './pattern-ops.ts'
  * - a sleeve's length, cap to cuff;
  * - the body's armpit-to-hem length;
  * - the body's width below the armpits;
- * - the neckline: 0 to 1 is a drop of up to 8 cm, as in shape v1.
+ * - the neckline: 0 to 1 is a drop of up to 8 cm, as in shape v1;
+ * - the dress's hem flare: a fraction of the hem's width;
+ * - trousers' legs: one `lengthen` of their mean, crotch to hem (the pattern
+ *   lengthens both legs together, so two different legs come out even).
+ * Trousers' waist width has no pattern edit yet and isn't carried over.
  */
 const NECKLINE_DROP_MM = 80
 
@@ -37,24 +41,45 @@ export function shapeToOps({ shape, pattern }: { shape: GarmentShape; pattern: C
     }
   }
 
-  sleeve('left', shape.leftSleeveLength)
-  sleeve('right', shape.rightSleeveLength)
+  sleeve('left', shape.leftSleeveLength ?? 0)
+  sleeve('right', shape.rightSleeveLength ?? 0)
 
-  if (shape.bodyLength !== 0) {
+  const bodyLength = shape.bodyLength ?? 0
+  const bodyWidth = shape.bodyWidth ?? 0
+  const necklineDepth = shape.necklineDepth ?? 0
+  const hemFlare = shape.hemFlare ?? 0
+  const legs = ((shape.leftLegLength ?? 0) + (shape.rightLegLength ?? 0)) / 2
+
+  if (bodyLength !== 0) {
     const hemY = Math.max(...rolePoints(front, 'hem').map((point) => point.y), 0)
     const armpits = rolePoints(front, 'armhole')
     const armpitY = armpits.length > 0 ? Math.min(...armpits.map((point) => point.y)) : heightOf(front) * 0.65
-    ops.push({ op: 'lengthen', mm: Math.round(shape.bodyLength * (armpitY - hemY)) })
+    ops.push({ op: 'lengthen', mm: Math.round(bodyLength * (armpitY - hemY)) })
   }
 
-  if (shape.bodyWidth !== 0) {
+  if (legs !== 0) {
+    const crotch = front.outline.find((point) => point.id === 'crotch')
+    const hemY = Math.max(...rolePoints(front, 'hem').map((point) => point.y), 0)
+
+    if (crotch) {
+      ops.push({ op: 'lengthen', mm: Math.round(legs * (crotch.y - hemY)) })
+    }
+  }
+
+  if (bodyWidth !== 0) {
     const side = rolePoints(front, 'side')
     const width = side.length > 0 ? Math.max(...side.map((point) => point.x)) - Math.min(...side.map((point) => point.x)) : 0
-    ops.push({ op: 'widen', mm: Math.round(shape.bodyWidth * width) })
+    ops.push({ op: 'widen', mm: Math.round(bodyWidth * width) })
   }
 
-  if (shape.necklineDepth !== 0) {
-    ops.push({ op: 'neckline', mm: Math.round(shape.necklineDepth * NECKLINE_DROP_MM) })
+  if (hemFlare !== 0) {
+    const hem = rolePoints(front, 'hem')
+    const width = hem.length > 0 ? Math.max(...hem.map((point) => point.x)) - Math.min(...hem.map((point) => point.x)) : 0
+    ops.push({ op: 'flare', mm: Math.round(hemFlare * width) })
+  }
+
+  if (necklineDepth !== 0) {
+    ops.push({ op: 'neckline', mm: Math.round(necklineDepth * NECKLINE_DROP_MM) })
   }
 
   return ops
