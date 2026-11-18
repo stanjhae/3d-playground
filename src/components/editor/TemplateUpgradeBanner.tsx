@@ -10,7 +10,7 @@ import { canUpgradeTemplate, upgradeKeepsSize } from '../../lib/template-upgrade
  * A design saved on an earlier tee keeps opening on it, since saved designs
  * are never quietly remapped. This offers the newest one instead, in one
  * click that Undo takes back: from the early drawn tee (`@1`–`@3`) sizes can
- * shift, from the earlier real tee (`@4`, `@5`) marks keep their size and place.
+ * shift, from the earlier real tee (`@4` to `@6`) marks keep their size and place.
  */
 export function TemplateUpgradeBanner() {
   const upgradeTemplate = useEditorStore((state) => state.upgradeTemplate)
@@ -33,7 +33,7 @@ export function TemplateUpgradeBanner() {
     <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-sm text-flv-ink">
       <span>
         {keepsSize
-          ? 'This design is on our earlier 3D T-shirt. The new one prints right round to the side seams; your marks keep their size and place. Undo takes it back.'
+          ? 'This design is on our earlier 3D T-shirt. The new one prints right round the body and both sleeves, and sleeve marks show the right way up; your marks keep their size and place. Undo takes it back.'
           : 'This design is on our earlier, simpler T-shirt. On the new 3D one your marks keep their places, but sizes can shift a little, so check each side. Undo takes it back.'}
       </span>
       <button

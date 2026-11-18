@@ -1,6 +1,6 @@
 import { describe, expect, it, test } from 'vitest'
 
-import { cleanPanelShape, panelTriangles } from './panel-shape'
+import { cleanPanelShape, cleanSleevePair, panelTriangles } from './panel-shape'
 
 describe('panelTriangles', () => {
   const rect = { u0: 0.5, v0: 0, u1: 1, v1: 0.5 }
@@ -66,6 +66,22 @@ describe('clean side outlines', () => {
     expect(Math.max(...ys)).toBeLessThan(0.96)
     expect(Math.min(...ys)).toBeLessThan(0.1)
     expect(coverage(clean)).toBeGreaterThan((coverage(skirt) + coverage(bodice)) * 0.85)
+  })
+
+  test('the two sleeves share one smooth outline, the right\'s flipped across (round 2: uneven sleeve templates)', () => {
+    const box = (x0: number, y0: number, x1: number, y1: number) => [x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1]
+    // The model's sleeves hang differently: the left reaches a little higher,
+    // the right a little further round at its far end, and neither is the other's mirror.
+    const left = [...box(0.05, 0.1, 0.95, 0.85), ...ragged]
+    const right = [...box(0.08, 0.05, 0.9, 0.8)]
+    const pair = cleanSleevePair({ left, right })
+    const flip = (triangles: number[]) => triangles.map((value, index) => (index % 2 === 0 ? 1 - value : value))
+
+    expect(pair.right).toEqual(flip(pair.left))
+    expect(pair.left.length).toBeGreaterThan(36)
+    // Smooth, and covering about what the two cover together.
+    expect(coverage(pair.left)).toBeGreaterThan(coverage(box(0.08, 0.1, 0.92, 0.8)) * 0.9)
+    expect(coverage(pair.left)).toBeLessThan(coverage(box(0.05, 0.05, 0.95, 0.85)) * 1.05)
   })
 
   test('too little to trace is returned as it came', () => {

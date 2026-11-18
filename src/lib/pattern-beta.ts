@@ -15,6 +15,7 @@ export const PATTERN_TEMPLATE_VERSIONS: readonly string[] = [
   'tee-crew-short@4',
   'tee-crew-short@5',
   'tee-crew-short@6',
+  'tee-crew-short@7',
   'hoodie@1',
   'coat@1',
   'suit@1',
