@@ -33,7 +33,8 @@ Thank you for the second round of testing, the call, and the follow-up list. Bel
 2. **The 3D model turning to the side you're working on: half-built before, done now.**
    - **What already worked:** picking Back or a sleeve, or starting to draw on it, did turn the 3D T-shirt to that side.
    - **The problem:** if you then turned the T-shirt by hand, it sprang back as soon as you let go.
-   - **Now:** a hand turn stays where you put it, and picking a side again turns it back.
+   - **Now:** a hand turn or a zoom stays where you put it, and picking a side again turns it back. When you turn away from a sleeve, the view settles back on the middle of the garment.
+   - **Also fixed:** on phones, turning the T-shirt with two fingers while drawing used to leave a stray line. It doesn't any more.
    - **Phones:** the view buttons (Front, 3/4, Back, sleeves, Orbit) now also show on the Design step on phones.
 3. **Flat templates looking uneven: improved.** The flat shapes are traced from the real 3D garment, which is why they followed its folds.
    - Front and back are now mirrored and smoothed.
@@ -131,7 +132,7 @@ Chijindu
 | Round | Point | Status | PR |
 | --- | --- | --- | --- |
 | 2 | Right sleeve coverage | Fixed: 100% both sleeves, mirrored; upside-down sleeve prints also fixed | #407 |
-| 2 | 3D view follows the side you pick | Hand turns stay; view buttons on phones | #406 |
+| 2 | 3D view follows the side you pick | Hand turns and zoom stay; view buttons on phones; no ink from a two-finger turn | #406, #410 |
 | 2 | Flat templates uneven | Mirrored, smoothed outlines | #403, #407 |
 | 2 | Active section underline | Fixed on tablets | #409 |
 | 2 | Landing Back drawing | Fixed; checked on the 3D picture | #385, #409 |
