@@ -18,6 +18,16 @@ Set `E2E_PORT` if another checkout already uses 5199.
 | `E2E_SERVER=preview` | `pnpm build`, then `pnpm preview` | What CI runs: the production bundle under the production CSP. A dev server also starts on `E2E_PORT + 1` for the tests tagged `@dev-server` |
 | `E2E_BASE_URL=…` | none | A deployed environment (see [deploy.md](deploy.md)) |
 
+**Feature flags.** By default the app under test is built with every flag on (Pattern (beta), the AI suggestion, community), so the suite can drive each feature. `E2E_FLAGS` picks another set:
+
+| `E2E_FLAGS` | Flags | Use |
+| --- | --- | --- |
+| `all` (default) | All on | The full suite |
+| `beta` | Pattern (beta) and community on, AI off | What beta runs (`docs/decisions.md`). CI's "Beta flags journey" job runs the core journeys this way: `smoke claims navigation journey guided landing-nav` |
+| `off` | All off | A fresh deployment with nothing turned on |
+
+Specs that drive a flagged feature (for example the AI suggestion in `pattern-beta.spec.ts`) fail under a profile that turns it off, so run only the core journeys with `beta` or `off`.
+
 Tests that import `/src/...` inside the page only work on the dev server. Tag them `{ tag: '@dev-server' }`; with `E2E_SERVER=preview` they run in the `dev-modules` project instead of `chromium`.
 
 ## Projects

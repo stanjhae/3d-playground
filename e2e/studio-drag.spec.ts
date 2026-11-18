@@ -210,22 +210,40 @@ test('a mark dragged across a seam from the front onto a sleeve moves to the sle
   expect(await sleeves()).toEqual([])
 })
 
+/**
+ * A library tile dragged by mouse to a point on the page, in small steps as a
+ * hand moves. Playwright's `dragTo` jumps there in one move straight after the
+ * press, and Chromium then sometimes never starts the HTML5 drag (a mouse down
+ * on the tile, a mouse up on the panel, no dragstart): that made this test
+ * fail about one run in three.
+ */
+async function dragTile({ page, tile, to }: { page: Page; tile: Locator; to: { x: number; y: number } }) {
+  await tile.scrollIntoViewIfNeeded()
+  const from = (await tile.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2 + 12, { steps: 4 })
+  await page.mouse.move(to.x, to.y, { steps: 16 })
+  await page.mouse.up()
+}
+
 test('a graphic dragged from the library lands where it is dropped, on a panel and on the cloth', async ({ page }) => {
   test.setTimeout(150_000)
   await openDesign({ page, label: 'libdrop' })
   const tile = page.getByRole('button', { name: 'Simple Cross' })
+  // Scrolled first, so the points measured below don't move under the drag.
+  await tile.scrollIntoViewIfNeeded()
   const front = panelCanvas({ page, panel: 'Front' })
   const box = (await front.boundingBox())!
 
-  await tile.dragTo(front, { targetPosition: { x: box.width * 0.3, y: box.height * 0.4 } })
+  await dragTile({ page, tile, to: { x: box.x + box.width * 0.3, y: box.y + box.height * 0.4 } })
   await saved(async () => (await images({ page })).length).toBe(1)
   const onTheFlat = (await images({ page }))[0]!
   expect(onTheFlat.x).toBeCloseTo(0.3, 1)
   expect(onTheFlat.y).toBeCloseTo(0.6, 1)
 
   const target = await onCloth({ page, panel: 'front', x: 0.7, y: 0.3 })
-  const stage = (await page.locator(STAGE).boundingBox())!
-  await tile.dragTo(page.locator(STAGE), { targetPosition: { x: target.x - stage.x, y: target.y - stage.y } })
+  await dragTile({ page, tile, to: target })
   await saved(async () => (await images({ page })).length).toBe(2)
   const onTheCloth = (await images({ page })).find((layer) => layer.id !== onTheFlat.id)!
   expect(onTheCloth.x).toBeCloseTo(0.7, 1)

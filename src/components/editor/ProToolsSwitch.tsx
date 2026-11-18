@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 
 import { useStudioMode } from '../../lib/studio-mode'
@@ -56,6 +57,21 @@ export function ProToolsSwitch() {
           />
         </span>
         Pro tools
+      </button>
+      {/* The tooltip never shows on a phone, and the note only after switching:
+          this says what Pro adds before anyone switches it on. */}
+      <button
+        type="button"
+        aria-label="What Pro tools add"
+        aria-expanded={note !== null}
+        onClick={() => {
+          const message = `Pro tools add ${PRO_TOOLS_ADDS}.`
+          setNote((shown) => (shown ? null : message))
+          announce({ message })
+        }}
+        className="inline-flex size-11 items-center justify-center text-flv-muted hover:text-flv-ink"
+      >
+        <Info aria-hidden className="size-4" />
       </button>
       <span id={describedBy} className="sr-only">
         Adds {PRO_TOOLS_ADDS}.
