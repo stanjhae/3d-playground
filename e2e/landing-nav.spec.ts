@@ -29,3 +29,23 @@ for (const width of [1280, 820]) {
     }
   })
 }
+
+test('the underline also works after arriving from another page', async ({ page }) => {
+  // On beta the header never marked a section when the landing was reached
+  // from another page (or signed in): it looked the sections up once, when
+  // it mounted, before they existed.
+  await page.setViewportSize({ width: 820, height: 1180 })
+  await page.goto('/privacy')
+  await page.getByRole('link', { name: /Fashion Leader Vote|FLV/ }).first().click()
+  await expect(page).toHaveURL(/\/$|\/#/)
+  const nav = page.getByRole('navigation', { name: 'Site' }).first()
+  await expect(nav).toBeVisible()
+
+  for (const link of LANDING_NAV) {
+    const id = link.href.slice(1)
+    await page.locator(`#${id}`).evaluate((section) => {
+      window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.22, behavior: 'instant' })
+    })
+    await expect(nav.getByRole('link', { name: link.label, exact: true })).toHaveAttribute('aria-current', 'location')
+  }
+})
