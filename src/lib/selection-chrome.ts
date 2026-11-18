@@ -9,13 +9,20 @@
 export const SELECTION_COLOR = '#c4a15a'
 
 /**
- * A garment draped from its pattern (`body-pattern`: a baked GLB, or the live
- * drape in Pattern mode) is one open layer of cloth. The outline is an
- * inflated back-facing shell, so on it the shell shows through the neck,
- * armholes and hem as a gold lining instead of an edge: it gets none.
+ * Whether a mesh is one open layer of cloth. The outline is an inflated
+ * back-facing shell, so on such a mesh the shell shows through the neck,
+ * armholes, cuffs and hem as a speckled gold lining instead of an edge: it
+ * gets none. That is
+ * - a garment draped from its pattern (`body-pattern`: a baked GLB, or the
+ *   live drape in Pattern mode), and
+ * - every piece of a template-built garment (`printUv`: it carries print
+ *   UVs, `scripts/build-template.mjs`). They are simulated cloth, one layer
+ *   thick: on the real tee the gold showed inside the collar and the cuffs
+ *   of every new design (founder beta, 19 Nov).
+ * The early drawn tee (`@1`–`@3`) is a closed shell and keeps its outline.
  */
-export function isOpenClothMesh({ name }: { name: string }) {
-  return name === 'body-pattern'
+export function isOpenClothMesh({ name, printUv = false }: { name: string; printUv?: boolean }) {
+  return name === 'body-pattern' || printUv
 }
 
 export function meshOutlineVisible({

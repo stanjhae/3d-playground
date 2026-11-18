@@ -111,32 +111,4 @@ and run `pnpm graphics`.
 | `shape-mandala.svg` | Mandala | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
 | `shape-octagram.svg` | Eight-point Star | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
 | `shape-target.svg` | Roundel | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-shield-classic.svg` | Classic Shield | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-shield-quartered.svg` | Quartered Shield | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-shield-chevron.svg` | Chevron Shield | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-crest-star.svg` | Star Crest | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-crest-laurel.svg` | Laurel Crest | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-badge-hex.svg` | Hex Badge | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-seal-scalloped.svg` | Scalloped Seal | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-seal-starburst.svg` | Starburst Seal | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-roundel-club.svg` | Club Roundel | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-emblem-sun.svg` | Sun Emblem | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-emblem-octagon.svg` | Octagon Emblem | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-star-roundel.svg` | Star Roundel | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-mono-circle.svg` | Circle Monogram Frame | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-mono-diamond.svg` | Diamond Monogram Frame | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-mono-oval.svg` | Oval Monogram Frame | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-mono-arch.svg` | Arch Monogram Frame | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-laurel-wreath.svg` | Laurel Wreath with Star | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-laurel-ring.svg` | Laurel Ring | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-banner-scroll.svg` | Scroll Banner | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-banner-arch.svg` | Arched Banner | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-ribbon-rosette.svg` | Award Rosette | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-chevrons-triple.svg` | Triple Chevron | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-chevron-band.svg` | Chevron Band | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-stars-arc.svg` | Arc of Stars | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-club-pennant.svg` | Club Pennant | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-varsity-patch.svg` | Varsity Patch | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-ticket-stamp.svg` | Ticket Stamp | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
-| `mark-shield-stripes.svg` | Striped Club Shield | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
 | `logo-flv.svg` | FLV Mark | Fashion Leader Vote | All rights reserved | Brand mark, supplied |

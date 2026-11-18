@@ -14,7 +14,6 @@ import { svg } from './graphics/draw.mjs'
 import { CROSSES } from './graphics/crosses.mjs'
 import { FLAMES } from './graphics/flames.mjs'
 import { FLORALS } from './graphics/florals.mjs'
-import { LOGOS } from './graphics/logos.mjs'
 import { ORNAMENTS } from './graphics/ornaments.mjs'
 import { PATTERNS } from './graphics/patterns.mjs'
 import { SHAPES } from './graphics/shapes.mjs'
@@ -37,7 +36,7 @@ const BRAND = {
   licence: 'All rights reserved',
 }
 
-const drawn = [...FLAMES, ...CROSSES, ...SYMBOLS, ...PATTERNS, ...FLORALS, ...ORNAMENTS, ...SHAPES, ...LOGOS]
+const drawn = [...FLAMES, ...CROSSES, ...SYMBOLS, ...PATTERNS, ...FLORALS, ...ORNAMENTS, ...SHAPES]
 const ids = new Set()
 
 for (const graphic of drawn) {

@@ -34,9 +34,9 @@ describe('graphics library', () => {
     }
   })
 
-  test('is a curated catalogue of 60 to 150 graphics, every category filled', () => {
+  test('is a curated catalogue of 60 to 100 graphics, every category filled', () => {
     expect(GRAPHIC_ASSETS.length).toBeGreaterThanOrEqual(60)
-    expect(GRAPHIC_ASSETS.length).toBeLessThanOrEqual(150)
+    expect(GRAPHIC_ASSETS.length).toBeLessThanOrEqual(100)
     expect(new Set(ids([...GRAPHIC_ASSETS])).size).toBe(GRAPHIC_ASSETS.length)
 
     for (const category of GRAPHIC_CATEGORIES) {
@@ -129,17 +129,6 @@ describe('searchGraphics', () => {
     expect(named.length).toBeGreaterThan(0)
     expect(results.slice(0, named.length)).toEqual(named)
     expect(results.length).toBeGreaterThan(named.length)
-  })
-
-  test('the Logos category holds wordless marks that search finds by kind', () => {
-    const logos = listGraphicsByCategory({ category: 'logos' })
-    expect(logos.length).toBeGreaterThanOrEqual(20)
-    for (const query of ['badge', 'crest', 'monogram', 'emblem', 'shield', 'laurel', 'banner', 'chevron', 'seal']) {
-      expect(searchGraphics({ query, category: 'logos' }).length, query).toBeGreaterThan(0)
-    }
-    // Every project-made mark answers to "logo"; the brand mark does too.
-    expect(ids(searchGraphics({ query: 'logo', category: 'logos' }))).toEqual(ids(logos))
-    expect(ids(searchGraphics({ query: 'monogram' }))).toContain('mark-mono-circle')
   })
 
   test('finds nothing for a word no graphic carries', () => {

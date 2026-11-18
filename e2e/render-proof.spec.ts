@@ -17,7 +17,7 @@ test.afterAll(async () => {
 
 type Layer = { kind: string; content?: string; x?: number; strokes?: unknown[] }
 type Head = { seq: number; content: { base: { kind: string; color?: string }; panels: Record<string, { layers: Layer[] }> } }
-type Stats = { oxblood: number; meadow: number; blue: number; bright: number; skin: number; tee: [number, number, number]; total: number }
+type Stats = { oxblood: number; meadow: number; blue: number; bright: number; skin: number; gold: number; tee: [number, number, number]; total: number }
 
 const color = (name: string) => INK_COLORS.find((ink) => ink.name === name)!.value
 
@@ -86,7 +86,7 @@ function statsOf({ page, picture, type = 'image/png' }: { page: Page; picture: s
       const context = canvas.getContext('2d')!
       context.drawImage(image, 0, 0)
       const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
-      const stats = { oxblood: 0, meadow: 0, blue: 0, bright: 0, skin: 0, total: data.length / 4 }
+      const stats = { oxblood: 0, meadow: 0, blue: 0, bright: 0, skin: 0, gold: 0, total: data.length / 4 }
       const lit: number[][] = []
 
       for (let at = 0; at < data.length; at += 4) {
@@ -95,6 +95,8 @@ function statsOf({ page, picture, type = 'image/png' }: { page: Page; picture: s
         stats.meadow += g > r + 8 && g > b + 25 && g < 170 ? 1 : 0
         stats.blue += b > r + 30 && b > g + 15 ? 1 : 0
         stats.skin += r > g + 15 && g > b + 15 && r > 180 ? 1 : 0
+        // The studio's selection gold (#c4a15a), lit or shaded.
+        stats.gold += r >= g && r > 120 && g > 90 && r - b > 55 && g - b > 35 ? 1 : 0
 
         if (r > 190 && g > 190 && b > 180) {
           stats.bright += 1
@@ -177,6 +179,18 @@ test('ink drawn on a panel appears on the 3D garment straight away, on the side 
   expect(front.oxblood).toBeGreaterThan(30)
   expect(back.oxblood).toBeLessThan(front.oxblood / 5)
   expect(back.meadow).toBeGreaterThan(front.meadow + 30)
+})
+
+test('a blank tee shows plain cloth inside the neck and cuffs: no selection outline lining it', async ({ page }) => {
+  // The real tee is one open layer of cloth. The 3D selection outline is an
+  // inflated back-facing shell, so on it the shell showed through the neck
+  // and the cuffs as a speckled gold lining on every new tee (founder beta).
+  await openDesign({ page, label: 'blank-trims' })
+
+  for (const side of ['3/4', 'Front', 'Back']) {
+    const { gold, total } = await statsOf({ page, picture: await viewFrom({ page, side }) })
+    expect(gold / total, side).toBeLessThan(0.0005)
+  }
 })
 
 test('the base colour changes the cloth, not the figure, and keeps the artwork', async ({ page }) => {
