@@ -96,7 +96,8 @@ import {
 import { upgradeToCurrentTemplate } from './template-upgrade'
 import { canonicalPanel, renderPanel, renderPanelSurface, rendersMirrored } from './render-projection'
 import { NUDGE_MERGE_MS } from './studio-keys'
-import { clampShape, type GarmentShape, templateHasShape } from './garment-shape-params'
+import { clampShape, type GarmentShape, type ShapeSpec } from './garment-shape-params'
+import { writableShapeSpec } from './shape-beta'
 import { roundPlacement } from './transform-fields'
 
 export type EditorMode = 'design' | 'atelier'
@@ -910,14 +911,24 @@ export function getCanonicalDocument(): CanonicalDocument {
   return tee.stack.document
 }
 
+/** The shape sliders the open garment's template takes in this build, or null (`shape-beta.ts`). */
+export function editableShapeSpec(): ShapeSpec | null {
+  return teeActive() ? writableShapeSpec({ template: tee.stack.document.template }) : null
+}
+
 /** Whether the open garment's template takes shape sliders (shape v1). */
 export function canEditShape() {
-  return teeActive() && templateHasShape({ template: tee.stack.document.template })
+  return editableShapeSpec() !== null
 }
 
 /** `canEditShape`, kept current: it re-reads on every content revision. */
 export function useCanEditShape() {
   return useEditorStore((state) => state.revision >= 0 && state.garmentId !== null && canEditShape())
+}
+
+/** `editableShapeSpec`, kept current. Specs are module constants, so the selector is stable. */
+export function useShapeSpec() {
+  return useEditorStore((state) => (state.revision >= 0 && state.garmentId !== null ? editableShapeSpec() : null))
 }
 
 /** Whether Pattern (beta) is on for this build and the open garment has a pattern template. */
@@ -2140,15 +2151,18 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     )
   },
   previewShape: ({ shape }) => {
-    set({ shapePreview: shape ? clampShape({ shape }) : null })
+    const spec = editableShapeSpec()
+    set({ shapePreview: shape && spec ? clampShape({ shape, spec }) : null })
   },
   setShape: ({ shape }) => {
     set((state) => {
-      if (!teeActive() || !templateHasShape({ template: tee.stack.document.template })) {
+      const spec = editableShapeSpec()
+
+      if (!spec) {
         return { shapePreview: null }
       }
 
-      const clamped = clampShape({ shape: { ...(state.document.shape ?? {}), ...shape } })
+      const clamped = clampShape({ shape: { ...(state.document.shape ?? {}), ...shape }, spec })
       const patch = Object.fromEntries(Object.keys(shape).map((field) => [field, clamped[field as keyof GarmentShape]]))
       const step = runTeeCommand({ engine: tee, command: { type: 'setShape', shape: patch } })
       tee = step.engine
