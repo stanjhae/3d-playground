@@ -34,14 +34,35 @@ function storageFor({ url }: { url: string }) {
 // Pattern (beta), shape sliders beyond the tee, the AI suggestion and the community (comments, follows) are off in production until the owner
 // turns them on; the suite drives them (the AI route itself is mocked in the browser, so no request leaves for
 // Anthropic). FLP_COMMUNITY turns the community routes on in the dev API.
-const appEnv = {
-  VITE_FLP_REQUIRE_AUTH: 'true',
-  VITE_FLP_CONTACT_EMAIL: 'alpha@example.test',
+const ALL_FLAGS = {
   VITE_PATTERN_BETA: 'true',
   VITE_SHAPE_ALL_GARMENTS: 'true',
   VITE_AI_ASSIST: 'true',
   VITE_COMMUNITY: 'true',
   FLP_COMMUNITY: 'true',
+}
+
+/**
+ * `E2E_FLAGS=beta` builds the app with the flags beta actually runs with
+ * (docs/decisions.md: Pattern (beta) and community on, the AI suggestion off),
+ * so the shipped combination is tested too, not only "everything on".
+ * `E2E_FLAGS=off` builds with every flag off, as a fresh deployment would.
+ */
+const FLAG_PROFILES: Record<string, Record<string, string>> = {
+  all: ALL_FLAGS,
+  beta: { VITE_PATTERN_BETA: 'true', VITE_AI_ASSIST: 'false', VITE_COMMUNITY: 'true', FLP_COMMUNITY: 'true' },
+  off: { VITE_PATTERN_BETA: 'false', VITE_AI_ASSIST: 'false', VITE_COMMUNITY: 'false', FLP_COMMUNITY: 'false' },
+}
+const flagProfile = process.env.E2E_FLAGS ?? 'all'
+
+if (!FLAG_PROFILES[flagProfile]) {
+  throw new Error(`E2E_FLAGS must be one of ${Object.keys(FLAG_PROFILES).join(', ')}`)
+}
+
+const appEnv = {
+  VITE_FLP_REQUIRE_AUTH: 'true',
+  VITE_FLP_CONTACT_EMAIL: 'alpha@example.test',
+  ...FLAG_PROFILES[flagProfile],
 }
 
 const devServer = ({ port }: { port: number }) => ({

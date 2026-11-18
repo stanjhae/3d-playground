@@ -379,6 +379,10 @@ test.describe('by touch', () => {
   test.skip(({ hasTouch }) => !hasTouch, 'Touch journeys; the mouse ones are above.')
 
   test('one finger turns the tee, a tap picks a logo and a long press moves it', async ({ page }) => {
+    // Each finger move waits for the page, and a dragged logo redraws the
+    // tee's print every move: on CI's software WebGL that took the 12-step
+    // drag past 90 s, though the whole test takes ~22 s with a GPU.
+    test.setTimeout(150_000)
     const { dock, stage, at } = await openHero(page)
     const canvas = stage.locator('canvas')
     const touch = await fingers(page)
@@ -412,8 +416,8 @@ test.describe('by touch', () => {
     await page.waitForTimeout(500)
     const to = await at(0.585, 0.62)
 
-    for (let step = 1; step <= 12; step += 1) {
-      await touch.move([{ x: crown.x + ((to.x - crown.x) * step) / 12, y: crown.y + ((to.y - crown.y) * step) / 12 }])
+    for (let step = 1; step <= 4; step += 1) {
+      await touch.move([{ x: crown.x + ((to.x - crown.x) * step) / 4, y: crown.y + ((to.y - crown.y) * step) / 4 }])
     }
 
     await touch.up()

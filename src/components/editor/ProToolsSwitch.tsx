@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from 'react'
+import { Info } from 'lucide-react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 
 import { useStudioMode } from '../../lib/studio-mode'
 import { cn } from '../../lib/cn'
@@ -14,6 +15,26 @@ export function ProToolsSwitch() {
   const describedBy = useId()
   // A moment's note after switching, so the change is seen, not guessed.
   const [note, setNote] = useState<string | null>(null)
+  const anchor = useRef<HTMLSpanElement>(null)
+  // Where the note sits on screen: below the switch, but kept inside the
+  // viewport. Anchored to the switch it ran off the right edge of a phone,
+  // where the studio's overflow clipped it away.
+  const [noteAt, setNoteAt] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!note || !anchor.current) {
+      setNoteAt(null)
+      return
+    }
+
+    const box = anchor.current.getBoundingClientRect()
+    const width = Math.min(288, window.innerWidth - 16)
+    setNoteAt({
+      top: box.bottom + 4,
+      left: Math.min(Math.max(8, box.left), window.innerWidth - width - 8),
+      width,
+    })
+  }, [note])
 
   useEffect(() => {
     if (!note) {
@@ -25,7 +46,7 @@ export function ProToolsSwitch() {
   }, [note])
 
   return (
-    <span className="relative inline-flex">
+    <span ref={anchor} className="relative inline-flex">
       <button
         type="button"
         role="switch"
@@ -57,13 +78,30 @@ export function ProToolsSwitch() {
         </span>
         Pro tools
       </button>
+      {/* The tooltip never shows on a phone, and the note only after switching:
+          this says what Pro adds before anyone switches it on. */}
+      <button
+        type="button"
+        aria-label="What Pro tools add"
+        aria-expanded={note !== null}
+        onClick={() => {
+          const message = `Pro tools add ${PRO_TOOLS_ADDS}.`
+          setNote((shown) => (shown ? null : message))
+          announce({ message })
+        }}
+        className="inline-flex size-11 items-center justify-center text-flv-muted hover:text-flv-ink"
+      >
+        <Info aria-hidden className="size-4" />
+      </button>
       <span id={describedBy} className="sr-only">
         Adds {PRO_TOOLS_ADDS}.
       </span>
-      {note ? (
+      {note && noteAt ? (
         <span
           aria-hidden
-          className="flv-panel absolute top-full left-0 z-40 mt-1 w-[min(18rem,calc(100vw-2rem))] p-2 font-body text-xs text-flv-ink shadow-md"
+          // Fixed, so the studio's clipped frame can't cut it off.
+          style={{ top: noteAt.top, left: noteAt.left, width: noteAt.width }}
+          className="flv-panel fixed z-50 p-2 font-body text-xs text-flv-ink shadow-md"
         >
           {note}
         </span>
