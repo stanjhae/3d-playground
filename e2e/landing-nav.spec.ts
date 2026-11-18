@@ -49,3 +49,31 @@ test('the underline also works after arriving from another page', async ({ page 
     await expect(nav.getByRole('link', { name: link.label, exact: true })).toHaveAttribute('aria-current', 'location')
   }
 })
+
+test('a reader who scrolls the prerendered landing keeps their place when it comes alive', async ({ page }) => {
+  // Found on beta: on a slow connection a visitor scrolls the prerendered
+  // page, then the live one takes over and the router sent them to the top.
+  // Holding the app's scripts back stands in for the slow connection.
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.route('**/assets/*.js', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_500))
+    await route.continue()
+  })
+  await page.goto('/', { waitUntil: 'commit' })
+  await page.waitForSelector('#features')
+  const prerendered = await page.evaluate(() => Boolean(document.getElementById('flv-static')))
+  test.skip(!prerendered, 'Only the production build (E2E_SERVER=preview) serves the prerendered landing')
+
+  const kept = await page.evaluate(() => {
+    const section = document.getElementById('features')!
+    window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.22, behavior: 'instant' })
+    return window.scrollY
+  })
+  expect(kept).toBeGreaterThan(500)
+
+  await expect.poll(() => page.evaluate(() => !document.getElementById('flv-static')), { timeout: 30_000 }).toBe(true)
+  await page.waitForTimeout(800)
+  expect(Math.abs((await page.evaluate(() => window.scrollY)) - kept)).toBeLessThan(4)
+  const nav = page.getByRole('navigation', { name: 'Site' }).first()
+  await expect(nav.getByRole('link', { name: 'Features', exact: true })).toHaveAttribute('aria-current', 'location')
+})
