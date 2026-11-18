@@ -268,7 +268,8 @@ type EditorState = {
   /**
    * Picking a side in the 2D editor: it becomes the side being drawn on and
    * the 3D view turns to it (founder review, 16 Nov). Only a change of side
-   * turns it, so the view can still be turned by hand while drawing.
+   * turns it. A hand turn sets the camera to `orbit` (`StudioOrbit`), so the
+   * turned view stays while drawing on the same side.
    */
   showPanel: ({ panel }: { panel: PanelId }) => void
   setPaintTool: ({ paintTool }: { paintTool: EditorPaintTool }) => void
