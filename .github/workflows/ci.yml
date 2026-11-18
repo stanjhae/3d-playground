@@ -169,3 +169,35 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  # The other browser jobs build with every flag on, so the suite can drive
+  # each feature. This one builds with the flags beta actually runs with
+  # (Pattern (beta) and community on, the AI suggestion off;
+  # docs/decisions.md), so the shipped combination is tested too.
+  beta-flags:
+    name: Beta flags journey
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/start-supabase
+      - uses: ./.github/actions/playwright-browsers
+        with:
+          browser: chromium
+      - name: Core journeys with beta's flags
+        env:
+          E2E_SERVER: preview
+          E2E_FLAGS: beta
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY|SECRET_KEY|MAILPIT_URL)=')"
+          export SUPABASE_URL="$API_URL" SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" SUPABASE_SECRET_KEY="$SECRET_KEY"
+          export VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" MAILPIT_URL="$MAILPIT_URL"
+          pnpm e2e --project=chromium smoke claims navigation journey guided landing-nav
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: beta-flags-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
