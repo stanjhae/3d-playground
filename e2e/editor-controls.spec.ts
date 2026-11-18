@@ -645,6 +645,71 @@ test('on the Preview step a drag turns the tee and adds no ink, and a preset tak
   expect(await difference(front, await settled())).toBeLessThan(0.005)
 })
 
+test('a hand turn from a held side stays turned, and picking the side again takes it back', async ({ page }) => {
+  // Founder review 2, point 2: picking Back turns the tee, but a turn by hand
+  // used to spring back to Back once the press let go.
+  test.setTimeout(120_000)
+  await openDesign({ page, label: 'held-turn', tech: false })
+  await chooseTool({ page, tool: 'Draw' })
+  await page.getByRole('button', { name: 'Oxblood' }).first().click()
+  await page.getByRole('slider', { name: 'Size' }).fill('0.06')
+  await drawStroke({ page, panel: 'Front' })
+  await saved({ read: async () => (await layers({ page, kind: 'paint' })).flatMap((layer) => layer.strokes ?? []).length }).toBe(1)
+  await expectSaved({ page })
+
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'preview')
+  await page.goto(url.toString())
+  const camera = page.getByRole('radiogroup', { name: 'Camera' })
+  const scene = page.locator('canvas[data-engine]')
+  const settled = async () => {
+    await page.waitForTimeout(2_500)
+    return (await scene.screenshot()).toString('base64')
+  }
+  const difference = (one: string, two: string) =>
+    page.evaluate(
+      async (pictures) => {
+        const decoded = await Promise.all(
+          pictures.map(async (picture) => {
+            const image = new Image()
+            image.src = `data:image/png;base64,${picture}`
+            await image.decode()
+            const canvas = document.createElement('canvas')
+            canvas.width = image.width
+            canvas.height = image.height
+            const context = canvas.getContext('2d')!
+            context.drawImage(image, 0, 0)
+            return context.getImageData(0, 0, canvas.width, canvas.height).data
+          }),
+        )
+        let differing = 0
+
+        for (let at = 0; at < decoded[0]!.length; at += 4) {
+          differing += [0, 1, 2].some((channel) => Math.abs(decoded[0]![at + channel]! - decoded[1]![at + channel]!) > 16) ? 1 : 0
+        }
+
+        return differing / (decoded[0]!.length / 4)
+      },
+      [one, two],
+    )
+
+  await camera.getByRole('radio', { name: 'Back', exact: true }).click()
+  const back = await settled()
+
+  const box = (await scene.boundingBox())!
+  await drag({
+    page,
+    from: { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    to: { x: box.x + box.width / 2 + 180, y: box.y + box.height / 2 },
+  })
+  // The hand turn lets go of Back, and the tee stays where it was turned.
+  await expect(camera.getByRole('radio', { name: 'Orbit', exact: true })).toHaveAttribute('aria-checked', 'true')
+  expect(await difference(back, await settled())).toBeGreaterThan(0.005)
+
+  await camera.getByRole('radio', { name: 'Back', exact: true }).click()
+  expect(await difference(back, await settled())).toBeLessThan(0.005)
+})
+
 test('at phone width each panel keeps its shape and fits, and a sleeve can be drawn on', async ({ page }) => {
   test.setTimeout(120_000)
   await page.setViewportSize({ width: 390, height: 844 })

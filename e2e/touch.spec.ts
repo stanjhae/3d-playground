@@ -139,6 +139,86 @@ test('two fingers on the 3D garment resize the selected graphic', async ({ page 
   await expect.poll(async () => (await scale())! > before * 1.3, { timeout: 30_000 }).toBe(true)
 })
 
+test('two fingers on a selected mark on a 2D panel resize and turn it, as one undo step, and leave no stroke', async ({ page }) => {
+  test.setTimeout(150_000)
+  const email = newEmail({ label: 'touch-panel-pinch' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).tap()
+  await expect(page).toHaveURL(/\/create\?cloud=/)
+  await expectSaved({ page })
+
+  // A tapped graphic lands mid-front and is selected.
+  await chooseTool({ page, tool: 'Graphics' })
+  await page.locator('button[draggable="true"]').first().tap()
+  type Mark = { x: number; y: number; scale: number; rotation: number }
+  const mark = async () => {
+    await expectSaved({ page })
+    const designId = new URL(page.url()).searchParams.get('cloud')!
+    return page.evaluate(async (id) => {
+      const token = JSON.parse(localStorage.getItem('flp-auth')!).access_token
+      const response = await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      const { head } = await response.json()
+      type Layer = { kind: string; x: number; y: number; scale?: number; rotation?: number }
+      const image = (head.content.panels.front.layers as Layer[]).find((layer) => layer.kind === 'image')
+      return image ? { x: image.x, y: image.y, scale: image.scale ?? 1, rotation: image.rotation ?? 0 } : null
+    }, designId)
+  }
+  await expect.poll(mark, { timeout: 30_000 }).not.toBeNull()
+  const before = (await mark()) as Mark
+
+  await showPanels({ page })
+  const front = panelCanvas({ page, panel: 'Front' })
+  await front.scrollIntoViewIfNeeded()
+
+  /** Two fingers on the mark: they spread apart and twist a quarter-ish turn clockwise. */
+  async function pinch({ on }: { on: Mark }) {
+    const box = (await front.boundingBox())!
+    const cx = box.x + box.width * on.x
+    const cy = box.y + box.height * (1 - on.y)
+    const fingers = (spread: number, turn: number) => [
+      { x: cx - spread * Math.cos(turn), y: cy - spread * Math.sin(turn), id: 1 },
+      { x: cx + spread * Math.cos(turn), y: cy + spread * Math.sin(turn), id: 2 },
+    ]
+    const cdp = await page.context().newCDPSession(page)
+    // The first finger lands, then the second, as a hand does.
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(12, 0).slice(0, 1) })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...fingers(12, 0)[0]!, x: cx - 18 }] })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(12, 0) })
+    for (let step = 1; step <= 10; step += 1) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(12 + step * 2.4, (step / 10) * 0.6) })
+    }
+    // One finger lifts, the other wanders, then lifts: nothing more happens.
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: fingers(36, 0.6).slice(1) })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...fingers(36, 0.6)[1]!, x: cx + 60 }] })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await cdp.detach()
+  }
+
+  // With Graphics, the first finger drags the mark; the pinch puts it back where it was.
+  await pinch({ on: before })
+  await expect.poll(async () => (await mark())!.scale, { timeout: 30_000 }).toBeGreaterThan(before.scale * 2)
+  const pinched = (await mark())!
+  // Fingers turning clockwise on screen turn the mark clockwise (layer rotation runs anticlockwise).
+  expect(pinched.rotation).toBeCloseTo(before.rotation - 0.6, 1)
+  expect(pinched.x).toBeCloseTo(before.x, 3)
+  expect(pinched.y).toBeCloseTo(before.y, 3)
+
+  // The whole pinch is one undo step.
+  await page.getByRole('button', { name: 'Undo' }).first().click()
+  await expect.poll(async () => (await mark())!.scale, { timeout: 30_000 }).toBeCloseTo(before.scale, 3)
+  expect((await mark())!.rotation).toBeCloseTo(before.rotation, 3)
+  await page.getByRole('button', { name: 'Redo' }).first().click()
+  await expect.poll(async () => (await mark())!.scale, { timeout: 30_000 }).toBeCloseTo(pinched.scale, 3)
+
+  // With Draw, the first finger's stroke is dropped: the pinch leaves no line.
+  await chooseTool({ page, tool: 'Draw' })
+  await showPanels({ page })
+  await pinch({ on: pinched })
+  await expect.poll(async () => (await mark())!.rotation, { timeout: 30_000 }).toBeCloseTo(pinched.rotation - 0.6, 1)
+  expect(await savedStrokes({ page })).toHaveLength(0)
+})
+
 test('a graphic held and dragged from the library by a finger lands where it is let go on the cloth', async ({ page }) => {
   test.setTimeout(150_000)
   const email = newEmail({ label: 'touch-drop' })
