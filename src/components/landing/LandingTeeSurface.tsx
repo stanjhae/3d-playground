@@ -1,15 +1,20 @@
-import type { ThreeEvent } from '@react-three/fiber'
+import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { useEffect, useRef, type ReactNode } from 'react'
 
 import {
   clothDrag,
+  clothHeld,
   clothPaintActive,
   endClothDrag,
   endClothPaint,
+  holdClothForGesture,
   moveClothDrag,
   startClothDrag,
   startClothPaint,
+  type ClothDrag,
 } from '../../lib/cloth-pointer'
+import { LONG_PRESS_MS } from '../../lib/graphic-drag'
+import { twoFingerChange, type Point } from '../../lib/two-finger'
 import type { DesignDocument, PanelId } from '../../lib/design-document'
 import { addLandingStroke, updateLandingGraphicTransform } from '../../lib/landing-demo'
 import { useLandingDemoStore } from '../../lib/landing-demo-store'
@@ -21,6 +26,22 @@ export type LiveStroke = { panel: PanelId; points: { x: number; y: number }[]; c
 
 /** A tap moves the pointer no further than this (px) between press and release. */
 export const TAP_SLOP = 5
+/** A finger resting on a logo may wander this far (px) before the hold becomes a turn. */
+const HOLD_SLOP = 10
+const TURN_PER_PX = 0.008
+
+type OrbitLike = {
+  getAzimuthalAngle: () => number
+  getPolarAngle: () => number
+  setAzimuthalAngle: (angle: number) => void
+  setPolarAngle: (angle: number) => void
+  minPolarAngle: number
+  maxPolarAngle: number
+  update: () => void
+}
+
+/** A finger resting on a logo: a tap picks it, a long press lifts it to move. */
+type PendingHold = { pointerId: number; x: number; y: number; layerId: string; drag: ClothDrag; timer: number }
 
 /**
  * The hero tee's own pointer handling, the studio's cloth logic in small:
@@ -34,10 +55,13 @@ export function LandingTeeSurface({
   document,
   onLiveStroke,
   onPress,
+  onTurn,
   children,
 }: {
   /** Told of every press on the tee, so a tap off it can be told apart. */
   onPress: () => void
+  /** Two fingers turned the tee by hand. */
+  onTurn: () => void
   /** The render document the tee is drawn from (the hits' space). */
   document: DesignDocument
   onLiveStroke: (stroke: LiveStroke | null) => void
@@ -47,7 +71,22 @@ export function LandingTeeSurface({
   // Pointer moves land once a frame: each redraws the tee's print.
   const pending = useRef<(() => void) | null>(null)
   const frame = useRef(0)
+  const hold = useRef<PendingHold | null>(null)
+  // Two fingers are down: no finger starts ink or a drag until all lift.
+  const gesturing = useRef(false)
   const rects = document.panelUv
+  const element = useThree((state) => state.events.connected as HTMLElement | null | undefined) ?? null
+  const controls = useThree((state) => state.controls) as unknown as OrbitLike | null
+  const invalidate = useThree((state) => state.invalidate)
+  const onTurnRef = useRef(onTurn)
+  onTurnRef.current = onTurn
+
+  function dropHold() {
+    if (hold.current) {
+      window.clearTimeout(hold.current.timer)
+      hold.current = null
+    }
+  }
 
   function later(run: () => void) {
     pending.current = run
@@ -111,6 +150,112 @@ export function LandingTeeSurface({
     }
   }, [onLiveStroke])
 
+  // Touch: a resting finger on a logo, and two fingers turning the tee.
+  useEffect(() => {
+    if (!element) return
+    const target = element
+    const touches = new Map<number, Point>()
+    let start: { pair: [Point, Point]; azimuth: number; polar: number } | null = null
+    const pair = (): [Point, Point] => {
+      const [a, b] = [...touches.values()]
+      return [a!, b!]
+    }
+
+    function onDown(event: PointerEvent) {
+      if (event.pointerType !== 'touch') return
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+      if (touches.size !== 2 || gesturing.current) return
+      // Whatever the first finger started stops here: no stray line, no lift.
+      gesturing.current = true
+      dropHold()
+      endClothDrag()
+
+      if (endClothPaint()) {
+        live.current = null
+        pending.current = null
+        onLiveStroke(null)
+      }
+
+      holdClothForGesture({ held: true })
+
+      if (controls) {
+        start = { pair: pair(), azimuth: controls.getAzimuthalAngle(), polar: controls.getPolarAngle() }
+        onTurnRef.current()
+      }
+    }
+
+    function onMove(event: PointerEvent) {
+      const pending = hold.current
+
+      if (pending?.pointerId === event.pointerId && Math.hypot(event.clientX - pending.x, event.clientY - pending.y) > HOLD_SLOP) {
+        // It moved before the hold: a turn, left to the orbit.
+        dropHold()
+      }
+
+      if (!touches.has(event.pointerId)) return
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+      if (touches.size === 2 && start && controls) {
+        const change = twoFingerChange({ start: start.pair, now: pair() })
+        controls.setAzimuthalAngle(start.azimuth - change.pan.x * TURN_PER_PX)
+        controls.setPolarAngle(
+          Math.min(controls.maxPolarAngle, Math.max(controls.minPolarAngle, start.polar - change.pan.y * TURN_PER_PX)),
+        )
+        controls.update()
+        invalidate()
+      }
+    }
+
+    function onUp(event: PointerEvent) {
+      const pending = hold.current
+
+      if (pending?.pointerId === event.pointerId) {
+        // Let go before the hold: a tap, which picks the logo.
+        dropHold()
+
+        if (event.type === 'pointerup' && Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <= HOLD_SLOP) {
+          useLandingDemoStore.getState().selectLayer(pending.layerId)
+        }
+      }
+
+      if (!touches.delete(event.pointerId)) return
+
+      // The gesture holds the tee until every finger is off, so the one left never jumps the view.
+      if (gesturing.current && touches.size === 0) {
+        gesturing.current = false
+        start = null
+        holdClothForGesture({ held: false })
+      }
+    }
+
+    // A finger moving a logo or drawing never scrolls the page under it
+    // (Turn leaves vertical swipes to the page: `touch-action: pan-y`).
+    function onTouchMove(event: TouchEvent) {
+      if (clothHeld() && event.cancelable) event.preventDefault()
+    }
+
+    target.addEventListener('pointerdown', onDown, { capture: true })
+    window.addEventListener('pointermove', onMove, { capture: true })
+    window.addEventListener('pointerup', onUp, { capture: true })
+    window.addEventListener('pointercancel', onUp, { capture: true })
+    target.addEventListener('touchmove', onTouchMove, { passive: false })
+
+    return () => {
+      target.removeEventListener('pointerdown', onDown, { capture: true })
+      window.removeEventListener('pointermove', onMove, { capture: true })
+      window.removeEventListener('pointerup', onUp, { capture: true })
+      window.removeEventListener('pointercancel', onUp, { capture: true })
+      target.removeEventListener('touchmove', onTouchMove)
+      dropHold()
+
+      if (gesturing.current) {
+        gesturing.current = false
+        holdClothForGesture({ held: false })
+      }
+    }
+  }, [controls, element, invalidate, onLiveStroke])
+
   function pointOf(event: ThreeEvent<PointerEvent | MouseEvent>) {
     const uv = event.uv1
 
@@ -133,7 +278,7 @@ export function LandingTeeSurface({
         event.stopPropagation()
         onPress()
 
-        if (event.nativeEvent.button !== 0) {
+        if (event.nativeEvent.button !== 0 || gesturing.current) {
           return
         }
 
@@ -148,20 +293,44 @@ export function LandingTeeSurface({
         const logo = state.surfaceMode === 'draw' ? null : logoAt(at)
 
         if (logo) {
+          const drag: ClothDrag = {
+            layerId: logo.id,
+            panel: logo.panel,
+            originX: at.x,
+            originY: at.y,
+            startX: logo.x,
+            startY: logo.y,
+            startScale: logo.scale,
+            startRotation: logo.rotation,
+          }
+
+          if (event.nativeEvent.pointerType === 'touch') {
+            // A finger on a logo may be starting a turn: a tap picks it, and
+            // only a long press lifts it to move (the orbit stands down then).
+            dropHold()
+            const { pointerId, clientX, clientY } = event.nativeEvent
+            hold.current = {
+              pointerId,
+              x: clientX,
+              y: clientY,
+              layerId: logo.id,
+              drag,
+              timer: window.setTimeout(() => {
+                const lifted = hold.current
+                hold.current = null
+
+                if (lifted && !gesturing.current) {
+                  useLandingDemoStore.getState().selectLayer(lifted.layerId)
+                  startClothDrag({ drag: lifted.drag })
+                }
+              }, LONG_PRESS_MS),
+            }
+            return
+          }
+
           event.nativeEvent.preventDefault()
           state.selectLayer(logo.id)
-          startClothDrag({
-            drag: {
-              layerId: logo.id,
-              panel: logo.panel,
-              originX: at.x,
-              originY: at.y,
-              startX: logo.x,
-              startY: logo.y,
-              startScale: logo.scale,
-              startRotation: logo.rotation,
-            },
-          })
+          startClothDrag({ drag })
           return
         }
 

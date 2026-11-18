@@ -645,27 +645,14 @@ test('on the Preview step a drag turns the tee and adds no ink, and a preset tak
   expect(await difference(front, await settled())).toBeLessThan(0.005)
 })
 
-test('a hand turn from a held side stays turned, and picking the side again takes it back', async ({ page }) => {
-  // Founder review 2, point 2: picking Back turns the tee, but a turn by hand
-  // used to spring back to Back once the press let go.
-  test.setTimeout(120_000)
-  await openDesign({ page, label: 'held-turn', tech: false })
-  await chooseTool({ page, tool: 'Draw' })
-  await page.getByRole('button', { name: 'Oxblood' }).first().click()
-  await page.getByRole('slider', { name: 'Size' }).fill('0.06')
-  await drawStroke({ page, panel: 'Front' })
-  await saved({ read: async () => (await layers({ page, kind: 'paint' })).flatMap((layer) => layer.strokes ?? []).length }).toBe(1)
-  await expectSaved({ page })
-
-  const url = new URL(page.url())
-  url.searchParams.set('step', 'preview')
-  await page.goto(url.toString())
-  const camera = page.getByRole('radiogroup', { name: 'Camera' })
+/** Settled pictures of the 3D scene, and how much two of them differ. */
+function sceneShots({ page }: { page: Page }) {
   const scene = page.locator('canvas[data-engine]')
   const settled = async () => {
     await page.waitForTimeout(2_500)
     return (await scene.screenshot()).toString('base64')
   }
+  /** Share of pixels that differ visibly between two pictures of the scene. */
   const difference = (one: string, two: string) =>
     page.evaluate(
       async (pictures) => {
@@ -692,6 +679,31 @@ test('a hand turn from a held side stays turned, and picking the side again take
       },
       [one, two],
     )
+  return { scene, settled, difference }
+}
+
+/** A design with ink on the front, opened on the Preview step. */
+async function inkedPreview({ page, label }: { page: Page; label: string }) {
+  await openDesign({ page, label, tech: false })
+  await chooseTool({ page, tool: 'Draw' })
+  await page.getByRole('button', { name: 'Oxblood' }).first().click()
+  await page.getByRole('slider', { name: 'Size' }).fill('0.06')
+  await drawStroke({ page, panel: 'Front' })
+  await saved({ read: async () => (await layers({ page, kind: 'paint' })).flatMap((layer) => layer.strokes ?? []).length }).toBe(1)
+  await expectSaved({ page })
+
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'preview')
+  await page.goto(url.toString())
+  return page.getByRole('radiogroup', { name: 'Camera' })
+}
+
+test('a hand turn from a held side stays turned, and picking the side again takes it back', async ({ page }) => {
+  // Founder review 2, point 2: picking Back turns the tee, but a turn by hand
+  // used to spring back to Back once the press let go.
+  test.setTimeout(120_000)
+  const camera = await inkedPreview({ page, label: 'held-turn' })
+  const { scene, settled, difference } = sceneShots({ page })
 
   await camera.getByRole('radio', { name: 'Back', exact: true }).click()
   const back = await settled()
@@ -707,6 +719,33 @@ test('a hand turn from a held side stays turned, and picking the side again take
   expect(await difference(back, await settled())).toBeGreaterThan(0.005)
 
   await camera.getByRole('radio', { name: 'Back', exact: true }).click()
+  expect(await difference(back, await settled())).toBeLessThan(0.005)
+})
+
+test('a zoom on a held side stays zoomed, and a tap while the camera glides lets it arrive', async ({ page }) => {
+  // Review of #406: the wheel didn't let go of a held side, so a zoom sprang
+  // back; and the glide's own motion during a tap counted as a hand turn.
+  test.setTimeout(120_000)
+  const camera = await inkedPreview({ page, label: 'held-zoom' })
+  const { scene, settled, difference } = sceneShots({ page })
+  const box = (await scene.boundingBox())!
+  const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+
+  await camera.getByRole('radio', { name: 'Back', exact: true }).click()
+  const back = await settled()
+
+  await page.mouse.move(middle.x, middle.y)
+  await page.mouse.wheel(0, -400)
+  await expect(camera.getByRole('radio', { name: 'Orbit', exact: true })).toHaveAttribute('aria-checked', 'true')
+  expect(await difference(back, await settled())).toBeGreaterThan(0.005)
+
+  // From Front, pick Back and tap the tee straight away, mid-glide: the tap
+  // doesn't let go, and the camera still arrives on Back.
+  await camera.getByRole('radio', { name: 'Front', exact: true }).click()
+  await settled()
+  await camera.getByRole('radio', { name: 'Back', exact: true }).click()
+  await page.mouse.click(middle.x, middle.y)
+  await expect(camera.getByRole('radio', { name: 'Back', exact: true })).toHaveAttribute('aria-checked', 'true')
   expect(await difference(back, await settled())).toBeLessThan(0.005)
 })
 

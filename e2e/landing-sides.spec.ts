@@ -27,7 +27,7 @@ test('the hero draws and drops on the side it shows', async ({ page }) => {
 
   await page.mouse.up()
 
-  await dock.getByRole('button', { name: 'Left', exact: true }).click()
+  await dock.getByRole('button', { name: 'Left sleeve', exact: true }).click()
   await expect(dock).toContainText('It lands on the left sleeve.')
   await dock.getByRole('button', { name: 'Add Rising Flame' }).click()
 

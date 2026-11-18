@@ -8,6 +8,7 @@ import {
   PMREMGenerator,
   SRGBColorSpace,
   type PerspectiveCamera,
+  type Vector3,
 } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
@@ -25,6 +26,7 @@ import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
 import {
   CAMERA_PRESET_POSITIONS,
   captureFov,
+  HAND_TURN_PX,
   liveSeat,
   modelSeat,
   presetTarget,
@@ -304,9 +306,19 @@ export function StudioCamera({
   const presetAim = fitted ? fitted.target : presetTarget({ preset: seatPreset })
 
   const controls = useThree((state) => state.controls) as
-    | { target: { set: (x: number, y: number, z: number) => void } }
+    | { target: Vector3; enabled: boolean }
     | null
     | undefined
+  const element = useThree((state) => state.gl.domElement)
+  // Where a free camera turns about: the garment's middle (the 3/4 view's
+  // aim), not a sleeve the last view looked at.
+  const centreAim = useMemo(
+    () =>
+      modelFrame
+        ? modelSeat({ preset: 'threeQuarter', frame: modelFrame, live: true }).target
+        : presetTarget({ preset: 'threeQuarter' }),
+    [modelFrame],
+  )
 
   // While a view holds the camera, the orbit turns about that view's aim, so
   // a hand turn starts from what's on screen instead of jumping to the centre.
@@ -317,6 +329,53 @@ export function StudioCamera({
 
     controls.target.set(presetAim[0], presetAim[1], presetAim[2])
   }, [controls, freeOrbit, presetAim])
+
+  // A held view (Back, a sleeve) glides the camera to its seat every frame.
+  // Any turn or zoom by hand on the canvas lets go of it, so the camera stays
+  // where the hand left it (founder review 2, point 2). Only a press that
+  // moves counts: a tap during the glide doesn't stop it halfway. Ink and
+  // dragged graphics switch the orbit off, so they never let go.
+  useEffect(() => {
+    if (held) {
+      return
+    }
+
+    let press: { x: number; y: number } | null = null
+    const orbitOn = () => controls?.enabled !== false
+    const release = () => {
+      useEditorStore.getState().releaseHeldView()
+    }
+    const onDown = (event: PointerEvent) => {
+      press = { x: event.clientX, y: event.clientY }
+    }
+    const onMove = (event: PointerEvent) => {
+      if (press && orbitOn() && Math.hypot(event.clientX - press.x, event.clientY - press.y) > HAND_TURN_PX) {
+        press = null
+        release()
+      }
+    }
+    const onUp = () => {
+      press = null
+    }
+    const onWheel = () => {
+      if (orbitOn()) {
+        release()
+      }
+    }
+
+    element.addEventListener('pointerdown', onDown)
+    element.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      element.removeEventListener('pointerdown', onDown)
+      element.removeEventListener('wheel', onWheel)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [controls, element, held])
 
   useLayoutEffect(() => {
     camera.near = STUDIO_CAMERA.near
@@ -356,6 +415,21 @@ export function StudioCamera({
     moving.current = false
 
     if (freeOrbit) {
+      // Once let go, the pivot eases back to the garment's middle, so a turn
+      // that began on a sleeve view doesn't swing the garment off-centre.
+      // The landing seats its own camera (`held`) and is left alone.
+      const target = controls?.target
+      if (!held && !capturingAngles && target) {
+        const blend = reducedMotion ? 1 : Math.min(1, delta * 4)
+        target.x += (centreAim[0] - target.x) * blend
+        target.y += (centreAim[1] - target.y) * blend
+        target.z += (centreAim[2] - target.z) * blend
+        if (target.distanceToSquared({ x: centreAim[0], y: centreAim[1], z: centreAim[2] }) > 1e-8) {
+          moving.current = true
+          invalidate()
+        }
+      }
+
       return
     }
 
@@ -509,9 +583,6 @@ export function StudioStage({
   )
 }
 
-/** How far a press must turn the camera before it counts as turning by hand. */
-const HAND_TURN_RADIANS = 0.04
-
 export function StudioOrbit({
   intro = false,
   turntable = false,
@@ -543,13 +614,7 @@ export function StudioOrbit({
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
   // A graphic being dragged across the cloth holds the view as ink does.
   const draggingLayer = useEditorStore((state) => state.activeLayerEdit !== null)
-  const controlsRef = useRef<{
-    enabled: boolean
-    getAzimuthalAngle: () => number
-    getPolarAngle: () => number
-  } | null>(null)
-  // The angles when a press began, so only a real turn (not a tap) lets go.
-  const pressAngles = useRef<{ azimuth: number; polar: number } | null>(null)
+  const controlsRef = useRef<{ enabled: boolean } | null>(null)
   // A held view doesn't disable the orbit: a drag lets go of it (`onTurn`).
   const orbitEnabled = enabled && !painting && !draggingLayer && !capturingAngles
 
@@ -604,30 +669,8 @@ export function StudioOrbit({
         onStart={() => {
           setSpinning(false)
           onTurn?.()
-          const orbit = controlsRef.current
-          pressAngles.current = orbit ? { azimuth: orbit.getAzimuthalAngle(), polar: orbit.getPolarAngle() } : null
-        }}
-        onChange={() => {
-          // The studio: a held view (Back, a sleeve) springs back each frame,
-          // so a hand turn hands the camera to the orbit and it stays turned.
-          // Picking a side again turns it back (founder review 2, point 2).
-          const start = pressAngles.current
-          const orbit = controlsRef.current
-          if (onTurn || !start || !orbit?.enabled) {
-            return
-          }
-
-          const turned =
-            Math.abs(orbit.getAzimuthalAngle() - start.azimuth) > HAND_TURN_RADIANS ||
-            Math.abs(orbit.getPolarAngle() - start.polar) > HAND_TURN_RADIANS
-          const state = useEditorStore.getState()
-          if (turned && state.cameraPreset !== 'orbit' && !state.capturingAngles) {
-            pressAngles.current = null
-            state.setCameraPreset({ cameraPreset: 'orbit' })
-          }
         }}
         onEnd={() => {
-          pressAngles.current = null
           if (turntable && !reducedMotion && !lockedView) {
             setSpinning(true)
           }

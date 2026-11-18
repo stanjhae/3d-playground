@@ -1,14 +1,10 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect } from 'react'
-import { Raycaster, Vector2, type Mesh } from 'three'
 
 import { useEditorStore } from '../../lib/editor-store'
 import { GRAPHIC_DROP_EVENT, type GraphicDropDetail, carriesGraphic, droppedGraphic } from '../../lib/graphic-drag'
-import { uvToPanelPoint } from '../../lib/panel-uv'
 import { announce } from '../../lib/studio-announcer'
-
-/** The canvas's probe: the printable panel point under a screen point, or null. */
-export type PanelPointAt = (clientX: number, clientY: number) => ReturnType<typeof uvToPanelPoint>
+import { createPanelPointAt, type PanelPointAt } from './panel-point-at'
 
 /**
  * A graphic dragged from the library onto the 3D cloth lands under the
@@ -26,28 +22,12 @@ export function ClothDropTarget() {
 
   useEffect(() => {
     const element = gl.domElement as HTMLCanvasElement & { flvPanelPointAt?: PanelPointAt }
-    const raycaster = new Raycaster()
-    const pointer = new Vector2()
-
-    const panelPointAt: PanelPointAt = (clientX, clientY) => {
-      const rect = element.getBoundingClientRect()
-      pointer.set(
-        ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1,
-        -((clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1,
-      )
-      raycaster.setFromCamera(pointer, camera)
-      const panelUv = useEditorStore.getState().document.panelUv
-      // Only the nearest surface under the pointer counts, never something
-      // behind it, and never the stage's unseen floor.
-      const hit = raycaster
-        .intersectObjects(scene.children, true)
-        .find((each) => (each.object as Mesh).isMesh && !each.object.userData.stageCatcher)
-      // Trim such as the collar never prints (`apply-ink.ts`).
-      const printable = hit && hit.object.userData.printable !== false
-      // Template-built garments print through their own UV set (`uv1`).
-      const uv = printable ? (panelUv ? hit.uv1 : hit.uv) : undefined
-      return uv && uv.x >= 0 && uv.y >= 0 ? uvToPanelPoint({ u: uv.x, v: uv.y, rects: panelUv }) : null
-    }
+    const panelPointAt = createPanelPointAt({
+      element,
+      camera,
+      scene,
+      panelUv: () => useEditorStore.getState().document.panelUv,
+    })
 
     function place({ src, clientX, clientY }: { src: string; clientX: number; clientY: number }) {
       const point = panelPointAt(clientX, clientY)

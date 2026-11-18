@@ -1,4 +1,14 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef } from 'react'
+
+import {
+  armTouchGraphicDrag,
+  carriesGraphic,
+  droppedGraphic,
+  GRAPHIC_DROP_EVENT,
+  startGraphicDrag,
+  touchGraphicDragActive,
+  type GraphicDropDetail,
+} from '../../lib/graphic-drag'
 
 import { cn } from '../../lib/cn'
 import { LANDING_COPY } from '../../lib/landing-copy'
@@ -7,6 +17,7 @@ import {
   LANDING_CAMERA_VIEWS,
   LANDING_PANEL_ASPECT,
   LANDING_SCALE_STEP,
+  LANDING_VIEW_LABEL,
   LANDING_VIEW_PANEL,
   latestLandingGraphicId,
   padToSketch,
@@ -16,7 +27,6 @@ import {
 } from '../../lib/landing-demo'
 import { useLandingDemoStore } from '../../lib/landing-demo-store'
 import { INK_COLORS } from '../../lib/paint-colors'
-import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 
 const COPY = LANDING_COPY.hero
 
@@ -45,17 +55,6 @@ export const HERO_GRAPHICS = [
   { id: 'flame-rise', label: 'Rising Flame' },
   { id: 'logo-crown', label: 'Crown' },
 ].map((graphic) => ({ ...graphic, src: `/graphics/${graphic.id}.svg` }))
-
-const VIEW_LABEL: Record<(typeof LANDING_CAMERA_VIEWS)[number], string> = {
-  front: 'Front',
-  back: 'Back',
-  left: 'Left',
-  right: 'Right',
-}
-
-
-/** What a dragged graphic carries: its library path. */
-export const GRAPHIC_DRAG_TYPE = 'application/x-flv-graphic'
 
 const chip =
   'inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border font-body text-xs transition-colors'
@@ -95,6 +94,9 @@ function removeSelectedLogo() {
 export function HeroToolDock({ live }: { live: boolean }) {
   const ink = useLandingDemoStore((state) => state.ink)
   const cameraView = useLandingDemoStore((state) => state.cameraView)
+  const side = useLandingDemoStore((state) => state.side)
+  const draggingGraphic = useLandingDemoStore((state) => state.draggingGraphic)
+  const setDraggingGraphic = useLandingDemoStore((state) => state.setDraggingGraphic)
   const apply = useLandingDemoStore((state) => state.apply)
   const setInk = useLandingDemoStore((state) => state.setInk)
   const setCameraView = useLandingDemoStore((state) => state.setCameraView)
@@ -109,8 +111,11 @@ export function HeroToolDock({ live }: { live: boolean }) {
   )
   const points = useRef<{ x: number; y: number }[]>([])
   const drawing = useRef(false)
-  // Ink and graphics land on the side being shown (the wearer's sides).
-  const view = cameraView ?? 'front'
+  const pad = useRef<HTMLCanvasElement | null>(null)
+  const cancelTouchDrag = useRef<(() => void) | null>(null)
+  // Ink and graphics land on the side being shown (the wearer's sides): the
+  // one picked, or the one turned to by hand.
+  const view = side
   const panel = LANDING_VIEW_PANEL[view]
   const panelAspect = LANDING_PANEL_ASPECT[panel] ?? 1
 
@@ -135,7 +140,26 @@ export function HeroToolDock({ live }: { live: boolean }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [live, selectedLayerId])
 
-  function toUv(event: ReactPointerEvent<HTMLCanvasElement>) {
+  // A finger's drop onto the pad (`armTouchGraphicDrag`).
+  useEffect(() => {
+    const element = pad.current
+
+    if (!live || !element) return
+    const target = element
+
+    function onTouchDrop(event: Event) {
+      const detail = (event as CustomEvent<GraphicDropDetail>).detail
+      detail.handled = true
+      dropOnPad(target, detail)
+    }
+
+    target.addEventListener(GRAPHIC_DROP_EVENT, onTouchDrop)
+    return () => target.removeEventListener(GRAPHIC_DROP_EVENT, onTouchDrop)
+  })
+
+  useEffect(() => () => cancelTouchDrag.current?.(), [])
+
+  function toUv(event: { currentTarget: HTMLCanvasElement; clientX: number; clientY: number }) {
     const rect = event.currentTarget.getBoundingClientRect()
     return {
       x: Math.min(1, Math.max(0, (event.clientX - rect.left) / Math.max(1, rect.width))),
@@ -195,7 +219,14 @@ export function HeroToolDock({ live }: { live: boolean }) {
     }
   }
 
+  /** A graphic let go over the pad lands at that point of the side's panel. */
+  function dropOnPad(canvas: HTMLCanvasElement, { src, clientX, clientY }: { src: string; clientX: number; clientY: number }) {
+    const rect = canvas.getBoundingClientRect()
+    dropGraphic(src, { ...toUv({ currentTarget: canvas, clientX, clientY }), padAspect: rect.width / Math.max(1, rect.height) })
+  }
+
   function dropGraphic(src: string, at?: { x: number; y: number; padAspect: number }) {
+    setDraggingGraphic(false)
     addLandingGraphic((previous) => {
       const point = at ? padToSketch({ x: at.x, y: at.y, padAspect: at.padAspect, panelAspect }) : null
       return stampLandingGraphic({ document: previous, src, panel, ...(point ? { x: point.x, y: point.y } : {}) })
@@ -222,18 +253,21 @@ export function HeroToolDock({ live }: { live: boolean }) {
           aria-label={`Sketch pad: ${COPY.padHint[view]}`}
           width={300}
           height={112}
-          className={cn(padClass, 'cursor-crosshair')}
+          className={cn(padClass, 'cursor-crosshair', {
+            'outline-2 outline-offset-2 outline-flv-accent outline-dashed': draggingGraphic,
+          })}
           style={{ aspectRatio: String(panelAspect) }}
+          ref={pad}
+          data-drop-target={draggingGraphic ? '' : undefined}
           onDragOver={(event) => {
-            if (event.dataTransfer.types.includes(GRAPHIC_DRAG_TYPE)) event.preventDefault()
+            if (carriesGraphic({ dataTransfer: event.dataTransfer })) event.preventDefault()
           }}
           onDrop={(event) => {
-            const src = event.dataTransfer.getData(GRAPHIC_DRAG_TYPE)
+            const src = droppedGraphic({ dataTransfer: event.dataTransfer })
 
             if (!src) return
             event.preventDefault()
-            const rect = event.currentTarget.getBoundingClientRect()
-            dropGraphic(src, { ...toUv(event as unknown as ReactPointerEvent<HTMLCanvasElement>), padAspect: rect.width / Math.max(1, rect.height) })
+            dropOnPad(event.currentTarget, { src, clientX: event.clientX, clientY: event.clientY })
           }}
           onPointerDown={(event) => {
             drawing.current = true
@@ -314,33 +348,43 @@ export function HeroToolDock({ live }: { live: boolean }) {
               onClick={() => setCameraView(view)}
               className={cn(chip, 'px-2.5', chipState(cameraView === view))}
             >
-              {VIEW_LABEL[view]}
+              {LANDING_VIEW_LABEL[view]}
             </button>
           ))}
         </div>
-        {/* Touch scrolls the page over the tee and draws on the pad, so only a mouse or pen gets this. */}
         {live ? (
-          <div className="hidden items-center gap-1 [@media(pointer:fine)]:flex" role="group" aria-label={COPY.surfaceLabel}>
-            {(['turn', 'draw'] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={surfaceMode === mode}
-                onClick={() => setSurfaceMode(mode)}
-                className={cn(chip, 'px-2.5', chipState(surfaceMode === mode))}
-              >
-                {mode === 'turn' ? COPY.surfaceTurn : COPY.surfaceDraw}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="flex items-center gap-1" role="group" aria-label={COPY.surfaceLabel}>
+              <span aria-hidden className="mr-1 font-body text-xs text-flv-muted">
+                {COPY.surfaceLabel}
+              </span>
+              {(['turn', 'draw'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={surfaceMode === mode}
+                  onClick={() => setSurfaceMode(mode)}
+                  className={cn(chip, 'px-2.5', chipState(surfaceMode === mode))}
+                >
+                  {mode === 'turn' ? COPY.surfaceTurn : COPY.surfaceDraw}
+                </button>
+              ))}
+            </div>
+            {/* What a finger does on the tee, said where it's chosen. */}
+            <p className="hidden w-full font-body text-xs text-flv-muted [@media(pointer:coarse)]:block" aria-live="polite" data-touch-hint>
+              {COPY.surfaceTouchHint[surfaceMode]}
+            </p>
           </div>
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-flv-line pt-3" data-claim="concept">
-        <p className="font-body text-xs text-flv-muted" title={COPY.graphicsHint}>
-          {COPY.graphicsLabel}
-          <span className="sr-only"> {COPY.graphicsHint}</span>
-        </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-flv-line pt-3">
+        <div className="flex flex-col">
+          <p className="font-body text-xs text-flv-ink">{COPY.graphicsLabel}</p>
+          <p className="font-body text-xs text-flv-muted" data-graphics-caption>
+            {COPY.graphicsCaption}
+          </p>
+        </div>
         <div className="flex gap-1.5">
           {HERO_GRAPHICS.map((asset) => (
             <button
@@ -350,9 +394,35 @@ export function HeroToolDock({ live }: { live: boolean }) {
               title={COPY.graphicsHint}
               draggable
               onDragStart={(event) => {
-                event.dataTransfer.setData(GRAPHIC_DRAG_TYPE, asset.src)
-                event.dataTransfer.effectAllowed = 'copy'
+                startGraphicDrag({ dataTransfer: event.dataTransfer, src: asset.src })
                 requestScene()
+                setDraggingGraphic(true)
+              }}
+              onDragEnd={() => setDraggingGraphic(false)}
+              // HTML5 drag never starts from a finger: hold the tile, then
+              // drag it onto the tee or the pad (`armTouchGraphicDrag`).
+              onPointerDown={(event) => {
+                if (event.pointerType !== 'touch' || !event.isPrimary) return
+                const tile = event.currentTarget
+                // The browser's own long-press drag would cancel this one.
+                tile.draggable = false
+                requestScene()
+                cancelTouchDrag.current?.()
+                cancelTouchDrag.current = armTouchGraphicDrag({
+                  pointerId: event.pointerId,
+                  clientX: event.clientX,
+                  clientY: event.clientY,
+                  src: asset.src,
+                  onLift: () => setDraggingGraphic(true),
+                  onEnd: () => {
+                    tile.draggable = true
+                    cancelTouchDrag.current = null
+                    setDraggingGraphic(false)
+                  },
+                })
+              }}
+              onContextMenu={(event) => {
+                if (touchGraphicDragActive()) event.preventDefault()
               }}
               onClick={() => dropGraphic(asset.src)}
               className="inline-flex size-11 items-center justify-center rounded-lg border border-flv-line bg-white p-1.5 hover:border-flv-accent"
@@ -361,7 +431,6 @@ export function HeroToolDock({ live }: { live: boolean }) {
             </button>
           ))}
         </div>
-        <ConceptPreviewBadge className="ml-auto" />
       </div>
     </div>
   )

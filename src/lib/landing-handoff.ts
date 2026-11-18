@@ -160,3 +160,12 @@ export function peekLandingHandoff(): LandingHandoff | null {
     return null
   }
 }
+
+/** The visitor chose to start fresh: the landing sketch waiting for them goes. */
+export function clearLandingHandoff() {
+  try {
+    sessionStore()?.removeItem(LANDING_HANDOFF_KEY)
+  } catch {
+    // Storage refused: nothing was kept to clear.
+  }
+}

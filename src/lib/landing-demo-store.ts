@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 import { createCrossFlameDemoDocument } from './cross-flame-demo'
 import type { DesignDocument } from './design-document'
-import type { LandingCameraView } from './landing-demo'
+import { sideAtAzimuth, type LandingCameraView } from './landing-demo'
 import { writeLandingHandoff } from './landing-handoff'
 import { INK_COLORS } from './paint-colors'
 
@@ -30,6 +30,15 @@ type LandingDemoState = {
   ink: string
   /** A side picked with the view buttons; cleared when the visitor drags the tee round. */
   cameraView: LandingCameraView | null
+  /**
+   * The side the pad and a dropped graphic land on: the held view, or after
+   * a turn by hand the side the camera actually faces (`syncSide`).
+   */
+  side: LandingCameraView
+  /** The visitor turned the tee by hand: the turntable stops for good. */
+  handTurned: boolean
+  /** A graphic is being dragged from the dock: the drop targets show it. */
+  draggingGraphic: boolean
   /** The logo picked on the tee (a layer id of `document`), or none. */
   selectedLayerId: string | null
   /** What a drag on the 3D tee does: turn it, or draw on it. */
@@ -41,6 +50,9 @@ type LandingDemoState = {
   setCameraView: (view: LandingCameraView) => void
   /** The visitor turned the tee by hand: no side is held any more. */
   releaseCameraView: () => void
+  /** The camera's azimuth after a hand turn (0 = the front), read once a frame. */
+  syncSide: (azimuth: number) => void
+  setDraggingGraphic: (dragging: boolean) => void
   selectLayer: (layerId: string | null) => void
   setSurfaceMode: (mode: LandingSurfaceMode) => void
   requestScene: () => void
@@ -55,14 +67,27 @@ export const useLandingDemoStore = create<LandingDemoState>((set) => ({
   touched: false,
   ink: INK_COLORS[0]!.value,
   cameraView: null,
+  side: 'front',
+  handTurned: false,
+  draggingGraphic: false,
   selectedLayerId: null,
   surfaceMode: 'turn',
   wantsScene: false,
   apply: (change) =>
     set((state) => ({ document: change(state.document ?? landingDemoDocument()), touched: true, wantsScene: true })),
   setInk: (ink) => set({ ink, wantsScene: true }),
-  setCameraView: (cameraView) => set({ cameraView, wantsScene: true }),
-  releaseCameraView: () => set((state) => (state.cameraView ? { cameraView: null } : state)),
+  setCameraView: (cameraView) => set({ cameraView, side: cameraView, wantsScene: true }),
+  releaseCameraView: () =>
+    set((state) => (state.cameraView || !state.handTurned ? { cameraView: null, handTurned: true } : state)),
+  syncSide: (azimuth) =>
+    set((state) => {
+      // A held view says the side itself; before any hand turn, the pad stays on its side.
+      if (state.cameraView || !state.handTurned) return state
+      const side = sideAtAzimuth({ azimuth, previous: state.side })
+      return side === state.side ? state : { side }
+    }),
+  setDraggingGraphic: (draggingGraphic) =>
+    set((state) => (state.draggingGraphic === draggingGraphic ? state : { draggingGraphic })),
   selectLayer: (selectedLayerId) =>
     set((state) => (state.selectedLayerId === selectedLayerId ? state : { selectedLayerId })),
   setSurfaceMode: (surfaceMode) => set({ surfaceMode, wantsScene: true }),

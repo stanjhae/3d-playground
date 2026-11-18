@@ -181,3 +181,10 @@ export function captureFov({ aspect }: { aspect: number }) {
   const half = (STUDIO_CAMERA.fov * Math.PI) / 360
   return (Math.atan((Math.tan(half) * STILL_ASPECT) / aspect) * 360) / Math.PI
 }
+
+/**
+ * How far a press must move, in CSS pixels, before it counts as turning the
+ * camera by hand and lets go of a held side. A tap moves less, so a tap while
+ * the camera is still gliding to a side doesn't stop it halfway.
+ */
+export const HAND_TURN_PX = 6
