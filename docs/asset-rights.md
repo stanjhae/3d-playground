@@ -48,6 +48,18 @@ Credits appear wherever a Style3D form is shown, all from `garments.ts`: the stu
 | --- | --- | --- |
 | `cross-flare.svg`, `cross-gothic.svg`, `cross-ornate.svg`, `cross-simple.svg`, `flame-burst.svg`, `flame-rise.svg`, `flame-side.svg`, `logo-crown.svg`, `shape-stripe.svg` | Hand-written geometric paths of a few lines each, added in `e0ea8d8` | **Needs confirmation** that these are original or were drawn from the founder mockups (S10), not traced from a third-party mark. Simple shapes, low risk. |
 | `logo-flv.svg` | "FLV" wordmark | **Needs confirmation:** the brand is unresolved (PRD §2, V03 #198). Keep it out of the pitch if FLP is chosen. |
+| `mark-*.svg` (28 files: shields, crests, monogram frames, seals, roundels, emblems, laurels, banners, a rosette, stars, chevrons, a pennant, a varsity patch and a ticket stamp), Logos category | Drawn in code from plain geometry by `scripts/graphics/logos.mjs` via `scripts/build-graphics.mjs` (19 Nov); each row in the generated `public/graphics/LICENSES.md`; contact sheet `docs/evidence/graphics-logos-sheet.png` (`node scripts/graphics-sheet.mjs`) | **Cleared** (project-made, CC0 1.0). See "Logo marks" below. |
+
+### Logo marks
+
+The Logos category holds the brand mark and 28 generic, project-made marks. They follow the rule that nothing in the library may imitate a real brand or trademark:
+
+- **No letters, names or words.** Monogram frames, banners, the ticket and the patch are left blank for the designer's own initials or words.
+- **Built from public-domain motifs only:** heater shields and heraldic divisions (quartered, chevron, pale stripes), laurel branches, scroll banners, five- and eight-point stars, chevrons, rosettes, scalloped and starburst seal edges.
+- **Arrangements chosen to stay away from known marks.** None is a swoosh, three parallel stripes, a red box, a star inside a chevron, a winged disc, wings on a shield, a three-point star in a ring, concentric red-white-blue rings with a star, crossed arrows, a crown, a laurel wreath on its own, or red-and-black club stripes. The plain laurel wreath carries a star and a tie; the club roundel's stripes are gold and black.
+- **Flat colour from the house palette** (`INK`, `RED`, `OX`, `BRASS` in `scripts/graphics/draw.mjs`), one or two colours each, no gradients, so they print cleanly. Like every library graphic, they keep their own colours on the garment.
+
+Before using one as a real label's trade mark, a designer should still run their own clearance search: CC0 waives our copyright but says nothing about third-party marks registered later.
 
 ## Code assets and fonts
 
