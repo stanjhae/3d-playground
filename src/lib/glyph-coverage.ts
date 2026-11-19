@@ -66,6 +66,27 @@ export function unsupportedCharacters({
   return [...missing]
 }
 
+const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u
+
+/** A user-perceived character that is an emoji (a picture, not a letter). */
+function isEmoji({ character }: { character: string }) {
+  return EMOJI.test(character)
+}
+
+/** The emoji in `text`, each once, in order. */
+export function emojiIn({ text }: { text: string }): string[] {
+  return [...new Set(graphemes({ text: text.normalize('NFC') }).filter((character) => isEmoji({ character })))]
+}
+
+/**
+ * Why a layer name can't be saved, or null (tester pass 3). Names are held
+ * to what a word may hold: no emoji, said in the same plain way.
+ */
+export function layerNameMessage({ name }: { name: string }) {
+  const emoji = emojiIn({ text: name })
+  return emoji.length > 0 ? `Emoji can't be used in a layer name. Remove ${emoji.length > 1 ? 'them' : 'it'}.` : null
+}
+
 function quoteList({ characters }: { characters: string[] }) {
   const quoted = characters.map((character) => `“${character}”`)
   return quoted.length > 1 ? `${quoted.slice(0, -1).join(', ')} or ${quoted.at(-1)}` : quoted[0]!
@@ -80,7 +101,7 @@ export function glyphMessage({ text, face }: { text: string; face: CanonicalText
   }
 
   // Emoji are pictures, not letters: no type face prints them, so say what to do instead.
-  if (characters.every((character) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(character))) {
+  if (characters.every((character) => isEmoji({ character }))) {
     return `Emoji can't be printed as text. Remove ${characters.length > 1 ? 'them' : 'it'}, or add a picture from Graphics instead.`
   }
 

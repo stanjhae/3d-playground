@@ -165,3 +165,41 @@ describe('glyph validation in the editor (#155)', () => {
     expect(glyphNotice({ document: createEmptyCanonicalDocument() })).toBeNull()
   })
 })
+
+describe('layer names take no emoji, as words take none (tester pass 3)', () => {
+  beforeEach(() => {
+    store().reset()
+    store().setPaintPanel({ paintPanel: 'front' })
+  })
+
+  const frontNames = () => getCanonicalDocument().panels.front.layers.map((layer) => layer.name)
+
+  test('renaming a graphic or a word to a name with emoji is refused in plain words', () => {
+    store().addGraphic({ src: '/graphics/flame-rise.svg' })
+    const graphic = store().selectedLayerId!
+    const { undoCount } = store()
+
+    store().updateLayer({ layerId: graphic, patch: { label: 'Fire 🔥' } })
+    expect(frontNames()).toEqual([undefined])
+    expect(store().limitNotice).toBe("Emoji can't be used in a layer name. Remove it.")
+    expect(store().undoCount).toBe(undoCount)
+
+    store().addText({ content: 'FLV', face: 'display' })
+    const text = store().selectedLayerId!
+    store().updateLayer({ layerId: text, patch: { label: '👍🏽 ❤️' } })
+    expect(frontNames()).toEqual([undefined, undefined])
+    expect(store().limitNotice).toBe("Emoji can't be used in a layer name. Remove them.")
+
+    store().updateLayer({ layerId: graphic, patch: { label: 'Fire' } })
+    expect(frontNames()).toEqual(['Fire', undefined])
+  })
+
+  test('the canonical command layer refuses it too', () => {
+    const document = documentWith({ back: [word('w', 'FLV')] })
+
+    expect(glyphRefusal({ document, command: { type: 'updateLayer', layerId: 'w', patch: { name: 'Hi 😀' } } })).toBe(
+      "Emoji can't be used in a layer name. Remove it.",
+    )
+    expect(glyphRefusal({ document, command: { type: 'updateLayer', layerId: 'w', patch: { name: 'Café №1' } } })).toBeNull()
+  })
+})

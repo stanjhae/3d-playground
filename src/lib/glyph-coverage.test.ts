@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { renderGlyphCoverage } from '../../scripts/glyph-coverage.mjs'
 import { GLYPH_COVERAGE } from './glyph-coverage.gen'
-import { faceCovers, glyphMessage, unsupportedCharacters } from './glyph-coverage'
+import { emojiIn, faceCovers, glyphMessage, layerNameMessage, unsupportedCharacters } from './glyph-coverage'
 import generated from './glyph-coverage.gen.ts?raw'
 
 /** #155: words are checked against what their bundled face can draw. */
@@ -85,5 +85,18 @@ describe('glyphMessage', () => {
 
   test('is null for drawable text', () => {
     expect(glyphMessage({ text: 'FLP 2026', face: 'display' })).toBeNull()
+  })
+})
+
+describe('layerNameMessage (tester pass 3)', () => {
+  test('refuses emoji, flags and skin tones, each counted once', () => {
+    expect(emojiIn({ text: 'A 👍🏽 🇬🇧 👍🏽' })).toEqual(['👍🏽', '🇬🇧'])
+    expect(layerNameMessage({ name: 'Logo 🔥' })).toBe("Emoji can't be used in a layer name. Remove it.")
+    expect(layerNameMessage({ name: '🔥🔥 ❤️' })).toBe("Emoji can't be used in a layer name. Remove them.")
+  })
+
+  test('lets any other name through, scripts the faces lack included', () => {
+    expect(layerNameMessage({ name: 'Front logo #2' })).toBeNull()
+    expect(layerNameMessage({ name: '字 Жар' })).toBeNull()
   })
 })

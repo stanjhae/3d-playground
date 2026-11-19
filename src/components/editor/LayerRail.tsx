@@ -3,6 +3,7 @@ import { type PointerEvent as ReactPointerEvent, useId, useRef, useState } from 
 
 import { cn } from '../../lib/cn'
 import { isLockableLayer, isLockedLayer } from '../../lib/design-document'
+import { layerNameMessage } from '../../lib/glyph-coverage'
 import { garmentPanels } from '../../lib/garments'
 import { layerPlacement, useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
@@ -23,6 +24,7 @@ import {
   layersVisibilityMessage,
   layerVisibilityMessage,
   renamedLayer,
+  visibilityToggleLabel,
 } from '../../lib/layer-list'
 import { announce } from '../../lib/studio-announcer'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
@@ -61,6 +63,8 @@ export function LayerRail() {
   /** The row being renamed in place, and what has been typed. */
   const [renaming, setRenaming] = useState<{ layerId: string; draft: string } | null>(null)
   const renameDone = useRef(false)
+  /** Why the last name typed was not kept (emoji), shown under its row. */
+  const [renameError, setRenameError] = useState<{ layerId: string; message: string } | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
   const headingId = useId()
   const panels = garmentPanels({ garmentId })
@@ -112,16 +116,29 @@ export function LayerRail() {
     })
   }
 
-  function finishRename({ save, draft }: { save: boolean; draft: string }) {
+  function finishRename({ save, draft, keepOpen = false }: { save: boolean; draft: string; keepOpen?: boolean }) {
     // Enter or Esc ends it once; the blur as the field goes changes nothing.
     if (!renaming || renameDone.current) {
       return
     }
 
-    renameDone.current = true
     const { layerId } = renaming
+    // Names take no emoji, as words take none (tester pass 3). Enter keeps
+    // the field open to fix it; leaving the field keeps the old name.
+    const refused = save ? layerNameMessage({ name: draft }) : null
+    setRenameError(refused ? { layerId, message: refused } : null)
+
+    if (refused) {
+      announce({ message: refused })
+
+      if (keepOpen) {
+        return
+      }
+    }
+
+    renameDone.current = true
     const current = groups.flatMap((group) => group.rows).find((row) => row.layer.id === layerId)?.name ?? ''
-    const name = save ? renamedLayer({ draft, current }) : null
+    const name = save && !refused ? renamedLayer({ draft, current }) : null
     setRenaming(null)
 
     if (name) {
@@ -235,6 +252,7 @@ export function LayerRail() {
                     }
 
                     renameDone.current = false
+                    setRenameError(null)
                     setRenaming({ layerId: layer.id, draft: name })
                   }
 
@@ -282,9 +300,8 @@ export function LayerRail() {
                       <button
                         type="button"
                         data-layer-control="visibility"
-                        aria-label={`${HOUSE_COPY.hideLayer} ${name}`}
-                        aria-pressed={!layer.visible}
-                        title={layer.visible ? `${HOUSE_COPY.hideLayer} ${name}` : `${HOUSE_COPY.showLayer} ${name}`}
+                        aria-label={visibilityToggleLabel({ name, visible: layer.visible })}
+                        title={visibilityToggleLabel({ name, visible: layer.visible })}
                         onClick={() => {
                           // Hiding is about the view, so it works while locked.
                           updateLayer({ layerId: layer.id, patch: { visible: !layer.visible } })
@@ -315,6 +332,8 @@ export function LayerRail() {
                           // Focus goes straight to the name being edited.
                           autoFocus
                           aria-label={`New name for ${name}`}
+                          aria-invalid={renameError?.layerId === layer.id ? true : undefined}
+                          aria-describedby={renameError?.layerId === layer.id ? `${headingId}-${layer.id}-rename` : undefined}
                           value={renaming.draft}
                           maxLength={LAYER_NAME_MAX}
                           onChange={(event) => setRenaming({ layerId: layer.id, draft: event.target.value })}
@@ -322,7 +341,7 @@ export function LayerRail() {
                           onKeyDown={(event) => {
                             if (event.key === 'Enter') {
                               event.preventDefault()
-                              finishRename({ save: true, draft: event.currentTarget.value })
+                              finishRename({ save: true, draft: event.currentTarget.value, keepOpen: true })
                             } else if (event.key === 'Escape') {
                               // Esc here cancels the rename, not the selection.
                               event.preventDefault()
@@ -385,6 +404,11 @@ export function LayerRail() {
                       {locked ? (
                         <span id={reasonId} className={cn('w-full', chromeMutedClass())}>
                           Locked. {LOCKED_REASON}.
+                        </span>
+                      ) : null}
+                      {renameError?.layerId === layer.id ? (
+                        <span id={`${headingId}-${layer.id}-rename`} data-testid="rename-error" className={cn('w-full pl-6', chromeMutedClass())}>
+                          {renameError.message}
                         </span>
                       ) : null}
                       <span className="flex w-full flex-wrap gap-x-3 pl-6">
