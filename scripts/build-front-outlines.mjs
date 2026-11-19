@@ -37,6 +37,48 @@ function glbManifests() {
   return manifests
 }
 
+/**
+ * Douglas-Peucker on a closed outline ([x0, y0, x1, y1, …]): drops points
+ * closer than `tolerance` (in panel units) to the line through their
+ * neighbours. Half a percent of the panel is invisible on a card.
+ */
+function simplifyClosed(flat, tolerance) {
+  const points = []
+  for (let at = 0; at < flat.length; at += 2) points.push([flat[at], flat[at + 1]])
+  if (points.length < 4) return flat
+
+  const distance = ([px, py], [ax, ay], [bx, by]) => {
+    const dx = bx - ax
+    const dy = by - ay
+    const length = Math.hypot(dx, dy)
+    return length === 0 ? Math.hypot(px - ax, py - ay) : Math.abs(dy * px - dx * py + bx * ay - by * ax) / length
+  }
+  const simplify = (run) => {
+    if (run.length < 3) return run
+    let far = 0
+    let index = 0
+    for (let at = 1; at < run.length - 1; at += 1) {
+      const d = distance(run[at], run[0], run[run.length - 1])
+      if (d > far) [far, index] = [d, at]
+    }
+    if (far <= tolerance) return [run[0], run[run.length - 1]]
+    return [...simplify(run.slice(0, index + 1)).slice(0, -1), ...simplify(run.slice(index))]
+  }
+  // Split the ring at its two most distant points, so both halves keep their shape.
+  let [first, second, best] = [0, 0, -1]
+  for (let a = 0; a < points.length; a += 1) {
+    for (let b = a + 1; b < points.length; b += 1) {
+      const d = Math.hypot(points[a][0] - points[b][0], points[a][1] - points[b][1])
+      if (d > best) [first, second, best] = [a, b, d]
+    }
+  }
+  const ring = [...points.slice(first), ...points.slice(0, first)]
+  const split = (second - first + points.length) % points.length
+  const one = simplify(ring.slice(0, split + 1))
+  const two = simplify([...ring.slice(split), ring[0]])
+  return [...one.slice(0, -1), ...two.slice(0, -1)].flat()
+}
+
 async function frontOutline({ manifest }) {
   const path = `public${manifest.geometry.file}`
   const bytes = readFileSync(path)
@@ -63,7 +105,21 @@ async function frontOutline({ manifest }) {
   return {
     // Enough of the model's SHA-256 to tell a re-baked model.
     sha256: createHash('sha256').update(bytes).digest('hex').slice(0, 16),
-    polygons: polygons.map((polygon) => polygon.map((value) => Math.round(value * 1000) / 1000)),
+    // Two decimals (1% of the panel) are plenty for a card thumbnail, and keep
+    // the bundle inside its byte budget; points that round onto the one
+    // before are dropped.
+    polygons: polygons.map((polygon) => {
+      const rounded = simplifyClosed(polygon, 0.005).map((value) => Math.round(value * 100) / 100)
+      const kept = []
+      for (let at = 0; at < rounded.length; at += 2) {
+        const [x, y] = [rounded[at], rounded[at + 1]]
+        if (kept.length >= 2 && kept[kept.length - 2] === x && kept[kept.length - 1] === y) {
+          continue
+        }
+        kept.push(x, y)
+      }
+      return kept
+    }),
   }
 }
 
