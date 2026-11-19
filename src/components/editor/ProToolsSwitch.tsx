@@ -13,8 +13,9 @@ export function ProToolsSwitch() {
   const pro = useStudioMode((state) => state.pro)
   const setPro = useStudioMode((state) => state.setPro)
   const describedBy = useId()
-  // A moment's note after switching, so the change is seen, not guessed.
-  const [note, setNote] = useState<string | null>(null)
+  // A moment's note after switching (`switched`), so the change is seen, not
+  // guessed; or what Pro adds, from the info button (`explain`).
+  const [note, setNote] = useState<{ kind: 'switched' | 'explain'; text: string } | null>(null)
   const anchor = useRef<HTMLSpanElement>(null)
   // Where the note sits on screen: below the switch, but kept inside the
   // viewport. Anchored to the switch it ran off the right edge of a phone,
@@ -42,7 +43,17 @@ export function ProToolsSwitch() {
     }
 
     const timer = window.setTimeout(() => setNote(null), 6000)
-    return () => window.clearTimeout(timer)
+    // The note is placed on screen once, when it opens: a scroll (of the page
+    // or a panel) or a resize would leave it floating over something else, so
+    // it closes instead.
+    const close = () => setNote(null)
+    window.addEventListener('scroll', close, { capture: true, passive: true })
+    window.addEventListener('resize', close)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('scroll', close, { capture: true })
+      window.removeEventListener('resize', close)
+    }
   }, [note])
 
   return (
@@ -57,7 +68,7 @@ export function ProToolsSwitch() {
           const next = !pro
           setPro({ pro: next })
           const message = next ? `Pro tools on: ${PRO_TOOLS_ADDS}.` : 'Pro tools off: the simpler controls are back.'
-          setNote(message)
+          setNote({ kind: 'switched', text: message })
           announce({ message })
         }}
         className="inline-flex min-h-11 items-center gap-2 font-body text-sm whitespace-nowrap text-flv-muted hover:text-flv-ink"
@@ -83,13 +94,23 @@ export function ProToolsSwitch() {
       <button
         type="button"
         aria-label="What Pro tools add"
-        aria-expanded={note !== null}
+        // Read on focus, as the switch's own description is; the note itself
+        // is visual only.
+        aria-describedby={describedBy}
         onClick={() => {
+          // A second tap closes the explanation, silently. Any other note
+          // (the one after switching) gives way to the explanation.
+          if (note?.kind === 'explain') {
+            setNote(null)
+            return
+          }
+
           const message = `Pro tools add ${PRO_TOOLS_ADDS}.`
-          setNote((shown) => (shown ? null : message))
+          setNote({ kind: 'explain', text: message })
           announce({ message })
         }}
-        className="inline-flex size-11 items-center justify-center text-flv-muted hover:text-flv-ink"
+        // No double-tap-to-zoom on phones, so a second tap is a tap.
+        className="inline-flex size-11 touch-manipulation items-center justify-center text-flv-muted hover:text-flv-ink"
       >
         <Info aria-hidden className="size-4" />
       </button>
@@ -103,7 +124,7 @@ export function ProToolsSwitch() {
           style={{ top: noteAt.top, left: noteAt.left, width: noteAt.width }}
           className="flv-panel fixed z-50 p-2 font-body text-xs text-flv-ink shadow-md"
         >
-          {note}
+          {note.text}
         </span>
       ) : null}
     </span>
