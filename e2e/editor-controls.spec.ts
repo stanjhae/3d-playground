@@ -4,7 +4,7 @@ import { type PlaceableLayer, canvasLayerFrame } from '../src/lib/layer-hit'
 import { INK_COLORS } from '../src/lib/paint-colors'
 import { SELECTION_COLOR } from '../src/lib/selection-chrome'
 import { currentTemplateFor } from '../src/lib/template-manifest'
-import { deleteAccounts, drawStroke, expectSaved, newEmail, newTeePanelAspect, panelCanvas, signIn, chooseTool } from './helpers'
+import { deleteAccounts, drawStroke, expectSaved, newEmail, newTeePanelAspect, panelCanvas, signIn, chooseTool, graphicTile } from './helpers'
 
 /**
  * What the editor's controls do on screen, not only in the saved document
@@ -159,7 +159,7 @@ test('graphics and words can be added on all four panels, and each panel shows t
     const before = await panelPixels({ page, panel })
     await addWord({ page, word: 'ALL' })
     await chooseTool({ page, tool: 'Graphics' })
-    await page.getByRole('button', { name: 'Simple Cross' }).click()
+    await graphicTile({ page, label: 'Simple Cross' }).click()
     await expect.poll(async () => (await panelPixels({ page, panel })).picture, panel).not.toBe(before.picture)
     await saved({
       read: async () => [(await layers({ page, panel, kind: 'text' })).length, (await layers({ page, panel, kind: 'image' })).length],
@@ -206,7 +206,7 @@ test('the move, resize and rotate handles show on the selected layer and do thei
   test.setTimeout(150_000)
   await openDesign({ page, label: 'handles' })
   await chooseTool({ page, tool: 'Graphics' })
-  await page.getByRole('button', { name: 'Simple Cross' }).click()
+  await graphicTile({ page, label: 'Simple Cross' }).click()
   await saved({ read: async () => (await layers({ page, kind: 'image' })).length }).toBe(1)
   const start = (await layers({ page, kind: 'image' }))[0]!
   const at = await handles({ page, layer: start })

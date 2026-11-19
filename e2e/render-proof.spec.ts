@@ -1,7 +1,7 @@
 import { type Page, expect, test } from '@playwright/test'
 
 import { INK_COLORS } from '../src/lib/paint-colors'
-import { chooseTool, deleteAccounts, drawStroke, expectSaved, newEmail, newTeePanelAspect, panelCanvas, signIn } from './helpers'
+import { chooseTool, deleteAccounts, drawStroke, expectSaved, newEmail, newTeePanelAspect, panelCanvas, signIn, graphicTile } from './helpers'
 
 /**
  * What reaches the 3D garment and the published pictures, read from their
@@ -254,7 +254,7 @@ test('a moved layer shows in the 2D panel and the 3D view, and looks the same af
   test.setTimeout(180_000)
   await openDesign({ page, label: 'both' })
   await chooseTool({ page, tool: 'Graphics' })
-  await page.getByRole('button', { name: 'Simple Cross' }).click()
+  await graphicTile({ page, label: 'Simple Cross' }).click()
   await expectSaved({ page })
 
   const panelPicture = () => panelCanvas({ page, panel: 'Front' }).evaluate((node) => (node as HTMLCanvasElement).toDataURL())

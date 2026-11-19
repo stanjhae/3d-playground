@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { HOUSE_COPY } from '../src/lib/house-copy'
-import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn, graphicTile } from './helpers'
 
 /**
  * Tester pass 3, the Layers panel: a library graphic is named for itself,
@@ -24,7 +24,7 @@ test('layers are named, shown, renamed and filled under as the tester expects', 
   await expectSaved({ page })
 
   await chooseTool({ page, tool: 'Graphics' })
-  await page.getByRole('button', { name: 'Rising Flame', exact: true }).click()
+  await graphicTile({ page, label: 'Rising Flame' }).click()
 
   const rail = page.getByRole('complementary', { name: HOUSE_COPY.onTheCloth })
   const rows = rail.locator('[data-layer-panel="front"] [data-layer-control="select"]')
