@@ -1,5 +1,5 @@
 name: Playwright browsers
-description: Installs one Playwright browser, cached by Playwright version; system packages are installed every run.
+description: Installs one Playwright browser, cached by Playwright version; its system packages are installed every run, and an apt outage only warns.
 inputs:
   browser:
     description: chromium or webkit
@@ -17,10 +17,23 @@ runs:
         path: ~/.cache/ms-playwright
         key: playwright-ubuntu-24.04-${{ steps.version.outputs.version }}-${{ inputs.browser }}
     - uses: ./.github/actions/apt-mirror
-    # The cache holds the browser; its system packages still come from apt.
+    # The browser itself comes from Playwright's own download server (cached).
     - if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
-      run: pnpm exec playwright install --with-deps ${{ inputs.browser }}
-    - if: steps.cache.outputs.cache-hit == 'true'
-      shell: bash
-      run: pnpm exec playwright install-deps ${{ inputs.browser }}
+      run: pnpm exec playwright install ${{ inputs.browser }}
+    # Its system packages come from Ubuntu's apt servers, which can be
+    # unreachable for hours (19 Nov: the Azure mirror and archive.ubuntu.com
+    # both down), failing every browser job before a test ran. Retry, then
+    # carry on with a warning: the runner image already has Chrome's
+    # libraries, and one really missing fails the tests at browser launch
+    # with a clear error instead.
+    - shell: bash
+      run: |
+        for attempt in 1 2 3; do
+          if pnpm exec playwright install-deps ${{ inputs.browser }}; then
+            exit 0
+          fi
+          echo "::warning::Installing ${{ inputs.browser }} system packages failed (attempt $attempt of 3); retrying in 30 s."
+          sleep 30
+        done
+        echo "::warning::Ubuntu apt servers stayed unreachable: running ${{ inputs.browser }} with the runner image's own libraries."
