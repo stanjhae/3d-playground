@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { shareCardHead } from '../og-card'
 import { takeEmbeddedPublicDesign } from '../public-embed'
-import { PUBLIC_PAYLOAD_ELEMENT_ID, SLEEVE_GRID_CLASS, injectShareHead } from './share-page'
+import { PUBLIC_PAYLOAD_ELEMENT_ID, SLEEVE_GRID_CLASS, injectShareHead, shareStatus } from './share-page'
 import type { PublicDesign } from './publication'
 
 const SHELL = `<!doctype html>
@@ -157,5 +157,26 @@ describe('share page head (#182, #184)', () => {
         doc: docFor({ ...WITH_SLEEVES, renders: { ...WITH_SLEEVES.renders, view_left: 7 } }),
       }),
     ).toBeNull()
+  })
+})
+
+describe('share page status (tester, 19 Nov: missing pages answered 200)', () => {
+  const allowed = { allowed: true }
+
+  test('a published design is 200', () => {
+    expect(shareStatus({ decision: allowed, checked: true, found: true })).toBe(200)
+  })
+
+  test('a design that was looked up and is not published is 404', () => {
+    expect(shareStatus({ decision: allowed, checked: true, found: false })).toBe(404)
+  })
+
+  test('a failed read stays 200, so the app can ask again and say so', () => {
+    expect(shareStatus({ decision: allowed, checked: false, found: false })).toBe(200)
+  })
+
+  test('over the limit is 429, and any other refusal 503', () => {
+    expect(shareStatus({ decision: { allowed: false, reason: 'limited' }, checked: false, found: false })).toBe(429)
+    expect(shareStatus({ decision: { allowed: false, reason: 'unavailable' }, checked: false, found: false })).toBe(503)
   })
 })

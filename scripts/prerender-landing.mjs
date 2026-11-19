@@ -1,5 +1,6 @@
 // Writes the landing as real HTML after `vite build` (docs/deploy.md):
-//   dist/app.html    the plain app shell, served for every other page
+//   dist/app.html    the plain app shell, served for the app's routes (vercel.json)
+//   dist/404.html    the same shell, served with a 404 for any other path
 //   dist/index.html  the shell with the landing's head and prerendered body
 //   dist/robots.txt, dist/sitemap.xml
 // The renderer is built with Vite's SSR mode into .flv-prerender/, outside
@@ -78,6 +79,9 @@ if (failures.length > 0) {
 }
 
 writeFileSync(new URL('app.html', dist), shell)
+// Paths that aren't app routes (vercel.json lists them) get this, with a
+// real 404 status: the app shell, which shows its own not-found page.
+writeFileSync(new URL('404.html', dist), shell)
 writeFileSync(new URL('index.html', dist), html)
 writeFileSync(new URL('robots.txt', dist), landing.robotsTxt({ origin, indexable }))
 writeFileSync(new URL('sitemap.xml', dist), landing.sitemapXml({ origin }))

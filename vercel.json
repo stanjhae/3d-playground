@@ -55,7 +55,15 @@
       "destination": "/api/og-share?slug=:slug"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/(create|studio|vote|ranking|privacy|terms|sign-in|soon|account-deleted)",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/look/:id",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/u/:handle",
       "destination": "/app.html"
     }
   ],
