@@ -13,7 +13,6 @@ import { getCanonicalDocument, useEditorStore } from '../../lib/editor-store'
 import { countUnavailableImages } from '../../lib/layer-images'
 import {
   getProfile,
-  getPublication,
   publishDesign,
   unpublishDesign,
   uploadRenders,
@@ -24,6 +23,7 @@ import { publishBlockedReason, useWebglStore } from '../scene/webgl-status'
 import { useCloudSaveStore } from './CloudSave'
 import { getStudioCanvas } from './PublishBar'
 import { trackAssumption } from '../../lib/assumption-events'
+import { loadPublicationStatus, publicationStatusFor, usePublicationStatus } from '../../lib/publication-status'
 
 /**
  * Publish an owned cloud design (P03 #181). Only the exact saved version
@@ -47,7 +47,16 @@ export function CloudPublish() {
   const cloud = useEditorStore((state) => state.cloud)
   const saveStatus = useCloudSaveStore((state) => state.state?.status ?? null)
   const webglStatus = useWebglStore((state) => state.status)
-  const [publication, setPublication] = useState<OwnerPublication | null>(null)
+  const designId = cloud?.designId ?? null
+  // Unknown until the server answers: never "Private" or a Publish button
+  // for a design that may already be published (third outside test pass).
+  const publicationStatus = publicationStatusFor({
+    current: usePublicationStatus((state) => state.current),
+    designId,
+  })
+  const publication: OwnerPublication | null =
+    publicationStatus.status === 'known' ? publicationStatus.publication : null
+  const statusKnown = publicationStatus.status === 'known'
   const [reviewing, setReviewing] = useState(false)
   const reviewRef = useRef<HTMLDivElement | null>(null)
   const openRef = useRef<HTMLButtonElement | null>(null)
@@ -70,33 +79,51 @@ export function CloudPublish() {
   // Good news goes through the same status line, without the warning colour.
   const [notice, setNotice] = useState<string | null>(null)
   const { status: copyStatus, copy } = useCopyStatus()
-  const designId = cloud?.designId ?? null
   const headSeq = cloud?.headSeq ?? null
   const saved = saveStatus === 'saved'
   // Renders come from the 3D canvas, so no publish while it is down (#168).
   const renderBlocked = publishBlockedReason({ status: webglStatus })
 
-  const refresh = useCallback(async () => {
-    if (!designId) {
+  const refresh = useCallback(
+    async ({ force }: { force: boolean }) => {
+      if (designId) {
+        await loadPublicationStatus({ designId, force })
+      }
+    },
+    [designId],
+  )
+
+  // Usually already read (or reading) since the design opened.
+  useEffect(() => {
+    void refresh({ force: false })
+  }, [refresh])
+
+  // The name this design was last published under, else the account's
+  // public name (A06 #150).
+  const publishedName = publication?.displayName ?? null
+  useEffect(() => {
+    if (!statusKnown) {
       return
     }
 
-    const result = await getPublication({ designId })
-
-    if (result.ok) {
-      setPublication(result.data.publication)
-      // The name this design was last published under, else the account's
-      // public name (A06 #150).
-      const published = result.data.publication?.displayName
-      const profile = published ? null : await getProfile()
-      const fallback = profile?.ok ? profile.data.displayName : null
-      setDisplayName((current) => current || published || fallback || '')
+    if (publishedName) {
+      setDisplayName((current) => current || publishedName)
+      return
     }
-  }, [designId])
 
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
+    let cancelled = false
+    void getProfile().then((profile) => {
+      const fallback = profile.ok ? profile.data.displayName : null
+
+      if (!cancelled && fallback) {
+        setDisplayName((current) => current || fallback)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [publishedName, statusKnown])
 
   if (!cloud || !designId || !headSeq) {
     return null
@@ -105,7 +132,7 @@ export function CloudPublish() {
   const live = publication?.status === 'published'
 
   async function publish() {
-    if (!designId || !headSeq || !saved) {
+    if (!designId || !headSeq || !saved || !statusKnown) {
       return
     }
 
@@ -240,7 +267,7 @@ export function CloudPublish() {
       // The button that was pressed goes with the review (see the effect above).
       reviewToggled.current = true
       setReviewing(false)
-      await refresh()
+      await refresh({ force: true })
     } finally {
       if (triedOn && !published) {
         useEditorStore.getState().setAvatarId({ avatarId: triedOn })
@@ -266,7 +293,7 @@ export function CloudPublish() {
     }
 
     setNotice('Unpublished. The public link has stopped working.')
-    await refresh()
+    await refresh({ force: true })
     // The Unpublish button is gone now; don't drop keyboard users on the page.
     ;(reviewRef.current ?? openRef.current)?.focus()
   }
@@ -283,7 +310,20 @@ export function CloudPublish() {
 
   return (
     <section className="flv-panel flex w-full flex-col gap-3 p-3" aria-label="Publish" data-hint-anchor="publishing">
-      {live && publication ? (
+      {!statusKnown ? (
+        <div className="flex flex-col gap-2">
+          <p role="status" className="flex min-h-5 items-center gap-2 font-body text-sm text-flv-muted">
+            {publicationStatus.status === 'failed'
+              ? 'Couldn’t check whether this design is published. Check your connection.'
+              : 'Checking whether this design is published…'}
+          </p>
+          {publicationStatus.status === 'failed' ? (
+            <button type="button" className={quietClass} onClick={() => void refresh({ force: true })}>
+              Check again
+            </button>
+          ) : null}
+        </div>
+      ) : live && publication ? (
         <div className="flex flex-col gap-2">
           <p className="flex items-center gap-2 font-body text-sm font-medium text-flv-ink">
             <Globe aria-hidden className="size-4 text-flv-accent" />
@@ -353,7 +393,7 @@ export function CloudPublish() {
             : (message ?? notice ?? renderBlocked))}
       </p>
 
-      {reviewing ? (
+      {!statusKnown ? null : reviewing ? (
         <div
           ref={reviewRef}
           tabIndex={-1}
@@ -414,7 +454,7 @@ export function CloudPublish() {
         It saves as you work, so this waits for the save and goes to My Studio,
         where it can be published later.
       */}
-      {reviewing ? null : (
+      {reviewing || !statusKnown ? null : (
         <button
           type="button"
           className={quietClass}

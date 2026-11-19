@@ -76,6 +76,14 @@ export function studioSectionClass({ drawInFlow = false }: { drawInFlow?: boolea
 }
 
 /** Solid, because the steps without a Draw pane run the 3D scene behind it. */
+/**
+ * The save indicator's box: one size whatever it says (third outside test
+ * pass), so the header never grows or reflows when a save starts or ends.
+ */
+export function saveIndicatorClass() {
+  return 'flex h-9 w-[11rem] max-w-full shrink-0 items-center gap-1 overflow-hidden font-body text-xs'
+}
+
 export function studioHeaderClass() {
   return 'pointer-events-auto flex shrink-0 flex-col gap-2 bg-flv-paper px-4 pt-1 pb-3 lg:absolute lg:inset-x-0 lg:top-0 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)_minmax(0,1fr)] lg:items-center lg:gap-x-6 lg:gap-y-1 lg:px-6 lg:pt-3 lg:pb-2'
 }

@@ -22,6 +22,9 @@ import {
 import { type CopyAttempt, createCopyAttempt } from '../../lib/copy-attempt'
 import { createOwnedDesign } from '../../lib/flp-api/client'
 import type { SaveController, SaveState } from '../../lib/save-controller'
+import { saveIndicator } from '../../lib/save-indicator'
+import { saveIndicatorClass } from '../../lib/studio-chrome'
+import { cn } from '../../lib/cn'
 import { trackAssumption } from '../../lib/assumption-events'
 
 /** Latest cloud save state for the open design; null outside cloud mode. */
@@ -113,17 +116,6 @@ export function useCloudAutosave() {
   }, [designId, ownerId, controller, offerPending])
 }
 
-const LABELS: Record<SaveState['status'], string> = {
-  saved: 'Saved privately',
-  unsaved: 'Unsaved changes',
-  saving: 'Saving…',
-  offline: 'Offline — not saved',
-  paused: 'Saving paused, retrying',
-  failed: 'Save failed',
-  conflict: 'Changed elsewhere',
-  'waiting-for-images': 'Waiting for images',
-}
-
 /** One copy attempt per open design, kept across renders (S06 #175). */
 function useCopyAttempt({ designId }: { designId: string | null }) {
   const current = useRef<{ designId: string | null; attempt: CopyAttempt } | null>(null)
@@ -145,12 +137,69 @@ const COPY_FAILED = 'The copy could not be saved. Your changes are still here; t
 const quiet =
   'inline-flex min-h-9 items-center px-2 font-body text-xs tracking-[0.08em] uppercase underline-offset-4 hover:text-flv-accent hover:underline disabled:opacity-50'
 
+/**
+ * The one save indicator, in the studio header (third outside test pass).
+ * Fixed in size: its words change, the header around it never moves, so a
+ * click aimed at a button beside it lands there. What needs the creator (a
+ * conflict, a save that stopped, no local copy) is `CloudSaveProblem`.
+ */
 export function CloudSaveStatus() {
-  const navigate = useNavigate()
   const state = useCloudSaveStore((store) => store.state)
   const controller = useCloudSaveStore((store) => store.controller)
   const cloud = useEditorStore((store) => store.cloud)
   const local = useRecoveryStore((store) => store.local)
+
+  if (!state || !cloud) {
+    return null
+  }
+
+  const indicator = saveIndicator({ state, keptLocally: local.status === 'kept' })
+  const description = [indicator.label, indicator.detail, indicator.description].filter(Boolean).join('. ')
+
+  return (
+    <div
+      className={saveIndicatorClass()}
+      role="status"
+      aria-live="polite"
+      data-hint-anchor="saving"
+      data-save-indicator
+      title={description}
+    >
+      <span className="flex min-w-0 flex-1 flex-col justify-center leading-tight">
+        <span
+          className={cn('truncate', {
+            'text-flv-muted': indicator.tone === 'quiet',
+            'text-flv-ink': indicator.tone === 'busy',
+            'text-flv-accent': indicator.tone === 'problem',
+          })}
+        >
+          {indicator.label}
+        </span>
+        {/* Always laid out, empty or not, so the indicator keeps one height. */}
+        <span className="min-h-[1.2em] truncate text-[11px] text-flv-muted">{indicator.detail}</span>
+      </span>
+      {/* The slot is kept even when hidden, for the same reason. */}
+      <button
+        type="button"
+        className={cn('inline-flex min-h-9 shrink-0 items-center px-1.5 font-body text-xs text-flv-ink underline underline-offset-2 hover:text-flv-accent', { invisible: !indicator.canRetryNow })}
+        tabIndex={indicator.canRetryNow ? undefined : -1}
+        aria-hidden={indicator.canRetryNow ? undefined : true}
+        onClick={() => controller?.flush()}
+      >
+        Retry
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Save problems that wait on the creator, below the header's controls: a
+ * newer version saved elsewhere, a save that stopped, or no local copy.
+ */
+export function CloudSaveProblem() {
+  const navigate = useNavigate()
+  const state = useCloudSaveStore((store) => store.state)
+  const cloud = useEditorStore((store) => store.cloud)
   const warning = useRecoveryStore((store) => store.warning)
   const [copying, setCopying] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
@@ -160,61 +209,57 @@ export function CloudSaveStatus() {
     return null
   }
 
-  const settled = state.status === 'saved'
+  const indicator = saveIndicator({ state, keptLocally: false })
+
+  if (!indicator.needsAction && !warning) {
+    return null
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 font-body text-xs" role="status" aria-live="polite" data-hint-anchor="saving">
-      <span className={settled ? 'text-flv-muted' : 'text-flv-accent'}>{LABELS[state.status]}</span>
-      {!settled && local.status === 'kept' ? (
-        <span className="text-flv-muted">· Kept on this device</span>
-      ) : null}
-      {state.status === 'conflict' ? (
-        <>
-          <button
-            type="button"
-            className={quiet}
-            onClick={() => window.location.reload()}
-          >
-            Open cloud version
-          </button>
-          <button
-            type="button"
-            className={quiet}
-            disabled={copying}
-            onClick={() => {
-              setCopying(true)
-              setCopyError(null)
-              // One attempt per design: a retry or second click replays
-              // the same create, never a second copy (S06 #175).
-              void copyAttempt()
-                .run({ title: `${cloud.title} (copy)`, content: getCanonicalDocument() })
-                .then((result) => {
-                  setCopying(false)
+    <div className="flex flex-col gap-1 font-body text-xs">
+      {indicator.needsAction ? (
+        <div role="status" className="flex flex-wrap items-center gap-2">
+          <span className="text-flv-ink">{state.message ?? indicator.label}</span>
+          {state.status === 'conflict' ? (
+            <>
+              <button type="button" className={quiet} onClick={() => window.location.reload()}>
+                Open cloud version
+              </button>
+              <button
+                type="button"
+                className={quiet}
+                disabled={copying}
+                onClick={() => {
+                  setCopying(true)
+                  setCopyError(null)
+                  // One attempt per design: a retry or second click replays
+                  // the same create, never a second copy (S06 #175).
+                  void copyAttempt()
+                    .run({ title: `${cloud.title} (copy)`, content: getCanonicalDocument() })
+                    .then((result) => {
+                      setCopying(false)
 
-                  if (result.ok) {
-                    void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
-                  } else {
-                    setCopyError(COPY_FAILED)
-                  }
-                })
-            }}
-          >
-            Save mine as a copy
-          </button>
-        </>
-      ) : settled ? null : (
-        <button type="button" className={quiet} onClick={() => controller?.flush()}>
-          Save now
-        </button>
-      )}
-      {state.message ? <span className="w-full text-flv-muted">{state.message}</span> : null}
+                      if (result.ok) {
+                        void navigate({ to: '/create', search: { cloud: result.data.designId, step: 'design' } })
+                      } else {
+                        setCopyError(COPY_FAILED)
+                      }
+                    })
+                }}
+              >
+                Save mine as a copy
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
       {copyError && state.status === 'conflict' ? (
-        <span role="alert" className="w-full text-flv-accent">
+        <span role="alert" className="text-flv-accent">
           {copyError}
         </span>
       ) : null}
       {warning ? (
-        <span role="alert" className="w-full text-flv-accent">
+        <span role="alert" className="text-flv-accent">
           {warning}
         </span>
       ) : null}

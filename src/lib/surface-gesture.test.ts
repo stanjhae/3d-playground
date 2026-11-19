@@ -24,4 +24,13 @@ describe('surfaceGesture', () => {
     expect(surfaceGesture({ designTool: 'text', wordArmed: true, hitsLayer: false, rotatingView: false })).toBe('place-text')
     expect(surfaceGesture({ designTool: 'text', wordArmed: true, hitsLayer: true, rotatingView: false })).toBe('drag-layer')
   })
+
+  it('turns instead of drawing on the 3D cloth while the camera is on Orbit', () => {
+    expect(surfaceGesture({ designTool: 'draw', wordArmed: false, hitsLayer: false, rotatingView: false, orbiting: true })).toBe('none')
+    // A view such as Front draws again; the flat panels never orbit.
+    expect(surfaceGesture({ designTool: 'draw', wordArmed: false, hitsLayer: false, rotatingView: false, orbiting: false })).toBe('stroke')
+    expect(surfaceGesture({ designTool: 'draw', wordArmed: false, hitsLayer: false, rotatingView: false })).toBe('stroke')
+    // A placed mark is still grabbed on purpose.
+    expect(surfaceGesture({ designTool: 'draw', wordArmed: false, hitsLayer: true, rotatingView: false, orbiting: true })).toBe('drag-layer')
+  })
 })
