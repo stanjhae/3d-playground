@@ -99,6 +99,7 @@ import { NUDGE_MERGE_MS } from './studio-keys'
 import { clampShape, type GarmentShape, type ShapeSpec } from './garment-shape-params'
 import { writableShapeSpec } from './shape-beta'
 import { roundPlacement } from './transform-fields'
+import { layerNameMessage } from './glyph-coverage'
 
 export type EditorMode = 'design' | 'atelier'
 
@@ -668,6 +669,15 @@ function placeableLayer({ document, layerId }: { document: DesignDocument; layer
   return layer && (layer.kind === 'graphic' || layer.kind === 'text' || layer.kind === 'pattern') ? layer : null
 }
 
+/**
+ * Where a new section fill goes in a panel's stack (bottom 0): just above
+ * the highest fill there, else at the bottom, so it sits under every
+ * graphic, word and ink layer on the side.
+ */
+export function sectionFillIndex({ layers }: { layers: readonly { kind: string }[] }) {
+  return layers.findLastIndex((layer) => layer.kind === 'fill') + 1
+}
+
 /** Steps a copy aside so it doesn't hide its original, away from an edge. */
 function offsetCopy({ layer }: { layer: PlaceableLayer }): PlaceableLayer {
   const step = ({ value, by }: { value: number; by: number }) =>
@@ -1169,21 +1179,33 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     const ids = panels.map(() => createObjectId({ prefix: 'fill' }))
     const commands: CanonicalCommand[] = [
       ...(replace ? [{ type: 'removeLayer' as const, layerId: replace }] : []),
-      ...panels.map((panel, index) => ({
-        type: 'addLayer' as const,
-        panel,
-        // Defaults are written as they are: a fill always carries its tile
-        // and turn, and leaves out a zero phase.
-        layer: {
-          id: ids[index]!,
-          kind: 'fill' as const,
-          visible: true,
-          opacity: 1,
-          source: structuredClone(fillSource),
-          tile: DEFAULT_FILL_TILE,
-          rotation: 0,
-        },
-      })),
+      ...panels.flatMap((panel, index): CanonicalCommand[] => {
+        const id = ids[index]!
+        // A fill is a ground (tester pass 3): it goes under the graphics,
+        // words and ink already on the side, just above any fill there, so
+        // nothing is covered and a new fill still shows over an old one.
+        const kept = document.panels[panel].layers.filter((layer) => layer.id !== replace)
+        const toIndex = sectionFillIndex({ layers: kept })
+
+        return [
+          {
+            type: 'addLayer' as const,
+            panel,
+            // Defaults are written as they are: a fill always carries its tile
+            // and turn, and leaves out a zero phase.
+            layer: {
+              id,
+              kind: 'fill' as const,
+              visible: true,
+              opacity: 1,
+              source: structuredClone(fillSource),
+              tile: DEFAULT_FILL_TILE,
+              rotation: 0,
+            },
+          },
+          ...(toIndex < kept.length ? [{ type: 'moveLayer' as const, layerId: id, toIndex }] : []),
+        ]
+      }),
     ]
     const step = runTeeCommand({ engine: tee, command: { type: 'batch', commands } })
 
@@ -2010,6 +2032,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
       if (!layer || !layerPatchChanges({ layer, patch })) {
         return state
+      }
+
+      // A name takes no emoji on any garment, as a word takes none (tester pass 3).
+      const badName = patch.label === undefined ? null : layerNameMessage({ name: patch.label })
+
+      if (badName) {
+        return { limitNotice: badName }
       }
 
       return runCommand({

@@ -185,6 +185,14 @@ export async function chooseTool({ page, tool }: { page: Page; tool: 'Draw' | 'T
   await page.getByRole('radiogroup', { name: 'Tools' }).getByRole('radio', { name: tool, exact: true }).click()
 }
 
+/**
+ * A tile in the Graphics library. Placed graphics are named for their
+ * label in the Layers panel too (tester pass 3), so look only in the library.
+ */
+export function graphicTile({ page, label }: { page: Page; label: string }) {
+  return page.getByRole('list', { name: 'Graphics library' }).getByRole('button', { name: label, exact: true })
+}
+
 /** An account that exists before its first sign-in, with no code sent yet. */
 export async function createExistingAccount({ email }: { email: string }) {
   const admin = createClient(env.SUPABASE_URL!, env.SUPABASE_SECRET_KEY!, {

@@ -12,6 +12,7 @@ import {
   layerEdgeMessage,
   layerListGroups,
   layerMovedMessage,
+  visibilityToggleLabel,
 } from './layer-list'
 
 const panels = [
@@ -128,5 +129,12 @@ describe('renamedLayer', () => {
   test('saves nothing for an empty or unchanged name', () => {
     expect(renamedLayer({ draft: '   ', current: 'Mark' })).toBeNull()
     expect(renamedLayer({ draft: 'Mark ', current: 'Mark' })).toBeNull()
+  })
+})
+
+describe('the eye says what a press does (tester pass 3)', () => {
+  test('"Hide" while the layer shows, "Show" while it is hidden', () => {
+    expect(visibilityToggleLabel({ name: 'Logo', visible: true })).toBe('Hide Logo')
+    expect(visibilityToggleLabel({ name: 'Logo', visible: false })).toBe('Show Logo')
   })
 })
