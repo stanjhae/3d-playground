@@ -348,3 +348,33 @@ describe('stretched layers (reader R2)', () => {
     expect(tall.height).toBeCloseTo(0.27)
   })
 })
+
+describe('image layer names (tester pass 3)', () => {
+  const image = (patch: Partial<GraphicLayer> = {}): GraphicLayer => ({
+    id: 'mark_1',
+    kind: 'graphic',
+    panel: 'front',
+    src: '/graphics/flame-rise.svg',
+    x: 0.5,
+    y: 0.5,
+    scale: 0.2,
+    rotation: 0,
+    opacity: 1,
+    visible: true,
+    ...patch,
+  })
+
+  test('a library graphic is named for its label, not "Mark"', () => {
+    expect(layerVoice({ layer: image() })).toBe('Rising Flame')
+  })
+
+  test('an upload or a placeholder is an "Image"', () => {
+    expect(layerVoice({ layer: image({ src: 'data:image/png;base64,iVBORw0KGgo=' }) })).toBe('Image')
+    expect(layerVoice({ layer: image({ src: '', missing: true }) })).toBe('Image')
+  })
+
+  test('a saved design that stored the old default shows the derived name; a chosen name stays', () => {
+    expect(layerVoice({ layer: image({ label: 'Mark' }) })).toBe('Rising Flame')
+    expect(layerVoice({ layer: image({ label: 'Back logo' }) })).toBe('Back logo')
+  })
+})

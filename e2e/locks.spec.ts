@@ -68,12 +68,14 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   await expect(rail.getByRole('button', { name: `Rename ${WORD}`, exact: true })).toHaveAttribute('aria-disabled', 'true')
 
   // Hiding is about the view, so it works while locked, and it stays locked.
-  const eye = rail.getByRole('button', { name: `Hide ${WORD}`, exact: true })
-  await eye.click()
-  await expect(eye).toHaveAttribute('aria-pressed', 'true')
+  // The eye's name says what a press does (tester pass 3).
+  await rail.getByRole('button', { name: `Hide ${WORD}`, exact: true }).click()
+  const show = rail.getByRole('button', { name: `Show ${WORD}`, exact: true })
+  await expect(show).toHaveAttribute('title', `Show ${WORD}`)
+  await expect(show).not.toHaveAttribute('aria-pressed')
   await expect(rail.getByRole('button', { name: new RegExp(`^${WORD} ?, hidden ?, locked$`) })).toBeVisible()
-  await eye.click()
-  await expect(eye).toHaveAttribute('aria-pressed', 'false')
+  await show.click()
+  await expect(rail.getByRole('button', { name: `Hide ${WORD}`, exact: true })).toBeVisible()
   await expect(lock).toHaveAttribute('aria-pressed', 'true')
 
   // Nudge keys and Delete leave it where it is.

@@ -25,7 +25,7 @@ import {
 } from './canonical-document.ts'
 import type { DesignCommand, LayerPatch } from './design-commands.ts'
 import type { DesignDocument, Stroke } from './design-document.ts'
-import { glyphMessage } from './glyph-coverage.ts'
+import { glyphMessage, layerNameMessage } from './glyph-coverage.ts'
 import {
   type ImportNote,
   convertLegacyDesign,
@@ -798,6 +798,15 @@ export function glyphRefusal({
     return command.layer.kind === 'text'
       ? glyphMessage({ text: command.layer.content, face: command.layer.face })
       : null
+  }
+
+  // A layer name takes no emoji, whatever the layer (tester pass 3).
+  if (command.type === 'updateLayer' && command.patch.name !== undefined) {
+    const refused = layerNameMessage({ name: command.patch.name })
+
+    if (refused) {
+      return refused
+    }
   }
 
   if (command.type === 'copyLayer' || command.type === 'updateLayer') {
