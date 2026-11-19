@@ -250,7 +250,8 @@ describe.skipIf(!env)('abuse and moderation against local Supabase', () => {
         loadShell: async () => '<!doctype html><html><head><title>x</title></head><body><div id="root"></div></body></html>',
         request: new Request(`http://localhost/s/${slug}`),
       })
-      expect(share.status).toBe(200)
+      // Taken down is not published: the link answers 404 (missing pages, 19 Nov).
+      expect(share.status).toBe(404)
       expect(await share.text()).not.toContain('flp-public')
 
       // Owner: the design is theirs still, private, and cannot go back up.
