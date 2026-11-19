@@ -128,6 +128,28 @@ export function injectShareHead({
   return payload ? injectBeforeRoot({ shell: withHead, html: staticShareMarkup({ payload }) }) : withHead
 }
 
+/**
+ * The share page's status. Over the limit: 429 (or 503). A design that was
+ * looked up and isn't published (never was, unpublished or taken down): 404,
+ * so links to it read as gone, not as a working page (tester, 19 Nov). A
+ * failed read keeps 200: the app asks again and says the design can't load.
+ */
+export function shareStatus({
+  decision,
+  checked,
+  found,
+}: {
+  decision: { allowed: boolean; reason?: string }
+  checked: boolean
+  found: boolean
+}) {
+  if (!decision.allowed) {
+    return decision.reason === 'limited' ? 429 : 503
+  }
+
+  return checked && !found ? 404 : 200
+}
+
 export async function handleSharePage({
   request,
   env = flpServerEnv(),
@@ -146,6 +168,7 @@ export async function handleSharePage({
   // says the design can't load right now if that is limited too.
   const decision = await limiter({ request, bucket: 'share_page' })
   // A failed read still serves the app, which asks again and can say so.
+  let readFailed = false
   const published = env && decision.allowed
     ? await findPublishedDesign({
         admin: createClient(env.url, env.secretKey, {
@@ -154,6 +177,7 @@ export async function handleSharePage({
         slug,
       }).catch((error: unknown) => {
         console.error('flp share page read failed', { error })
+        readFailed = true
         return null
       })
     : null
@@ -181,7 +205,7 @@ export async function handleSharePage({
     : shareCardHtml({ origin: url.origin, shared })
 
   return new Response(html, {
-    status: decision.allowed ? 200 : decision.reason === 'limited' ? 429 : 503,
+    status: shareStatus({ decision, checked: Boolean(env) && !readFailed, found: Boolean(published) }),
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       // Unpublishing must take effect at once (#183).
