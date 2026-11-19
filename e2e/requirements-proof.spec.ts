@@ -477,14 +477,13 @@ test('drawing on both sleeves, erasing, and the layer list work from the editor'
   await page.getByPlaceholder('Your text').press('Enter')
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.some((layer) => layer.kind === 'text'), { timeout: 20_000 }).toBe(true)
   const rail = page.getByRole('complementary', { name: 'Layers' })
-  // The eye is a toggle: pressed while the layer is hidden.
-  const eye = rail.getByRole('button', { name: /^Hide .*ONE/ })
-  await expect(eye).toHaveAttribute('aria-pressed', 'false')
-  await eye.click()
-  await expect(eye).toHaveAttribute('aria-pressed', 'true')
+  // The eye says what a press does: Hide while it shows, Show while hidden (tester pass 3).
+  await rail.getByRole('button', { name: /^Hide .*ONE/ }).click()
+  const show = rail.getByRole('button', { name: /^Show .*ONE/ })
+  await expect(show).toBeVisible()
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.find((layer) => layer.kind === 'text')?.visible, { timeout: 20_000 }).toBe(false)
-  await eye.click()
-  await expect(eye).toHaveAttribute('aria-pressed', 'false')
+  await show.click()
+  await expect(rail.getByRole('button', { name: /^Hide .*ONE/ })).toBeVisible()
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.find((layer) => layer.kind === 'text')?.visible, { timeout: 20_000 }).toBe(true)
 
   // Hide others keeps only the picked layer; Unhide all brings the rest back.
