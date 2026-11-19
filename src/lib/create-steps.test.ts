@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import {
   CREATE_STEPS,
   allowsDrawView,
+  backToStepLabel,
   createStepLabel,
   forcesClothView,
   nextCreateStep,
@@ -44,5 +45,11 @@ describe('create-steps', () => {
     expect(showsPaintPane({ step: 'select' })).toBe(false)
     expect(showsDualStudio({ step: 'design' })).toBe(true)
     expect(showsDualStudio({ step: 'color' })).toBe(false)
+  })
+
+  test('the step bar Back says which step it returns to, never a bare "Back"', () => {
+    expect(backToStepLabel({ step: 'color' })).toBe('Back to Garment')
+    expect(backToStepLabel({ step: 'design' })).toBe('Back to Color')
+    expect(backToStepLabel({ step: 'share' })).toBe('Back to Design')
   })
 })

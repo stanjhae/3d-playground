@@ -20,6 +20,18 @@ describe('create-search', () => {
     expect(parseCreateStep({ value: 3 })).toBeUndefined()
   })
 
+  test('a legacy ?step=garment opens the first step, and unknown steps clear the raw value', () => {
+    expect(parseCreateStep({ value: 'garment' })).toBe('select')
+    expect(parseCreateSearch({ search: { step: 'garment' } }).step).toBe('select')
+    // The router spreads raw query values under the parsed ones, so a bad
+    // value must be overwritten by an own `step: undefined`, not left out.
+    const unknown = parseCreateSearch({ search: { step: 'nonsense', cloud: 'nope' } })
+    expect(Object.hasOwn(unknown, 'step')).toBe(true)
+    expect(unknown.step).toBeUndefined()
+    expect(Object.hasOwn(unknown, 'cloud')).toBe(true)
+    expect({ ...{ step: 'nonsense' }, ...unknown }.step).toBeUndefined()
+  })
+
   test('parses design, step, garment, color, and cut', () => {
     expect(
       parseCreateSearch({

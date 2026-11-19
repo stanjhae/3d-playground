@@ -16,6 +16,8 @@ test.afterAll(async () => {
 
 const VERSIONS = '**/api/flp/designs/*/versions'
 const STATUS_SAVED = 'Saved privately'
+/** Offline, rate limited or a passing server fault: one plain phrase (third test pass). */
+const RETRYING = 'Couldn’t save, retrying'
 
 type SaveGate = {
   /** How the next save requests are answered, in order; then they pass. */
@@ -180,13 +182,13 @@ test('offline mid-save keeps the work and saves it once back online', async ({ p
     await route.abort('internetdisconnected')
   })
   await drawStroke({ page, panel: 'Front' })
-  await statusShows({ page, text: 'Offline — not saved' })
+  await statusShows({ page, text: RETRYING })
   await gate.arm()
   await statusShows({ page, text: 'Kept on this device' })
 
   // More work while offline stays pending too.
   await drawStroke({ page, panel: 'Back' })
-  await statusShows({ page, text: 'Offline — not saved' })
+  await statusShows({ page, text: RETRYING })
   await page.waitForTimeout(5_000)
   await expect(page.getByRole('status').filter({ hasText: STATUS_SAVED })).toHaveCount(0)
 
@@ -207,7 +209,7 @@ test('an edit made offline survives a reload: the page can\'t load until reconne
   gate.offline = true
   await context.setOffline(true)
   await drawStroke({ page, panel: 'Front' })
-  await statusShows({ page, text: 'Offline — not saved' })
+  await statusShows({ page, text: RETRYING })
   await statusShows({ page, text: 'Kept on this device' })
 
   await page.reload().catch(() => {})
@@ -235,7 +237,7 @@ test('offline, with newer work saved elsewhere: reconnecting overwrites nothing 
   gate.offline = true
   await context.setOffline(true)
   await drawStroke({ page, panel: 'Front' })
-  await statusShows({ page, text: 'Offline — not saved' })
+  await statusShows({ page, text: RETRYING })
 
   // Another device saves while this one is away (`page.request` isn't offline).
   const elsewhere = structuredClone(original.head.content)
@@ -269,15 +271,19 @@ test('offline, with newer work saved elsewhere: reconnecting overwrites nothing 
   expect((await cloudDesign({ page, designId })).layers).toBe(0)
 })
 
-test('"Save now" saves straight away, ahead of the two-second autosave wait', async ({ page }) => {
-  const { designId, gate } = await openNewDesign({ page, label: 'savenow' })
+test('"Try again" saves straight away after a failed save, ahead of the retry wait', async ({ page }) => {
+  const { designId, gate } = await openNewDesign({ page, label: 'trynow' })
+  gate.plan.push(apiError({ status: 500, code: 'internal' }))
 
   await drawStroke({ page, panel: 'Front' })
-  const button = page.getByRole('status').getByRole('button', { name: 'Save now' })
+  await statusShows({ page, text: RETRYING })
+  await expect.poll(() => gate.sent.length).toBe(1)
+  const button = page.getByRole('status').getByRole('button', { name: 'Try again' })
   const clicked = Date.now()
   await button.click()
-  await expect.poll(() => gate.sent.length).toBe(1)
-  expect(gate.sent[0]!.at - clicked).toBeLessThan(1_500)
+  await expect.poll(() => gate.sent.length).toBe(2)
+  // The automatic retry waits 4 s.
+  expect(gate.sent[1]!.at - clicked).toBeLessThan(1_500)
   await expectSaved({ page })
   expect((await cloudDesign({ page, designId })).layers).toBe(1)
 })
@@ -335,7 +341,7 @@ test('429 pauses saving and retries the same save after Retry-After', async ({ p
   gate.plan.push(apiError({ status: 429, code: 'rate_limited', headers: { 'Retry-After': '6' } }))
 
   await drawStroke({ page, panel: 'Front' })
-  await statusShows({ page, text: 'Saving paused, retrying' })
+  await statusShows({ page, text: RETRYING })
   await gate.arm()
   await statusShows({ page, text: 'Kept on this device' })
   await expectSaved({ page })
@@ -353,10 +359,9 @@ test('500s on save show the failure, keep the work and retry the same save by th
   gate.plan.push(apiError({ status: 500, code: 'internal' }), apiError({ status: 500, code: 'internal' }))
 
   await drawStroke({ page, panel: 'Front' })
-  await statusShows({ page, text: 'Save failed' })
+  await statusShows({ page, text: RETRYING })
   await gate.arm()
   await statusShows({ page, text: 'Kept on this device' })
-  await statusShows({ page, text: 'will retry' })
   expect((await cloudDesign({ page, designId })).layers).toBe(0)
 
   // Backs off (4 s, then 8 s) and lands without the creator doing anything.
@@ -578,7 +583,7 @@ test('a full local store shows the storage warning and still saves to the cloud'
   gate.plan.push((route) => route.abort('internetdisconnected'))
   await drawStroke({ page, panel: 'Front' })
   await expect(page.getByRole('alert').filter({ hasText: 'This device is out of space for a local copy' })).toBeVisible()
-  await statusShows({ page, text: 'Offline — not saved' })
+  await statusShows({ page, text: RETRYING })
   await gate.arm()
   // Nothing claims the work is kept locally when it is not.
   await expect(page.getByText('Kept on this device')).toHaveCount(0)

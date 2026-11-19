@@ -1,5 +1,5 @@
 import { Button } from '../ui/Button'
-import { nextCreateStep, previousCreateStep } from '../../lib/create-steps'
+import { backToStepLabel, nextCreateStep, previousCreateStep } from '../../lib/create-steps'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
@@ -25,7 +25,7 @@ export function StepActions() {
       </div>
       {createStep === 'select' ? null : (
         <Button variant="quiet" onClick={() => go(previousCreateStep({ step: createStep }))}>
-          {HOUSE_COPY.previous}
+          {backToStepLabel({ step: createStep })}
         </Button>
       )}
       {createStep === 'color' ? (

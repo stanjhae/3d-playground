@@ -78,9 +78,12 @@ export function nextHint({ step, dismissed }: { step: CreateStepId; dismissed: r
 export const HINT_ANCHOR_ATTRIBUTE = 'data-hint-anchor'
 /**
  * Places a floating hint must never cover: the work (the 3D stage and the
- * panels), the step buttons, the tools rail and any group of choices.
+ * panels), the step buttons, the tools rail, any group of choices, and any
+ * control at all (the third outside test pass found "Pick a side" over the
+ * Pro tools switch, taking its clicks). With no room it docks in the rail.
  */
-export const HINT_KEEP_CLEAR_SELECTOR = 'canvas, [data-hint-keep-clear], [role="radiogroup"]'
+export const HINT_KEEP_CLEAR_SELECTOR =
+  'canvas, [data-hint-keep-clear], [role="radiogroup"], button, [role="switch"], a[href], input, select, textarea'
 
 export type HintBox = { left: number; top: number; width: number; height: number }
 export type HintSide = 'below' | 'above' | 'right' | 'left'

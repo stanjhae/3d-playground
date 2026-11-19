@@ -66,7 +66,7 @@ export type SaveControllerOptions = {
 const CONFLICT_MESSAGE =
   'This design changed somewhere else. Open the cloud version or save yours as a copy.'
 
-const SERVER_FAILED_MESSAGE = 'The server could not save. Your work is kept here and will retry.'
+export const SERVER_FAILED_MESSAGE = 'The server could not save. Your work is kept here and will retry.'
 const MAX_RETRY_MS = 60_000
 
 /**

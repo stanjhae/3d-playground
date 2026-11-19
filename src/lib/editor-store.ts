@@ -19,7 +19,7 @@ import {
   type DesignCommand,
   type LayerPatch,
 } from './design-commands'
-import { type CreateStepId, forcesClothView } from './create-steps'
+import { type CreateStepId, forcesClothView, isCreateStepId } from './create-steps'
 import {
   cloneDocument,
   createEmptyDocument,
@@ -1409,7 +1409,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   setStudioView: ({ studioView }) => {
     set({ studioView })
   },
-  setCreateStep: ({ createStep }) => {
+  setCreateStep: ({ createStep: requested }) => {
+    // A step id from an old link or a bad value never reaches the screens.
+    const createStep = isCreateStepId(requested) ? requested : 'select'
     set(() => {
       return {
         createStep,
