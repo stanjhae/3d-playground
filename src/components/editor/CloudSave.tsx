@@ -181,7 +181,7 @@ export function CloudSaveStatus() {
       {/* The slot is kept even when hidden, for the same reason. */}
       <button
         type="button"
-        className={cn(quiet, 'shrink-0', { invisible: !indicator.canRetryNow })}
+        className={cn('inline-flex min-h-9 shrink-0 items-center px-1.5 font-body text-xs text-flv-ink underline underline-offset-2 hover:text-flv-accent', { invisible: !indicator.canRetryNow })}
         tabIndex={indicator.canRetryNow ? undefined : -1}
         aria-hidden={indicator.canRetryNow ? undefined : true}
         onClick={() => controller?.flush()}

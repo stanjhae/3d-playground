@@ -49,7 +49,12 @@ const SHORT_STEP_NAMES: Record<CreateStepId, string> = {
  * pass): a plain "Back" sat beside the camera's "Back" view.
  */
 export function backToStepLabel({ step }: { step: CreateStepId }) {
-  return `Back to ${SHORT_STEP_NAMES[previousCreateStep({ step })]}`
+  return `Back to ${previousStepShortName({ step })}`
+}
+
+/** The step Back returns to, in a word (a phone shows "‹ Garment"). */
+export function previousStepShortName({ step }: { step: CreateStepId }) {
+  return SHORT_STEP_NAMES[previousCreateStep({ step })]
 }
 
 export function createStepIndex({ step }: { step: CreateStepId }) {

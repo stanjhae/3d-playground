@@ -1,5 +1,5 @@
 import { Button } from '../ui/Button'
-import { backToStepLabel, nextCreateStep, previousCreateStep } from '../../lib/create-steps'
+import { backToStepLabel, nextCreateStep, previousCreateStep, previousStepShortName } from '../../lib/create-steps'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
@@ -24,8 +24,19 @@ export function StepActions() {
         <UndoRedo />
       </div>
       {createStep === 'select' ? null : (
-        <Button variant="quiet" onClick={() => go(previousCreateStep({ step: createStep }))}>
-          {backToStepLabel({ step: createStep })}
+        <Button
+          variant="quiet"
+          aria-label={backToStepLabel({ step: createStep })}
+          className="px-1! sm:px-5!"
+          onClick={() => go(previousCreateStep({ step: createStep }))}
+        >
+          {/* A phone keeps the step's buttons on one row: "‹ Garment". */}
+          <span aria-hidden className="sm:hidden">
+            ‹ {previousStepShortName({ step: createStep })}
+          </span>
+          <span aria-hidden className="hidden sm:inline">
+            {backToStepLabel({ step: createStep })}
+          </span>
         </Button>
       )}
       {createStep === 'color' ? (

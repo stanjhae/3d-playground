@@ -47,7 +47,7 @@ describe('save indicator', () => {
 
   test('has a fixed size, so the header never changes height with it', () => {
     expect(saveIndicatorClass()).toMatch(/(^| )h-9( |$)/)
-    expect(saveIndicatorClass()).toMatch(/(^| )w-\[13rem\]( |$)/)
+    expect(saveIndicatorClass()).toMatch(/(^| )w-\[11rem\]( |$)/)
     expect(saveIndicatorClass()).toMatch(/shrink-0/)
   })
 })
