@@ -186,7 +186,7 @@ export function CloudSaveStatus() {
         aria-hidden={indicator.canRetryNow ? undefined : true}
         onClick={() => controller?.flush()}
       >
-        Try again
+        Retry
       </button>
     </div>
   )

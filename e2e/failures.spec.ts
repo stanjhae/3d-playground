@@ -271,14 +271,14 @@ test('offline, with newer work saved elsewhere: reconnecting overwrites nothing 
   expect((await cloudDesign({ page, designId })).layers).toBe(0)
 })
 
-test('"Try again" saves straight away after a failed save, ahead of the retry wait', async ({ page }) => {
+test('"Retry" saves straight away after a failed save, ahead of the retry wait', async ({ page }) => {
   const { designId, gate } = await openNewDesign({ page, label: 'trynow' })
   gate.plan.push(apiError({ status: 500, code: 'internal' }))
 
   await drawStroke({ page, panel: 'Front' })
   await statusShows({ page, text: RETRYING })
   await expect.poll(() => gate.sent.length).toBe(1)
-  const button = page.getByRole('status').getByRole('button', { name: 'Try again' })
+  const button = page.getByRole('status').getByRole('button', { name: 'Retry' })
   const clicked = Date.now()
   await button.click()
   await expect.poll(() => gate.sent.length).toBe(2)

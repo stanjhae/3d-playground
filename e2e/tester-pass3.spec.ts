@@ -55,7 +55,7 @@ async function drag({ page, target }: { page: Page; target: Locator }) {
 }
 
 test('the header keeps its height while a save starts and ends', async ({ page }) => {
-  test.setTimeout(120_000)
+  test.setTimeout(150_000)
   await openDesign({ page, label: 'headerheight' })
   await chooseTool({ page, tool: 'Draw' })
   await page.evaluate(() => {

@@ -81,7 +81,7 @@ export function studioSectionClass({ drawInFlow = false }: { drawInFlow?: boolea
  * pass), so the header never grows or reflows when a save starts or ends.
  */
 export function saveIndicatorClass() {
-  return 'flex h-9 w-[15rem] max-w-full shrink-0 items-center gap-1 overflow-hidden font-body text-xs'
+  return 'flex h-9 w-[13rem] max-w-full shrink-0 items-center gap-1 overflow-hidden font-body text-xs'
 }
 
 export function studioHeaderClass() {

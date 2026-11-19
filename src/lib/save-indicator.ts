@@ -20,7 +20,7 @@ export type SaveIndicator = {
   detail: string | null
   /** Fuller sentence for the tooltip and screen readers. */
   description: string | null
-  /** Offer "Try again" (saves now instead of waiting for the retry). */
+  /** Offer "Retry" (saves now instead of waiting for the retry). */
   canRetryNow: boolean
   /** A problem that waits on the creator; shown below the header. */
   needsAction: boolean
