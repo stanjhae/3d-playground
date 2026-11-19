@@ -3,7 +3,7 @@ import { type Locator, type Page, expect, test } from '@playwright/test'
 import { type PlaceableLayer, canvasLayerFrame, rotateHandleBelow } from '../src/lib/layer-hit'
 import { SELECTION_COLOR } from '../src/lib/selection-chrome'
 import { currentTemplateFor } from '../src/lib/template-manifest'
-import { chooseTool, deleteAccounts, expectSaved, newEmail, panelCanvas, signIn } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, newEmail, panelCanvas, signIn, graphicTile } from './helpers'
 
 /**
  * Drag-and-drop in the studio (S-B): a mark dragged on the 3D cloth, across
@@ -54,7 +54,7 @@ function saved<T>(read: () => Promise<T>) {
 
 /** Adds the cross by tapping its tile: it lands mid-front, selected. */
 async function addCross({ page }: { page: Page }) {
-  await page.getByRole('button', { name: 'Simple Cross' }).click()
+  await graphicTile({ page, label: 'Simple Cross' }).click()
   await saved(async () => (await images({ page })).length).toBe(1)
   return (await images({ page }))[0]!
 }
@@ -230,7 +230,7 @@ async function dragTile({ page, tile, to }: { page: Page; tile: Locator; to: { x
 test('a graphic dragged from the library lands where it is dropped, on a panel and on the cloth', async ({ page }) => {
   test.setTimeout(150_000)
   await openDesign({ page, label: 'libdrop' })
-  const tile = page.getByRole('button', { name: 'Simple Cross' })
+  const tile = graphicTile({ page, label: 'Simple Cross' })
   // Scrolled first, so the points measured below don't move under the drag.
   await tile.scrollIntoViewIfNeeded()
   const front = panelCanvas({ page, panel: 'Front' })
@@ -287,7 +287,7 @@ test('a mark on a sleeve panel drags, and stays on the sleeve pinned to its edge
   // Picks the sleeve, then a tapped graphic lands on it.
   await page.mouse.click(box.x + 4, box.y + 4)
   await expect(sleeve).toHaveAttribute('aria-label', /, active$/)
-  await page.getByRole('button', { name: 'Simple Cross' }).click()
+  await graphicTile({ page, label: 'Simple Cross' }).click()
   await saved(async () => (await images({ page, panel: 'right' })).length).toBe(1)
   const start = (await images({ page, panel: 'right' }))[0]!
 

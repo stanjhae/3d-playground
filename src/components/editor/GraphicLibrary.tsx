@@ -142,7 +142,7 @@ export function GraphicLibrary() {
           </button>
         </div>
       ) : (
-        <ul ref={listRef} className="grid max-h-[min(30rem,60vh)] grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2 overflow-y-auto pr-1">
+        <ul ref={listRef} aria-label="Graphics library" className="grid max-h-[min(30rem,60vh)] grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2 overflow-y-auto pr-1">
           {assets.map((asset) => (
             <li key={asset.id}>
               <button

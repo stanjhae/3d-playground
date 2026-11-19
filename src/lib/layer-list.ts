@@ -1,4 +1,5 @@
 import type { DesignLayer, PanelId } from './design-document'
+import { HOUSE_COPY } from './house-copy'
 import { layerVoice } from './layer-hit'
 
 /**
@@ -142,6 +143,15 @@ export function layerVisibilityMessage({
   visible: boolean
 }) {
   return visible ? `${name} shown.` : `${name} hidden.`
+}
+
+/**
+ * The eye's name says what a press does: "Hide Logo" while it shows, "Show
+ * Logo" while hidden (tester pass 3). The name changes with the state, so the
+ * button carries no pressed state as well; the row says ", hidden".
+ */
+export function visibilityToggleLabel({ name, visible }: { name: string; visible: boolean }) {
+  return `${visible ? HOUSE_COPY.hideLayer : HOUSE_COPY.showLayer} ${name}`
 }
 
 /** Why a locked item's controls are off (W3). */

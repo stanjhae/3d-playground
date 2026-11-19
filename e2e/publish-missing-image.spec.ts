@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { deleteAccounts, expectSaved, newEmail, signIn, chooseTool } from './helpers'
+import { deleteAccounts, expectSaved, newEmail, signIn, chooseTool, graphicTile } from './helpers'
 
 /**
  * R04: an image that can't load stops publishing, instead of a placeholder
@@ -22,7 +22,7 @@ test('an image that fails to load blocks publishing, with a reason', async ({ pa
   await expectSaved({ page })
 
   await chooseTool({ page, tool: 'Graphics' })
-  await page.getByRole('button', { name: 'Gothic Cross' }).click()
+  await graphicTile({ page, label: 'Gothic Cross' }).click()
   await expectSaved({ page })
 
   const url = new URL(page.url())
