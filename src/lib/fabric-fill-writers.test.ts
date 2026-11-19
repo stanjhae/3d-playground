@@ -13,7 +13,7 @@ import {
   validateCanonicalDocument,
 } from './canonical-document'
 import { hashCanonicalDocument, serializeCanonicalDocument } from './canonical-hash'
-import { DEFAULT_FILL_TILE, getCanonicalDocument, useEditorStore } from './editor-store'
+import { DEFAULT_FILL_TILE, getCanonicalDocument, layerPlacement, useEditorStore } from './editor-store'
 import { BASE_FABRIC_IDS, baseFabricFor, getFabricById } from './fabrics'
 import { fabricSurface, toRenderDocument } from './render-projection'
 
@@ -303,6 +303,33 @@ describe('section fills', () => {
     store.updateLayer({ layerId: id!, patch: { locked: false } })
     store.removeLayer({ layerId: id! })
     expect(fills()).toEqual([])
+  })
+
+  test('a fill goes under what is already on the side, above an older fill (tester pass 3)', () => {
+    const store = useEditorStore.getState()
+    store.addGraphic({ src: '/graphics/anchor.svg' })
+    store.addText({ content: 'FLV' })
+    const front = () => getCanonicalDocument().panels.front.layers.map((layer) => layer.kind)
+    expect(front()).toEqual(['image', 'text'])
+
+    const [stripes] = store.addSectionFill({ source: { kind: 'pattern', pattern: 'stripes', colors: ['#f7f3ea', '#1a1c22'] }, sides: 'this' })
+    expect(front()).toEqual(['fill', 'image', 'text'])
+    expect(layerPlacement({ layerId: stripes! })).toMatchObject({ index: 0, count: 3 })
+
+    // A second fill shows over the first, still under the marks.
+    const [check] = store.addSectionFill({ source: { kind: 'pattern', pattern: 'check', colors: ['#f7f3ea', '#1a1c22'] }, sides: 'all' })
+    expect(front()).toEqual(['fill', 'fill', 'image', 'text'])
+    expect(getCanonicalDocument().panels.front.layers[1]!.id).toBe(check)
+    expect(getCanonicalDocument().panels.back.layers.map((layer) => layer.kind)).toEqual(['fill'])
+
+    // An image fill replaces its graphic and still sits under the word.
+    const markId = getCanonicalDocument().panels.front.layers.find((layer) => layer.kind === 'image')!.id
+    store.addSectionFill({ source: { kind: 'image', replaceLayerId: markId }, sides: 'this' })
+    expect(front()).toEqual(['fill', 'fill', 'fill', 'text'])
+
+    // One undo step each: undoing the last brings the graphic back where it was.
+    store.undoLast()
+    expect(front()).toEqual(['fill', 'fill', 'image', 'text'])
   })
 
   test('the command refuses colours on an image fill and a locked fill', () => {

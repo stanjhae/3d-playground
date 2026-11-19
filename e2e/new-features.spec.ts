@@ -1,6 +1,6 @@
 import { type Page, expect, test } from '@playwright/test'
 
-import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn, graphicTile } from './helpers'
 
 /** The description field, off-panel warning, tool hints and example design. */
 
@@ -38,7 +38,7 @@ test('the description takes up to 500 characters, says how many, and is there af
 test('a layer mostly off its panel gets a note, which goes when it moves back', async ({ page }) => {
   await openDesign({ page, label: 'offpanel' })
   await chooseTool({ page, tool: 'Graphics' })
-  await page.getByRole('button', { name: 'Simple Cross' }).click()
+  await graphicTile({ page, label: 'Simple Cross' }).click()
   const note = page.getByText('Most of this is outside its panel')
   await expect(note).toHaveCount(0)
 

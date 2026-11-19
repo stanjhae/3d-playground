@@ -1,6 +1,6 @@
 import { type Page, expect, test } from '@playwright/test'
 
-import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn, graphicTile } from './helpers'
 
 /**
  * Writers W: the garment's fabric, seen in 3D and kept on reload, and a
@@ -89,7 +89,7 @@ test('fill the front with a library graphic: it is in the layer list and the sav
   test.setTimeout(150_000)
   await newTee({ page, label: 'fill' })
   await chooseTool({ page, tool: 'Graphics' })
-  await page.getByRole('button', { name: 'Anchor' }).click()
+  await graphicTile({ page, label: 'Anchor' }).click()
   await expectSaved({ page })
 
   const repeat = page.getByRole('group', { name: 'Repeat the selected graphic' })
@@ -224,7 +224,7 @@ test('evidence: the 3D cloth in each fabric, and fills', async ({ page }) => {
 
   await goToStep({ page, step: 'design' })
   await chooseTool({ page, tool: 'Graphics' })
-  await page.getByRole('button', { name: 'Anchor' }).click()
+  await graphicTile({ page, label: 'Anchor' }).click()
   await page.getByRole('group', { name: 'Repeat the selected graphic' }).getByRole('button', { name: 'Fill this side' }).click()
   await expectSaved({ page })
   await page.waitForTimeout(1500)

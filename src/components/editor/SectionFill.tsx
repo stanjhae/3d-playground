@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { cn } from '../../lib/cn'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import type { FillPattern } from '../../lib/canonical-document'
-import { useEditorStore } from '../../lib/editor-store'
+import { layerPlacement, useEditorStore } from '../../lib/editor-store'
 import { garmentPanels } from '../../lib/garments'
 import { isLockedLayer } from '../../lib/design-document'
 import { layerVoice } from '../../lib/layer-hit'
@@ -51,11 +51,16 @@ export function SectionFill() {
 
     if (ids.length > 0) {
       const what = source.kind === 'image' ? 'Image fill' : source.pattern === 'check' ? 'Check fill' : 'Stripe fill'
+      // The fill went under what was there (tester pass 3): say so, so
+      // nobody hunts for layers it might have covered.
+      const placed = sides === 'this' ? layerPlacement({ layerId: ids[0]! }) : null
+      const above = placed ? placed.count - placed.index - 1 : 0
+      const under = above > 0 ? `, under its ${above === 1 ? 'layer' : `${above} layers`}` : ''
       announce({
         message:
           sides === 'all'
-            ? `${what} added to every side. Undo removes them all.`
-            : `${what} added to the ${source.kind === 'image' ? imageSide : sideLabel}. Set its tile size under Selected item.`,
+            ? `${what} added to every side, under what is already there. Undo removes them all.`
+            : `${what} added to the ${source.kind === 'image' ? imageSide : sideLabel}${under}. Set its tile size under Selected item.`,
       })
     }
   }
@@ -68,8 +73,8 @@ export function SectionFill() {
       {image ? (
         <div role="group" aria-label="Repeat the selected graphic" className="flex flex-col gap-2">
           <p className={chromeMutedClass()}>
-            Repeat {layerVoice({ layer: image }).toLowerCase() === 'mark' ? 'the selected graphic' : `“${layerVoice({ layer: image })}”`} over
-            the {imageSide}, or every side. It replaces the single graphic.
+            Repeat {layerVoice({ layer: image }) === 'Image' ? 'the selected image' : `“${layerVoice({ layer: image })}”`} over the{' '}
+            {imageSide}, or every side. It replaces the single graphic and goes under everything else there.
           </p>
           <div className="flex gap-2">
             <button type="button" className={buttonClass} onClick={() => fill({ sides: 'this', source: { kind: 'image', replaceLayerId: image.id } })}>
@@ -84,7 +89,7 @@ export function SectionFill() {
         <p className={chromeMutedClass()}>Pick a graphic below, then repeat it over a whole side.</p>
       )}
       <div role="group" aria-label="Patterns" className="flex flex-col gap-2">
-        <p className={chromeMutedClass()}>Patterns, on the {sideLabel} or every side</p>
+        <p className={chromeMutedClass()}>Patterns, on the {sideLabel} or every side, under what is already there</p>
         <div className="flex gap-2">
           {PATTERNS.map((entry) => (
             <button
