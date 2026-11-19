@@ -456,26 +456,32 @@ export function cleanSleevePair({ left, right }: { left: readonly number[]; righ
   return { left: shared, right: flipAcross(shared) }
 }
 
-/** A mask's outline, simplified and rounded, as triangles; `fallback` when nothing of size is traced. */
-function outline({ mask, fallback }: { mask: Float32Array; fallback: readonly number[] }): number[] {
+/**
+ * A mask's outer outlines, simplified, counter-clockwise: the largest, and
+ * any other piece of real size on the same panel (a dress's bodice above its
+ * skirt); specks from stray triangles stay out.
+ */
+function outerLoops({ mask }: { mask: Float32Array }): Pt[][] {
   // Traced with the inside on the right, outer outlines run clockwise
-  // (negative area) and holes counter-clockwise. Take the largest outer one,
-  // and any other piece of real size on the same panel (a dress's bodice
-  // above its skirt); specks from stray triangles stay out.
+  // (negative area) and holes counter-clockwise.
   const outers = contours(mask)
     .filter((loop) => area(loop) < 0)
     .sort((a, b) => area(a) - area(b))
   const largest = outers[0]
 
   if (!largest) {
-    return [...fallback]
+    return []
   }
 
+  return outers.filter((loop) => area(loop) <= area(largest) * 0.1).map((outer) => simplify([...outer].reverse(), 0.004))
+}
+
+/** A mask's outline, simplified and rounded, as triangles; `fallback` when nothing of size is traced. */
+function outline({ mask, fallback }: { mask: Float32Array; fallback: readonly number[] }): number[] {
   const out: number[] = []
 
-  for (const outer of outers.filter((loop) => area(loop) <= area(largest) * 0.1)) {
-    const outline = [...outer].reverse()
-    const clean = smooth(simplify(outline, 0.004), 3)
+  for (const loop of outerLoops({ mask })) {
+    const clean = smooth(loop, 3)
     const contour = clean.map(([x, y]) => new Vector2(x, y))
     const faces = ShapeUtils.triangulateShape(contour, [])
 
@@ -487,4 +493,24 @@ function outline({ mask, fallback }: { mask: Float32Array; fallback: readonly nu
   }
 
   return out.length > 0 ? out : [...fallback]
+}
+
+/**
+ * A front or back panel's clean outline as polygons (flat [x0, y0, x1, y1,
+ * …] in panel space, y up), traced as `cleanPanelShape` traces it but not
+ * yet rounded: a few dozen points, small enough to keep per template for a
+ * My Studio card (`front-outlines.gen.ts`). Empty when nothing of size prints.
+ */
+export function panelOutlinePolygons({ triangles, symmetric }: { triangles: readonly number[]; symmetric: boolean }): number[][] {
+  if (triangles.length < 6) {
+    return []
+  }
+
+  let mask = blur(blur(rasterise(triangles)))
+
+  if (symmetric) {
+    mask = mirroredAverage(mask)
+  }
+
+  return outerLoops({ mask }).map((loop) => loop.flat())
 }

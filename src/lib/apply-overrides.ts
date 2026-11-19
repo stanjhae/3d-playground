@@ -71,6 +71,48 @@ export function sealClothMaterial<T extends Material>({
   return material
 }
 
+/** The colour a seated model's cloth starts as once its baked texture is gone: its template's (#ffffff for every GLB). */
+export const NEUTRAL_CLOTH_COLOR = '#ffffff'
+
+/** A seated model's metal or plastic parts (`scripts/ingest-garment.py` names them). */
+function isHardware({ node }: { node: Object3D }) {
+  return /^hardware(-\d+)?$/.test(node.name)
+}
+
+/**
+ * Takes the baked colour texture off a seated model's cloth (tester pass 3).
+ * Downloaded models carry their original look as a colour map: the hoodie's
+ * is green with a white hood and a Style3D logo on the body, the slip's,
+ * coat's and tailored suit's are black, the shirt & skirt's skirt is black.
+ * Three.js multiplies the garment colour into that map, so the 3D showed the
+ * map (or a darkened mix) while the flat panels showed the chosen colour.
+ * Without it the cloth is exactly the garment colour, everywhere, as the
+ * flat panels draw it; its relief (normal map) and finish stay. Hardware
+ * keeps its own look. Every cloth mesh that had a map is marked
+ * `bakedCloth`, so the garment colour (the `body` override) reaches all of
+ * it, the shirt & skirt's `skirt` pieces included.
+ */
+export function neutraliseBakedCloth({ root, color = NEUTRAL_CLOTH_COLOR }: { root: Object3D; color?: string }) {
+  root.traverse((node) => {
+    if (!isMesh(node) || isHardware({ node })) {
+      return
+    }
+
+    for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+      if (!(material instanceof MeshStandardMaterial) || !material.map) {
+        continue
+      }
+
+      material.map = null
+      material.color.set(color)
+      material.needsUpdate = true
+      node.userData.bakedCloth = true
+    }
+  })
+
+  return root
+}
+
 function cloneMaterialEntry({ material }: { material: Material }) {
   if (material instanceof MeshStandardMaterial) {
     return sealClothMaterial({ material: material.clone() })
@@ -269,6 +311,12 @@ function findOverrideForMesh({
     ) {
       return override
     }
+  }
+
+  // A model's cloth, whatever its node is called, takes the garment colour
+  // when nothing names it (`neutraliseBakedCloth`).
+  if (node.userData.bakedCloth === true) {
+    return overrides.findLast((override) => override.meshName === 'body')
   }
 
   return undefined

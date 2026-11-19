@@ -50,6 +50,14 @@ export function layerListGroups({
     }
 
     const placed = placement({ layerId: layer.id })
+
+    // An empty ink layer that is in no panel's stack is a stand-in the
+    // render keeps for a bare garment; nothing is on the cloth, so nothing
+    // is listed (tester pass 3: every new design showed an empty "Ink").
+    if (layer.kind === 'paint' && layer.strokes.length === 0 && !placed) {
+      continue
+    }
+
     const panel = placed?.panel ?? fallbackPanel({ layer })
     const rows = groups.get(panel) ?? []
     rows.push({
