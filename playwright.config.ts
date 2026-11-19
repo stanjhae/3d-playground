@@ -34,24 +34,32 @@ function storageFor({ url }: { url: string }) {
 // Pattern (beta), shape sliders beyond the tee, the AI suggestion and the community (comments, follows) are off in production until the owner
 // turns them on; the suite drives them (the AI route itself is mocked in the browser, so no request leaves for
 // Anthropic). FLP_COMMUNITY turns the community routes on in the dev API.
-const ALL_FLAGS = {
-  VITE_PATTERN_BETA: 'true',
-  VITE_SHAPE_ALL_GARMENTS: 'true',
-  VITE_AI_ASSIST: 'true',
-  VITE_COMMUNITY: 'true',
-  FLP_COMMUNITY: 'true',
+/** Every feature flag the app reads, with the browser and server halves listed separately where both exist. */
+const FLAG_KEYS = ['VITE_PATTERN_BETA', 'VITE_SHAPE_ALL_GARMENTS', 'VITE_AI_ASSIST', 'VITE_COMMUNITY', 'FLP_COMMUNITY'] as const
+type FlagKey = (typeof FLAG_KEYS)[number]
+
+/** Every flag set explicitly, so nothing leaks in from the shell or an .env file. */
+function flagsOn(on: readonly FlagKey[]) {
+  return Object.fromEntries(FLAG_KEYS.map((key) => [key, on.includes(key) ? 'true' : 'false'])) as Record<FlagKey, string>
 }
 
 /**
- * `E2E_FLAGS=beta` builds the app with the flags beta actually runs with
- * (docs/decisions.md: Pattern (beta) and community on, the AI suggestion off),
- * so the shipped combination is tested too, not only "everything on".
- * `E2E_FLAGS=off` builds with every flag off, as a fresh deployment would.
+ * What beta runs with today (docs/decisions.md): Pattern (beta) and community
+ * on, the AI suggestion and shape sliders beyond the tee off. Update this when
+ * the owner changes a flag in Vercel Production, and record it there too.
  */
-const FLAG_PROFILES: Record<string, Record<string, string>> = {
-  all: ALL_FLAGS,
-  beta: { VITE_PATTERN_BETA: 'true', VITE_AI_ASSIST: 'false', VITE_COMMUNITY: 'true', FLP_COMMUNITY: 'true' },
-  off: { VITE_PATTERN_BETA: 'false', VITE_AI_ASSIST: 'false', VITE_COMMUNITY: 'false', FLP_COMMUNITY: 'false' },
+const BETA_FLAGS_ON: readonly FlagKey[] = ['VITE_PATTERN_BETA', 'VITE_COMMUNITY', 'FLP_COMMUNITY']
+
+/**
+ * `E2E_FLAGS` picks the flags the app under test is built with: `all` (the
+ * default, so the suite can drive every feature), `beta` (what beta ships),
+ * or `off` (a fresh deployment). All three come from FLAG_KEYS, so a new
+ * flag can't be left out of one.
+ */
+const FLAG_PROFILES: Record<string, Record<FlagKey, string>> = {
+  all: flagsOn(FLAG_KEYS),
+  beta: flagsOn(BETA_FLAGS_ON),
+  off: flagsOn([]),
 }
 const flagProfile = process.env.E2E_FLAGS ?? 'all'
 
@@ -62,6 +70,8 @@ if (!FLAG_PROFILES[flagProfile]) {
 const appEnv = {
   VITE_FLP_REQUIRE_AUTH: 'true',
   VITE_FLP_CONTACT_EMAIL: 'alpha@example.test',
+  // Concept-only features stay off in every profile (docs/claims-audit.md).
+  VITE_FLP_CONCEPT: 'false',
   ...FLAG_PROFILES[flagProfile],
 }
 

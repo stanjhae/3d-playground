@@ -344,3 +344,40 @@ test('on a phone the camera views fit one row on Design, and a two-finger turn l
     expect(await savedStrokes({ page, panel })).toHaveLength(0)
   }
 })
+
+test('what Pro tools add: a tap shows it, a second tap hides it, and switching then asking still explains', async ({ page }) => {
+  // Review of #414: on iPhone a second tap didn't close the note, the info
+  // button closed the after-switching note instead of explaining, and the note
+  // stayed put while the page scrolled under it.
+  test.setTimeout(120_000)
+  const email = newEmail({ label: 'touch-pro-info' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).tap()
+  await expect(page).toHaveURL(/\/create\?cloud=/)
+  await expectSaved({ page })
+
+  const info = page.getByRole('button', { name: 'What Pro tools add' })
+  const note = page.locator('.flv-panel.fixed', { hasText: 'Pro tools add' })
+  await info.tap()
+  await expect(note).toBeVisible()
+  const box = (await note.boundingBox())!
+  const width = page.viewportSize()!.width
+  // On screen, not cut off at the right edge.
+  expect(box.x).toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width).toBeLessThanOrEqual(width)
+
+  await info.tap()
+  await expect(note).toBeHidden()
+
+  // After switching, the info button explains rather than just closing the switch's note.
+  const pro = page.getByRole('switch', { name: 'Pro tools' })
+  await pro.tap()
+  await expect(page.locator('.flv-panel.fixed', { hasText: /Pro tools (on|off)/ })).toBeVisible()
+  await info.tap()
+  await expect(note).toBeVisible()
+
+  // A scroll closes it, so it never floats over something else.
+  await page.evaluate(() => window.dispatchEvent(new Event('scroll')))
+  await expect(note).toBeHidden()
+})
