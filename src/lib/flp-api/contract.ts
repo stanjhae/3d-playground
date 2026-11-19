@@ -143,6 +143,18 @@ export type VoteState = {
    * count yet: the time it starts counting (docs/abuse.md).
    */
   countsFrom?: string
+  /**
+   * Votes kept but not counted yet: from accounts less than a day old. The
+   * count never includes them; pages show them beside it (docs/abuse.md).
+   */
+  pending?: number
+  /** The design is the caller's own: there's no voting on it. */
+  own?: boolean
+  /**
+   * When the caller's votes start counting, while that is still ahead, voted
+   * or not, so a page knows a new vote would be held before it's cast.
+   */
+  votesCountFrom?: string
 }
 
 /** POST /public/:slug/report — why the design is reported. */

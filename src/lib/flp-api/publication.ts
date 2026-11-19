@@ -816,8 +816,12 @@ export type BoardEntry = {
   garmentId: string
   /** Counted votes in the board's window. */
   votes: number
-  /** Place in the board's window and garment; ties share a place. */
+  /** Place in the board's window and garment; ties share a place (1, 2, 3, 3, 5). */
   rank: number
+  /** Another design has the same count, so the same rank. */
+  tied: boolean
+  /** Votes in the window kept but not counted yet (new accounts'). */
+  pending: number
   /** The owner's handle when their profile is public. */
   ownerHandle: string | null
   publishedAt: string
@@ -839,6 +843,9 @@ type BoardRow = {
   vote_count: number
   rank: number
   owner_handle: string | null
+  /** Newer columns (20261127090000); absent from older reads. */
+  pending_count?: number | null
+  tied?: boolean | null
 }
 
 function boardEntry(row: BoardRow): BoardEntry {
@@ -849,6 +856,8 @@ function boardEntry(row: BoardRow): BoardEntry {
     garmentId: garmentOfTemplate({ id: row.template_id, version: row.template_version }),
     votes: row.vote_count,
     rank: row.rank,
+    tied: row.tied ?? false,
+    pending: row.pending_count ?? 0,
     ownerHandle: row.owner_handle,
     publishedAt: row.published_at,
     image: publicImagePath({ slug: row.slug, seq: row.version_seq }),
@@ -925,12 +934,14 @@ export async function readFollowingBoard({
  * One design in the Vote feed: what the board shows, without a rank, plus
  * the viewer's own vote, so a card needs no request of its own.
  */
-export type FeedEntry = Omit<BoardEntry, 'rank'> & {
+export type FeedEntry = Omit<BoardEntry, 'rank' | 'tied'> & {
   /** Fewer than 3 counted votes in the last 7 days: shown first. */
   needsVotes: boolean
   voted: boolean
   /** When the viewer's held vote (a new account's) starts counting. */
   countsFrom?: string
+  /** When the viewer's votes start counting, while that is still ahead. */
+  votesCountFrom?: string
 }
 
 export type VoteFeedPage = { designs: FeedEntry[]; next: string | null }
@@ -938,10 +949,11 @@ export type VoteFeedPage = { designs: FeedEntry[]; next: string | null }
 /** Designs per feed page. */
 export const FEED_PAGE = 24
 
-type FeedRow = Omit<BoardRow, 'rank'> & {
+type FeedRow = Omit<BoardRow, 'rank' | 'tied'> & {
   feed_group: number
   voted: boolean
   counts_from: string | null
+  viewer_counts_from?: string | null
 }
 
 type FeedCursor = { group: number; publishedAt: string; slug: string }
@@ -1026,13 +1038,14 @@ export async function readVoteFeed({
   const last = page.at(-1)
   const body: VoteFeedPage = {
     designs: page.map((row) => {
-      const { rank: _rank, ...entry } = boardEntry({ ...row, rank: 0 })
+      const { rank: _rank, tied: _tied, ...entry } = boardEntry({ ...row, rank: 0 })
 
       return {
         ...entry,
         needsVotes: row.feed_group === 0,
         voted: row.voted,
         ...(row.counts_from ? { countsFrom: new Date(row.counts_from).toISOString() } : {}),
+        ...(row.viewer_counts_from ? { votesCountFrom: new Date(row.viewer_counts_from).toISOString() } : {}),
       }
     }),
     next:
@@ -1048,7 +1061,7 @@ export async function readVoteFeed({
 export type PublicProfile = {
   handle: string
   displayName: string | null
-  designs: Array<Omit<BoardEntry, 'rank' | 'ownerHandle' | 'displayName'>>
+  designs: Array<Omit<BoardEntry, 'rank' | 'tied' | 'pending' | 'ownerHandle' | 'displayName'>>
 }
 
 /** GET /public/u/:handle — 404 for an unknown handle and a private profile alike. */

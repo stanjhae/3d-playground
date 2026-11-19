@@ -6,7 +6,7 @@ import { RequireSession } from '../components/auth/RequireSession'
 import { cn } from '../lib/cn'
 import { getBoard } from '../lib/flp-api/public-read'
 import { DeleteAccount } from '../components/studio/DeleteAccount'
-import { DesignCard } from '../components/studio/DesignCard'
+import { DesignCard, type Standing } from '../components/studio/DesignCard'
 import { ImportPreview } from '../components/studio/ImportPreview'
 import { PublicName } from '../components/studio/PublicName'
 import { PublicProfile } from '../components/studio/PublicProfile'
@@ -169,7 +169,7 @@ function MyStudio() {
   }, [load, accountEpoch])
 
   // How each published design is doing: its rank and votes on the public board.
-  const [standings, setStandings] = useState<Map<string, { rank: number; votes: number }>>(new Map())
+  const [standings, setStandings] = useState<Map<string, Standing>>(new Map())
   const anyPublished = list.status === 'ready' && list.designs.some((design) => design.publicationSlug)
 
   useEffect(() => {
@@ -181,7 +181,11 @@ function MyStudio() {
 
     void getBoard().then((result) => {
       if (!cancelled && result.ok) {
-        setStandings(new Map(result.data.map((entry) => [entry.slug, { rank: entry.rank, votes: entry.votes }])))
+        setStandings(
+          new Map(
+            result.data.map((entry) => [entry.slug, { rank: entry.rank, votes: entry.votes, pending: entry.pending, tied: entry.tied }]),
+          ),
+        )
       }
     })
 

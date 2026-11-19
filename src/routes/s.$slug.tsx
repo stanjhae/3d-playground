@@ -202,7 +202,7 @@ function SharedDesign() {
           </p>
           <GownCredit garmentId={design.garmentId} />
           <div className="mt-2">
-            <VoteButton slug={design.slug} />
+            <VoteButton slug={design.slug} explain />
           </div>
         </div>
         <div className="flex flex-col items-start gap-1 sm:items-end">

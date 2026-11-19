@@ -29,6 +29,27 @@ export function thumbnailKey({ design }: { design: DesignSummary }) {
   return `${design.id}:${design.headSeq ?? 0}:${design.visibility}`
 }
 
+/**
+ * What a card shows while its thumbnail key changes: the picture for this
+ * key once it's loaded, and until then the last one loaded for the same
+ * design, so publishing or unpublishing never drops it back to the
+ * placeholder in between.
+ */
+export function keptThumbnail({
+  loaded,
+  key,
+}: {
+  loaded: { key: string; thumbnail: DesignThumbnail | null } | null
+  key: string
+}) {
+  if (!loaded) {
+    return null
+  }
+
+  const sameDesign = loaded.key.split(':')[0] === key.split(':')[0]
+  return loaded.key === key || sameDesign ? loaded.thumbnail : null
+}
+
 /** The stored front view, but only when the published version is the latest. */
 export function storedRenderSrc({
   publication,
