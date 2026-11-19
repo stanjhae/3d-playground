@@ -9,6 +9,7 @@ import type {
   TextLayer,
 } from './design-document'
 import { imageBox } from './canonical-document'
+import { GRAPHIC_ROWS } from './graphics-catalogue.gen'
 import { DEFAULT_PANEL_UV } from './panel-uv'
 
 export type PlaceableLayer = GraphicLayer | TextLayer | PatternLayer
@@ -491,13 +492,31 @@ export function applyLayerEdit({
   }
 }
 
+/** Library graphics by `src`, built on first use so pages that never name a layer skip it. */
+let graphicLabels: Map<string, string> | null = null
+
+/**
+ * What an unnamed image is called (tester pass 3): a library graphic by its
+ * label ("Rising Flame"), anything else (an upload, a placeholder) "Image".
+ * Derived when shown, so saved designs need no change.
+ */
+export function graphicName({ src }: { src: string }) {
+  graphicLabels ??= new Map(GRAPHIC_ROWS.map(([id, label]) => [`/graphics/${id}.svg`, label]))
+  return graphicLabels.get(src) ?? 'Image'
+}
+
+/** The name every image once showed. Nobody chose it, so it is derived again. */
+const OLD_GRAPHIC_DEFAULT = 'mark'
+
 export function layerVoice({
   layer,
 }: {
   layer: DesignLayer
 }) {
-  if (layer.label?.trim()) {
-    return layer.label.trim()
+  const label = layer.label?.trim()
+
+  if (label && !(layer.kind === 'graphic' && label.toLowerCase() === OLD_GRAPHIC_DEFAULT)) {
+    return label
   }
 
   if (layer.kind === 'paint') {
@@ -505,7 +524,7 @@ export function layerVoice({
   }
 
   if (layer.kind === 'graphic') {
-    return 'Mark'
+    return graphicName({ src: layer.src })
   }
 
   if (layer.kind === 'text') {
