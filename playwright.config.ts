@@ -44,11 +44,11 @@ function flagsOn(on: readonly FlagKey[]) {
 }
 
 /**
- * What beta runs with today (docs/decisions.md): Pattern (beta) and community
- * on, the AI suggestion and shape sliders beyond the tee off. Update this when
- * the owner changes a flag in Vercel Production, and record it there too.
+ * What beta runs with today (docs/decisions.md): Pattern (beta), shape
+ * sliders beyond the tee and community on, the AI suggestion off. Update this
+ * when the owner changes a flag in Vercel Production, and record it there too.
  */
-const BETA_FLAGS_ON: readonly FlagKey[] = ['VITE_PATTERN_BETA', 'VITE_COMMUNITY', 'FLP_COMMUNITY']
+const BETA_FLAGS_ON: readonly FlagKey[] = ['VITE_PATTERN_BETA', 'VITE_SHAPE_ALL_GARMENTS', 'VITE_COMMUNITY', 'FLP_COMMUNITY']
 
 /**
  * `E2E_FLAGS` picks the flags the app under test is built with: `all` (the
