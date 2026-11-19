@@ -23,7 +23,7 @@ const INTROS: Record<CreateStepId, { title: string; lead: string }> = {
 
 export function StepIntro() {
   const step = useEditorStore((state) => state.createStep)
-  const intro = INTROS[step]
+  const intro = INTROS[step] ?? INTROS.select
 
   return (
     <header className="flex flex-col gap-1 px-1 pt-1 pb-1">
