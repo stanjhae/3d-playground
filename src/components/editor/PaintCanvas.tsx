@@ -51,6 +51,7 @@ import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { SELECTION_COLOR } from '../../lib/selection-chrome'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
+import { clothColorOf } from '../../lib/cloth-color'
 import { cn } from '../../lib/cn'
 import { BringToFront, Copy, Trash2 } from 'lucide-react'
 import { LOCKED_NOTICE, announce, flashNotice } from '../../lib/studio-announcer'
@@ -170,12 +171,15 @@ function paintPanelSurface({
   panel,
   selected,
   rects,
+  ground,
   veil = null,
 }: {
   canvas: HTMLCanvasElement
   atlas: HTMLCanvasElement
   panel: PanelId
   selected: PlaceableLayer | null
+  /** The bare cloth's colour, as the 3D garment draws it (`clothColorOf`). */
+  ground: string
   /** Shades what lies off the garment, so the panel shows its true shape. */
   veil?: HTMLCanvasElement | null
   /** The document's panel rectangles (absent: the tee's). */
@@ -188,7 +192,7 @@ function paintPanelSurface({
   }
 
   context.clearRect(0, 0, canvas.width, canvas.height)
-  context.fillStyle = '#f3efe6'
+  context.fillStyle = ground
   context.fillRect(0, 0, canvas.width, canvas.height)
 
   const source = atlasSourceRect({
@@ -537,6 +541,7 @@ function PaintSurface({
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
   const shapes = usePanelShapes((state) => state.shapes)
   const shapeSrc = usePanelShapes((state) => state.src)
+  const ground = clothColorOf({ document: documentState })
 
 
   useEffect(() => {
@@ -555,12 +560,13 @@ function PaintSurface({
       panel,
       selected,
       rects: documentState.panelUv,
+      ground,
       veil:
         modelSrc && triangles
           ? outsideVeil({ src: modelSrc, panel, triangles, width: canvas.width, height: canvas.height })
           : null,
     })
-  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, panel, selected, shapeSrc, shapes])
+  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, ground, panel, selected, shapeSrc, shapes])
 
   // Two fingers on a selected mark resize and turn it, as on the cloth
   // (`ClothTwoFinger`). Whatever the first finger began (a stroke, a drag)

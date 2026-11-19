@@ -1,6 +1,7 @@
 import type { CanonicalDocument } from './canonical-document'
 import { type DesignSummary, getOwnedDesign, getPublication } from './flp-api/client'
 import { publicImagePath } from './flp-api/publication'
+import { FRONT_OUTLINES } from './front-outlines.gen'
 import { decodeDocumentImages } from './layer-images'
 import { LIBRARY_ASSET_SOURCES } from './library-assets'
 import { type AtlasBuffer, rasterizeLayers } from './paint-atlas'
@@ -146,6 +147,38 @@ function panelOutline({ x, y, width, height }: { x: number; y: number; width: nu
 }
 
 /**
+ * The front panel's own outline for a design's template (tester pass 3),
+ * traced from its model (`front-outlines.gen.ts`); null when there is none.
+ * Without it, a card showed a plain rectangle of the cloth colour, which on
+ * a new white garment read as a blank picture.
+ */
+export function frontOutlineOf({ template }: { template: { id: string; version: number } }) {
+  return FRONT_OUTLINES[`${template.id}@${template.version}`]?.polygons ?? null
+}
+
+/** Panel-space polygons (y up) drawn into `box`. */
+function polygonOutline({ polygons, box }: { polygons: readonly (readonly number[])[]; box: { x: number; y: number; width: number; height: number } }) {
+  const path = new Path2D()
+
+  for (const polygon of polygons) {
+    for (let at = 0; at + 1 < polygon.length; at += 2) {
+      const x = box.x + polygon[at]! * box.width
+      const y = box.y + (1 - polygon[at + 1]!) * box.height
+
+      if (at === 0) {
+        path.moveTo(x, y)
+      } else {
+        path.lineTo(x, y)
+      }
+    }
+
+    path.closePath()
+  }
+
+  return path
+}
+
+/**
  * Draws the front panel and returns a PNG data URL: onto a tee shape for the
  * tee, and as the garment's own front panel for every other garment, cut
  * from that garment's own print atlas.
@@ -156,12 +189,15 @@ function drawStill({
   aspect,
   tee,
   shape,
+  frontOutline = null,
 }: {
   atlas: AtlasBuffer
   color: string
   aspect: number
   tee: boolean
   shape?: GarmentShape
+  /** The front panel's own outline (`frontOutlineOf`); a rounded rectangle without one. */
+  frontOutline?: readonly (readonly number[])[] | null
 }) {
   const source = document.createElement('canvas')
   source.width = atlas.width
@@ -178,7 +214,11 @@ function drawStill({
   }
 
   const box = stillFrontBox({ tee, aspect, width: STILL_WIDTH, height: STILL_HEIGHT })
-  const outline = tee ? teeOutline({ width: STILL_WIDTH, height: STILL_HEIGHT, shape }) : panelOutline(box)
+  const outline = tee
+    ? teeOutline({ width: STILL_WIDTH, height: STILL_HEIGHT, shape })
+    : frontOutline
+      ? polygonOutline({ polygons: frontOutline, box })
+      : panelOutline(box)
   // A long sleeve or hem shrinks the whole still to fit, about its top centre.
   const fit = tee ? teeStillScale({ shape }) : 1
   context.translate((STILL_WIDTH * (1 - fit)) / 2, 0)
@@ -228,6 +268,7 @@ async function drawFromHead({ designId }: { designId: string }): Promise<DesignT
       aspect: projected.panelAspects?.front ?? 6 / 7,
       tee: projected.garmentId === 'tee',
       shape: projected.shape,
+      frontOutline: frontOutlineOf({ template: content.template }),
     })
     return src ? { kind: 'still', src } : null
   } finally {

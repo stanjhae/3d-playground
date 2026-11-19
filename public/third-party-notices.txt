@@ -22,7 +22,9 @@ Draco 3D decoder, used under the Apache License, Version 2.0:
 
 3D garment models by Style3D CG (https://sketchfab.com/Style3DMeta), used under
 Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
-All were modified: rescaled, panels renamed, and recompressed (Draco, WebP).
+All were modified: rescaled, panels renamed, and recompressed (Draco, WebP). The app
+draws their cloth in the designer's own colour, without the models' original colour
+textures (and so without the logo printed on the hoodie's texture).
 
   White Evening Gown Dress  https://sketchfab.com/3d-models/white-evening-gown-dress-1f77c65b1542428f89b10f538b771ce4
   Black Dress  https://sketchfab.com/3d-models/black-dress-b0b0e79eca3d4927b9bb25ded81221ec

@@ -22,6 +22,7 @@ import {
   captureMeshMaterials,
   cloneObjectMaterials,
   listMeshes,
+  neutraliseBakedCloth,
   stampAncestorNames,
 } from '../../lib/apply-overrides'
 import {
@@ -376,6 +377,8 @@ export function SeatedForm({
   const { tree, meshes, baseMaterials, shapeRig, toGarment } = useMemo(() => {
     const root = scene.clone(true)
     cloneObjectMaterials({ root })
+    // The cloth is the garment colour, not a downloaded model's baked look.
+    neutraliseBakedCloth({ root })
     stampAncestorNames({ root })
     const baseMaterials = captureMeshMaterials({ root })
     const meshes = listMeshes({ root })
