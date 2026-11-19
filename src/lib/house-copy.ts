@@ -70,7 +70,6 @@ export const HOUSE_COPY = {
   angleBack: 'Back',
   angleOrbit: 'Orbit',
   continue: 'Continue',
-  previous: 'Back',
   selectMark: 'Select a word or graphic on a panel to adjust it.',
   skip: 'Skip',
   angles: 'Angles',

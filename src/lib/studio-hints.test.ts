@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import {
+  HINT_KEEP_CLEAR_SELECTOR,
   allHintsHidden,
   hintBoxesOverlap,
   hintPosition,
@@ -79,5 +80,12 @@ describe('hint placement', () => {
   test('boxes that only touch do not overlap', () => {
     expect(hintBoxesOverlap({ left: 0, top: 0, width: 10, height: 10 }, { left: 10, top: 0, width: 10, height: 10 })).toBe(false)
     expect(hintBoxesOverlap({ left: 0, top: 0, width: 10, height: 10 }, { left: 9, top: 9, width: 10, height: 10 })).toBe(true)
+  })
+
+  test('a floating hint keeps clear of every control, such as the Pro tools switch', () => {
+    const parts = HINT_KEEP_CLEAR_SELECTOR.split(',').map((part) => part.trim())
+    for (const control of ['button', '[role="switch"]', 'a[href]', 'input']) {
+      expect(parts).toContain(control)
+    }
   })
 })

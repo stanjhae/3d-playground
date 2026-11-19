@@ -162,6 +162,7 @@ export function SelectableMesh({
   const paintTool = useEditorStore((state) => state.paintTool)
   const designTool = useEditorStore((state) => state.designTool)
   const rotateView = useEditorStore((state) => state.rotateView)
+  const orbiting = useEditorStore((state) => state.cameraPreset === 'orbit')
   const typeDraft = useEditorStore((state) => state.typeDraft)
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
@@ -291,6 +292,7 @@ export function SelectableMesh({
           wordArmed: Boolean(word),
           hitsLayer: Boolean(top),
           rotatingView: rotateView,
+          orbiting,
         })
 
         // Not inking, placing or dragging: leave the press to the orbit so

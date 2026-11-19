@@ -103,7 +103,19 @@ export function parseCreateSearch({
 }: {
   search: Record<string, unknown>
 }): CreateSearch {
-  const next: CreateSearch = {}
+  // Every key is named, even when invalid: the router keeps raw query values
+  // under keys this leaves out, so a bad `?step=garment` reached the studio
+  // as-is and crashed it (third outside test pass).
+  const next: CreateSearch = {
+    design: undefined,
+    cloud: undefined,
+    step: undefined,
+    garment: undefined,
+    color: undefined,
+    neck: undefined,
+    hem: undefined,
+    sleeve: undefined,
+  }
 
   if (typeof search.design === 'string' && search.design.length > 0) {
     next.design = search.design

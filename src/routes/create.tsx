@@ -34,6 +34,7 @@ import { AtelierScene } from '../components/scene/AtelierScene'
 import { RequireSession } from '../components/auth/RequireSession'
 import { CloudPublish } from '../components/editor/CloudPublish'
 import {
+  CloudSaveProblem,
   CloudSaveStatus,
   RecoveryPrompt,
   useCloudAutosave,
@@ -67,6 +68,7 @@ import {
   showsStructureRail,
 } from '../lib/create-steps'
 import { parseCreateSearch } from '../lib/create-search'
+import { loadPublicationStatus, resetPublicationStatus } from '../lib/publication-status'
 import { loadDraft, saveDraft } from '../lib/design-draft'
 import { createDesign, getDesign } from '../lib/designs-api'
 import { getAssetSources, getCanonicalDocument, useCanEditShape, useEditorStore, usePatternAvailable } from '../lib/editor-store'
@@ -188,6 +190,10 @@ function AtelierHome() {
 
     let cancelled = false
     setCloudStatus('loading')
+    // Whether it is published is read beside opening it, so the Publish
+    // panel knows on arrival instead of seconds later (third test pass).
+    resetPublicationStatus()
+    void loadPublicationStatus({ designId: cloudId })
     const stillSameAccount = accountGuard()
     const ownerId = useSessionStore.getState().account?.userId ?? null
     const storage = useRecoveryStore.getState().storage
@@ -586,6 +592,7 @@ function AtelierHome() {
           {mode === 'design' && !cloudFailed ? <StepActions /> : null}
           <div className="flex flex-col gap-1 empty:hidden lg:col-span-3">
             {mode === 'design' ? <GownCredit garmentId={garmentId} /> : null}
+            {cloudStatus === 'loaded' ? <CloudSaveProblem /> : null}
             {cloudStatus === 'loaded' ? <RecoveryPrompt /> : null}
             {cloudStatus === 'loaded' && mode === 'design' ? <TemplateUpgradeBanner /> : null}
             {cloudFailed ? (

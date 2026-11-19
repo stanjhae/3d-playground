@@ -4,10 +4,20 @@ export const CREATE_STEP_IDS = ['select', 'color', 'design', 'share'] as const
 
 export type CreateStepId = (typeof CREATE_STEP_IDS)[number]
 
-/** Steps that were merged. Links and bookmarks to them still land somewhere. */
+/**
+ * Steps that were merged or renamed. Links and bookmarks to them still land
+ * somewhere (`garment` was the first step's id before it became `select`).
+ * Any other unknown value is dropped and the studio fills in its own step.
+ */
 export const MERGED_CREATE_STEPS: Readonly<Record<string, CreateStepId>> = {
   fit: 'select',
+  garment: 'select',
   preview: 'share',
+  publish: 'share',
+}
+
+export function isCreateStepId(value: unknown): value is CreateStepId {
+  return typeof value === 'string' && (CREATE_STEP_IDS as readonly string[]).includes(value)
 }
 
 export type CreateStepMeta = {
@@ -24,6 +34,27 @@ export const CREATE_STEPS: readonly CreateStepMeta[] = [
 
 export function createStepLabel({ step }: { step: CreateStepId }) {
   return CREATE_STEPS.find((entry) => entry.id === step)?.label ?? step
+}
+
+/** Short names for "Back to …", so the step's Back says where it goes. */
+const SHORT_STEP_NAMES: Record<CreateStepId, string> = {
+  select: 'Garment',
+  color: 'Color',
+  design: 'Design',
+  share: 'Preview',
+}
+
+/**
+ * The step bar's Back, named for the step it returns to (third outside test
+ * pass): a plain "Back" sat beside the camera's "Back" view.
+ */
+export function backToStepLabel({ step }: { step: CreateStepId }) {
+  return `Back to ${previousStepShortName({ step })}`
+}
+
+/** The step Back returns to, in a word (a phone shows "‹ Garment"). */
+export function previousStepShortName({ step }: { step: CreateStepId }) {
+  return SHORT_STEP_NAMES[previousCreateStep({ step })]
 }
 
 export function createStepIndex({ step }: { step: CreateStepId }) {
