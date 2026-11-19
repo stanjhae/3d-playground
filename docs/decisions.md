@@ -3,6 +3,10 @@
 Decisions that change scope or behaviour for the alpha (17 November until the entry of 9 Nov 2026, then 1 December until the entry of 11 Nov 2026), with the reason and who decided. Newest first. Each one links the issues it affects; an issue that a decision defers stays open, with a comment pointing here.
 
 
+## 19 Nov 2026: shape sliders on every garment, on for beta
+
+**Decided by:** owner, who waived the 24 h wait after the reader shipped. `VITE_SHAPE_ALL_GARMENTS=true` in Vercel Production (beta.fashionleadervote.com), redeployed the same day. #416 (merged 18 Nov, `60f8cbe`) carries both the reader and the writer, so every build since reads a shape on the hoodie, vest, crop top, dress and trousers. From the first such design saved, beta's rollback floor is `60f8cbe` (`docs/release.md`). Proof: beta's bundle compiles the writer's default as on (`allGarments:t=!0`; a flag-off build has `!1`). The CI "beta" profile now includes the flag (`playwright.config.ts`, `BETA_FLAGS_ON`).
+
 ## 18 Nov 2026: Pattern (beta) is on for beta
 
 **Decided by:** owner. `VITE_PATTERN_BETA=true` in Vercel Production (beta.fashionleadervote.com), redeployed the same day. Both preconditions in `docs/deploy.md` held: the pattern reader has been live since 13 Nov (#378), and migration `20261120090000_flp_pattern_meshes` was already on the database. Proof: `/privacy` on beta lists the Pattern (beta) drape, a line only a flag-on build has. The AI suggestion stays off (`VITE_AI_ASSIST`/`FLP_AI_ASSIST` unset, no key), so `docs/claims-audit.md` still says no live AI.
