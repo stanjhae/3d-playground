@@ -1103,7 +1103,14 @@ async function handleVote({
 
   const fn = request.method === 'POST' ? 'flp_cast_vote' : request.method === 'DELETE' ? 'flp_retract_vote' : 'flp_vote_state'
   const args = write ? { p_voter_id: user!.userId, p_slug: slug } : { p_slug: slug, p_voter_id: user?.userId ?? null }
-  const { data, error } = await admin.rpc(fn, args).single<{ vote_count: number; voted: boolean; counts_from: string | null }>()
+  const { data, error } = await admin.rpc(fn, args).single<{
+    vote_count: number
+    voted: boolean
+    counts_from: string | null
+    pending_count?: number | null
+    own?: boolean | null
+    viewer_counts_from?: string | null
+  }>()
 
   if (error) {
     if (error.code === 'FL409') {
@@ -1113,11 +1120,15 @@ async function handleVote({
     return error.code === 'FL404' ? designUnavailable() : writeFailed({ fn, error })
   }
 
-  // A new account's vote is kept but counts later (docs/abuse.md): say when.
+  // A new account's vote is kept but counts later (docs/abuse.md): say when,
+  // and how many such votes wait beside the count.
   const state: VoteState = {
     count: data.vote_count,
     voted: data.voted,
+    pending: data.pending_count ?? 0,
+    own: data.own ?? false,
     ...(data.counts_from ? { countsFrom: new Date(data.counts_from).toISOString() } : {}),
+    ...(data.viewer_counts_from ? { votesCountFrom: new Date(data.viewer_counts_from).toISOString() } : {}),
   }
 
   return json({ status: 200, body: state })

@@ -42,10 +42,13 @@ A new bucket must choose its policy: `RATE_OUTAGE_POLICY` is typed over every ac
 Set in the database (`20261122090000_flp_rankings_profiles_reports.sql`), so the share page, the board and profiles always agree:
 
 - **One vote per account and design**, as before.
-- **No votes on your own design.** The API answers 409 `own_design`, and the button says "You can't vote for your own design."
+- **No votes on your own design.** The share page shows the owner a disabled "Your design" button instead of Vote, the API answers 409 `own_design`, and the `publication_votes` table itself refuses the row (FL409, `20261127090000_flp_vote_honesty.sql`). Your own designs are left out of Vote (`/vote`), which says so and links to My Studio.
 - **Voting takes the current terms of use.** The share page offers "Accept and vote" the first time; reading counts never needs them.
 - **A new account's vote counts once the account is a day old.** The vote is kept from the start and starts counting by itself; the button tells the voter when. Nobody is refused for being new. The age lives in `vote_rules.min_account_age` (24 hours), the same on local and CI databases. Tests age their accounts instead: `setAccountAge` in `src/lib/flp-api/integration-harness.ts` (accounts are two days old unless a test asks for a young one) and `localSql` in the e2e helpers.
 - Rankings count votes cast this week (7 days), this month (30 days) or ever, through `flp_counted_votes`, with the rules above.
+- **Every count is the counted number, with held votes beside it.** The share page, My Studio, Ranking and Vote all show the same count (`flp_counted_votes` rules) and, when there are any, the votes kept but not counted yet: "0 votes +1 pending (counts within 24 h)". Each place states the rule. A new account's vote never moves the count, not even for a moment before the server answers.
+- **Ties share a rank.** Ranking uses standard competition ranking (1, 2, 2, 4): designs with the same count share a rank and carry a "Tied" marker. Within a tie the newest is listed first. The page says so.
+- **Unpublished, votes are kept but shown nowhere.** The share page is gone (404), the design leaves Ranking and Vote, and My Studio shows no count for it. Every vote comes back if the design is published again. A vote button still open on a page says so if used. Deleting the design removes its votes.
 
 ### Reviewing votes
 

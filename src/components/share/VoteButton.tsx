@@ -5,8 +5,9 @@ import { useSessionStore } from '../../lib/auth/session-store'
 import { cn } from '../../lib/cn'
 import { acceptTerms } from '../../lib/flp-api/client'
 import type { VoteState } from '../../lib/flp-api/contract'
-import { castVote, getVoteState, optimisticVote, retractVote, voteCountLabel, voteCountsLater } from '../../lib/flp-api/votes'
+import { UNPUBLISHED_VOTES, VOTE_RULE, castVote, getVoteState, optimisticVote, retractVote, voteCountsLater } from '../../lib/flp-api/votes'
 import { TERMS_VERSION } from '../../lib/terms'
+import { VoteTally } from './VoteTally'
 
 const controlClass =
   'inline-flex min-h-11 items-center justify-center gap-2 border px-4 font-body text-xs tracking-[0.1em] uppercase disabled:opacity-60'
@@ -19,8 +20,12 @@ const controlClass =
  * `initial` is a state the caller already read for this account (the Vote
  * feed's rows say whether the viewer voted), so no request is made for it;
  * the caller remounts the button when the account changes.
+ *
+ * The count is counted votes only, with held ones (new accounts') beside
+ * it. On the owner's own design there's no voting: the button says so.
+ * `explain` adds the rule in words under the count (the share page).
  */
-export function VoteButton({ slug, initial }: { slug: string; initial?: VoteState }) {
+export function VoteButton({ slug, initial, explain = false }: { slug: string; initial?: VoteState; explain?: boolean }) {
   const status = useSessionStore((state) => state.status)
   const accountEpoch = useSessionStore((state) => state.accountEpoch)
   const [vote, setVote] = useState<VoteState | null>(initial ?? null)
@@ -52,7 +57,7 @@ export function VoteButton({ slug, initial }: { slug: string; initial?: VoteStat
   }, [slug, status, accountEpoch, preloaded])
 
   async function toggle() {
-    if (!vote || pendingRef.current) {
+    if (!vote || vote.own || pendingRef.current) {
       return
     }
 
@@ -75,6 +80,10 @@ export function VoteButton({ slug, initial }: { slug: string; initial?: VoteStat
     } else if (result.code === 'own_design') {
       setVote(before)
       setError('You can’t vote for your own design.')
+    } else if (result.code === 'not_found') {
+      // Unpublished meanwhile: votes are kept but shown nowhere until it's back (docs/abuse.md).
+      setVote(before)
+      setError(UNPUBLISHED_VOTES)
     } else if (result.code !== 'account-changed') {
       setVote(before)
       setError(before.voted ? `Your vote was not removed. ${result.message}` : `Your vote was not counted. ${result.message}`)
@@ -97,13 +106,15 @@ export function VoteButton({ slug, initial }: { slug: string; initial?: VoteStat
   }
 
   const count = vote ? (
-    <span className="font-body text-sm text-flv-muted" data-testid="vote-count">
-      {voteCountLabel({ count: vote.count })}
+    <span className="font-body text-sm text-flv-muted">
+      <VoteTally count={vote.count} pending={vote.pending ?? 0} />
     </span>
   ) : null
+  const rule = explain ? <p className="max-w-xs font-body text-xs text-flv-muted">{VOTE_RULE}</p> : null
 
   if (status === 'signed-out') {
     return (
+      <div className="flex flex-col items-start gap-1">
       <div className="flex flex-wrap items-center gap-3">
         <Link
           to="/sign-in"
@@ -114,6 +125,8 @@ export function VoteButton({ slug, initial }: { slug: string; initial?: VoteStat
         </Link>
         {count}
       </div>
+      {rule}
+      </div>
     )
   }
 
@@ -121,8 +134,28 @@ export function VoteButton({ slug, initial }: { slug: string; initial?: VoteStat
     return count
   }
 
+  if (vote.own) {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled
+            title="You can’t vote for your own design"
+            className={cn(controlClass, 'border-flv-line text-flv-muted')}
+          >
+            Your design
+          </button>
+          {count}
+        </div>
+        <p className="max-w-xs font-body text-xs text-flv-muted">You can’t vote for your own design.</p>
+        {rule}
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col items-start gap-1 sm:items-end">
+    <div className="flex flex-col items-start gap-1">
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -159,7 +192,9 @@ export function VoteButton({ slug, initial }: { slug: string; initial?: VoteStat
       ) : null}
       {vote.countsFrom ? (
         <p className="max-w-xs font-body text-xs text-flv-muted">{voteCountsLater({ countsFrom: vote.countsFrom })}</p>
-      ) : null}
+      ) : (
+        rule
+      )}
       <p role="status" className={error ? 'font-body text-xs text-flv-accent' : 'sr-only'}>
         {error ?? ''}
       </p>

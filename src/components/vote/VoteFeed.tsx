@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useSessionStore } from '../../lib/auth/session-store'
 import { cn } from '../../lib/cn'
 import type { FeedEntry } from '../../lib/flp-api/publication'
-import { getVoteFeed, voteCountLabel } from '../../lib/flp-api/votes'
+import { VOTE_RULE, getVoteFeed } from '../../lib/flp-api/votes'
 import { getGarment, listRailGarments } from '../../lib/garments'
 import { templateForGarment } from '../../lib/template-manifest'
 import { VoteButton } from '../share/VoteButton'
+import { VoteTally } from '../share/VoteTally'
 import { GownCredit } from '../editor/GownCredit'
 
 type Feed =
@@ -90,8 +91,18 @@ export function VoteFeed() {
           <Link to="/ranking" className="underline">
             Ranking
           </Link>
-          .
+          . {VOTE_RULE}
         </p>
+        {signedIn ? (
+          // Without this, your own design seems to vanish from here (tester pass 3).
+          <p data-testid="own-designs-note" className="max-w-2xl font-body text-sm text-flv-muted">
+            Your own designs aren’t shown here, since you can’t vote for them. See them and their votes in{' '}
+            <Link to="/studio" className="underline">
+              My Studio
+            </Link>
+            .
+          </p>
+        ) : null}
         {status === 'signed-out' ? (
           <Link
             to="/sign-in"
@@ -177,12 +188,14 @@ export function VoteFeed() {
                 initial={{
                   count: design.votes,
                   voted: design.voted,
+                  pending: design.pending,
                   ...(design.countsFrom ? { countsFrom: design.countsFrom } : {}),
+                  ...(design.votesCountFrom ? { votesCountFrom: design.votesCountFrom } : {}),
                 }}
               />
             ) : (
-              <p data-testid="vote-count" className="font-body text-sm text-flv-muted">
-                {voteCountLabel({ count: design.votes })}
+              <p className="font-body text-sm text-flv-muted">
+                <VoteTally count={design.votes} pending={design.pending} />
               </p>
             )}
           </li>

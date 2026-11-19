@@ -91,6 +91,19 @@ describe.skipIf(!env)('rankings, profiles and reports against local Supabase', (
     expect((await board('?garment=hoodie')).some((design) => design.slug === slug)).toBe(false)
   })
 
+  test('designs with the same count share a rank and say they are tied (tester pass 3)', async () => {
+    const designs = await board('')
+    const byCount = new Map<number, number>()
+    designs.forEach((design) => byCount.set(design.votes, (byCount.get(design.votes) ?? 0) + 1))
+
+    for (const design of designs) {
+      expect(design.tied, design.slug).toBe(byCount.get(design.votes)! > 1)
+      // Standard competition ranking: one more than the designs with more votes.
+      expect(design.rank, design.slug).toBe(designs.filter((other) => other.votes > design.votes).length + 1)
+      expect(design.pending).toBeGreaterThanOrEqual(0)
+    }
+  })
+
   test('an unknown window or garment is refused', async () => {
     for (const query of ['?window=year', '?garment=cape']) {
       expect((await api({ path: `public${query}` })).status, query).toBe(400)

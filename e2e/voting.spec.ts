@@ -115,13 +115,11 @@ test('sign in to vote, vote once, take it back, and keep votes across a republis
 
   // The owner sees the count, not the voter's vote, and can't vote for their own design.
   await page.goto(`/s/${slug}`)
-  const ownVote = page.getByRole('button', { name: 'Vote', exact: true })
-  await expect(ownVote).toHaveAttribute('aria-pressed', 'false')
+  const ownVote = page.getByRole('button', { name: 'Your design', exact: true })
   await expect(page.getByTestId('vote-count')).toHaveText('1 vote')
-  await ownVote.click()
+  await expect(ownVote).toBeDisabled()
   await expect(page.getByText('You can’t vote for your own design.')).toBeVisible()
-  await expect(ownVote).toHaveAttribute('aria-pressed', 'false')
-  await expect(page.getByTestId('vote-count')).toHaveText('1 vote')
+  await expect(page.getByRole('button', { name: 'Vote', exact: true })).toHaveCount(0)
 
   // The board ranks it this week, this month and of all time, and within its garment.
   await visitor.goto('/ranking')

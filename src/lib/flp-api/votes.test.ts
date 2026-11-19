@@ -7,7 +7,8 @@ vi.mock('../auth/supabase-client.ts', () => ({
 }))
 
 const { useSessionStore } = await import('../auth/session-store.ts')
-const { castVote, getVoteState, optimisticVote, retractVote, voteCountLabel, voteCountsLater } = await import('./votes.ts')
+const { VOTE_RULE, castVote, getVoteState, optimisticVote, pendingVoteLabel, retractVote, voteCountLabel, voteCountsLater } =
+  await import('./votes.ts')
 const { handleFlpRequest } = await import('./server.ts')
 
 /** Account votes on a published design (V1). */
@@ -77,7 +78,32 @@ describe('the vote button', () => {
   })
 
   test('taking back a held vote leaves the count, which never had it', () => {
-    expect(optimisticVote({ state: { count: 3, voted: true, countsFrom: '2026-11-17T12:00:00.000Z' } })).toEqual({ count: 3, voted: false })
+    expect(optimisticVote({ state: { count: 3, voted: true, countsFrom: '2026-11-17T12:00:00.000Z' } })).toEqual({ count: 3, voted: false, pending: 0 })
+  })
+
+  test('a new account’s vote goes beside the count, never into it (tester pass 3)', () => {
+    const votesCountFrom = new Date(Date.now() + 20 * 3_600_000).toISOString()
+
+    // The share page used to jump to "1 vote" while Ranking said 0.
+    expect(optimisticVote({ state: { count: 0, voted: false, pending: 0, votesCountFrom } })).toEqual({
+      count: 0,
+      voted: true,
+      pending: 1,
+      countsFrom: votesCountFrom,
+      votesCountFrom,
+    })
+    expect(optimisticVote({ state: { count: 0, voted: true, pending: 1, countsFrom: votesCountFrom, votesCountFrom } })).toEqual({
+      count: 0,
+      voted: false,
+      pending: 0,
+      votesCountFrom,
+    })
+  })
+
+  test('says held votes next to the count, and nothing when there are none', () => {
+    expect(pendingVoteLabel({ pending: 0 })).toBeNull()
+    expect(pendingVoteLabel({ pending: 2 })).toBe('+2 pending (counts within 24 h)')
+    expect(VOTE_RULE).toMatch(/more than a day old/)
   })
 
   test('says when a new account\'s vote starts counting', () => {
