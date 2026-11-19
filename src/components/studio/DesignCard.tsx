@@ -3,10 +3,11 @@ import { Globe, Lock, Shirt } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
-import { type DesignThumbnail, designThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
+import { type DesignThumbnail, designThumbnail, keptThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { type DesignSummary, deleteDesign, unpublishDesign, updateDesign } from '../../lib/flp-api/client'
-import { voteCountLabel } from '../../lib/flp-api/votes'
+import { VOTE_RULE_SHORT } from '../../lib/flp-api/votes'
+import { VoteTally } from '../share/VoteTally'
 import { buttonClass } from '../ui/Button'
 import { failureSentence } from '../../lib/flp-api/plain-messages'
 
@@ -14,6 +15,9 @@ import { failureSentence } from '../../lib/flp-api/plain-messages'
  * One owned design in My Studio: open, rename in place, duplicate, or delete
  * after a confirmation that names it (A06 #150, A07 #151, P3).
  */
+
+/** A published design's place on the public board (all time). */
+export type Standing = { rank: number; votes: number; pending: number; tied: boolean }
 
 const smallButton =
   'inline-flex min-h-9 items-center rounded-full border border-flv-line bg-white px-3 font-body text-xs font-medium hover:border-flv-ink disabled:opacity-50'
@@ -30,7 +34,7 @@ export function DesignCard({
 }: {
   design: DesignSummary
   /** Its place on the public board while published: why vote otherwise? */
-  standing?: { rank: number; votes: number } | null
+  standing?: Standing | null
   /** Taken off the board from the card; the list shows it private again. */
   onUnpublished?: () => void
   ownerId: string
@@ -224,10 +228,16 @@ export function DesignCard({
           edited {new Date(design.updatedAt).toLocaleString()}
         </span>
         {design.visibility === 'published' && standing ? (
-          <span className="font-body text-xs font-medium text-flv-accent">
-            #{standing.rank} on the board ·{' '}
-            {/* Read from the database, not claimed (docs/claims-audit.md). */}
-            <span data-testid="vote-count">{voteCountLabel({ count: standing.votes })}</span>
+          <span className="flex flex-col gap-0.5 font-body text-xs">
+            <span className="flex flex-wrap items-baseline gap-x-1 font-medium text-flv-accent">
+              <span>
+                #{standing.rank}
+                {standing.tied ? ' (tied)' : ''} on the board ·
+              </span>
+              <VoteTally count={standing.votes} pending={standing.pending} />
+            </span>
+            {/* The same rule as the share page and Ranking, so the numbers read alike. */}
+            <span className="text-flv-muted">{VOTE_RULE_SHORT}</span>
           </span>
         ) : null}
         {mode === 'view' ? (
@@ -314,7 +324,10 @@ function CardThumbnail({ design }: { design: DesignSummary }) {
   const key = thumbnailKey({ design })
   const [loaded, setLoaded] = useState<{ key: string; thumbnail: DesignThumbnail | null } | null>(null)
   const [broken, setBroken] = useState<string | null>(null)
-  const thumbnail = loaded?.key === key ? loaded.thumbnail : null
+  // While a new key loads (a save, or publishing and unpublishing), the last
+  // picture stays rather than dropping back to the placeholder; the new one
+  // replaces it when it's ready (tester pass 3).
+  const thumbnail = keptThumbnail({ loaded, key })
 
   useEffect(() => {
     const element = frame.current

@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(29);
+select plan(30);
 
 -- The hosted rule: a vote counts once the account is a day old.
 update public.vote_rules set min_account_age = interval '24 hours';
@@ -85,9 +85,14 @@ select results_eq(
   'the share page count leaves out the young account''s vote'
 );
 
--- A self-vote that predates the rule never counts.
-insert into public.publication_votes (slug, voter_id)
-values ((select value from t where name = 'tee-a'), 'eeeeeeee-1111-4111-8111-000000000001');
+-- The table refuses a self-vote, whatever writes it (20261127090000).
+select throws_ok(
+  format($$ insert into public.publication_votes (slug, voter_id) values (%L, 'eeeeeeee-1111-4111-8111-000000000001') $$,
+    (select value from t where name = 'tee-a')),
+  'FL409',
+  null,
+  'the table refuses a vote on the voter''s own design'
+);
 
 select results_eq(
   format($$ select vote_count from public.flp_vote_state(%L) $$, (select value from t where name = 'tee-a')),

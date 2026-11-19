@@ -7,10 +7,11 @@ import { COMMUNITY, getFollowingBoard } from '../../lib/community'
 import { BOARD_WINDOWS, type BoardWindow } from '../../lib/flp-api/contract'
 import { getBoard } from '../../lib/flp-api/public-read'
 import type { BoardEntry } from '../../lib/flp-api/publication'
-import { voteCountLabel } from '../../lib/flp-api/votes'
+import { TIE_RULE, VOTE_RULE } from '../../lib/flp-api/votes'
 import { BOARD_WINDOW_LABEL } from '../../lib/board-view'
 import { getGarment } from '../../lib/garments'
 import { GownCredit } from '../editor/GownCredit'
+import { VoteTally } from '../share/VoteTally'
 
 type Load = { state: 'loading' } | { state: 'ready'; designs: BoardEntry[] } | { state: 'failed' }
 
@@ -63,12 +64,14 @@ export function PublicationBoard() {
         <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Fashion Leader Vote</p>
         <h1 className="font-display text-4xl">Ranking</h1>
         <p className="font-body text-sm text-flv-muted">
-          The top designs, ranked by votes. A new account’s vote counts once the account is a day old. To find
-          new designs that need votes, go to{' '}
+          The top designs, ranked by votes. {VOTE_RULE} To find new designs that need votes, go to{' '}
           <Link to="/vote" search={{}} className="underline">
             Vote
           </Link>
           .
+        </p>
+        <p data-testid="tie-rule" className="font-body text-sm text-flv-muted">
+          {TIE_RULE}
         </p>
       </header>
 
@@ -162,11 +165,21 @@ export function PublicationBoard() {
             <Link to="/s/$slug" params={{ slug: design.slug }} className="flex flex-col gap-3">
               <div className="relative overflow-hidden rounded-xl border border-flv-line bg-flv-soft">
                 {following ? null : (
-                  <span
-                    aria-label={`Rank ${design.rank}`}
-                    className="absolute top-2 left-2 z-10 rounded-full bg-flv-ink px-2.5 py-1 font-body text-xs font-medium text-white"
-                  >
-                    #{design.rank}
+                  <span className="absolute top-2 left-2 z-10 flex gap-1">
+                    <span
+                      aria-label={`Rank ${design.rank}`}
+                      className="rounded-full bg-flv-ink px-2.5 py-1 font-body text-xs font-medium text-white"
+                    >
+                      #{design.rank}
+                    </span>
+                    {design.tied ? (
+                      <span
+                        title={TIE_RULE}
+                        className="rounded-full border border-flv-ink bg-white px-2.5 py-1 font-body text-xs font-medium text-flv-ink"
+                      >
+                        Tied
+                      </span>
+                    ) : null}
                   </span>
                 )}
                 <img
@@ -192,10 +205,12 @@ export function PublicationBoard() {
               </Link>
             ) : null}
             <GownCredit garmentId={design.garmentId} />
-            {/* Read from the database, not claimed (docs/claims-audit.md). */}
-            <p data-testid="vote-count" className="font-body text-sm text-flv-muted">
-              {voteCountLabel({ count: design.votes })}
-              {sort === 'top' && shownWindow !== 'all' ? ` ${BOARD_WINDOW_LABEL[shownWindow].toLowerCase()}` : ''}
+            <p className="font-body text-sm text-flv-muted">
+              <VoteTally
+                count={design.votes}
+                pending={design.pending}
+                suffix={sort === 'top' && shownWindow !== 'all' ? ` ${BOARD_WINDOW_LABEL[shownWindow].toLowerCase()}` : ''}
+              />
             </p>
           </li>
         ))}

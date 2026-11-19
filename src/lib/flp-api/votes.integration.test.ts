@@ -111,28 +111,28 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
   })
 
   test('signed out sees the count, uncached, and cannot vote', async () => {
-    expect(await vote({})).toEqual({ status: 200, cache: 'no-store', body: { count: 0, voted: false } })
+    expect(await vote({})).toEqual({ status: 200, cache: 'no-store', body: { count: 0, voted: false, pending: 0, own: false } })
     expect((await vote({ method: 'POST' })).status).toBe(401)
   })
 
   test('one vote per account, cast and retracted idempotently', async () => {
-    expect((await vote({ method: 'POST', token: a.token })).body).toEqual({ count: 1, voted: true })
-    expect((await vote({ method: 'POST', token: a.token })).body).toEqual({ count: 1, voted: true })
-    expect((await vote({ method: 'POST', token: b.token })).body).toEqual({ count: 2, voted: true })
+    expect((await vote({ method: 'POST', token: a.token })).body).toEqual({ count: 1, voted: true, pending: 0, own: false })
+    expect((await vote({ method: 'POST', token: a.token })).body).toEqual({ count: 1, voted: true, pending: 0, own: false })
+    expect((await vote({ method: 'POST', token: b.token })).body).toEqual({ count: 2, voted: true, pending: 0, own: false })
 
-    expect((await vote({ token: a.token })).body).toEqual({ count: 2, voted: true })
-    expect((await vote({ token: owner.token })).body).toEqual({ count: 2, voted: false })
-    expect((await vote({})).body).toEqual({ count: 2, voted: false })
+    expect((await vote({ token: a.token })).body).toEqual({ count: 2, voted: true, pending: 0, own: false })
+    expect((await vote({ token: owner.token })).body).toEqual({ count: 2, voted: false, pending: 0, own: true })
+    expect((await vote({})).body).toEqual({ count: 2, voted: false, pending: 0, own: false })
 
-    expect((await vote({ method: 'DELETE', token: b.token })).body).toEqual({ count: 1, voted: false })
-    expect((await vote({ method: 'DELETE', token: b.token })).body).toEqual({ count: 1, voted: false })
+    expect((await vote({ method: 'DELETE', token: b.token })).body).toEqual({ count: 1, voted: false, pending: 0, own: false })
+    expect((await vote({ method: 'DELETE', token: b.token })).body).toEqual({ count: 1, voted: false, pending: 0, own: false })
   })
 
   test('nobody votes for their own design', async () => {
     const response = await api({ path: `public/${slug}/vote`, method: 'POST', token: owner.token })
     expect(response.status).toBe(409)
     expect(((await response.json()) as { error: { code: string } }).error.code).toBe('own_design')
-    expect((await vote({ token: owner.token })).body).toEqual({ count: 1, voted: false })
+    expect((await vote({ token: owner.token })).body).toEqual({ count: 1, voted: false, pending: 0, own: true })
   })
 
   test('voting takes the current terms; reading does not', async () => {
@@ -145,8 +145,8 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
       expect((await vote({ token: newcomer.token })).status).toBe(200)
 
       await acceptTermsFor({ admin, account: newcomer })
-      expect((await vote({ method: 'POST', token: newcomer.token })).body).toEqual({ count: 2, voted: true })
-      expect((await vote({ method: 'DELETE', token: newcomer.token })).body).toEqual({ count: 1, voted: false })
+      expect((await vote({ method: 'POST', token: newcomer.token })).body).toEqual({ count: 2, voted: true, pending: 0, own: false })
+      expect((await vote({ method: 'DELETE', token: newcomer.token })).body).toEqual({ count: 1, voted: false, pending: 0, own: false })
     } finally {
       await admin.auth.admin.deleteUser(newcomer.id)
     }
@@ -158,24 +158,35 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
 
     try {
       const before = (await vote({})).body.count
+      // Before voting, the page already knows a vote would be held (tester pass 3).
+      const unvoted = (await vote({ token: newcomer.token })).body
+      expect(unvoted.countsFrom).toBeUndefined()
+      expect(Date.parse(unvoted.votesCountFrom!) - Date.now()).toBeGreaterThan(23 * 3_600_000)
       const held = (await vote({ method: 'POST', token: newcomer.token })).body
       expect(held.voted).toBe(true)
       expect(held.count).toBe(before)
+      expect(held.pending).toBe(1)
       expect(Date.parse(held.countsFrom!) - Date.now()).toBeGreaterThan(23 * 3_600_000)
-      // Read back the same way, and the count signed out doesn't move.
+      // Read back the same way, and the count signed out doesn't move: the held vote is beside it.
       expect((await vote({ token: newcomer.token })).body.countsFrom).toBe(held.countsFrom)
-      expect((await vote({})).body.count).toBe(before)
+      expect((await vote({})).body).toMatchObject({ count: before, pending: 1 })
+      // Ranking says the same as the share page.
+      const board = await ok<{ designs: Array<{ slug: string; votes: number; pending: number }> }>({ path: 'public' })
+      expect(board.designs.find((design) => design.slug === slug)).toMatchObject({ votes: before, pending: 1 })
 
       setAccountAge({ id: newcomer.id, age: '25 hours' })
-      expect((await vote({ token: newcomer.token })).body).toEqual({ count: before + 1, voted: true })
+      expect((await vote({ token: newcomer.token })).body).toEqual({ count: before + 1, voted: true, pending: 0, own: false })
       expect((await vote({})).body.count).toBe(before + 1)
+      expect((await ok<{ designs: Array<{ slug: string; votes: number; pending: number }> }>({ path: 'public' })).designs.find(
+        (design) => design.slug === slug,
+      )).toMatchObject({ votes: before + 1, pending: 0 })
     } finally {
       await admin.auth.admin.deleteUser(newcomer.id)
     }
   })
 
   test('a stale token reads as signed out', async () => {
-    expect((await vote({ token: 'not-a-token' })).body).toEqual({ count: 1, voted: false })
+    expect((await vote({ token: 'not-a-token' })).body).toEqual({ count: 1, voted: false, pending: 0, own: false })
   })
 
   test('votes carry over a republish, and an unpublished design takes none', async () => {
@@ -195,7 +206,7 @@ describe.skipIf(!env)('votes on published designs against local Supabase', () =>
     })
     expect((await publish({ seq: saved.seq })).slug).toBe(slug)
 
-    expect((await vote({ token: a.token })).body).toEqual({ count: 1, voted: true })
+    expect((await vote({ token: a.token })).body).toEqual({ count: 1, voted: true, pending: 0, own: false })
   })
 
   test('an unknown or malformed slug is not available', async () => {
