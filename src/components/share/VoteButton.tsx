@@ -6,7 +6,9 @@ import { cn } from '../../lib/cn'
 import { acceptTerms } from '../../lib/flp-api/client'
 import type { VoteState } from '../../lib/flp-api/contract'
 import { UNPUBLISHED_VOTES, VOTE_RULE, castVote, getVoteState, optimisticVote, retractVote, voteCountsLater } from '../../lib/flp-api/votes'
+import { voteDeviceId } from '../../lib/vote-device'
 import { TERMS_VERSION } from '../../lib/terms'
+import { FeedbackPanel } from './FeedbackPanel'
 import { VoteTally } from './VoteTally'
 
 const controlClass =
@@ -67,7 +69,12 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
     setError(null)
     setVote(optimisticVote({ state: before }))
 
-    const result = before.voted ? await retractVote({ slug }) : await castVote({ slug })
+    const result = before.voted
+      ? await retractVote({ slug })
+      : await castVote({
+          slug,
+          deviceId: voteDeviceId({ storage: typeof localStorage === 'undefined' ? null : localStorage }),
+        })
 
     pendingRef.current = false
     setPending(false)
@@ -150,6 +157,7 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
         </div>
         <p className="max-w-xs font-body text-xs text-flv-muted">You can’t vote for your own design.</p>
         {rule}
+        <FeedbackPanel slug={slug} voted={false} own />
       </div>
     )
   }
@@ -198,6 +206,7 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
       <p role="status" className={error ? 'font-body text-xs text-flv-accent' : 'sr-only'}>
         {error ?? ''}
       </p>
+      <FeedbackPanel slug={slug} voted={vote.voted} own={false} />
     </div>
   )
 }

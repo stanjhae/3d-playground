@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useSearch } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import { useSessionStore } from '../../lib/auth/session-store'
@@ -7,6 +7,7 @@ import type { FeedEntry } from '../../lib/flp-api/publication'
 import { VOTE_RULE, getVoteFeed } from '../../lib/flp-api/votes'
 import { getGarment, listRailGarments } from '../../lib/garments'
 import { templateForGarment } from '../../lib/template-manifest'
+import { ComparePair } from './ComparePair'
 import { VoteButton } from '../share/VoteButton'
 import { VoteTally } from '../share/VoteTally'
 import { GownCredit } from '../editor/GownCredit'
@@ -33,6 +34,8 @@ export function VoteFeed() {
   // Each read belongs to one account and filter; a late answer is dropped.
   const readId = useRef(0)
   const signedIn = status === 'signed-in'
+  const { mode } = useSearch({ from: '/vote' })
+  const comparing = mode === 'compare'
 
   useEffect(() => {
     if (status === 'loading') {
@@ -91,7 +94,11 @@ export function VoteFeed() {
           <Link to="/ranking" className="underline">
             Ranking
           </Link>
-          . {VOTE_RULE}
+          . {VOTE_RULE}{' '}
+          <Link to="/vote" search={comparing ? {} : { mode: 'compare' }} className="underline">
+            {comparing ? 'Back to the list' : 'Compare two'}
+          </Link>
+          .
         </p>
         {signedIn ? (
           // Without this, your own design seems to vanish from here (tester pass 3).
@@ -114,7 +121,9 @@ export function VoteFeed() {
         ) : null}
       </header>
 
-      {FEED_GARMENTS.length > 1 ? (
+      {comparing ? <ComparePair /> : null}
+
+      {comparing || FEED_GARMENTS.length <= 1 ? null : (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by garment">
           {[null, ...FEED_GARMENTS.map((garment) => garment.id)].map((id) => (
             <button
@@ -131,13 +140,13 @@ export function VoteFeed() {
             </button>
           ))}
         </div>
-      ) : null}
+      )}
 
-      {feed.state === 'loading' ? <p className="font-body text-sm text-flv-muted">Loading designs…</p> : null}
-      {feed.state === 'failed' ? (
+      {!comparing && feed.state === 'loading' ? <p className="font-body text-sm text-flv-muted">Loading designs…</p> : null}
+      {!comparing && feed.state === 'failed' ? (
         <p className="font-body text-sm text-flv-muted">The designs aren’t available right now. Try again shortly.</p>
       ) : null}
-      {feed.state === 'ready' && designs.length === 0 ? (
+      {!comparing && feed.state === 'ready' && designs.length === 0 ? (
         <p className="font-body text-sm text-flv-muted">
           {garmentId ? 'No designs on this garment to vote on yet.' : 'No designs to vote on yet.'} Publish one from{' '}
           <Link to="/studio" className="underline">
@@ -147,7 +156,7 @@ export function VoteFeed() {
         </p>
       ) : null}
 
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {comparing ? null : <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {designs.map((design, index) => (
           <li key={design.slug} className="flv-panel flex flex-col gap-3 p-4">
             <Link to="/s/$slug" params={{ slug: design.slug }} className="flex flex-col gap-3">
@@ -200,9 +209,9 @@ export function VoteFeed() {
             )}
           </li>
         ))}
-      </ul>
+      </ul>}
 
-      {feed.state === 'ready' && feed.next ? (
+      {!comparing && feed.state === 'ready' && feed.next ? (
         <div className="flex flex-col items-center gap-2">
           <button
             type="button"

@@ -7,6 +7,7 @@ import { findForbiddenClaim } from './claims-patterns'
 import { GRAPHIC_ASSETS } from './graphics-library'
 import { heroSceneTrigger } from './hero-scene-gate'
 import { injectBeforeRoot, replaceSiteHead } from './html-shell'
+import { listRailGarments } from './garments'
 import { allLandingStrings, LANDING_COPY, LANDING_SEO } from './landing-copy'
 import { landingHead, landingJsonLd } from './landing-seo'
 import { pageTitle, routeLabel } from './page-title'
@@ -20,6 +21,14 @@ describe('landing copy', () => {
       expect(findForbiddenClaim({ text }), text).toBeNull()
       // R4: no "realistic"; no pricing or printing promises.
       expect(text).not.toMatch(/\brealistic\b|\bfree\b|\bprint-ready\b/i)
+    }
+  })
+
+  it('names every studio garment in the design answer', () => {
+    const answer = LANDING_COPY.faq.items.find((item) => item.question === 'What can I design right now?')?.answer ?? ''
+
+    for (const garment of listRailGarments()) {
+      expect(answer).toContain(garment.label)
     }
   })
 

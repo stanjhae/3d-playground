@@ -54,8 +54,11 @@ export function startCloudAutosave({
 
       return result
     },
-    onAcknowledged: ({ headSeq }) => {
+    onAcknowledged: ({ headSeq, savedAt }) => {
       useEditorStore.getState().setCloudHead({ headSeq })
+      if (savedAt) {
+        useEditorStore.getState().setCloudSavedAt({ savedAt })
+      }
       trackAssumptionOnce({ name: 'design_saved', scope: designId })
     },
     ...timing,

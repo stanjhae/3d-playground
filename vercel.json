@@ -34,6 +34,13 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/sign-up",
+      "destination": "/sign-in",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/flp/:path*",

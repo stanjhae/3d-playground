@@ -4,6 +4,8 @@
  */
 
 export const CODE_LENGTH = 6
+/** Room for a spaced or dashed autofill before only the digits are kept. */
+export const CODE_ENTRY_MAX = 32
 /** Matches `max_frequency` in supabase/config.toml. */
 export const RESEND_SECONDS = 60
 
@@ -126,10 +128,15 @@ export function isValidEmail({ value }: { value: string }) {
   return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+/** Digits only, at most six, so a paste of "123 456" or "123-456" lands as 123456. */
+export function codeFieldValue({ value }: { value: string }) {
+  return value.replace(/\D/g, '').slice(0, CODE_LENGTH)
+}
+
 /** Accepts pasted codes with spaces or dashes; null if not six digits. */
 export function normalizeCode({ value }: { value: string }) {
-  const digits = value.replace(/[\s-]/g, '')
-  return new RegExp(`^\\d{${CODE_LENGTH}}$`).test(digits) ? digits : null
+  const digits = codeFieldValue({ value })
+  return digits.length === CODE_LENGTH ? digits : null
 }
 
 export function resendSecondsLeft({

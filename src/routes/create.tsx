@@ -1,5 +1,5 @@
-import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Link, createFileRoute, redirect, useLocation, useNavigate, useRouter } from '@tanstack/react-router'
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { AvatarRail } from '../components/editor/AvatarRail'
 import { CameraPresetBar } from '../components/editor/CameraPresetBar'
@@ -31,7 +31,7 @@ import {
 } from '../components/editor/PublishBar'
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
-import { RequireSession } from '../components/auth/RequireSession'
+import { TermsGate } from '../components/auth/TermsGate'
 import { CloudPublish } from '../components/editor/CloudPublish'
 import {
   CloudSaveProblem,
@@ -41,6 +41,7 @@ import {
   useRecoveryStore,
 } from '../components/editor/CloudSave'
 import { CloudTitle } from '../components/editor/CloudTitle'
+import { sessionExpiredOnStudio } from '../lib/auth/session-expiry'
 import { accountGuard, useSessionStore, waitForSession } from '../lib/auth/session-store'
 import {
   RECOVERY_WARNINGS,
@@ -67,7 +68,8 @@ import {
   showsSilhouetteRail,
   showsStructureRail,
 } from '../lib/create-steps'
-import { parseCreateSearch } from '../lib/create-search'
+import { parseCreateSearch, parseCreateStep } from '../lib/create-search'
+import { adoptGuestSketch, takeGuestAdoptFailure } from '../lib/guest-adopt'
 import { loadPublicationStatus, resetPublicationStatus } from '../lib/publication-status'
 import { loadDraft, saveDraft } from '../lib/design-draft'
 import { createDesign, getDesign } from '../lib/designs-api'
@@ -108,31 +110,79 @@ export const Route = createFileRoute('/create')({
 
     const session = await waitForSession({ client: getSupabaseClient() })
 
+    // A signed-out visitor designs here. Saving to an account and publishing
+    // ask them to sign in. A signed-in visit with no design starts one.
     if (session.status !== 'signed-in') {
-      throw redirect({ to: '/sign-in', search: { returnTo: location.href } })
+      return
     }
 
-    // Signed-in work lives in owned cloud designs: with none named (nor a
-    // board remix), Create starts a new one, apart from the My Studio library.
-    const search = location.search as { cloud?: string; design?: string }
+    // No cloud design yet. A sketch made while signed out is saved to the
+    // account. A blank visit starts a new design in My Studio.
+    const search = location.search as { cloud?: string; design?: string; step?: unknown }
 
     if (!search.cloud && !search.design) {
-      throw redirect({ to: '/studio', search: { new: true } })
+      const adopted = await adoptGuestSketch({
+        step: parseCreateStep({ value: search.step }) ?? 'design',
+      })
+
+      if (adopted.action === 'cloud') {
+        throw redirect({ to: '/create', search: { cloud: adopted.designId, step: adopted.step } })
+      }
+
+      if (adopted.action === 'studio') {
+        throw redirect({ to: '/studio', search: { new: true } })
+      }
     }
   },
   component: GuardedAtelier,
 })
 
 function GuardedAtelier() {
+  if (!AUTH_REQUIRED) {
+    return <AtelierHome />
+  }
+
   return (
-    <RequireSession>
-      <AtelierHome />
-    </RequireSession>
+    <StudioSession>
+      <TermsGate>
+        <AtelierHome />
+      </TermsGate>
+    </StudioSession>
   )
+}
+
+/** Sends an expired session to sign-in without unmounting the open design. */
+function StudioSession({ children }: { children: ReactNode }) {
+  const status = useSessionStore((state) => state.status)
+  const location = useLocation()
+  const router = useRouter()
+  const wasSignedIn = useRef(status === 'signed-in')
+
+  useEffect(() => {
+    if (status === 'signed-in') {
+      wasSignedIn.current = true
+    }
+  }, [status])
+
+  useEffect(() => {
+    if (!sessionExpiredOnStudio({ authRequired: AUTH_REQUIRED, wasSignedIn: wasSignedIn.current, status })) {
+      return
+    }
+
+    void router.navigate({
+      to: '/sign-in',
+      search: { returnTo: location.href },
+    })
+  }, [location.href, router, status])
+
+  return children
 }
 
 function AtelierHome() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const signedIn = useSessionStore((state) => state.status === 'signed-in')
+  const [adoptError] = useState(() => takeGuestAdoptFailure())
   const search = Route.useSearch()
   const {
     cloud: cloudId,
@@ -573,6 +623,11 @@ function AtelierHome() {
   return (
     <section ref={sectionRef} className={studioSectionClass({ drawInFlow })}>
       <div className={studioOverlayClass({ drawInFlow })}>
+        {adoptError ? (
+          <p role="alert" className="px-4 pt-3 font-body text-sm text-flv-accent">
+            {adoptError}
+          </p>
+        ) : null}
         <div ref={headerRef} className={studioHeaderClass()} data-studio-part="header">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
             {AUTH_REQUIRED ? null : <ModeToggle mode={mode} />}
@@ -708,11 +763,11 @@ function AtelierHome() {
               ) : null}
               {showsShareRail({ step: createStep }) && cloudStatus === 'loaded' ? (
                 <CloudPublish />
-              ) : showsShareRail({ step: createStep }) && AUTH_REQUIRED ? (
+              ) : showsShareRail({ step: createStep }) && AUTH_REQUIRED && !signedIn ? (
                 <p className="font-body text-sm text-flv-muted">
-                  Publishing works from your own designs.{' '}
-                  <Link to="/studio" className="underline">
-                    Open My Studio
+                  Sign in to save this design to your account and publish it. The sketch stays on this device.{' '}
+                  <Link to="/sign-in" search={{ returnTo: location.href }} className="underline">
+                    Sign in
                   </Link>
                 </p>
               ) : showsShareRail({ step: createStep }) ? (

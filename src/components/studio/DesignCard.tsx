@@ -6,6 +6,7 @@ import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recover
 import { type DesignThumbnail, designThumbnail, keptThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { type DesignSummary, deleteDesign, unpublishDesign, updateDesign } from '../../lib/flp-api/client'
+import { tieLabel } from '../../lib/flp-api/compare'
 import { VOTE_RULE_SHORT } from '../../lib/flp-api/votes'
 import { VoteTally } from '../share/VoteTally'
 import { buttonClass } from '../ui/Button'
@@ -231,8 +232,7 @@ export function DesignCard({
           <span className="flex flex-col gap-0.5 font-body text-xs">
             <span className="flex flex-wrap items-baseline gap-x-1 font-medium text-flv-accent">
               <span>
-                #{standing.rank}
-                {standing.tied ? ' (tied)' : ''} on the board ·
+                {standing.tied ? `${tieLabel({ rank: standing.rank })}` : `#${standing.rank}`} on the board ·
               </span>
               <VoteTally count={standing.votes} pending={standing.pending} />
             </span>

@@ -44,12 +44,15 @@ import {
   unknownLibraryReferences,
   uploadedAssetReferences,
 } from './contract.ts'
+import { type FeedbackView, parseFeedbackAnswer, storedFeedbackAnswer, summarizeFeedback } from './feedback.ts'
+import { recordVoteSignal } from './vote-signals.ts'
 import {
   publishVersion,
   readOwnerPublication,
   readPublicDesign,
   readBoard,
   readFollowingBoard,
+  readComparison,
   readVoteFeed,
   readPublicProfile,
   readPublicImage,
@@ -1101,6 +1104,14 @@ async function handleVote({
     }
   }
 
+  let deviceId: string | null = null
+
+  if (request.method === 'POST' && request.headers.get('content-type')?.includes('application/json')) {
+    const body = await readJson({ request })
+    const record = body.ok && body.value && typeof body.value === 'object' ? (body.value as { deviceId?: unknown }) : null
+    deviceId = typeof record?.deviceId === 'string' ? record.deviceId : null
+  }
+
   const fn = request.method === 'POST' ? 'flp_cast_vote' : request.method === 'DELETE' ? 'flp_retract_vote' : 'flp_vote_state'
   const args = write ? { p_voter_id: user!.userId, p_slug: slug } : { p_slug: slug, p_voter_id: user?.userId ?? null }
   const { data, error } = await admin.rpc(fn, args).single<{
@@ -1131,7 +1142,194 @@ async function handleVote({
     ...(data.viewer_counts_from ? { votesCountFrom: new Date(data.viewer_counts_from).toISOString() } : {}),
   }
 
+  if (request.method === 'POST' && user) {
+    try {
+      await recordVoteSignal({ admin, slug, voterId: user.userId, deviceId, secret: env.secretKey })
+    } catch (error) {
+      console.error('vote signal failed', { code: error instanceof Error ? error.message : 'unknown' })
+    }
+  }
+
   return json({ status: 200, body: state })
+}
+
+/**
+ * GET /public/:slug/feedback — the caller's answer, or the owner's totals
+ * for the live version. POST saves one answer for the account that voted.
+ */
+async function handleFeedback({
+  request,
+  env,
+  slug,
+}: {
+  request: Request
+  env: FlpServerEnv
+  slug: string | undefined
+}) {
+  if (request.method !== 'GET' && request.method !== 'POST') {
+    return json({ status: 405, body: { error: { code: 'method_not_allowed', message: 'Method not allowed' } } })
+  }
+
+  const admin = createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const user = await verifiedUser({ request, admin })
+
+  if (request.method === 'POST' && !user) {
+    return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  if (!slug || !SLUG.test(slug)) {
+    return designUnavailable()
+  }
+
+  const publication = await admin
+    .from('publications')
+    .select('owner_id, version_seq, status')
+    .eq('slug', slug)
+    .maybeSingle<{ owner_id: string; version_seq: number | null; status: string }>()
+
+  if (publication.error) {
+    return writeFailed({ fn: 'publication_feedback', error: publication.error })
+  }
+
+  if (!publication.data || publication.data.status !== 'published' || publication.data.version_seq == null) {
+    return designUnavailable()
+  }
+
+  const seq = publication.data.version_seq
+  const owner = user?.userId === publication.data.owner_id
+
+  if (request.method === 'GET' && owner && user) {
+    const rows = await admin
+      .from('publication_feedback')
+      .select('would_wear, price_band, size_label, tags, note')
+      .eq('slug', slug)
+      .eq('version_seq', seq)
+
+    if (rows.error) {
+      return writeFailed({ fn: 'publication_feedback', error: rows.error })
+    }
+
+    const answers = (rows.data ?? []).flatMap((row) => {
+      const answer = storedFeedbackAnswer({
+        row: {
+          wouldWear: row.would_wear,
+          priceBand: row.price_band,
+          size: row.size_label,
+          tags: row.tags,
+          note: row.note,
+        },
+      })
+
+      return answer ? [answer] : []
+    })
+    const view: FeedbackView = { role: 'owner', summary: summarizeFeedback({ seq, answers }) }
+
+    return json({ status: 200, body: view })
+  }
+
+  if (request.method === 'GET') {
+    const own = user
+      ? await admin
+          .from('publication_feedback')
+          .select('would_wear, price_band, size_label, tags, note')
+          .eq('slug', slug)
+          .eq('voter_id', user.userId)
+          .eq('version_seq', seq)
+          .maybeSingle<{ would_wear: boolean; price_band: string; size_label: string | null; tags: string[] | null; note: string | null }>()
+      : { data: null, error: null }
+
+    if (own.error) {
+      return writeFailed({ fn: 'publication_feedback', error: own.error })
+    }
+
+    const view: FeedbackView = {
+      role: 'voter',
+      seq,
+      answer: own.data
+        ? storedFeedbackAnswer({
+            row: {
+              wouldWear: own.data.would_wear,
+              priceBand: own.data.price_band,
+              size: own.data.size_label,
+              tags: own.data.tags,
+              note: own.data.note,
+            },
+          })
+        : null,
+    }
+
+    return json({ status: 200, body: view })
+  }
+
+  if (!user) {
+    return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+  }
+
+  if (owner) {
+    return fromError({ error: apiError({ code: 'own_design', message: 'You can’t leave feedback on your own design' }) })
+  }
+
+  const limited = await rateLimited({ admin, userId: user.userId, bucket: 'vote', env })
+
+  if (limited) {
+    return limited
+  }
+
+  const terms = await termsRefusal({ admin, userId: user.userId, message: 'Accept the current terms to leave feedback' })
+
+  if (terms) {
+    return terms
+  }
+
+  const voted = await admin
+    .from('publication_votes')
+    .select('voter_id')
+    .eq('slug', slug)
+    .eq('voter_id', user.userId)
+    .maybeSingle()
+
+  if (voted.error) {
+    return writeFailed({ fn: 'publication_feedback', error: voted.error })
+  }
+
+  if (!voted.data) {
+    return fromError({ error: apiError({ code: 'invalid', message: 'Vote before you leave feedback' }) })
+  }
+
+  const body = await readJson({ request })
+
+  if (!body.ok) {
+    return fromError({ error: body.error })
+  }
+
+  const parsed = parseFeedbackAnswer({ value: body.value })
+
+  if (!parsed.ok) {
+    return fromError({ error: parsed.error })
+  }
+
+  const saved = await admin.from('publication_feedback').upsert(
+    {
+      slug,
+      voter_id: user.userId,
+      version_seq: seq,
+      would_wear: parsed.answer.wouldWear,
+      price_band: parsed.answer.priceBand,
+      size_label: parsed.answer.size,
+      tags: parsed.answer.tags,
+      note: parsed.answer.note,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'slug,voter_id,version_seq' },
+  )
+
+  if (saved.error) {
+    return writeFailed({ fn: 'publication_feedback', error: saved.error })
+  }
+
+  const view: FeedbackView = { role: 'voter', seq, answer: parsed.answer }
+
+  return json({ status: 200, body: view })
 }
 
 type CommentRow = {
@@ -1581,6 +1779,10 @@ export async function handleFlpRequest({
       return handleVote({ request, env, slug: designId })
     }
 
+    if (action === 'feedback' && rest.length === 0) {
+      return handleFeedback({ request, env, slug: designId })
+    }
+
     if (action === 'report' && rest.length === 0) {
       return handleReport({ request, env, slug: designId })
     }
@@ -1603,6 +1805,40 @@ export async function handleFlpRequest({
     // GET /public/feed — the Vote feed. A session, when sent, leaves out the
     // viewer's own designs and says which they voted for; a stale token
     // reads as signed out, as on the vote count.
+    if (designId === 'compare' && !action && (request.method === 'GET' || request.method === 'POST')) {
+      const compareAdmin = createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+      const compareUser = await verifiedUser({ request, admin: compareAdmin })
+
+      if (!compareUser) {
+        return fromError({ error: apiError({ code: 'unauthenticated', message: 'Sign in required' }) })
+      }
+
+      let choice: { left: string; right: string; chosen: string } | null = null
+
+      if (request.method === 'POST') {
+        const body = await readJson({ request })
+
+        if (!body.ok) {
+          return fromError({ error: body.error })
+        }
+
+        const record = body.value as { left?: unknown; right?: unknown; chosen?: unknown }
+
+        if (typeof record?.left !== 'string' || typeof record.right !== 'string' || typeof record.chosen !== 'string') {
+          return fromError({ error: apiError({ code: 'invalid', message: 'Choose one of the two designs' }) })
+        }
+
+        choice = { left: record.left, right: record.right, chosen: record.chosen }
+      }
+
+      return readComparison({
+        admin: compareAdmin,
+        viewerId: compareUser.userId,
+        respond,
+        choice,
+      })
+    }
+
     if (designId === 'feed' && !action && request.method === 'GET') {
       const feedAdmin = createClient(env.url, env.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
       const user = await verifiedUser({ request, admin: feedAdmin })

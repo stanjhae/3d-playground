@@ -262,7 +262,7 @@ export async function drawStroke({
 }
 
 export async function expectSaved({ page }: { page: Page }) {
-  await expect(page.getByRole('status').filter({ hasText: 'Saved privately' })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('status').filter({ hasText: 'Saved at' })).toBeVisible({ timeout: 20_000 })
 }
 
 /**

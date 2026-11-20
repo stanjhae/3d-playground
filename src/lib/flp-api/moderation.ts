@@ -299,6 +299,36 @@ export function reviewVotes({ ownerId, voters }: { ownerId: string; voters: read
   }
 }
 
+export type VoteAuditRow = {
+  slug: string
+  voterId: string
+  flag: string
+  detail: string | null
+  createdAt: string
+}
+
+/** Recent vote-integrity signs, newest first. Operators only. */
+export async function listVoteAudit({ admin, limit = 50 }: { admin: SupabaseClient; limit?: number }) {
+  const rows = await admin
+    .from('vote_audit')
+    .select('slug, voter_id, flag, detail, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+    .returns<Array<{ slug: string; voter_id: string; flag: string; detail: string | null; created_at: string }>>()
+
+  if (rows.error) {
+    throw new ModerationError('The vote audit could not be read', 'failed')
+  }
+
+  return rows.data.map((row) => ({
+    slug: row.slug,
+    voterId: row.voter_id,
+    flag: row.flag,
+    detail: row.detail,
+    createdAt: row.created_at,
+  }))
+}
+
 /** Reads a design's voters for `reviewVotes`. Operators only. */
 export async function votersOf({ admin, slug }: { admin: SupabaseClient; slug: string }) {
   const publication = await admin.from('publications').select('owner_id').eq('slug', slug).maybeSingle<{ owner_id: string }>()

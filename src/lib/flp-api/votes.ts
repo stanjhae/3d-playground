@@ -1,6 +1,6 @@
 import { type FlpResult, call, publicRead } from './client.ts'
 import type { VoteState } from './contract.ts'
-import type { VoteFeedPage } from './publication.ts'
+import type { ComparisonPair, VoteFeedPage } from './publication.ts'
 
 /**
  * Votes on a published design (V1), one per account. Reading works signed
@@ -18,8 +18,21 @@ export function getVoteState({ slug, fetchImpl }: { slug: string; fetchImpl?: ty
   })
 }
 
-export function castVote({ slug, fetchImpl }: { slug: string; fetchImpl?: typeof fetch }) {
-  return call<VoteState>({ path: votePath({ slug }), method: 'POST', fetchImpl })
+export function castVote({
+  slug,
+  deviceId,
+  fetchImpl,
+}: {
+  slug: string
+  deviceId?: string | null
+  fetchImpl?: typeof fetch
+}) {
+  return call<VoteState>({
+    path: votePath({ slug }),
+    method: 'POST',
+    ...(deviceId ? { body: { deviceId } } : {}),
+    fetchImpl,
+  })
 }
 
 export function retractVote({ slug, fetchImpl }: { slug: string; fetchImpl?: typeof fetch }) {
@@ -68,7 +81,7 @@ export const VOTE_RULE = 'Only votes from accounts more than a day old count. A 
 
 /** How ties rank on Ranking, said on the page and on each Tied marker. */
 export const TIE_RULE =
-  'Designs with the same number of votes share a rank and are marked Tied, and the next rank skips (1, 2, 2, 4). Within a tie, the newest design is listed first.'
+  'Designs with the same head-to-head score and the same number of votes share a rank, shown as =3, and the next rank skips (1, 2, 2, 4). Within a tie, the newest design is listed first. With no head-to-head picks yet, the score is the same for every design, so the order is the vote count.'
 
 /** The same rule in a few words, where there's little room (a My Studio card). */
 export const VOTE_RULE_SHORT = 'Only votes from accounts over a day old count.'
@@ -82,6 +95,24 @@ export function pendingVoteLabel({ pending }: { pending: number }) {
  * One page of the Vote feed (`/vote`). Signed in, the session goes with it,
  * so the viewer's own designs are left out and each card knows its vote.
  */
+export function getComparison({ fetchImpl }: { fetchImpl?: typeof fetch } = {}): Promise<FlpResult<{ pair: ComparisonPair | null }>> {
+  return call<{ pair: ComparisonPair | null }>({ path: 'public/compare', fetchImpl })
+}
+
+export function chooseComparison({
+  left,
+  right,
+  chosen,
+  fetchImpl,
+}: {
+  left: string
+  right: string
+  chosen: string
+  fetchImpl?: typeof fetch
+}) {
+  return call<{ pair: ComparisonPair | null }>({ path: 'public/compare', method: 'POST', body: { left, right, chosen }, fetchImpl })
+}
+
 export function getVoteFeed({
   garmentId = null,
   cursor = null,
