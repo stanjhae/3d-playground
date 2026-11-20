@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { useSessionStore } from '../../lib/auth/session-store'
 import { cn } from '../../lib/cn'
 import { handOffLandingDesign } from '../../lib/landing-demo-store'
 import { buttonClass } from '../ui/Button'
@@ -9,9 +10,10 @@ import { buttonClass } from '../ui/Button'
 export type LandingMode = 'static' | 'live'
 
 /**
- * Start creating, everywhere on the landing. Signed out, My Studio sends
- * people through sign-in and back; a sketch made in the hero goes with them.
- * In the prerendered page it is a plain link, so it works before scripts.
+ * Start creating, everywhere on the landing. Signed out, it opens the
+ * studio and the hero sketch comes along; sign-in waits until save or
+ * publish. Signed in, it starts a new design in My Studio. In the
+ * prerendered page it is a plain link, so it works before scripts.
  */
 export function CreateCta({
   mode,
@@ -24,6 +26,7 @@ export function CreateCta({
   className?: string
   size?: 'md' | 'lg'
 }) {
+  const signedIn = useSessionStore((state) => state.status === 'signed-in')
   const classes = cn(
     buttonClass(),
     'flv-cta-sheen group relative overflow-hidden',
@@ -36,6 +39,30 @@ export function CreateCta({
       <ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" />
     </>
   )
+
+  if (!signedIn) {
+    if (mode === 'static') {
+      return (
+        <a href="/create" className={classes} data-cta="create">
+          {body}
+        </a>
+      )
+    }
+
+    return (
+      <Link
+        to="/create"
+        viewTransition
+        className={classes}
+        data-cta="create"
+        onClick={() => {
+          handOffLandingDesign()
+        }}
+      >
+        {body}
+      </Link>
+    )
+  }
 
   if (mode === 'static') {
     return (

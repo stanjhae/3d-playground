@@ -108,6 +108,8 @@ export type CloudContext = {
   headSeq: number
   title: string
   description?: string
+  /** When the server stored the head that is open. ISO time. */
+  savedAt?: string
 }
 export type StudioView = 'draw' | 'cloth'
 export type EditorPaintTool = StrokeTool | 'type'
@@ -467,6 +469,8 @@ type EditorState = {
   }) => void
   /** Record a cloud acknowledgement (autosave, S04 #173). */
   setCloudHead: ({ headSeq }: { headSeq: number }) => void
+  /** The server time of the head, after a load or an acknowledgement. */
+  setCloudSavedAt: ({ savedAt }: { savedAt: string }) => void
   /** Show a rename of the open cloud design (A06 #150); not an edit. */
   setCloudTitle: ({ title }: { title: string }) => void
   setCloudDescription: ({ description }: { description: string }) => void
@@ -2294,6 +2298,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setCloudHead: ({ headSeq }) => {
     set((state) => (state.cloud ? { cloud: { ...state.cloud, headSeq } } : state))
+  },
+  setCloudSavedAt: ({ savedAt }) => {
+    set((state) => (state.cloud ? { cloud: { ...state.cloud, savedAt } } : state))
   },
   setCloudDescription: ({ description }) => {
     set((state) => (state.cloud ? { cloud: { ...state.cloud, description } } : state))

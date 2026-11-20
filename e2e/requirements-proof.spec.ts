@@ -638,7 +638,7 @@ test('a design on a template version this app cannot open says so, offers nothin
   await page.reload()
 
   await expect(page.getByRole('alert')).toContainText('This design uses a garment template this app cannot open.')
-  await expect(page.getByRole('status').filter({ hasText: 'Saved privately' })).toHaveCount(0)
+  await expect(page.getByRole('status').filter({ hasText: 'Saved at' })).toHaveCount(0)
   await expect(page.locator('canvas')).toHaveCount(0)
   await expect(page.getByPlaceholder('Your text')).toHaveCount(0)
 

@@ -1,22 +1,26 @@
 import { SERVER_FAILED_MESSAGE, type SaveState } from './save-controller'
 
 /**
- * What the studio's save indicator says (third outside test pass). Eight
- * controller states come down to five plain phrases in one place:
+ * What the studio's save indicator says. A person should be able to say
+ * where the work is:
  *
- * - Saved privately
  * - Saving… (a change waiting its two seconds, or on the wire)
- * - Couldn't save, retrying (offline, rate limited, a passing server fault)
- * - Couldn't save (needs the creator; the reason shows below the header)
- * - Changed elsewhere (a newer version saved somewhere else)
+ * - Saved at {time}, with "Only you can see it" underneath
+ * - Offline, when the copy is only on this device
  *
- * plus "Waiting for images" while an upload finishes. The indicator has a
- * fixed size, so a change of state never moves the buttons around it.
+ * A rate limit or a passing server fault still says it will retry.
+ * A save that stopped, or a newer version saved somewhere else, says so.
+ * "Waiting for images" covers an upload that has not finished.
+ * The indicator has a fixed size, so a change of state never moves the
+ * buttons around it.
  */
+/** Who can see the open design, for the line under Saved. */
+export type SaveAudience = 'only-you' | 'link' | 'edits-private'
+
 export type SaveIndicator = {
   label: string
   tone: 'quiet' | 'busy' | 'problem'
-  /** Small second line: whether the work is safe on this device. */
+  /** Small second line: where the work is. */
   detail: string | null
   /** Fuller sentence for the tooltip and screen readers. */
   description: string | null
@@ -26,19 +30,50 @@ export type SaveIndicator = {
   needsAction: boolean
 }
 
+/** "Saved at 11:41 am", from the clock on `at` (the viewer's local time). */
+export function savedAtLabel({ at }: { at: Date }) {
+  const hours = at.getHours()
+  const minutes = String(at.getMinutes()).padStart(2, '0')
+  const suffix = hours >= 12 ? 'pm' : 'am'
+  const hour = hours % 12 || 12
+  return `Saved at ${hour}:${minutes} ${suffix}`
+}
+
+function savedDetail({ audience }: { audience: SaveAudience }) {
+  if (audience === 'link') {
+    return 'Anyone with the link can see it'
+  }
+
+  if (audience === 'edits-private') {
+    return 'Latest edits stay private'
+  }
+
+  return 'Only you can see it'
+}
+
 export function saveIndicator({
   state,
   keptLocally,
+  savedAt = null,
+  audience = 'only-you',
 }: {
   state: Pick<SaveState, 'status' | 'message'>
   keptLocally: boolean
+  /** Server time of the saved head. Absent until that time is known. */
+  savedAt?: Date | null
+  audience?: SaveAudience
 }): SaveIndicator {
-  const detail = state.status !== 'saved' && keptLocally ? 'Kept on this device' : null
+  const detail = state.status !== 'saved' && keptLocally ? 'Only on this device' : null
   const base = { detail, description: state.message, canRetryNow: false, needsAction: false }
 
   switch (state.status) {
     case 'saved':
-      return { ...base, label: 'Saved privately', tone: 'quiet', detail: null }
+      return {
+        ...base,
+        label: savedAt && !Number.isNaN(savedAt.getTime()) ? savedAtLabel({ at: savedAt }) : 'Saved',
+        tone: 'quiet',
+        detail: savedDetail({ audience }),
+      }
     case 'unsaved':
     case 'saving':
       return { ...base, label: 'Saving…', tone: 'busy' }
@@ -48,7 +83,7 @@ export function saveIndicator({
       // Rate limited: saving now would only be refused again.
       return { ...base, label: 'Couldn’t save, retrying', tone: 'problem' }
     case 'offline':
-      return { ...base, label: 'Couldn’t save, retrying', tone: 'problem', canRetryNow: true }
+      return { ...base, label: 'Offline', tone: 'problem', canRetryNow: true }
     case 'failed':
       return state.message === SERVER_FAILED_MESSAGE
         ? { ...base, label: 'Couldn’t save, retrying', tone: 'problem', canRetryNow: true }

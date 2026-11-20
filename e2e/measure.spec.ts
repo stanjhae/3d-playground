@@ -43,7 +43,7 @@ test('save acknowledgement and public first image', async ({ page, browser }) =>
     await page.waitForTimeout(300)
   }
 
-  // Edit-to-"Saved privately" as the person sees it, split into the quiet
+  // Edit-to-"Saved at" as the person sees it, split into the quiet
   // period (edit to save request) and the rest (request to visible status).
   const visible: number[] = []
   const toRequest: number[] = []

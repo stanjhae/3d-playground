@@ -29,7 +29,18 @@ export function routeLabel({ pathname }: { pathname: string }) {
     return 'Look'
   }
 
-  return LABELS[pathname.replace(/\/$/, '')] ?? null
+  const key = pathname.replace(/\/$/, '')
+
+  if (Object.hasOwn(LABELS, key)) {
+    return LABELS[key]
+  }
+
+  // Profiles and shared designs name themselves once they load.
+  if (pathname.startsWith('/s/') || pathname.startsWith('/u/')) {
+    return null
+  }
+
+  return 'Page not found'
 }
 
 export function ownsPageTitle({ pathname }: { pathname: string }) {

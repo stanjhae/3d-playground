@@ -1,3 +1,16 @@
+import { listRailGarments } from './garments'
+
+/** "Gown, Tee and Hoodie" from the names the studio actually offers. */
+function englishList({ items }: { items: readonly string[] }) {
+  if (items.length <= 1) {
+    return items[0] ?? ''
+  }
+
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
+const STUDIO_GARMENTS = englishList({ items: listRailGarments().map((garment) => garment.label) })
+
 /**
  * Every word on the landing page, in one place (docs/claims-audit.md). The
  * sections, the prerendered HTML, the FAQ structured data and the claims
@@ -11,11 +24,11 @@ export type ClaimState = 'working' | 'concept'
 export type LandingFaqItem = { question: string; answer: string }
 
 export const LANDING_SEO = {
-  title: 'Design a T-shirt in 3D · Fashion Leader Vote',
+  title: 'Design garments in 3D · Fashion Leader Vote',
   /** The landing's tab label; `pageTitle` adds the brand. */
-  label: 'Design a T-shirt in 3D',
+  label: 'Design garments in 3D',
   description:
-    'Sketch on a 3D T-shirt in your browser. Add words, graphics and colour to the front, back and sleeves, then publish a link and let people vote.',
+    'Try a T-shirt on this page, then design more garments in the studio. Publish a link and let people vote.',
   imageAlt: 'Fashion Leader Vote: sketch it, see it in 3D, put it to the vote.',
 } as const
 
@@ -35,7 +48,7 @@ export const LANDING_COPY = {
       'Draw, type or drop a graphic on a T-shirt and watch it change in 3D as you go. No pattern-making, nothing to install.',
     tryIt: 'Try it right here, no sign-up.',
     cta: 'Start creating',
-    ctaNote: 'Sign in with an email code. Your sketch comes with you.',
+    ctaNote: 'Open the studio with no account. Sign in when you save or publish. Your sketch comes with you.',
     secondary: 'See how it works',
     proof: ['Front, back and both sleeves', 'Private until you publish', 'Runs in your browser'],
     padLabel: 'Draw here',
@@ -175,8 +188,7 @@ export const LANDING_COPY = {
       },
       {
         question: 'What can I design right now?',
-        answer:
-          'One T-shirt: front, back and both sleeves. A base colour, solid or with stripes or check. Drawing, words, curated graphics and your own images.',
+        answer: `In the studio: ${STUDIO_GARMENTS}. On this page you can try a T-shirt, front, back and both sleeves, with a base colour, solid or with stripes or check, plus drawing, words, curated graphics and your own images.`,
       },
       {
         question: 'Do I need to install anything?',
@@ -209,7 +221,7 @@ export const LANDING_COPY = {
           'Yes. Unpublish any design, or delete your account from My Studio. The Privacy page explains what is stored.',
       },
       {
-        question: 'What’s the waitlist for?',
+        question: 'How do I hear about news?',
         answer: 'Leave your email to hear when there’s news. There’s no invite or date yet.',
       },
     ] satisfies LandingFaqItem[],
@@ -218,12 +230,12 @@ export const LANDING_COPY = {
     title: 'Your first design is',
     titleAccent: 'one sketch away.',
     cta: 'Start creating',
-    note: 'Sign in with an email code. No password.',
+    note: 'No account to start. Sign in when you save or publish.',
     waitlistLabel: 'Not ready yet? Get news by email.',
     waitlistLead: 'Leave your email to hear when there’s news. There’s no invite or date yet.',
     waitlistField: 'Email',
     waitlistPlaceholder: 'you@example.com',
-    waitlistButton: 'Join the waitlist',
+    waitlistButton: 'Get updates',
   },
   footer: {
     tagline: 'Sketch it. See it in 3D. Put it to the vote.',

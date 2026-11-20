@@ -5,7 +5,7 @@ import { deleteAccounts, drawStroke, expectSaved, newEmail, signIn } from './hel
 /**
  * Failure injection and save/recovery races (Q05 #190, S06 #175). Each
  * case checks the visible save status, that no edit is lost, and that
- * "Saved privately" never shows before the server has acknowledged.
+ * "Saved at" never shows before the server has acknowledged.
  */
 
 const emails: string[] = []
@@ -15,16 +15,18 @@ test.afterAll(async () => {
 })
 
 const VERSIONS = '**/api/flp/designs/*/versions'
-const STATUS_SAVED = 'Saved privately'
-/** Offline, rate limited or a passing server fault: one plain phrase (third test pass). */
+const STATUS_SAVED = 'Saved at'
+/** Rate limited or a passing server fault: one plain phrase. A dropped connection says Offline. */
 const RETRYING = 'Couldn’t save, retrying'
+const OFFLINE = 'Offline'
+const KEPT_HERE = 'Only on this device'
 
 type SaveGate = {
   /** How the next save requests are answered, in order; then they pass. */
   plan: Array<(route: Route) => Promise<void>>
   /** Request bodies of every save the page sent. */
   sent: Array<{ at: number; mutationKey: string; baseSeq: number }>
-  /** "Saved privately" shown before the server acknowledged, while armed. */
+  /** "Saved at" shown before the server acknowledged, while armed. */
   early: number
   armed: boolean
   /** While true every save fails as if the network were gone. */
@@ -34,7 +36,7 @@ type SaveGate = {
 }
 
 /**
- * Notes every time a status region turns to "Saved privately", in every
+ * Notes every time a status region turns to "Saved at", in every
  * page load of the context, so a premature success cannot slip between
  * two assertions.
  */
@@ -182,13 +184,13 @@ test('offline mid-save keeps the work and saves it once back online', async ({ p
     await route.abort('internetdisconnected')
   })
   await drawStroke({ page, panel: 'Front' })
-  await statusShows({ page, text: RETRYING })
+  await statusShows({ page, text: OFFLINE })
   await gate.arm()
-  await statusShows({ page, text: 'Kept on this device' })
+  await statusShows({ page, text: KEPT_HERE })
 
   // More work while offline stays pending too.
   await drawStroke({ page, panel: 'Back' })
-  await statusShows({ page, text: RETRYING })
+  await statusShows({ page, text: OFFLINE })
   await page.waitForTimeout(5_000)
   await expect(page.getByRole('status').filter({ hasText: STATUS_SAVED })).toHaveCount(0)
 
@@ -209,8 +211,8 @@ test('an edit made offline survives a reload: the page can\'t load until reconne
   gate.offline = true
   await context.setOffline(true)
   await drawStroke({ page, panel: 'Front' })
-  await statusShows({ page, text: RETRYING })
-  await statusShows({ page, text: 'Kept on this device' })
+  await statusShows({ page, text: OFFLINE })
+  await statusShows({ page, text: KEPT_HERE })
 
   await page.reload().catch(() => {})
   gate.offline = false
@@ -237,7 +239,7 @@ test('offline, with newer work saved elsewhere: reconnecting overwrites nothing 
   gate.offline = true
   await context.setOffline(true)
   await drawStroke({ page, panel: 'Front' })
-  await statusShows({ page, text: RETRYING })
+  await statusShows({ page, text: OFFLINE })
 
   // Another device saves while this one is away (`page.request` isn't offline).
   const elsewhere = structuredClone(original.head.content)
@@ -251,7 +253,7 @@ test('offline, with newer work saved elsewhere: reconnecting overwrites nothing 
   gate.offline = false
   await context.setOffline(false)
   await statusShows({ page, text: 'Changed elsewhere' })
-  await statusShows({ page, text: 'Kept on this device' })
+  await statusShows({ page, text: KEPT_HERE })
 
   const headColor = async ({ id }: { id: string }) => {
     const design = await page.request.get(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -343,7 +345,7 @@ test('429 pauses saving and retries the same save after Retry-After', async ({ p
   await drawStroke({ page, panel: 'Front' })
   await statusShows({ page, text: RETRYING })
   await gate.arm()
-  await statusShows({ page, text: 'Kept on this device' })
+  await statusShows({ page, text: KEPT_HERE })
   await expectSaved({ page })
 
   expect(gate.early).toBe(0)
@@ -361,7 +363,7 @@ test('500s on save show the failure, keep the work and retry the same save by th
   await drawStroke({ page, panel: 'Front' })
   await statusShows({ page, text: RETRYING })
   await gate.arm()
-  await statusShows({ page, text: 'Kept on this device' })
+  await statusShows({ page, text: KEPT_HERE })
   expect((await cloudDesign({ page, designId })).layers).toBe(0)
 
   // Backs off (4 s, then 8 s) and lands without the creator doing anything.
@@ -388,7 +390,7 @@ test('a reload during a slow save offers the local copy instead of losing it', a
 
   await drawStroke({ page, panel: 'Front' })
   await statusShows({ page, text: 'Saving…' })
-  await statusShows({ page, text: 'Kept on this device' })
+  await statusShows({ page, text: KEPT_HERE })
   await page.goto(url)
   release()
 
@@ -485,7 +487,7 @@ test('a save in one tab never drops another tab’s unsaved local copy', async (
   await expectSaved({ page })
   await drawStroke({ page: second, panel: 'Back' })
   await statusShows({ page: second, text: 'Changed elsewhere' })
-  await statusShows({ page: second, text: 'Kept on this device' })
+  await statusShows({ page: second, text: KEPT_HERE })
 
   // Tab A saves again: its acknowledgement clears its own copy only.
   expect((await cloudDesign({ page, designId })).headSeq).toBe(2)
@@ -583,10 +585,10 @@ test('a full local store shows the storage warning and still saves to the cloud'
   gate.plan.push((route) => route.abort('internetdisconnected'))
   await drawStroke({ page, panel: 'Front' })
   await expect(page.getByRole('alert').filter({ hasText: 'This device is out of space for a local copy' })).toBeVisible()
-  await statusShows({ page, text: RETRYING })
+  await statusShows({ page, text: OFFLINE })
   await gate.arm()
   // Nothing claims the work is kept locally when it is not.
-  await expect(page.getByText('Kept on this device')).toHaveCount(0)
+  await expect(page.getByText(KEPT_HERE)).toHaveCount(0)
 
   await expectSaved({ page })
   expect(gate.early).toBe(0)

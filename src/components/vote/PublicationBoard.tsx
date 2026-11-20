@@ -7,6 +7,7 @@ import { COMMUNITY, getFollowingBoard } from '../../lib/community'
 import { BOARD_WINDOWS, type BoardWindow } from '../../lib/flp-api/contract'
 import { getBoard } from '../../lib/flp-api/public-read'
 import type { BoardEntry } from '../../lib/flp-api/publication'
+import { tieLabel } from '../../lib/flp-api/compare'
 import { TIE_RULE, VOTE_RULE } from '../../lib/flp-api/votes'
 import { BOARD_WINDOW_LABEL } from '../../lib/board-view'
 import { getGarment } from '../../lib/garments'
@@ -167,10 +168,10 @@ export function PublicationBoard() {
                 {following ? null : (
                   <span className="absolute top-2 left-2 z-10 flex gap-1">
                     <span
-                      aria-label={`Rank ${design.rank}`}
+                      aria-label={design.tied ? `Tied for rank ${design.rank}` : `Rank ${design.rank}`}
                       className="rounded-full bg-flv-ink px-2.5 py-1 font-body text-xs font-medium text-white"
                     >
-                      #{design.rank}
+                      {design.tied ? tieLabel({ rank: design.rank }) : `#${design.rank}`}
                     </span>
                     {design.tied ? (
                       <span

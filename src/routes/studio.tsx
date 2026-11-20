@@ -497,7 +497,7 @@ function MyStudio() {
           </p>
           {search.saved ? (
             <p role="status" className="font-body text-sm font-medium text-flv-ink">
-              Saved privately. Only you can see it; publish it from its card when you're ready.
+              Saved. Only you can see it; publish it from its card when you're ready.
             </p>
           ) : null}
         </div>
