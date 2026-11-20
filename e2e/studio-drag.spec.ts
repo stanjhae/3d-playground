@@ -219,7 +219,24 @@ test('a mark dragged across a seam from the front onto a sleeve moves to the sle
  */
 async function dragTile({ page, tile, to }: { page: Page; tile: Locator; to: { x: number; y: number } }) {
   await tile.scrollIntoViewIfNeeded()
-  const from = (await tile.boundingBox())!
+  // The tools column can still be settling (the "Fill a whole side" swatches
+  // load above the library and push it down): a press at a point measured
+  // before that lands beside the tile and selects text instead (master CI,
+  // 19 Nov). Wait until the tile holds still and is what sits under the point.
+  let from = (await tile.boundingBox())!
+  await expect(async () => {
+    await tile.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(150)
+    const now = (await tile.boundingBox())!
+    const still = now.x === from.x && now.y === from.y
+    from = now
+    expect(still).toBe(true)
+    const hit = await tile.evaluate(
+      (element, at) => element.contains(document.elementFromPoint(at.x, at.y)),
+      { x: from.x + from.width / 2, y: from.y + from.height / 2 },
+    )
+    expect(hit).toBe(true)
+  }).toPass({ timeout: 15_000 })
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2 + 12, { steps: 4 })
