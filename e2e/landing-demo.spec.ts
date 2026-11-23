@@ -67,10 +67,26 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.mouse.up()
 }
 
-/** Start creating hands the sketch over; read it as the studio will. */
+/**
+ * Start creating hands the sketch over; read it as the studio will. Signed
+ * out, the studio opens at once and takes the hand-off out of storage as it
+ * loads, so it is read as it is written: the link navigates in the page, so
+ * the copy kept on `window` survives.
+ */
 async function handoffLayers(page: Page) {
+  await page.evaluate((key) => {
+    const write = Storage.prototype.setItem
+    Storage.prototype.setItem = function (this: Storage, name: string, value: string) {
+      if (this === sessionStorage && name === key) {
+        ;(window as { handedOff?: string }).handedOff = value
+      }
+
+      write.call(this, name, value)
+    }
+  }, LANDING_HANDOFF_KEY)
   await page.getByRole('link', { name: 'Start creating' }).first().click()
-  const handoff = await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) ?? 'null'), LANDING_HANDOFF_KEY)
+  await expect.poll(() => page.evaluate(() => (window as { handedOff?: string }).handedOff ?? null)).not.toBeNull()
+  const handoff = await page.evaluate(() => JSON.parse((window as { handedOff?: string }).handedOff!))
   return handoff.document.layers as HandoffLayer[]
 }
 
