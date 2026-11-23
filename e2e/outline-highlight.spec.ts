@@ -5,7 +5,7 @@ import { deleteAccounts, drawStroke, expectSaved, newEmail, panelCanvas, signIn 
 /**
  * Tester, 22 Nov: on a patterned garment the shape was hard to see while
  * drawing, and nothing showed which part was being edited. Every side is
- * outlined, the side being edited in the house red, and Outline only
+ * outlined, the side being edited in the house red, and Hide print
  * leaves the print out of the 2D sides.
  */
 
@@ -66,7 +66,7 @@ async function middleColours({ page, panel }: { page: Page; panel: 'Front' | 'Ba
   })
 }
 
-test('the side being edited is outlined in red, and Outline only leaves the print out', async ({ page }) => {
+test('the side being edited is outlined in red, and Hide print leaves the print out', async ({ page }) => {
   test.setTimeout(180_000)
   const email = newEmail({ label: 'outline' })
   emails.push(email)
@@ -94,8 +94,8 @@ test('the side being edited is outlined in red, and Outline only leaves the prin
   // The check fills the middle of the side…
   await expect.poll(async () => middleColours({ page, panel: 'Front' })).toBeGreaterThan(1)
 
-  // …until Outline only leaves them out. The outline stays.
-  const toggle = page.getByRole('button', { name: 'Outline only' })
+  // …until Hide print leaves them out. The outline stays.
+  const toggle = page.getByRole('button', { name: 'Hide print', exact: true })
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
   await expect.poll(async () => middleColours({ page, panel: 'Front' })).toBe(1)

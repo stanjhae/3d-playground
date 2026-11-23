@@ -11,7 +11,7 @@ export const OUTLINE_COLOR = '#1a1c22'
 export const ACTIVE_OUTLINE_COLOR = '#e0141f'
 
 /**
- * The document as the Outline only view draws it: the garment's base colour
+ * The document as the Hide print view draws it: the garment's base colour
  * and pattern are left out, the marks drawn on it stay. Nothing is saved
  * from this; it is the 2D sides' view only.
  */

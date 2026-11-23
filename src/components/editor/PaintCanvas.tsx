@@ -1347,7 +1347,7 @@ export function PaintCanvas({
               'text-flv-muted hover:text-flv-accent': !outlineOnly,
             })}
           >
-            Outline only
+            Hide print
           </button>
         </div>
         <nav

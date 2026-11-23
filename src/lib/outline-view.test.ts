@@ -6,7 +6,7 @@ import { ringOffsets } from './panel-shape'
 import { SELECTION_COLOR } from './selection-chrome'
 
 // Tester, 22 Nov: on a patterned dress the garment's shape was hard to see
-// while drawing; Outline only shows the shape and the marks, not the print.
+// while drawing; Hide print shows the shape and the marks, not the print.
 const pattern = ({ id, visible = true }: { id: string; visible?: boolean }): PatternLayer => ({
   id,
   kind: 'pattern',
@@ -26,7 +26,7 @@ const withLayers = (layers: DesignDocument['layers']): DesignDocument => ({
   layers,
 })
 
-describe('the Outline only view', () => {
+describe('the Hide print view', () => {
   test('leaves out the garment’s own pattern and keeps what was drawn', () => {
     const document = withLayers([pattern({ id: 'base-fill-front' }), pattern({ id: 'placed-stripes' })])
     const view = outlineViewDocument({ document })
