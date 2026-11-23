@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { validateImage } from '../image-validate.ts'
 import { garmentOfTemplate, READABLE_TEMPLATE_IDS, templateForGarment } from '../template-manifest.ts'
+import { orderedPair, pickComparison } from './compare.ts'
 import { BOARD_WINDOWS, type BoardWindow, handleFromPath } from './contract.ts'
 import { BASE_PUBLIC_RENDER_KINDS, PUBLIC_RENDER_KINDS } from './render-kinds.mjs'
 import {
@@ -1122,4 +1123,123 @@ export async function readPublicProfile({
   }
 
   return respond({ status: 200, body: profile })
+}
+
+export type ComparisonPair = { left: FeedEntry; right: FeedEntry }
+
+function feedEntryFromRow({ row }: { row: FeedRow }): FeedEntry {
+  const { rank: _rank, tied: _tied, ...entry } = boardEntry({ ...row, rank: 0 })
+
+  return {
+    ...entry,
+    needsVotes: row.feed_group === 0,
+    voted: row.voted,
+    ...(row.counts_from ? { countsFrom: new Date(row.counts_from).toISOString() } : {}),
+    ...(row.viewer_counts_from ? { votesCountFrom: new Date(row.viewer_counts_from).toISOString() } : {}),
+  }
+}
+
+/**
+ * GET /public/compare — two designs the account has seen least. POST records
+ * which one they chose. Both designs are counted as seen for today.
+ */
+export async function readComparison({
+  admin,
+  viewerId,
+  respond,
+  choice,
+}: {
+  admin: SupabaseClient
+  viewerId: string
+  respond: Respond
+  /** The pair the account was shown, and which side they chose. */
+  choice?: { left: string; right: string; chosen: string } | null
+}) {
+  const { data, error } = await admin.rpc('flp_vote_feed', {
+    p_viewer_id: viewerId,
+    p_template: null,
+    p_after_group: null,
+    p_after_published: null,
+    p_after_slug: null,
+    p_limit: 40,
+  })
+
+  if (error) {
+    console.error('flp compare read failed', { code: error.code })
+    return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+  }
+
+  const rows = (data ?? []) as FeedRow[]
+  const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const counts = rows.length === 0
+    ? { data: [] as { slug: string }[], error: null }
+    : await admin
+        .from('publication_impressions')
+        .select('slug')
+        .in(
+          'slug',
+          rows.map((row) => row.slug),
+        )
+        .gte('shown_on', since)
+
+  if (counts.error) {
+    return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+  }
+
+  const impressions = new Map<string, number>()
+
+  for (const row of counts.data ?? []) {
+    impressions.set(row.slug, (impressions.get(row.slug) ?? 0) + 1)
+  }
+
+  if (choice) {
+    const stored = orderedPair({ left: choice.left, right: choice.right })
+    const shown = new Set(rows.map((row) => row.slug))
+
+    if (!stored || (choice.chosen !== choice.left && choice.chosen !== choice.right) || !shown.has(choice.left) || !shown.has(choice.right)) {
+      return respond({ status: 422, body: { error: { code: 'invalid', message: 'Choose one of the two designs' } } })
+    }
+
+    const saved = await admin.from('publication_comparisons').upsert(
+      {
+        voter_id: viewerId,
+        slug_low: stored.slugLow,
+        slug_high: stored.slugHigh,
+        chosen_slug: choice.chosen,
+      },
+      { onConflict: 'voter_id,slug_low,slug_high' },
+    )
+
+    if (saved.error) {
+      return respond({ status: 500, body: { error: { code: 'internal', message: 'Something went wrong' } } })
+    }
+  }
+
+  const pair = pickComparison({
+    designs: rows.map((row) => ({
+      slug: row.slug,
+      impressions: impressions.get(row.slug) ?? 0,
+      publishedAt: row.published_at,
+    })),
+  })
+
+  if (!pair) {
+    return respond({ status: 200, body: { pair: null } })
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+  await admin.from('publication_impressions').upsert(
+    pair.map((slug) => ({ slug, viewer_id: viewerId, shown_on: today })),
+    { onConflict: 'slug,viewer_id,shown_on', ignoreDuplicates: true },
+  )
+
+  const bySlug = new Map(rows.map((row) => [row.slug, row]))
+  const body: { pair: ComparisonPair | null } = {
+    pair: {
+      left: feedEntryFromRow({ row: bySlug.get(pair[0])! }),
+      right: feedEntryFromRow({ row: bySlug.get(pair[1])! }),
+    },
+  }
+
+  return respond({ status: 200, body })
 }

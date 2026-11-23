@@ -26,7 +26,7 @@ test("another account can neither open a design nor see its unsaved local copy",
     route.request().method() === 'POST' ? route.abort('internetdisconnected') : route.continue(),
   )
   await drawStroke({ page, panel: 'Front' })
-  await expect(page.getByText('Kept on this device')).toBeVisible()
+  await expect(page.getByText('Only on this device')).toBeVisible()
   await page.unroute('**/api/flp/designs/*/versions')
 
   // Same browser, different account.

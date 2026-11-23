@@ -66,7 +66,7 @@ test('Save privately returns to My Studio, where the card offers Edit and Publis
   await page.getByRole('button', { name: 'Save privately' }).click()
 
   await expect(page).toHaveURL(/\/studio\?saved=true$/)
-  await expect(page.getByRole('status').filter({ hasText: 'Saved privately. Only you can see it' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Saved. Only you can see it' })).toBeVisible()
 
   // Publishing later and editing are buttons on the card, not a link to discover.
   await page.getByRole('link', { name: 'Publish…', exact: true }).click()

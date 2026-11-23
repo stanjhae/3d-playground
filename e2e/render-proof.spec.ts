@@ -404,7 +404,19 @@ test('a square image looks square on the 2D panel and on the tee, and each panel
   expect(onPanel.width / onPanel.height).toBeLessThan(1.07)
 
   await goToStep({ page, step: 'preview' })
-  const onTee = await magentaShape({ page, picture: await viewFrom({ page, side: 'Front' }) })
+  // On a slow runner the studio can still be mounting the scene after
+  // `sceneShot`'s wait (the terms check comes first): shoot until the
+  // image is on the tee.
+  let onTee = { width: 0, height: 0 }
+  await expect
+    .poll(
+      async () => {
+        onTee = await magentaShape({ page, picture: await viewFrom({ page, side: 'Front' }) })
+        return onTee.width
+      },
+      { timeout: 60_000 },
+    )
+    .toBeGreaterThan(0)
   console.log(`[square] panel ${onPanel.width}x${onPanel.height}, tee ${onTee.width}x${onTee.height}`)
   // Measured from the front camera, with the cloth curving away at the sides.
   expect(onTee.width / onTee.height).toBeGreaterThan(0.85)

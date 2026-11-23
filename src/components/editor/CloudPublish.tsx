@@ -27,7 +27,7 @@ import { loadPublicationStatus, publicationStatusFor, usePublicationStatus } fro
 
 /**
  * Publish an owned cloud design (P03 #181). Only the exact saved version
- * can be published: the panel needs "Saved privately", captures that
+ * can be published: the panel needs "Saved", captures that
  * version's five views (front, three-quarter, back and both sleeves),
  * uploads them, then moves the public pointer.
  */
@@ -223,7 +223,7 @@ export function CloudPublish() {
       // The views must belong to the version being published.
       if (useEditorStore.getState().cloud?.headSeq !== headSeq) {
         setBusy(null)
-        setMessage('The design changed while publishing. Wait for Saved privately, then try again.')
+        setMessage('The design changed while publishing. Wait for Saved, then try again.')
         return
       }
 
@@ -389,7 +389,7 @@ export function CloudPublish() {
       >
         {copyFeedback ??
           (!saved
-            ? 'Publishing is available once the design shows Saved privately.'
+            ? 'Publishing is available once the design shows Saved.'
             : (message ?? notice ?? renderBlocked))}
       </p>
 

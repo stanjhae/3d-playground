@@ -11,8 +11,11 @@ import vercelJson from '../../vercel.json?raw'
  */
 
 type Rewrite = { source: string; destination: string; has?: unknown[] }
+type Redirect = { source: string; destination: string; permanent?: boolean }
 
-const rewrites = (JSON.parse(vercelJson) as { rewrites: Rewrite[] }).rewrites
+const config = JSON.parse(vercelJson) as { rewrites: Rewrite[]; redirects?: Redirect[] }
+const rewrites = config.rewrites
+const redirects = config.redirects ?? []
 
 /** Vercel's source patterns, as far as this file uses them: groups, `:param` and `:param*`. */
 function sourceToRegex(source: string) {
@@ -47,6 +50,13 @@ describe('vercel.json routes', () => {
     expect(routes).toEqual(expect.arrayContaining(['/', '/create', '/studio', '/vote']))
 
     for (const path of routes) {
+      // The catch-all is what the 404 document renders. Rewriting it would
+      // answer unknown URLs with 200.
+      if (path === '/$') {
+        expect(servesApp('/nope'), 'the catch-all must not be a rewrite').toBe(false)
+        continue
+      }
+
       // Shared designs go through the share-page function, which serves the shell itself.
       if (path.startsWith('/s/')) {
         expect(rewrites.some((rule) => rule.source === '/s/:slug')).toBe(true)
@@ -61,5 +71,10 @@ describe('vercel.json routes', () => {
     for (const path of ['/nope', '/create-something', '/studio/extra', '/vote/1/2', '/u']) {
       expect(servesApp(path), `${path} would answer 200`).toBe(false)
     }
+  })
+
+  test('/sign-up redirects to sign-in and is not an app rewrite', () => {
+    expect(redirects).toContainEqual({ source: '/sign-up', destination: '/sign-in', permanent: false })
+    expect(servesApp('/sign-up')).toBe(false)
   })
 })

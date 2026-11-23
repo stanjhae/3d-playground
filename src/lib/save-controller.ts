@@ -55,7 +55,7 @@ export type SaveControllerOptions = {
   headSeq: number
   revision: number
   save: (request: SaveRequest) => Promise<FlpResult<VersionResponse>>
-  onAcknowledged?: (ack: { headSeq: number; revision: number }) => void
+  onAcknowledged?: (ack: { headSeq: number; revision: number; savedAt?: string }) => void
   newKey?: () => string
   debounceMs?: number
   retryMs?: number
@@ -206,7 +206,7 @@ export function createSaveController(options: SaveControllerOptions) {
       serverFailures = 0
       keys.delete(sent.revision)
       emit({ savedRevision: sent.revision, headSeq: result.data.seq, message: null })
-      onAcknowledged?.({ headSeq: result.data.seq, revision: sent.revision })
+      onAcknowledged?.({ headSeq: result.data.seq, revision: sent.revision, savedAt: result.data.createdAt })
       afterAcknowledged({ revision: sent.revision })
       return
     }
@@ -343,7 +343,7 @@ export function createSaveController(options: SaveControllerOptions) {
       const savedRevision = Math.max(state.savedRevision, revision)
       keys.delete(revision)
       emit({ savedRevision, headSeq: result.data.seq, message: null })
-      onAcknowledged?.({ headSeq: result.data.seq, revision })
+      onAcknowledged?.({ headSeq: result.data.seq, revision, savedAt: result.data.createdAt })
       afterAcknowledged({ revision: savedRevision })
       return result
     }

@@ -7,9 +7,11 @@ import {
   codeFlowErrorFromAuth,
   sendErrorFromAuth,
   codeFlowReducer,
+  CODE_ENTRY_MAX,
   CODE_LIFETIME_MS,
   forgetCodeStep,
   isValidEmail,
+  codeFieldValue,
   normalizeCode,
   normalizeEmail,
   rememberCodeStep,
@@ -66,6 +68,10 @@ describe('code flow', () => {
     expect(normalizeCode({ value: '123-456' })).toBe('123456')
     expect(normalizeCode({ value: '12345' })).toBeNull()
     expect(normalizeCode({ value: '12345a' })).toBeNull()
+    expect(codeFieldValue({ value: '123 456' })).toBe('123456')
+    expect(codeFieldValue({ value: '123-456' })).toBe('123456')
+    expect(codeFieldValue({ value: '12ab3456789' })).toBe('123456')
+    expect(CODE_ENTRY_MAX).toBeGreaterThanOrEqual('123 456'.length)
   })
 
   test('request → code step with a resend countdown', () => {

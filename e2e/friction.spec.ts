@@ -75,7 +75,7 @@ test('skip link, page titles and focus on route change', async ({ page }) => {
 
   await page.getByRole('contentinfo').getByRole('link', { name: 'Privacy' }).focus()
   await page.getByRole('banner').getByRole('link', { name: 'Home' }).click()
-  await expect(page).toHaveTitle('Design a T-shirt in 3D · Fashion Leader Vote')
+  await expect(page).toHaveTitle('Design garments in 3D · Fashion Leader Vote')
   await expect(page.getByRole('main')).toBeFocused()
 
   // A page that places focus itself keeps it.

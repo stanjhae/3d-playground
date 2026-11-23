@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { SERVER_FAILED_MESSAGE, type SaveStatus } from './save-controller'
-import { saveIndicator } from './save-indicator'
+import { saveIndicator, savedAtLabel } from './save-indicator'
 import { saveIndicatorClass } from './studio-chrome'
 
 const label = (status: SaveStatus, message: string | null = null) =>
@@ -9,10 +9,18 @@ const label = (status: SaveStatus, message: string | null = null) =>
 
 describe('save indicator', () => {
   test('eight save states come down to a few plain phrases', () => {
-    expect(label('saved')).toBe('Saved privately')
+    expect(label('saved')).toBe('Saved')
+    expect(savedAtLabel({ at: new Date(2026, 10, 20, 11, 41) })).toBe('Saved at 11:41 am')
+    expect(
+      saveIndicator({
+        state: { status: 'saved', message: null },
+        keptLocally: false,
+        savedAt: new Date(2026, 10, 20, 11, 41),
+      }).label,
+    ).toBe('Saved at 11:41 am')
     expect(label('unsaved')).toBe('Saving…')
     expect(label('saving')).toBe('Saving…')
-    expect(label('offline')).toBe('Couldn’t save, retrying')
+    expect(label('offline')).toBe('Offline')
     expect(label('paused')).toBe('Couldn’t save, retrying')
     expect(label('failed', SERVER_FAILED_MESSAGE)).toBe('Couldn’t save, retrying')
     expect(label('failed', 'Sign in required')).toBe('Couldn’t save')
@@ -30,11 +38,23 @@ describe('save indicator', () => {
     expect(needs('saving')).toBe(false)
   })
 
-  test('says the work is kept on this device until it is saved', () => {
+  test('says where the work is: on this device until saved, then only you can see it', () => {
     expect(saveIndicator({ state: { status: 'offline', message: null }, keptLocally: true }).detail).toBe(
-      'Kept on this device',
+      'Only on this device',
     )
-    expect(saveIndicator({ state: { status: 'saved', message: null }, keptLocally: true }).detail).toBeNull()
+    expect(saveIndicator({ state: { status: 'saved', message: null }, keptLocally: true }).detail).toBe(
+      'Only you can see it',
+    )
+    expect(
+      saveIndicator({ state: { status: 'saved', message: null }, keptLocally: false, audience: 'link' }).detail,
+    ).toBe('Anyone with the link can see it')
+    expect(
+      saveIndicator({
+        state: { status: 'saved', message: null },
+        keptLocally: false,
+        audience: 'edits-private',
+      }).detail,
+    ).toBe('Latest edits stay private')
   })
 
   test('Try again is offered only where saving now can help', () => {

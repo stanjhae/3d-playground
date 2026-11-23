@@ -108,7 +108,7 @@ test('ties on Ranking are marked and the rule is on the page', async ({ page }) 
   const second = await publishTee({ page })
 
   await page.goto('/ranking')
-  await expect(page.getByTestId('tie-rule')).toContainText('share a rank and are marked Tied')
+  await expect(page.getByTestId('tie-rule')).toContainText('share a rank, shown as =3')
 
   // Both have no votes: the same rank, each marked tied.
   const cards = [first, second].map(({ slug }) => page.getByRole('listitem').filter({ has: page.locator(`a[href="/s/${slug}"]`) }))
@@ -116,7 +116,7 @@ test('ties on Ranking are marked and the rule is on the page', async ({ page }) 
 
   for (const card of cards) {
     await expect(card.getByText('Tied', { exact: true })).toBeVisible()
-    ranks.push(await card.getByLabel(/^Rank \d+$/).getAttribute('aria-label'))
+    ranks.push(await card.getByLabel(/^Tied for rank \d+$/).getAttribute('aria-label'))
   }
 
   expect(ranks[0]).toBe(ranks[1])

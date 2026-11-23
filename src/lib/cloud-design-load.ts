@@ -75,6 +75,7 @@ export async function loadCloudDesign({
       headSeq: result.data.head.seq,
       title: result.data.title,
       description: result.data.description,
+      savedAt: result.data.head.createdAt,
     },
   })
   return { ok: true }

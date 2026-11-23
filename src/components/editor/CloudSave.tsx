@@ -22,7 +22,8 @@ import {
 import { type CopyAttempt, createCopyAttempt } from '../../lib/copy-attempt'
 import { createOwnedDesign } from '../../lib/flp-api/client'
 import type { SaveController, SaveState } from '../../lib/save-controller'
-import { saveIndicator } from '../../lib/save-indicator'
+import { type SaveAudience, saveIndicator } from '../../lib/save-indicator'
+import { publicationStatusFor, usePublicationStatus } from '../../lib/publication-status'
 import { saveIndicatorClass } from '../../lib/studio-chrome'
 import { cn } from '../../lib/cn'
 import { trackAssumption } from '../../lib/assumption-events'
@@ -134,6 +135,34 @@ function useCopyAttempt({ designId }: { designId: string | null }) {
 
 const COPY_FAILED = 'The copy could not be saved. Your changes are still here; try again.'
 
+/** The server time of the open head, or null when that time is unknown. */
+function savedAtFromCloud({ savedAt }: { savedAt: string | undefined }) {
+  if (!savedAt) {
+    return null
+  }
+
+  const at = new Date(savedAt)
+  return Number.isNaN(at.getTime()) ? null : at
+}
+
+function audienceFor({
+  publication,
+  designId,
+  headSeq,
+}: {
+  publication: ReturnType<typeof usePublicationStatus.getState>['current']
+  designId: string
+  headSeq: number
+}): SaveAudience {
+  const current = publicationStatusFor({ current: publication, designId })
+
+  if (current.status !== 'known' || !current.publication || current.publication.status !== 'published') {
+    return 'only-you'
+  }
+
+  return current.publication.seq === headSeq ? 'link' : 'edits-private'
+}
+
 const quiet =
   'inline-flex min-h-9 items-center px-2 font-body text-xs tracking-[0.08em] uppercase underline-offset-4 hover:text-flv-accent hover:underline disabled:opacity-50'
 
@@ -148,12 +177,18 @@ export function CloudSaveStatus() {
   const controller = useCloudSaveStore((store) => store.controller)
   const cloud = useEditorStore((store) => store.cloud)
   const local = useRecoveryStore((store) => store.local)
+  const publication = usePublicationStatus((store) => store.current)
 
   if (!state || !cloud) {
     return null
   }
 
-  const indicator = saveIndicator({ state, keptLocally: local.status === 'kept' })
+  const indicator = saveIndicator({
+    state,
+    keptLocally: local.status === 'kept',
+    savedAt: state.status === 'saved' ? savedAtFromCloud({ savedAt: cloud.savedAt }) : null,
+    audience: audienceFor({ publication, designId: cloud.designId, headSeq: cloud.headSeq }),
+  })
   const description = [indicator.label, indicator.detail, indicator.description].filter(Boolean).join('. ')
 
   return (

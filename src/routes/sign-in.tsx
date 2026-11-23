@@ -3,10 +3,12 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 
 import {
   CODE_FLOW_MESSAGES,
+  CODE_ENTRY_MAX,
   CODE_LENGTH,
   SESSION_ENDED_MESSAGE,
   codeFlowErrorFromAuth,
   codeFlowReducer,
+  codeFieldValue,
   forgetCodeStep,
   isValidEmail,
   normalizeCode,
@@ -56,6 +58,7 @@ function SignIn() {
   )
   const [emailDraft, setEmailDraft] = useState('')
   const [codeDraft, setCodeDraft] = useState('')
+  const [sendingLong, setSendingLong] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const emailRef = useRef<HTMLInputElement>(null)
   const codeRef = useRef<HTMLInputElement>(null)
@@ -82,6 +85,18 @@ function SignIn() {
     const target = state.step === 'code' ? codeRef.current : emailRef.current
     target?.focus()
   }, [state.step, state.error])
+
+  // The code step waits for the email service. After a few seconds, say so
+  // instead of leaving a frozen "Sending…".
+  useEffect(() => {
+    if (!state.busy || state.step !== 'email') {
+      setSendingLong(false)
+      return
+    }
+
+    const timer = window.setTimeout(() => setSendingLong(true), 3000)
+    return () => window.clearTimeout(timer)
+  }, [state.busy, state.step])
 
   async function requestCode({ email }: { email: string }) {
     if (!client) {
@@ -188,9 +203,13 @@ function SignIn() {
             name="code"
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={CODE_LENGTH * 2}
+            maxLength={CODE_ENTRY_MAX}
             value={codeDraft}
-            onChange={(event) => setCodeDraft(event.target.value)}
+            onChange={(event) => setCodeDraft(codeFieldValue({ value: event.target.value }))}
+            onPaste={(event) => {
+              event.preventDefault()
+              setCodeDraft(codeFieldValue({ value: event.clipboardData.getData('text') }))
+            }}
             aria-invalid={state.error ? true : undefined}
             aria-describedby={errorMessage ? 'sign-in-error' : undefined}
             className={cn(fieldClass, 'tracking-[0.4em]', {
@@ -259,12 +278,11 @@ function SignIn() {
             className={buttonClass}
             disabled={state.busy || secondsLeft > 0}
           >
-            {state.busy
-              ? 'Sending…'
-              : secondsLeft > 0
-                ? `Try again in ${secondsLeft}s`
-                : 'Email me a code'}
+            {state.busy ? (sendingLong ? 'Still sending…' : 'Sending…') : secondsLeft > 0 ? `Try again in ${secondsLeft}s` : 'Email me a code'}
           </button>
+          {sendingLong ? (
+            <p className="font-body text-sm text-flv-muted">The email service is still sending your code.</p>
+          ) : null}
         </form>
       )}
 

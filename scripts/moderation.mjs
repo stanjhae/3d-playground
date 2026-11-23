@@ -7,6 +7,7 @@ import {
   activeHolds,
   clearModerationHold,
   hideCommentAsOperator,
+  listVoteAudit,
   moderationStatus,
   openReports,
   resolveReport,
@@ -27,6 +28,7 @@ import {
  *   … node scripts/moderation.mjs reports
  *   … node scripts/moderation.mjs dismiss|action <report id> --by "<your name>"
  *   … node scripts/moderation.mjs votes <slug or link>
+ *   … node scripts/moderation.mjs audit
  *   … node scripts/moderation.mjs hide-comment <comment id> --by "<your name>"
  *
  * reports lists open reports, oldest first; dismiss and action close one
@@ -51,9 +53,9 @@ const [command, target] = positionals
 const url = process.env.SUPABASE_URL
 const secretKey = process.env.SUPABASE_SECRET_KEY
 const usage =
-  'Usage: SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs status|takedown|clear|list|reports|dismiss|action|votes|hide-comment [<slug, link, report or comment id>] [--reason "…"] [--by "…"] [--confirm]'
+  'Usage: SUPABASE_URL=… SUPABASE_SECRET_KEY=… node scripts/moderation.mjs status|takedown|clear|list|reports|dismiss|action|votes|audit|hide-comment [<slug, link, report or comment id>] [--reason "…"] [--by "…"] [--confirm]'
 
-if (!url || !secretKey || !['status', 'takedown', 'clear', 'list', 'reports', 'dismiss', 'action', 'votes', 'hide-comment'].includes(command ?? '')) {
+if (!url || !secretKey || !['status', 'takedown', 'clear', 'list', 'reports', 'dismiss', 'action', 'votes', 'audit', 'hide-comment'].includes(command ?? '')) {
   console.error(usage)
   process.exit(1)
 }
@@ -82,6 +84,16 @@ try {
   if (command === 'list') {
     const holds = await activeHolds({ admin })
     console.log(holds.length ? holds.map((hold) => `${hold.slug}  ${hold.heldAt}  ${hold.heldBy}: ${hold.reason}`).join('\n') : 'No holds in force.')
+    process.exit(0)
+  }
+
+  if (command === 'audit') {
+    const rows = await listVoteAudit({ admin })
+    console.log(
+      rows.length
+        ? rows.map((row) => `${row.createdAt}  ${row.flag}  ${row.slug}  ${row.voterId}${row.detail ? `  ${row.detail}` : ''}`).join('\n')
+        : 'No vote signals.',
+    )
     process.exit(0)
   }
 

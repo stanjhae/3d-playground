@@ -128,7 +128,7 @@ test('a palm never ends, joins or starts a pen stroke', async ({ page }) => {
 
 test('an unknown address shows a way home', async ({ page }) => {
   await page.goto('/no-such-page')
-  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
-  await page.getByRole('link', { name: 'Go to the home page' }).click()
+  await expect(page.getByRole('heading', { name: 'That page isn’t here' })).toBeVisible()
+  await page.getByRole('link', { name: 'Back to the home page' }).click()
   await expect(page).toHaveURL(/\/$/)
 })
