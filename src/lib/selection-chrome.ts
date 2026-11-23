@@ -6,12 +6,13 @@
  * the outline off while the views are captured (#156).
  */
 
-export const SELECTION_COLOR = '#c4a15a'
+/** The house accent (`--color-flv-accent`): what is selected reads as the thing being edited (tester, 22 Nov). */
+export const SELECTION_COLOR = '#e0141f'
 
 /**
  * Whether a mesh is one open layer of cloth. The outline is an inflated
  * back-facing shell, so on such a mesh the shell shows through the neck,
- * armholes, cuffs and hem as a speckled gold lining instead of an edge: it
+ * armholes, cuffs and hem as a speckled lining instead of an edge: it
  * gets none. That is
  * - a garment draped from its pattern (`body-pattern`: a baked GLB, or the
  *   live drape in Pattern mode), and
