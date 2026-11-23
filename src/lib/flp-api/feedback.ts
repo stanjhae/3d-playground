@@ -1,5 +1,4 @@
 import { apiError, type ApiError } from './contract.ts'
-import { type FlpResult, call, publicRead } from './client.ts'
 
 export const PRICE_BANDS = ['under_25', '25_50', '50_100', 'over_100', 'skip'] as const
 export const FEEDBACK_SIZES = ['xs', 's', 'm', 'l', 'xl'] as const
@@ -170,27 +169,4 @@ export function storedFeedbackAnswer({
   })
 
   return parsed.ok ? parsed.answer : null
-}
-
-const feedbackPath = ({ slug }: { slug: string }) => `public/${encodeURIComponent(slug)}/feedback`
-
-export function getFeedback({ slug, fetchImpl }: { slug: string; fetchImpl?: typeof fetch }): Promise<FlpResult<FeedbackView>> {
-  return publicRead<FeedbackView>({
-    path: feedbackPath({ slug }),
-    fetchImpl,
-    notFound: 'This design is not available',
-    failed: 'Feedback could not load',
-  })
-}
-
-export function putFeedback({
-  slug,
-  answer,
-  fetchImpl,
-}: {
-  slug: string
-  answer: FeedbackAnswer
-  fetchImpl?: typeof fetch
-}) {
-  return call<FeedbackView>({ path: feedbackPath({ slug }), method: 'POST', body: answer, fetchImpl })
 }

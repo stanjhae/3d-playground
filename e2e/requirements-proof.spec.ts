@@ -189,7 +189,8 @@ test('a sign-in code can be pasted, with the spaces an email client may add', as
     document.addEventListener('paste', () => ((window as { pasted?: boolean }).pasted = true))
   }, ` ${code.slice(0, 3)} ${code.slice(3)} `)
   await page.keyboard.press('ControlOrMeta+V')
-  await expect(field).toHaveValue(` ${code.slice(0, 3)} ${code.slice(3)} `)
+  // Only the digits are kept, so the spaced paste lands as the six digits.
+  await expect(field).toHaveValue(code)
   expect(await page.evaluate(() => (window as { pasted?: boolean }).pasted)).toBe(true)
 
   await page.getByRole('button', { name: 'Sign in' }).click()

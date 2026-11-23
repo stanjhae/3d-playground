@@ -32,15 +32,21 @@ export function canonicalSketchHasWork({ document }: { document: CanonicalDocume
   )
 }
 
-/** Which sketch to save: the one still open, else the copy on this device. */
+/**
+ * Which sketch to save: the one still open, else the copy on this device.
+ * An open cloud design is already the account's, not a guest sketch: after
+ * editing one, Create must offer a new design, not save a copy of it.
+ */
 export function guestSketchSource({
+  memoryIsCloud,
   memoryHasWork,
   draftHasWork,
 }: {
+  memoryIsCloud: boolean
   memoryHasWork: boolean
   draftHasWork: boolean
 }): 'memory' | 'draft' | 'none' {
-  if (memoryHasWork) {
+  if (memoryHasWork && !memoryIsCloud) {
     return 'memory'
   }
 
@@ -78,6 +84,7 @@ export async function adoptGuestSketch({
 } = {}): Promise<GuestAdoptResult> {
   const memory = getCanonicalDocument()
   const source = guestSketchSource({
+    memoryIsCloud: useEditorStore.getState().cloud !== null,
     memoryHasWork: canonicalSketchHasWork({ document: memory }),
     draftHasWork: false,
   })

@@ -14,9 +14,8 @@ import {
   type FeedbackSummary,
   type FeedbackTag,
   type PriceBand,
-  getFeedback,
-  putFeedback,
 } from '../../lib/flp-api/feedback'
+import { getFeedback, putFeedback } from '../../lib/flp-api/feedback-client'
 
 const chipClass =
   'inline-flex min-h-9 items-center border border-flv-line px-3 font-body text-xs text-flv-ink hover:border-flv-accent'

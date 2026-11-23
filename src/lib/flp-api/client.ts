@@ -194,7 +194,9 @@ async function callOnce<T>({
   }
 
   if (!response.ok) {
-    const error = payload && 'error' in payload ? payload.error : undefined
+    // A failure outside the API (a crashed dev server, a proxy) can send `{ error: "text" }`.
+    const raw = payload && typeof payload === 'object' && 'error' in payload ? payload.error : undefined
+    const error = raw && typeof raw === 'object' ? raw : undefined
     const code = (error?.code as ApiErrorCode | undefined) ?? 'internal'
     const retryAfter = response.status === 429 ? Number(response.headers.get('retry-after')) || 5 : undefined
 

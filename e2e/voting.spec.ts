@@ -238,7 +238,7 @@ test('a new design shows on Vote, is voted on from its card, and then counts on 
   await expect(visitor.getByRole('heading', { name: 'Ranking', exact: true })).toBeVisible()
   const ranked = visitor.getByRole('listitem').filter({ has: visitor.locator(`a[href="/s/${slug}"]`) })
   await expect(ranked.getByTestId('vote-count')).toHaveText('1 vote')
-  await expect(ranked.getByLabel(/^Rank \d+$/)).toBeVisible()
+  await expect(ranked.getByLabel(/^(?:Tied for rank|Rank) \d+$/)).toBeVisible()
 
   await visitorContext.close()
 })

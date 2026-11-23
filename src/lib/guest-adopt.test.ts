@@ -14,8 +14,12 @@ describe('guest sketch adoption', () => {
   })
 
   test('the open sketch wins over the draft, and a blank visit saves nothing', () => {
-    expect(guestSketchSource({ memoryHasWork: true, draftHasWork: true })).toBe('memory')
-    expect(guestSketchSource({ memoryHasWork: false, draftHasWork: true })).toBe('draft')
-    expect(guestSketchSource({ memoryHasWork: false, draftHasWork: false })).toBe('none')
+    expect(guestSketchSource({ memoryIsCloud: false, memoryHasWork: true, draftHasWork: true })).toBe('memory')
+    expect(guestSketchSource({ memoryIsCloud: false, memoryHasWork: false, draftHasWork: true })).toBe('draft')
+    expect(guestSketchSource({ memoryIsCloud: false, memoryHasWork: false, draftHasWork: false })).toBe('none')
+  })
+
+  test('an open cloud design is the account’s already, so it is never saved again', () => {
+    expect(guestSketchSource({ memoryIsCloud: true, memoryHasWork: true, draftHasWork: false })).toBe('none')
   })
 })
