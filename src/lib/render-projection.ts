@@ -386,6 +386,7 @@ export function toRenderDocument({
         y: layer.y,
         scale: layer.scale,
         ...scaleYOf(layer),
+        ...(layer.curve ? { curve: layer.curve } : {}),
         opacity: layer.opacity,
         visible: layer.visible,
         ...flipsOf(layer),

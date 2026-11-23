@@ -1,3 +1,4 @@
+import { curvedBox } from './text-curve'
 import { LAYER_SCALE_RANGE, clampLayerScale } from './layer-scale'
 import type {
   DesignDocument,
@@ -104,12 +105,14 @@ function atlasBox({
 }) {
   if (layer.kind === 'text') {
     const letters = Math.max(1, layer.content.trim().length)
-
-    return {
+    const straight = {
       width: Math.max(0.1, layer.scale * (0.7 + letters * 0.36)),
       // A stretched word (reader R2) is taller or shorter, never wider.
       height: Math.max(0.06, (layer.scaleY ?? layer.scale) * 0.9),
     }
+
+    // A word on an arc fills the arc's box (tester, 22 Nov).
+    return layer.curve ? curvedBox({ ...straight, curve: layer.curve }) : straight
   }
 
   // Uploaded images keep their natural aspect (E03 #154), so selection

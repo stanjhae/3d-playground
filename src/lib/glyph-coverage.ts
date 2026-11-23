@@ -1,5 +1,9 @@
 import type { CanonicalTextFace } from './canonical-document'
 import { GLYPH_COVERAGE } from './glyph-coverage.gen'
+import { TEXT_FACE_CATALOGUE } from './text-face-catalogue'
+
+/** Faces offered as a switch when a word won't draw, widest coverage first. */
+const SUGGESTED_FACES: CanonicalTextFace[] = ['sans', 'display', 'slab', 'condensed', 'mono']
 
 /**
  * Glyph coverage of the bundled text faces (#155). The table is generated
@@ -8,10 +12,9 @@ import { GLYPH_COVERAGE } from './glyph-coverage.gen'
  * back to whatever font the viewer's machine has.
  */
 
-export const FACE_NAMES: Record<CanonicalTextFace, string> = {
-  display: 'Display',
-  sans: 'Sans',
-}
+export const FACE_NAMES = Object.fromEntries(
+  Object.values(TEXT_FACE_CATALOGUE).map((info) => [info.face, info.label]),
+) as Record<CanonicalTextFace, string>
 
 export function faceCovers({ face, codePoint }: { face: CanonicalTextFace; codePoint: number }) {
   const ranges = GLYPH_COVERAGE[face]
@@ -107,9 +110,10 @@ export function glyphMessage({ text, face }: { text: string; face: CanonicalText
 
   const shown = characters.slice(0, 5)
   const more = characters.length - shown.length
-  const other: CanonicalTextFace = face === 'display' ? 'sans' : 'display'
-  const otherFits = unsupportedCharacters({ text, face: other }).length === 0
+  // Another face that draws all of it, if there is one: the plain faces first.
+  const other = SUGGESTED_FACES.find((candidate) => candidate !== face && unsupportedCharacters({ text, face: candidate }).length === 0)
+  const otherFits = other !== undefined
   const it = characters.length > 1 ? 'them' : 'it'
 
-  return `The ${face} face can't draw ${quoteList({ characters: shown })}${more > 0 ? ` (and ${more} more)` : ''}. Remove ${it}${otherFits ? ` or switch to ${FACE_NAMES[other]}` : ''}.`
+  return `The ${FACE_NAMES[face].toLowerCase()} face can't draw ${quoteList({ characters: shown })}${more > 0 ? ` (and ${more} more)` : ''}. Remove ${it}${otherFits ? ` or switch to ${FACE_NAMES[other]}` : ''}.`
 }

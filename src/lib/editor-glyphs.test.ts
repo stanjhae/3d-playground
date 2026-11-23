@@ -53,7 +53,7 @@ describe('glyph validation in the editor (#155)', () => {
     store().addText({ content: 'Hi 字', face: 'display' })
 
     expect(frontWords()).toEqual([])
-    expect(store().limitNotice).toBe('The display face can\'t draw “字”. Remove it.')
+    expect(store().limitNotice).toBe('The serif face can\'t draw “字”. Remove it.')
     expect(store()).toMatchObject({ revision, undoCount })
   })
 
@@ -61,7 +61,7 @@ describe('glyph validation in the editor (#155)', () => {
     store().addText({ content: 'Жар', face: 'sans' })
 
     expect(frontWords()).toEqual([])
-    expect(store().limitNotice).toBe('The sans face can\'t draw “Ж”, “а” or “р”. Remove them or switch to Display.')
+    expect(store().limitNotice).toBe('The sans face can\'t draw “Ж”, “а” or “р”. Remove them or switch to Serif.')
 
     store().addText({ content: 'Жар', face: 'display' })
     expect(frontWords()).toEqual([{ content: 'Жар', face: 'display' }])
@@ -99,7 +99,7 @@ describe('glyph validation in the editor (#155)', () => {
     ).not.toThrow()
 
     expect(store().limitNotice).toBe(
-      'A word on the back has characters its face can\'t draw. The display face can\'t draw “字”. Remove it.',
+      'A word on the back has characters its face can\'t draw. The serif face can\'t draw “字”. Remove it.',
     )
 
     // Moving it or editing other words is fine; fixing the word clears the notice.
