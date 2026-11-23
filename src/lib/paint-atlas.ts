@@ -942,6 +942,49 @@ function placeholderBuffer({ width, height }: { width: number; height: number })
   return source
 }
 
+const saturated = new WeakMap<AtlasBuffer, Map<number, AtlasBuffer>>()
+
+/**
+ * An image's colours at `saturation`: 0 is black and white (luminance,
+ * Rec. 709), 1 as it is, above 1 richer. Alpha is kept.
+ */
+export function adjustSaturation({ image, saturation }: { image: AtlasBuffer; saturation: number }): AtlasBuffer {
+  const pixels = new Uint8ClampedArray(image.pixels.length)
+
+  for (let index = 0; index < image.pixels.length; index += 4) {
+    const r = image.pixels[index] ?? 0
+    const g = image.pixels[index + 1] ?? 0
+    const b = image.pixels[index + 2] ?? 0
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    pixels[index] = luminance + (r - luminance) * saturation
+    pixels[index + 1] = luminance + (g - luminance) * saturation
+    pixels[index + 2] = luminance + (b - luminance) * saturation
+    pixels[index + 3] = image.pixels[index + 3] ?? 0
+  }
+
+  return { ...image, pixels }
+}
+
+/** `adjustSaturation`, once per image and amount. */
+function saturatedImage({ image, saturation }: { image: AtlasBuffer; saturation: number }) {
+  let byAmount = saturated.get(image)
+
+  if (!byAmount) {
+    byAmount = new Map()
+    saturated.set(image, byAmount)
+  }
+
+  const cached = byAmount.get(saturation)
+
+  if (cached) {
+    return cached
+  }
+
+  const made = adjustSaturation({ image, saturation })
+  byAmount.set(saturation, made)
+  return made
+}
+
 function drawGraphicMark({
   buffer,
   layer,
@@ -988,7 +1031,7 @@ function drawGraphicMark({
 
   blitBuffer({
     dest: buffer,
-    source: image,
+    source: layer.saturation === undefined || layer.saturation === 1 ? image : saturatedImage({ image, saturation: layer.saturation }),
     destX: pixel.column - width / 2,
     destY: pixel.row - (height * stretchY) / 2,
     destWidth: width,
