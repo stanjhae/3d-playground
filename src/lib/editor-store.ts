@@ -826,6 +826,11 @@ function layerPatchChanges({
     return true
   }
 
+  // An image's colour strength; absent means as uploaded (1).
+  if (patch.saturation !== undefined && layer.kind === 'graphic' && patch.saturation !== (layer.saturation ?? 1)) {
+    return true
+  }
+
   if (patch.rotation !== undefined && patch.rotation !== layer.rotation) {
     return true
   }

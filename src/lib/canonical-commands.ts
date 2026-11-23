@@ -49,6 +49,8 @@ export type CanonicalLayerPatch = {
   flipY?: boolean
   /** true locks the layer; false removes the flag, as locks are stored only when on. */
   locked?: boolean
+  /** An image's colour strength; 1 (as uploaded) removes it. */
+  saturation?: number
 }
 
 /**
@@ -363,7 +365,7 @@ function applyToDocument({
       found.layer.kind === 'paint' || found.layer.kind === 'fill'
         ? ['opacity', 'visible', 'name', 'locked']
         : found.layer.kind === 'image'
-          ? ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked']
+          ? ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked', 'saturation']
           : ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY', 'locked']
 
     for (const [key, value] of Object.entries(command.patch)) {
@@ -390,6 +392,11 @@ function applyToDocument({
     // one form per look, so `scaleY` goes.
     if ('scaleY' in found.layer && found.layer.scaleY === found.layer.scale) {
       delete found.layer.scaleY
+    }
+
+    // An image back at its own colour leaves `saturation` out.
+    if (found.layer.kind === 'image' && found.layer.saturation === 1) {
+      delete found.layer.saturation
     }
 
     return { ok: true, document: next }

@@ -199,6 +199,11 @@ export type CanonicalImageLayer = LayerCommon &
      * `scale`-sided square, so aspect 1 reproduces legacy square stamps.
      */
     aspect: number
+    /**
+     * Colour strength: 0 is black and white, 1 as uploaded (left out), up
+     * to 2 for richer colour (tester, 22 Nov).
+     */
+    saturation?: number
   }
 
 export type CanonicalTextLayer = LayerCommon &
@@ -877,9 +882,12 @@ const LAYER_FIELDS: Record<CanonicalLayerKind, readonly string[]> = {
   fill: [...LAYER_COMMON_FIELDS, 'source', 'tile', 'rotation'],
 }
 
+/** The richest colour an image may be given (`saturation`); 0 is black and white. */
+export const IMAGE_SATURATION_MAX = 2
+
 const LAYER_OPTIONAL_FIELDS: Record<CanonicalLayerKind, readonly string[]> = {
   paint: ['name', 'locked'],
-  image: ['name', 'locked', 'flipX', 'flipY', 'scaleY'],
+  image: ['name', 'locked', 'flipX', 'flipY', 'scaleY', 'saturation'],
   text: ['name', 'locked', 'flipX', 'flipY', 'scaleY'],
   fill: ['name', 'locked', 'offsetX', 'offsetY'],
 }
@@ -926,6 +934,15 @@ function checkLayer({
   for (const flag of ['locked', 'flipX', 'flipY'] as const) {
     if (flag in value && value[flag] !== true) {
       report({ context, path: `${path}.${flag}`, message: 'expected true, or left out' })
+    }
+  }
+
+  if (kind === 'image' && 'saturation' in value) {
+    checkNumber({ context, value: value.saturation, path: `${path}.saturation`, min: 0, max: IMAGE_SATURATION_MAX })
+
+    // One form per look: an image as uploaded leaves it out.
+    if (value.saturation === 1) {
+      report({ context, path: `${path}.saturation`, message: 'equal to 1; leave it out' })
     }
   }
 

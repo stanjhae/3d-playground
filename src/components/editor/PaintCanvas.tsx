@@ -54,7 +54,7 @@ import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { clothColorOf } from '../../lib/cloth-color'
 import { cn } from '../../lib/cn'
-import { BringToFront, Copy, Trash2 } from 'lucide-react'
+import { BringToFront, Copy, SendToBack, Trash2 } from 'lucide-react'
 import { LOCKED_NOTICE, announce, flashNotice } from '../../lib/studio-announcer'
 import { PanelShapeIcon } from './PanelShapeIcon'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
@@ -375,7 +375,7 @@ function WordOnCloth({
 
 /** Chest line and collar band, faint and out of the pointer's way. */
 /**
- * Remove, Duplicate and Bring forward right beside the selected mark, so
+ * Remove, Duplicate, Bring forward and Send backward right beside the selected mark, so
  * nobody hunts for them (tester feedback). Sits above the mark, or below it
  * when the mark is near the top of the panel; hidden while it is dragged.
  */
@@ -456,6 +456,18 @@ function SelectionToolbar({
         }}
       >
         <BringToFront aria-hidden className="size-4" />
+      </button>
+      {/* Behind another mark too, without hunting for the Layers panel (tester, 22 Nov). */}
+      <button
+        type="button"
+        aria-label={`Send ${name} backward`}
+        title="Send backward"
+        className={button}
+        onClick={() => {
+          moveLayer({ layerId: layer.id, direction: 'down' })
+        }}
+      >
+        <SendToBack aria-hidden className="size-4" />
       </button>
     </div>
   )
