@@ -1,4 +1,5 @@
-import type { DesignDocument, DesignLayer, Stroke } from './design-document'
+import type { DesignDocument, DesignLayer, PatternId, Stroke } from './design-document'
+import { isMotifId, motifInk } from './base-motifs'
 import { imageBox } from './canonical-document'
 import { MAX_ART_MAP_CHARS, isSafeDataImage } from './look-thumbnail'
 import {
@@ -727,7 +728,12 @@ function drawPatternMark({
  * stripes ink every other band of `y`, a check every other square. The
  * base and a fill layer (reader R2) share it, so they draw alike.
  */
-function periodicInk({ patternId, x, y }: { patternId: 'stripe' | 'check' | 'gradient'; x: number; y: number }) {
+function periodicInk({ patternId, x, y }: { patternId: PatternId; x: number; y: number }) {
+  // Dots, chevron, houndstooth, honeycomb, scales and leopard (tester, 22 Nov).
+  if (isMotifId(patternId)) {
+    return motifInk({ motif: patternId, x, y })
+  }
+
   const stripe = Math.floor(y)
   return patternId === 'check' ? (Math.floor(x) + stripe) % 2 === 0 : stripe % 2 === 0
 }

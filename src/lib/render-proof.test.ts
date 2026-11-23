@@ -352,11 +352,16 @@ describe('image proportions (template @3)', () => {
 
 describe('approved presets', () => {
   test('the base pattern ids are pinned, because saved designs and the buttons refer to them', () => {
-    expect(BASE_KINDS).toEqual(['solid', 'stripes', 'check'])
+    // `motif` holds the further patterns by name (tester, 22 Nov).
+    expect(BASE_KINDS).toEqual(['solid', 'stripes', 'check', 'motif'])
 
-    for (const [patternId, kind] of [['stripe', 'stripes'], ['check', 'check'], ['solid', 'solid']] as const) {
+    for (const [patternId, kind] of [['stripe', 'stripes'], ['check', 'check'], ['solid', 'solid'], ['honeycomb', 'motif']] as const) {
       store().setBasePattern({ patternId })
       expect(getCanonicalDocument().base.kind).toBe(kind)
     }
+
+    store().setBasePattern({ patternId: 'honeycomb' })
+    expect(getCanonicalDocument().base).toMatchObject({ kind: 'motif', motif: 'honeycomb' })
+    expect(store().basePatternId).toBe('honeycomb')
   })
 })

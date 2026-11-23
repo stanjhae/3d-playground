@@ -1,3 +1,4 @@
+import type { MotifId } from './base-motifs'
 import { patternAvailable } from './pattern-beta'
 import type { CanonicalPattern } from './pattern/pattern-document'
 import { drapeFabricFor, withDrapeFabric } from './pattern/fabric-drape'
@@ -120,7 +121,7 @@ export const DESIGN_TOOLS = ['draw', 'text', 'graphics', 'upload'] as const
 export type DesignTool = (typeof DESIGN_TOOLS)[number]
 export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'left' | 'right' | 'orbit'
 export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
-export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
+export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient' | MotifId
 
 export type { AvatarMeasurements } from './avatar-geometry'
 
@@ -615,10 +616,9 @@ function restoreShelf({ garmentId }: { garmentId: GarmentId }) {
   return commandStack
 }
 
-const TEE_BASE_PATTERN: Record<CanonicalDocument['base']['kind'], BasePatternId> = {
-  solid: 'solid',
-  stripes: 'stripe',
-  check: 'check',
+/** The picker's pattern for a saved base. */
+function teeBasePattern({ base }: { base: CanonicalDocument['base'] }): BasePatternId {
+  return base.kind === 'motif' ? base.motif : base.kind === 'stripes' ? 'stripe' : base.kind
 }
 
 function syncFromStack({
@@ -638,7 +638,7 @@ function syncFromStack({
       redoCount: tee.stack.future.length,
       limitNotice: documentNotice({ document: tee.stack.document }),
       // The picker follows the document, so undo and reopening keep it true.
-      basePatternId: TEE_BASE_PATTERN[tee.stack.document.base.kind],
+      basePatternId: teeBasePattern({ base: tee.stack.document.base }),
       // So does the fabric (writer W): a reload shows the saved cloth.
       baseFabricId: tee.stack.document.base.fabric ?? null,
       ...extra,
