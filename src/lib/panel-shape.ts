@@ -125,6 +125,128 @@ export function outsideVeil({
   return canvas
 }
 
+const outlines = new Map<string, HTMLCanvasElement>()
+
+function shapeMask({ triangles, width, height }: { triangles: number[]; width: number; height: number }) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    return null
+  }
+
+  context.fillStyle = '#000'
+  context.beginPath()
+
+  for (let i = 0; i + 5 < triangles.length; i += 6) {
+    context.moveTo(triangles[i]! * width, (1 - triangles[i + 1]!) * height)
+    context.lineTo(triangles[i + 2]! * width, (1 - triangles[i + 3]!) * height)
+    context.lineTo(triangles[i + 4]! * width, (1 - triangles[i + 5]!) * height)
+    context.closePath()
+  }
+
+  context.fill()
+  // As in the veil: the hairline closes slivers between triangles.
+  context.lineWidth = 1
+  context.strokeStyle = '#000'
+  context.stroke()
+  return canvas
+}
+
+/** The `lineWidth` offsets a ring is grown by: eight directions and the centre. */
+export function ringOffsets({ lineWidth }: { lineWidth: number }) {
+  const offsets: [number, number][] = [[0, 0]]
+
+  for (let step = 0; step < 8; step += 1) {
+    const angle = (step / 8) * Math.PI * 2
+    // `+ 0` turns a rounded -0 into 0.
+    offsets.push([Math.round(Math.cos(angle) * lineWidth) + 0, Math.round(Math.sin(angle) * lineWidth) + 0])
+  }
+
+  return offsets
+}
+
+/**
+ * The panel's silhouette as a line just inside its printable shape, at the
+ * panel canvas's size; cached per model, panel, size, colour and width.
+ * The edge of the canvas counts as outside, so a side that fills its
+ * rectangle is still outlined all round. Studio chrome only: published
+ * art never sees it.
+ */
+export function panelOutline({
+  src,
+  panel,
+  triangles,
+  width,
+  height,
+  color,
+  lineWidth,
+}: {
+  src: string
+  panel: PanelId
+  triangles: number[]
+  width: number
+  height: number
+  color: string
+  lineWidth: number
+}): HTMLCanvasElement | null {
+  const key = `${src}|${panel}|${width}x${height}|${color}|${lineWidth}`
+  const cached = outlines.get(key)
+
+  if (cached) {
+    return cached
+  }
+
+  if (triangles.length === 0) {
+    return null
+  }
+
+  const shape = shapeMask({ triangles, width, height })
+  const outside = document.createElement('canvas')
+  const grown = document.createElement('canvas')
+  const ring = document.createElement('canvas')
+
+  for (const canvas of [outside, grown, ring]) {
+    canvas.width = width
+    canvas.height = height
+  }
+
+  const outsideContext = outside.getContext('2d')
+  const grownContext = grown.getContext('2d')
+  const ringContext = ring.getContext('2d')
+
+  if (!shape || !outsideContext || !grownContext || !ringContext) {
+    return null
+  }
+
+  // Everything off the shape…
+  outsideContext.fillStyle = '#000'
+  outsideContext.fillRect(0, 0, width, height)
+  outsideContext.globalCompositeOperation = 'destination-out'
+  outsideContext.drawImage(shape, 0, 0)
+
+  // …grown by the line's width, with the canvas edge counted as off it…
+  for (const [dx, dy] of ringOffsets({ lineWidth })) {
+    grownContext.drawImage(outside, dx, dy)
+  }
+
+  grownContext.strokeStyle = '#000'
+  grownContext.lineWidth = lineWidth * 2
+  grownContext.strokeRect(0, 0, width, height)
+
+  // …where it overlaps the shape is the line.
+  ringContext.drawImage(shape, 0, 0)
+  ringContext.globalCompositeOperation = 'destination-in'
+  ringContext.drawImage(grown, 0, 0)
+  ringContext.globalCompositeOperation = 'source-in'
+  ringContext.fillStyle = color
+  ringContext.fillRect(0, 0, width, height)
+  outlines.set(key, ring)
+  return ring
+}
+
 /** Every panel's printable triangles in a loaded model, from its print UVs. */
 export function shapesFromScene({
   scene,

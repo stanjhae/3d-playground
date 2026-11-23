@@ -33,7 +33,8 @@ import {
 } from '../../lib/design-document'
 import { CONCEPT_FEATURES } from '../../lib/concept-flags'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
-import { shapesFromScene, usePanelShapes } from '../../lib/panel-shape'
+import { ACTIVE_OUTLINE_COLOR } from '../../lib/outline-view'
+import { panelOutline, shapesFromScene, usePanelShapes } from '../../lib/panel-shape'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { getCanonicalDocument, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
@@ -358,6 +359,12 @@ export function SeatedForm({
   const activeStroke = useEditorStore((state) => state.activeStroke)
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
   const panelFlash = useEditorStore((state) => state.panelFlash)
+  // The side being drawn on is outlined on the garment too (tester, 22 Nov):
+  // only while designing, and never in the stills a publish captures.
+  const outlinedPanel = useEditorStore((state) =>
+    picking && state.createStep === 'design' && !state.capturingAngles ? state.paintPanel : null,
+  )
+  const panelShapes = usePanelShapes((state) => (state.src === inkDocument.modelSrc ? state.shapes : null))
   const loadedMaps = useTexture(FABRIC_MAP_SRC)
   // The studio's Surface choice; anywhere else, each fabric's own relief.
   const storeSurface = useEditorStore((state) => state.surface)
@@ -551,10 +558,33 @@ export function SeatedForm({
       }
     }
 
+    const outlineTriangles = outlinedPanel && inkDocument.panelUv?.[outlinedPanel] ? panelShapes?.[outlinedPanel] : undefined
+    let outlined = false
+
+    if (outlinedPanel && outlineTriangles && inkDocument.modelSrc) {
+      const source = atlasSourceRect({ panel: outlinedPanel, width: buffer.width, height: buffer.height, rects: inkDocument.panelUv })
+      const width = Math.max(1, Math.round(source.sourceWidth))
+      const height = Math.max(1, Math.round(source.sourceHeight))
+      const ring = panelOutline({
+        src: inkDocument.modelSrc,
+        panel: outlinedPanel,
+        triangles: outlineTriangles,
+        width,
+        height,
+        color: ACTIVE_OUTLINE_COLOR,
+        lineWidth: Math.max(2, Math.round(buffer.width / 256)),
+      })
+
+      if (ring) {
+        canvas.getContext('2d')?.drawImage(ring, source.sourceX, source.sourceY, width, height)
+        outlined = true
+      }
+    }
+
     texture.needsUpdate = true
 
     const hasInk =
-      documentHasInk({ document: inkDocument }) || Boolean(picking && activeStroke) || Boolean(flashing)
+      documentHasInk({ document: inkDocument }) || Boolean(picking && activeStroke) || Boolean(flashing) || outlined
 
     bindInkMap({
       meshes,
@@ -577,7 +607,7 @@ export function SeatedForm({
         },
       })
     }
-  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, panelFlash, picking, textFaces])
+  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, outlinedPanel, panelFlash, panelShapes, picking, textFaces])
 
   // Nothing is on screen to be current once this form goes.
   useEffect(() => () => useAtlasBuild.setState({ build: null }), [])

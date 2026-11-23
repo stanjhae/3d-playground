@@ -14,7 +14,7 @@ import { trackAssumption } from '../../lib/assumption-events'
 import type { DesignDocument, PanelId } from '../../lib/design-document'
 import { type DesignTool, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
 import { surfaceGesture } from '../../lib/surface-gesture'
-import { outsideVeil, usePanelShapes } from '../../lib/panel-shape'
+import { outsideVeil, panelOutline, usePanelShapes } from '../../lib/panel-shape'
 import { PanelShapeLoader } from './PanelShapeLoader'
 import { GRAPHIC_DROP_EVENT, type GraphicDropDetail, carriesGraphic, droppedGraphic } from '../../lib/graphic-drag'
 import { type PanelGuides, panelGuides } from '../../lib/panel-guides'
@@ -49,6 +49,7 @@ import { paintSurfacePanels } from '../../lib/paint-layout'
 import { createLiveAtlas } from '../../lib/paint-atlas'
 import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { SELECTION_COLOR } from '../../lib/selection-chrome'
+import { ACTIVE_OUTLINE_COLOR, OUTLINE_COLOR, OUTLINE_GROUND, outlineViewDocument } from '../../lib/outline-view'
 import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { clothColorOf } from '../../lib/cloth-color'
@@ -62,6 +63,8 @@ import { CANONICAL_LIMITS } from '../../lib/canonical-document'
 
 /** Older templates draw every panel at 6:7; `@3` at each region's own shape. */
 const DEFAULT_PANEL_ASPECT = 6 / 7
+/** The garment's outline on a 2D side, in canvas pixels. */
+const OUTLINE_WIDTH = 2
 
 function panelCanvasSize({ aspect }: { aspect: number }) {
   if (aspect === DEFAULT_PANEL_ASPECT) {
@@ -173,6 +176,8 @@ function paintPanelSurface({
   rects,
   ground,
   veil = null,
+  outline = null,
+  outlineColor,
 }: {
   canvas: HTMLCanvasElement
   atlas: HTMLCanvasElement
@@ -182,6 +187,9 @@ function paintPanelSurface({
   ground: string
   /** Shades what lies off the garment, so the panel shows its true shape. */
   veil?: HTMLCanvasElement | null
+  /** The garment's silhouette line (`panelOutline`); absent, the panel's edge is outlined. */
+  outline?: HTMLCanvasElement | null
+  outlineColor: string
   /** The document's panel rectangles (absent: the tee's). */
   rects?: DesignDocument['panelUv']
 }) {
@@ -215,6 +223,17 @@ function paintPanelSurface({
 
   if (veil) {
     context.drawImage(veil, 0, 0, canvas.width, canvas.height)
+  }
+
+  // The garment's shape stays readable over any print (tester, 22 Nov).
+  if (outline) {
+    context.drawImage(outline, 0, 0, canvas.width, canvas.height)
+  } else {
+    context.save()
+    context.strokeStyle = outlineColor
+    context.lineWidth = OUTLINE_WIDTH
+    context.strokeRect(OUTLINE_WIDTH / 2, OUTLINE_WIDTH / 2, canvas.width - OUTLINE_WIDTH, canvas.height - OUTLINE_WIDTH)
+    context.restore()
   }
 
   // A hidden layer, or the garment's own base pattern, gets no frame to grab.
@@ -541,7 +560,9 @@ function PaintSurface({
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
   const shapes = usePanelShapes((state) => state.shapes)
   const shapeSrc = usePanelShapes((state) => state.src)
-  const ground = clothColorOf({ document: documentState })
+  const outlineOnly = useEditorStore((state) => state.outlineOnly)
+  const ground = outlineOnly ? OUTLINE_GROUND : clothColorOf({ document: documentState })
+  const outlineColor = active ? ACTIVE_OUTLINE_COLOR : OUTLINE_COLOR
 
 
   useEffect(() => {
@@ -565,8 +586,21 @@ function PaintSurface({
         modelSrc && triangles
           ? outsideVeil({ src: modelSrc, panel, triangles, width: canvas.width, height: canvas.height })
           : null,
+      outline:
+        modelSrc && triangles
+          ? panelOutline({
+              src: modelSrc,
+              panel,
+              triangles,
+              width: canvas.width,
+              height: canvas.height,
+              color: outlineColor,
+              lineWidth: OUTLINE_WIDTH,
+            })
+          : null,
+      outlineColor,
     })
-  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, ground, panel, selected, shapeSrc, shapes])
+  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, ground, outlineColor, panel, selected, shapeSrc, shapes])
 
   // Two fingers on a selected mark resize and turn it, as on the cloth
   // (`ClothTwoFinger`). Whatever the first finger began (a stroke, a drag)
@@ -1213,13 +1247,19 @@ export function PaintCanvas({
 
     return ref
   }
+  const outlineOnly = useEditorStore((state) => state.outlineOnly)
+  const setOutlineOnly = useEditorStore((state) => state.setOutlineOnly)
+  const viewDocument = useMemo(
+    () => (outlineOnly ? outlineViewDocument({ document: liveDocument }) : liveDocument),
+    [liveDocument, outlineOnly],
+  )
   const atlas = useMemo(() => {
     if (typeof document === 'undefined') {
       return null
     }
 
     const buffer = liveAtlas({
-      document: liveDocument,
+      document: viewDocument,
       extraStroke: activeStroke,
       extraStrokeLayerId: liveStrokeLayerId({ stroke: activeStroke }),
       width: 512,
@@ -1237,7 +1277,7 @@ export function PaintCanvas({
     )
     scratch.getContext('2d')?.putImageData(image, 0, 0)
     return scratch
-  }, [activeStroke, layerImages, liveAtlas, liveDocument, textFaces])
+  }, [activeStroke, layerImages, liveAtlas, textFaces, viewDocument])
 
   useEffect(() => {
     if (!selected || selected.kind !== 'text') {
@@ -1295,7 +1335,21 @@ export function PaintCanvas({
         </Suspense>
       ) : null}
       <div className="flex items-center justify-between gap-3">
-        <p className={chromeKickerClass()}>Every side</p>
+        <div className="flex flex-wrap items-center gap-x-3">
+          <p className={chromeKickerClass()}>Every side</p>
+          {/* A busy print can hide the garment's shape while drawing (tester, 22 Nov). */}
+          <button
+            type="button"
+            aria-pressed={outlineOnly}
+            onClick={() => setOutlineOnly({ outlineOnly: !outlineOnly })}
+            className={cn('inline-flex min-h-11 items-center', chromeTextClass(), {
+              'text-flv-accent': outlineOnly,
+              'text-flv-muted hover:text-flv-accent': !outlineOnly,
+            })}
+          >
+            Outline only
+          </button>
+        </div>
         <nav
           aria-label={HOUSE_COPY.draw}
           className={cn('flex flex-wrap justify-end gap-x-3', {

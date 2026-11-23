@@ -222,6 +222,12 @@ type EditorState = {
   baseFabricId: CanonicalFabricId | null
   /** Surface relief shown on chosen fabrics; a view setting, not saved. */
   surface: SurfaceChoice
+  /**
+   * The 2D sides show only the garment's outline and what was drawn, not its
+   * colour or pattern, so a busy print doesn't hide the shape (tester, 22 Nov).
+   * A view setting, not saved.
+   */
+  outlineOnly: boolean
   setMode: ({ mode }: { mode: EditorMode }) => void
   selectMesh: ({ selectedMeshName }: { selectedMeshName: string | null }) => void
   setGarmentId: ({ garmentId }: { garmentId: GarmentId }) => void
@@ -316,6 +322,7 @@ type EditorState = {
   setBasePattern: ({ patternId }: { patternId: BasePatternId }) => void
   setBaseFinish: ({ finishId }: { finishId: BaseFinishId }) => void
   setSurface: ({ surface }: { surface: SurfaceChoice }) => void
+  setOutlineOnly: ({ outlineOnly }: { outlineOnly: boolean }) => void
   copyLayerToOpposite: ({ layerId }: { layerId: string }) => void
   duplicateLayer: ({ layerId }: { layerId: string }) => void
   /** Remembers the selected mark or word for `pasteLayer`, this session only. */
@@ -918,6 +925,7 @@ const INITIAL_EDITOR_STATE = {
   baseFinishId: 'matte' as BaseFinishId,
   baseFabricId: null as CanonicalFabricId | null,
   surface: 'preset' as SurfaceChoice,
+  outlineOnly: false,
 }
 
 /** The tee's canonical v2 document, for cloud saving (S04 #173). */
@@ -1517,6 +1525,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setSurface: ({ surface }) => {
     set({ surface })
+  },
+  setOutlineOnly: ({ outlineOnly }) => {
+    set({ outlineOnly })
   },
   setBasePattern: ({ patternId }) => {
     set((state) => {
