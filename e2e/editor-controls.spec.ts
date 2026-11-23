@@ -83,7 +83,11 @@ async function addWord({ page, word }: { page: Page; word: string }) {
   await type.press('Enter')
 }
 
-/** How the panel's pixels look: changed from the paper colour, matching `match`, and the darkest found. */
+/**
+ * How the panel's pixels look: changed from the paper colour, matching
+ * `match`, and the darkest along the middle row the strokes cross (the side's
+ * outline runs along its edges and would always be darkest).
+ */
 async function panelPixels({ page, panel, match }: { page: Page; panel: Panel; match?: string }) {
   return panelCanvas({ page, panel }).evaluate((node, hex) => {
     const canvas = node as HTMLCanvasElement
@@ -94,9 +98,12 @@ async function panelPixels({ page, panel, match }: { page: Page; panel: Panel; m
 
     for (let at = 0; at < data.length; at += 4) {
       const rgb = [data[at]!, data[at + 1]!, data[at + 2]!]
+      const x = (at / 4) % canvas.width
+      const y = Math.floor(at / 4 / canvas.width)
+      const inBand = x > canvas.width * 0.35 && x < canvas.width * 0.65 && y > canvas.height * 0.45 && y < canvas.height * 0.55
       changed += rgb.some((value, index) => Math.abs(value - paper[index]!) > 12) ? 1 : 0
       matching += wanted && rgb.every((value, index) => Math.abs(value - wanted[index]!) < 12) ? 1 : 0
-      darkest = Math.min(darkest, (rgb[0]! + rgb[1]! + rgb[2]!) / 3)
+      darkest = inBand ? Math.min(darkest, (rgb[0]! + rgb[1]! + rgb[2]!) / 3) : darkest
     }
 
     return { changed, matching, darkest, picture: canvas.toDataURL() }
