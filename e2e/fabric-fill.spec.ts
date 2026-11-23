@@ -41,6 +41,42 @@ async function goToStep({ page, step }: { page: Page; step: 'color' | 'design' |
   await expectSaved({ page })
 }
 
+test('Surface changes a plain tee too, and Cotton, Wool, Denim and Silk each look their own', async ({ page }) => {
+  // Tester, 22 Nov: switching fabrics barely changed the look, and Surface seemed to do nothing.
+  test.setTimeout(150_000)
+  await newTee({ page, label: 'surface' })
+  await goToStep({ page, step: 'color' })
+  const material = page.getByTestId('garment-material')
+  const surface = page.getByRole('group', { name: 'Surface' })
+
+  // The plain tee shows its own cloth; Surface swaps the relief, or takes it away.
+  await expect(material).toHaveAttribute('data-detail', /^(own|knit|none)$/, { timeout: 30_000 })
+  const own = (await material.getAttribute('data-detail'))!
+  await surface.getByRole('button', { name: 'Twill' }).click()
+  await expect(material).toHaveAttribute('data-detail', 'twill')
+  await surface.getByRole('button', { name: 'None' }).click()
+  await expect(material).toHaveAttribute('data-detail', 'none')
+  await surface.getByRole('button', { name: 'Fabric’s own' }).click()
+  await expect(material).toHaveAttribute('data-detail', own)
+
+  // Each of the four reads differently: its relief, how rough it is, and its sheen.
+  const chooser = page.getByTestId('fabric-chooser')
+  const looks: string[] = []
+
+  for (const name of ['Cotton', 'Wool', 'Denim', 'Silk']) {
+    await chooser.getByRole('button', { name, exact: true }).click()
+    await expect(chooser.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(material).not.toHaveAttribute('data-map-id', '')
+    looks.push(
+      [await material.getAttribute('data-detail'), await material.getAttribute('data-roughness'), await material.getAttribute('data-sheen')].join(' '),
+    )
+  }
+
+  expect(new Set(looks).size).toBe(4)
+  expect(looks[0]).toBe('knit 0.95 0')
+  expect(looks[2]).toBe('twill 0.85 0')
+})
+
 test('picking Satin saves base.fabric, changes the 3D cloth, keeps the colour and survives a reload', async ({ page }) => {
   test.setTimeout(150_000)
   await newTee({ page, label: 'fabric' })

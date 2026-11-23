@@ -5,6 +5,7 @@ import {
   BufferAttribute,
   CanvasTexture,
   Color,
+  type Material,
   Matrix4,
   Mesh,
   MeshPhysicalMaterial,
@@ -45,7 +46,7 @@ import { ATLAS_COMPILER_VERSION, artworkState, useAtlasBuild } from '../../lib/a
 import { createLiveAtlas } from '../../lib/paint-atlas'
 import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { useTextFacesVersion } from '../../lib/text-faces'
-import { detailNormalMap } from '../../lib/fabric-detail'
+import { detailNormalMap, resolveDetail } from '../../lib/fabric-detail'
 import { FABRIC_MAP_SRC } from '../../lib/fabric-maps'
 import { readGarmentMaterial, useGarmentMaterialProbe } from '../../lib/garment-material-probe'
 import { createClothingMesh } from '../../lib/tee-geometry'
@@ -343,6 +344,13 @@ function GltfGarment({
   )
 }
 
+/**
+ * Each cloth material's own relief (a model's normal map, or none), kept
+ * the first time the Surface choice is applied, so "Fabric's own" puts it
+ * back. A WeakMap, as a material's `userData` is copied through JSON.
+ */
+const ownNormalMaps = new WeakMap<Material, Texture | null>()
+
 export function SeatedForm({
   scene,
   inkDocument,
@@ -477,19 +485,33 @@ export function SeatedForm({
     })
 
     // After the overrides, which can swap a mesh's material for a new one.
-    // The built tee is knit; a chosen fabric's own relief (or none) wins.
-    if (clothDetail) {
-      for (const mesh of meshes) {
-        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-          if (
-            material instanceof MeshStandardMaterial &&
-            !material.normalMap &&
-            material.userData.detailId === undefined &&
-            surface !== 'none'
-          ) {
-            material.normalMap = detailNormalMap({ id: 'knit' })
-            material.needsUpdate = true
-          }
+    // With no fabric chosen, the cloth's relief is its own (the built tee's
+    // knit, or a model's own normal map) or the studio's Surface choice; a
+    // chosen fabric's relief (or none) wins over both. The cloth's own map is
+    // kept on the material the first time, so "Fabric's own" puts it back
+    // (tester, 22 Nov: Surface changed nothing on a plain tee).
+    const chosen = surface === 'preset' ? null : resolveDetail({ surface })
+
+    for (const mesh of meshes) {
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        if (!(material instanceof MeshStandardMaterial) || material.userData.detailId !== undefined) {
+          continue
+        }
+
+        if (!ownNormalMaps.has(material)) {
+          ownNormalMaps.set(material, material.normalMap ?? null)
+        }
+
+        const modelOwn = ownNormalMaps.get(material) ?? null
+        const own = modelOwn ?? (clothDetail ? detailNormalMap({ id: 'knit' }) : null)
+        const next = surface === 'preset' ? own : chosen ? detailNormalMap({ id: chosen.id }) : null
+        const label = surface === 'preset' ? (modelOwn ? 'own' : own ? 'knit' : 'none') : (chosen?.id ?? 'none')
+
+        if (material.normalMap !== next || material.userData.clothDetail !== label) {
+          material.normalMap = next
+          material.normalScale.set(chosen?.scale ?? 1, chosen?.scale ?? 1)
+          material.userData.clothDetail = label
+          material.needsUpdate = true
         }
       }
     }

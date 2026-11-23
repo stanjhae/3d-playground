@@ -17,8 +17,8 @@ function surfaceLabel({ surface }: { surface: SurfaceChoice }) {
 }
 
 /**
- * The relief on chosen fabrics: each fabric's own (twill on denim, knit on
- * jersey), another one, or none. A view setting: it is not saved with the
+ * The relief of the cloth: each fabric's own (twill on denim, knit on
+ * jersey), another one, or none; on a plain garment, its knit or another. A view setting: it is not saved with the
  * design, so it needs no document change.
  */
 export function SurfaceChooser() {
@@ -26,9 +26,12 @@ export function SurfaceChooser() {
   const setSurface = useEditorStore((state) => state.setSurface)
 
   return (
-    <div role="group" aria-labelledby="surface-chooser-label" className="flex flex-col gap-2">
+    <div role="group" aria-labelledby="surface-chooser-label" aria-describedby="surface-chooser-hint" className="flex flex-col gap-2 border-t border-flv-line pt-4">
       <p id="surface-chooser-label" className={chromeKickerClass()}>
         {HOUSE_COPY.surface}
+      </p>
+      <p id="surface-chooser-hint" className="font-body text-xs text-flv-muted">
+        {HOUSE_COPY.surfaceHint}
       </p>
       <div className="flex flex-wrap gap-2">
         {SURFACE_CHOICES.map((choice) => (

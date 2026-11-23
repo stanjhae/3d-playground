@@ -43,6 +43,12 @@ export function readGarmentMaterial({ meshes }: { meshes: Mesh[] }): GarmentMate
     sheen: Math.round((physical?.sheen ?? 0) * 1000) / 1000,
     clearcoat: Math.round((physical?.clearcoat ?? 0) * 1000) / 1000,
     opacity: material.transparent ? Math.round(material.opacity * 1000) / 1000 : 1,
-    detailId: typeof material.userData.detailId === 'string' ? material.userData.detailId : null,
+    // A fabric's relief, else the plain cloth's (the knit, or the Surface choice).
+    detailId:
+      typeof material.userData.detailId === 'string'
+        ? material.userData.detailId
+        : typeof material.userData.clothDetail === 'string'
+          ? material.userData.clothDetail
+          : null,
   }
 }
