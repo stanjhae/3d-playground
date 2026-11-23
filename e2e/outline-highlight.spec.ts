@@ -48,6 +48,16 @@ async function colourCounts({ page, panel, color }: { page: Page; panel: 'Front'
   }, color)
 }
 
+/** The saved design's base: what reopening it will show. */
+async function savedBaseKind({ page }: { page: Page }) {
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+  return page.evaluate(async (id) => {
+    const token = JSON.parse(localStorage.getItem('flp-auth')!).access_token
+    const response = await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+    return ((await response.json()).head.content.base as { kind: string }).kind
+  }, designId)
+}
+
 /** How many colours the middle of a panel shows (to 4 bits a channel): a print shows several. */
 async function middleColours({ page, panel }: { page: Page; panel: 'Front' | 'Back' }) {
   return panelCanvas({ page, panel }).evaluate((canvas: HTMLCanvasElement) => {
@@ -78,8 +88,11 @@ test('the side being edited is outlined in red, and Hide print leaves the print 
   const url = new URL(page.url())
   url.searchParams.set('step', 'color')
   await page.goto(url.toString())
-  await page.getByRole('button', { name: 'Check', exact: true }).click()
+  // The reopened design loads first; a pick made before then is replaced by it.
   await expectSaved({ page })
+  await page.getByRole('button', { name: 'Check', exact: true }).click()
+  // "Saved privately" already shows from creating the tee: wait for the check itself.
+  await expect.poll(async () => savedBaseKind({ page }), { timeout: 20_000 }).toBe('check')
   url.searchParams.set('step', 'design')
   await page.goto(url.toString())
 
