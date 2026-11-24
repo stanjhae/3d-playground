@@ -19,6 +19,7 @@ import {
   type Color,
   type ValidationIssue,
   CANONICAL_LIMITS,
+  IMAGE_SATURATION_MAX,
   panelIdsOf,
   createEmptyCanonicalDocument,
   validateCanonicalDocument,
@@ -261,6 +262,9 @@ function translatePatch({
   // Flips are about the item's own axes, so a mirrored panel keeps them as they are.
   if (patch.flipX !== undefined) next.flipX = patch.flipX
   if (patch.flipY !== undefined) next.flipY = patch.flipY
+  if (patch.saturation !== undefined && kind === 'image') {
+    next.saturation = Math.min(IMAGE_SATURATION_MAX, Math.max(0, patch.saturation))
+  }
 
   if (kind === 'text') {
     // Over-long text is refused with a message, never cut (#162).
@@ -375,6 +379,10 @@ export function translateCommand({
           rotation: wrapAngle({ value: layer.rotation }),
           assetId,
           aspect: layer.aspect ?? 1,
+          // A copy keeps its colour strength too; as uploaded it is left out.
+          ...(layer.saturation === undefined || layer.saturation === 1
+            ? {}
+            : { saturation: Math.min(IMAGE_SATURATION_MAX, Math.max(0, layer.saturation)) }),
           ...flipsFrom(layer),
         },
       },

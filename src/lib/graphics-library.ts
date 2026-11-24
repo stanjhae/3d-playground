@@ -8,6 +8,9 @@ import { GRAPHIC_ROWS } from './graphics-catalogue.gen.ts'
  */
 
 export const GRAPHIC_CATEGORIES = [
+  // Zips, buttons, stitching, pockets, collars and wear (tester, 22 Nov):
+  // first, so the row of chips doesn't hide them.
+  { id: 'details', label: 'Details' },
   { id: 'flames', label: 'Flames' },
   { id: 'crosses', label: 'Crosses' },
   { id: 'symbols', label: 'Symbols' },

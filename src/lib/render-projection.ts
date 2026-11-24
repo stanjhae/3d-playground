@@ -334,6 +334,7 @@ export function toRenderDocument({
           opacity: layer.opacity,
           visible: layer.visible,
           ...(layer.aspect !== 1 ? { aspect: layer.aspect } : {}),
+          ...(layer.saturation === undefined ? {} : { saturation: layer.saturation }),
           ...flipsOf(layer),
           ...surface,
           ...label,

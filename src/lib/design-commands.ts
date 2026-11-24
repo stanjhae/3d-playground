@@ -32,6 +32,8 @@ export type LayerPatch = {
   flipY?: boolean
   /** Lock the item where it is; false unlocks it. Paint, images and words only. */
   locked?: boolean
+  /** An image's colour strength: 0 black and white, 1 as uploaded, up to 2. */
+  saturation?: number
 }
 import type { MaterialOverride } from './design-schema'
 
