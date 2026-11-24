@@ -111,6 +111,8 @@ export type GraphicLayer = {
   scale: number
   /** Height scale when stretched (canonical `scaleY`, reader R2); absent means `scale`. */
   scaleY?: number
+  /** Colour strength (canonical `saturation`): 0 black and white; absent as uploaded. */
+  saturation?: number
   rotation: number
   opacity: number
   color?: string
