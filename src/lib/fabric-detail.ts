@@ -140,18 +140,22 @@ type Detail = {
 }
 
 const DETAILS: Record<DetailId, Detail> = {
-  /** The tee's cloth: a fine knit stitch every 4 texels over soft crinkle. */
+  /**
+   * The tee's cloth: a knit stitch every 16 texels over soft crinkle. Finer
+   * stitches averaged away to flat once the texture was minified (tester,
+   * 22 Nov: Surface changed nothing).
+   */
   knit: {
     height: ({ x, y }) =>
-      Math.sin((TAU * x) / 4) * Math.sin((TAU * y) / 4) * 0.07 + crinkle({ x, y }),
+      Math.sin((TAU * x) / 16) * Math.sin((TAU * y) / 16) * 0.9 + crinkle({ x, y }),
     steepness: 0.5,
     repeat: 3,
   },
   /** Diagonal ribs of a 2/1 twill, as on denim and gabardine. */
   twill: {
     height: ({ x, y }) => {
-      const rib = Math.sin((TAU * (x + y)) / 8)
-      return Math.sign(rib) * Math.abs(rib) ** 0.6 * 0.12 + crinkle({ x, y, scale: 0.4 })
+      const rib = Math.sin((TAU * (x + y)) / 32)
+      return Math.sign(rib) * Math.abs(rib) ** 0.6 * 1.9 + crinkle({ x, y, scale: 0.4 })
     },
     steepness: 0.6,
     repeat: 4,
@@ -170,8 +174,8 @@ const DETAILS: Record<DetailId, Detail> = {
   /** Upright ribs of a 1×1 rib knit. */
   rib: {
     height: ({ x, y }) => {
-      const rib = Math.sin((TAU * x) / 8)
-      return Math.abs(rib) ** 0.5 * 0.3 + crinkle({ x, y, scale: 0.3 })
+      const rib = Math.sin((TAU * x) / 32)
+      return Math.abs(rib) ** 0.5 * 1.6 + crinkle({ x, y, scale: 0.3 })
     },
     steepness: 0.5,
     repeat: 4,
@@ -179,19 +183,19 @@ const DETAILS: Record<DetailId, Detail> = {
   /** Satin: smooth long floats, so only a faint horizontal ripple. */
   satin: {
     height: ({ x, y }) =>
-      Math.sin((TAU * y) / 4) * 0.015 + (noise({ x, y, cellsX: 8, cellsY: 64, seed: 5 }) - 0.5) * 0.5,
+      Math.sin((TAU * y) / 32) * 0.35 + (noise({ x, y, cellsX: 8, cellsY: 64, seed: 5 }) - 0.5) * 0.5,
     steepness: 0.4,
     repeat: 2,
   },
   /** Canvas duck: coarse over-under yarns with grit. */
   canvas: {
     height: ({ x, y }) => {
-      const period = 8
+      const period = 32
       const cx = wrap(x)
       const cy = wrap(y)
       const over = (Math.floor(cx / period) + Math.floor(cy / period)) % 2 === 0
       const yarn = over ? Math.sin((Math.PI * (cy % period)) / period) : Math.sin((Math.PI * (cx % period)) / period)
-      return yarn * 0.6 + (noise({ x, y, cells: 64, seed: 31 }) - 0.5) * 0.6
+      return yarn * 2.4 + (noise({ x, y, cells: 64, seed: 31 }) - 0.5) * 0.6
     },
     steepness: 0.5,
     repeat: 4,

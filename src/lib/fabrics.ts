@@ -41,10 +41,14 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     id: 'cotton',
     name: 'Cotton',
     color: '#f3efe6',
-    roughness: 0.86,
+    // Dry and matte, with a soft knit you can see (tester, 22 Nov: the
+    // fabrics looked alike).
+    roughness: 0.95,
     metalness: 0,
     mapId: 'cotton-weave',
     mapRepeat: 4,
+    detailId: 'knit',
+    detailScale: 0.7,
   },
   {
     id: 'silk',
@@ -58,29 +62,33 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     sheenColor: '#fff6ea',
     mapRepeat: 2,
     detailId: 'satin',
-    detailScale: 0.2,
+    detailScale: 0.6,
   },
   {
     id: 'wool',
     name: 'Wool',
     color: '#d8cfc2',
-    roughness: 0.92,
+    roughness: 1,
     metalness: 0,
     mapId: 'wool-nap',
+    // A soft halo of fibres catching the light, over a deep knit.
+    sheen: 0.7,
+    sheenRoughness: 0.9,
+    sheenColor: '#ffffff',
     mapRepeat: 3.4,
     detailId: 'knit',
-    detailScale: 0.5,
+    detailScale: 1.3,
   },
   {
     id: 'denim',
     name: 'Denim',
     color: '#2c3d56',
-    roughness: 0.78,
+    roughness: 0.85,
     metalness: 0,
     mapId: 'denim-twill',
     mapRepeat: 3.2,
     detailId: 'twill',
-    detailScale: 0.8,
+    detailScale: 1.4,
   },
   {
     id: 'leather',
@@ -168,7 +176,7 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     sheenColor: '#fff4e4',
     mapRepeat: 2,
     detailId: 'satin',
-    detailScale: 0.2,
+    detailScale: 0.6,
   },
   {
     id: 'ivory-cotton',
@@ -178,6 +186,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     metalness: 0,
     mapId: 'cotton-weave',
     mapRepeat: 4,
+    detailId: 'knit',
+    detailScale: 0.7,
   },
   {
     id: 'ink-cotton',
@@ -187,6 +197,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     metalness: 0,
     mapId: 'cotton-weave',
     mapRepeat: 4,
+    detailId: 'knit',
+    detailScale: 0.7,
   },
   {
     id: 'atelier-wool',
@@ -197,7 +209,7 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     mapId: 'wool-nap',
     mapRepeat: 3.4,
     detailId: 'knit',
-    detailScale: 0.5,
+    detailScale: 1.3,
   },
   {
     id: 'brass-silk',
@@ -211,7 +223,7 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     sheenColor: '#f3e2b0',
     mapRepeat: 2,
     detailId: 'satin',
-    detailScale: 0.2,
+    detailScale: 0.6,
   },
   {
     id: 'blush-silk',
@@ -225,7 +237,7 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     sheenColor: '#ffe8dc',
     mapRepeat: 2,
     detailId: 'satin',
-    detailScale: 0.2,
+    detailScale: 0.6,
   },
   {
     id: 'oxblood-leather',
@@ -258,7 +270,7 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     mapId: 'denim-twill',
     mapRepeat: 3.2,
     detailId: 'twill',
-    detailScale: 0.8,
+    detailScale: 1.4,
   },
   {
     id: 'meadow-cotton',
@@ -268,6 +280,8 @@ const FABRIC_PRESETS: readonly FabricPreset[] = [
     metalness: 0,
     mapId: 'cotton-weave',
     mapRepeat: 4,
+    detailId: 'knit',
+    detailScale: 0.7,
   },
   {
     id: 'sage-linen',
