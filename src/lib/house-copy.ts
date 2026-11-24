@@ -49,6 +49,8 @@ export const HOUSE_COPY = {
   finish: 'Finish',
   fabric: 'Fabric',
   surface: 'Surface',
+  fabricHint: 'How the cloth catches the light and hangs. Your colour stays.',
+  surfaceHint: 'The texture woven into the cloth: knit, twill, quilting. It changes the feel, not the colour.',
   solid: 'Solid',
   gradient: 'Gradient',
   avatar: 'Avatar',

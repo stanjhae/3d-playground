@@ -108,7 +108,7 @@ export function ColorPatternPanel() {
           </p>
         </div>
       ) : null}
-      <p className={chromeKickerClass()}>{HOUSE_COPY.patternFill}</p>
+      <p className={cn(chromeKickerClass(), 'border-t border-flv-line pt-4')}>{HOUSE_COPY.patternFill}</p>
       <div className="grid grid-cols-2 gap-2">
         {PATTERN_OPTIONS.filter(
           (pattern) => !v2Tee || pattern.id !== 'gradient',
@@ -143,8 +143,10 @@ export function ColorPatternPanel() {
       </div>
       {v2Tee ? (
         <>
-          <fieldset className="flex flex-col gap-2" data-testid="fabric-chooser">
-            <legend className={chromeKickerClass()}>{HOUSE_COPY.fabric}</legend>
+          {/* Each part says what it changes (tester, 22 Nov: what does Surface do?). */}
+          <fieldset className="flex flex-col gap-2 border-t border-flv-line pt-4" data-testid="fabric-chooser">
+            <legend className={cn(chromeKickerClass(), 'float-left w-full')}>{HOUSE_COPY.fabric}</legend>
+            <p className="font-body text-xs text-flv-muted">{HOUSE_COPY.fabricHint}</p>
             <FabricGrid />
           </fieldset>
           <SurfaceChooser />
