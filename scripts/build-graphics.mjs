@@ -12,6 +12,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 
 import { svg } from './graphics/draw.mjs'
 import { CROSSES } from './graphics/crosses.mjs'
+import { DETAILS } from './graphics/details.mjs'
 import { FLAMES } from './graphics/flames.mjs'
 import { FLORALS } from './graphics/florals.mjs'
 import { LOGOS } from './graphics/logos.mjs'
@@ -37,7 +38,7 @@ const BRAND = {
   licence: 'All rights reserved',
 }
 
-const drawn = [...FLAMES, ...CROSSES, ...SYMBOLS, ...PATTERNS, ...FLORALS, ...ORNAMENTS, ...SHAPES, ...LOGOS]
+const drawn = [...FLAMES, ...CROSSES, ...SYMBOLS, ...PATTERNS, ...FLORALS, ...ORNAMENTS, ...SHAPES, ...LOGOS, ...DETAILS]
 const ids = new Set()
 
 for (const graphic of drawn) {
