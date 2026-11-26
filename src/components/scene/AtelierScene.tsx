@@ -1,7 +1,7 @@
 import { ClothDropTarget } from './ClothDropTarget'
 import { ClothTwoFinger } from './ClothTwoFinger'
 import { Canvas } from '@react-three/fiber'
-import { Suspense, useEffect, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { listDesigns } from '../../lib/designs-api'
 import { resolveGarmentId, type Design } from '../../lib/design-schema'
@@ -10,6 +10,7 @@ import { HOUSE_COPY } from '../../lib/house-copy'
 import { studioStageBackdrop } from '../../lib/landing-demo'
 import { lookRecipe } from '../../lib/look-recipe'
 import { rankDesigns } from '../../lib/rank-designs'
+import { lookRenderDocument } from '../../lib/render-projection'
 import { AvatarBody } from './AvatarBody'
 import { EditRenderProbe } from './EditRenderProbe'
 import { FashionLoader } from './FashionLoader'
@@ -82,10 +83,12 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
   const realModel = useEditorStore((state) => Boolean(state.document.modelSrc))
   // Fits the camera to the garment alone; try-on frames the whole figure instead.
   const modelFrame = useEditorStore((state) => state.document.modelFrame)
+  // The house leader is a board look: drawn on the model it was made on.
+  const leaderDocument = useMemo(() => (leader ? lookRenderDocument({ design: leader }) : null), [leader])
   const framing =
     !tryOn &&
     resolveGarmentId({ garmentId: isHouse ? leader?.garmentId : garmentId }) === 'tee' &&
-    (isHouse || !realModel)
+    !(isHouse ? Boolean(leaderDocument?.modelSrc) : realModel)
       ? 'garment'
       : 'figure'
 
@@ -136,14 +139,14 @@ export function AtelierScene({ children }: { children?: ReactNode }) {
           className="h-full min-h-48 w-full touch-none lg:min-h-80"
           style={{ background: studioStageBackdrop() }}
         >
-          <StudioStage picking={!isHouse} intro framing={framing} modelFrame={isHouse || tryOn ? undefined : modelFrame}>
+          <StudioStage picking={!isHouse} intro framing={framing} modelFrame={isHouse ? leaderDocument?.modelFrame : tryOn ? undefined : modelFrame}>
             <Suspense fallback={<FashionLoader />}>
               {isHouse ? (
-                leader ? (
+                leader && leaderDocument ? (
                   <Garment
                     garmentId={leader.garmentId}
                     overrides={leader.overrides}
-                    artMap={leader.artMap}
+                    document={leaderDocument}
                     picking={false}
                   />
                 ) : null

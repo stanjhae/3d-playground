@@ -36,6 +36,8 @@ function ShapeSlider({
   onCommit: (value: number) => void
 }) {
   const ref = useRef<HTMLInputElement>(null)
+  // Where 0 (the original cut) falls along the track, 0-1; none when the range starts there.
+  const origin = limits.min < 0 && limits.max > 0 ? -limits.min / (limits.max - limits.min) : null
   const commit = useRef(onCommit)
   commit.current = onCommit
 
@@ -60,18 +62,34 @@ function ShapeSlider({
           {shapeValueLabel({ field, value })}
         </span>
       </span>
-      <input
-        ref={ref}
-        type="range"
-        name={field}
-        aria-label={label}
-        min={limits.min}
-        max={limits.max}
-        step={step}
-        value={value}
-        onChange={(event) => onPreview(Number.parseFloat(event.target.value))}
-        className="w-full accent-flv-accent"
-      />
+      <span className="relative flex items-center">
+        {/*
+          The original cut (0%) as a notch on the track. The ranges are not
+          centred on it (sleeves go further out than in), so without the
+          notch a "0%" thumb a quarter of the way along read as a mistake.
+        */}
+        {origin === null ? null : (
+          <span
+            aria-hidden
+            data-shape-origin={field}
+            title="Original cut"
+            className="pointer-events-none absolute top-1/2 h-3.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-flv-muted/60"
+            style={{ left: `calc(${origin} * (100% - 1rem) + 0.5rem)` }}
+          />
+        )}
+        <input
+          ref={ref}
+          type="range"
+          name={field}
+          aria-label={label}
+          min={limits.min}
+          max={limits.max}
+          step={step}
+          value={value}
+          onChange={(event) => onPreview(Number.parseFloat(event.target.value))}
+          className="relative w-full accent-flv-accent"
+        />
+      </span>
     </label>
   )
 }

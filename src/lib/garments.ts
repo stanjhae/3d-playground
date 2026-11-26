@@ -28,6 +28,8 @@ export type GarmentPart = {
 
 export type GarmentCredit = {
   label: string
+  /** Who made the model, as a short credit names them (the board's table). */
+  author: string
   href: string
   license: string
   licenseHref: string
@@ -135,6 +137,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     rail: true,
     credit: {
       label: HOUSE_COPY.gownCredit,
+      author: 'Style3D CG',
       href: GOWN_CREDIT_HREF,
       license: HOUSE_COPY.gownLicense,
       licenseHref: GOWN_LICENSE_HREF,
@@ -155,6 +158,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     // New tee designs (@4) print on this real model; older ones on the house form.
     credit: {
       label: 'T-shirt by ajith98adithya (modified)',
+      author: 'ajith98adithya',
       href: 'https://sketchfab.com/3d-models/tshirt-8c838d3ea1e8494396438b5f5dc78ad8',
       license: 'CC BY 4.0',
       licenseHref: 'https://creativecommons.org/licenses/by/4.0/',
@@ -168,6 +172,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     rail: true,
     credit: {
       label: 'Slip by Style3D CG',
+      author: 'Style3D CG',
       href: 'https://sketchfab.com/3d-models/black-dress-b0b0e79eca3d4927b9bb25ded81221ec',
       ...STYLE3D_LICENSE,
     },
@@ -180,6 +185,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     rail: true,
     credit: {
       label: 'Shirt and skirt by Style3D CG',
+      author: 'Style3D CG',
       href: 'https://sketchfab.com/3d-models/white-shirt-black-leather-skirt-outfit-9f9e3d05217a4f969cd08224ad0b0aee',
       ...STYLE3D_LICENSE,
     },
@@ -192,6 +198,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     rail: true,
     credit: {
       label: 'Coat by Style3D CG',
+      author: 'Style3D CG',
       href: 'https://sketchfab.com/3d-models/black-jacket-coat-2181e25803164fd690c0debb4d4f391a',
       ...STYLE3D_LICENSE,
     },
@@ -204,6 +211,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     rail: true,
     credit: {
       label: 'Suit by Style3D CG',
+      author: 'Style3D CG',
       href: 'https://sketchfab.com/3d-models/white-suit-set-46111b5492f944bd862b8ca9ca4ba78b',
       ...STYLE3D_LICENSE,
     },
@@ -216,6 +224,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     rail: true,
     credit: {
       label: 'Hoodie by Style3D CG',
+      author: 'Style3D CG',
       href: 'https://sketchfab.com/3d-models/green-and-white-hoodie-af100701826e4bb9abc1ff1a1d24ab1e',
       ...STYLE3D_LICENSE,
     },
@@ -228,6 +237,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     rail: true,
     credit: {
       label: 'Overall dress by Style3D CG',
+      author: 'Style3D CG',
       href: 'https://sketchfab.com/3d-models/black-denim-overall-dress-09c6f4cdafee4ed2a566affa4cbebf66',
       ...STYLE3D_LICENSE,
     },
@@ -240,6 +250,7 @@ export const GARMENTS: readonly GarmentEntry[] = [
     rail: true,
     credit: {
       label: 'Tailored suit by Style3D CG (modified)',
+      author: 'Style3D CG',
       href: 'https://sketchfab.com/3d-models/man-black-business-suit-7a669a06fb954d459985ccaa98672177',
       ...STYLE3D_LICENSE,
     },
@@ -415,6 +426,17 @@ export function garmentCredit({
   garmentId?: string | null
 }) {
   return getGarment({ garmentId }).credit
+}
+
+/** The short credit a look's garment carries on the board: "Style3D CG · CC BY 4.0". */
+export function garmentCreditLine({
+  garmentId,
+}: {
+  garmentId?: string | null
+}) {
+  const credit = garmentCredit({ garmentId })
+
+  return credit ? `${credit.author} · ${credit.license}` : null
 }
 
 export function partLabel({ meshName }: { meshName: string }) {

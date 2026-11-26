@@ -215,6 +215,6 @@ test('reloading the publish step of a published design never offers Publish befo
   await expect(panel.getByText(/^Private\./)).toHaveCount(0)
   await expect(panel.getByRole('button', { name: /Publish/ })).toHaveCount(0)
   release()
-  await expect(panel.getByText(/^Published v\d+/)).toBeVisible()
-  await expect(panel.getByRole('button', { name: 'Published' })).toBeVisible()
+  await expect(panel.getByTestId('publication-live')).toHaveAttribute('data-published-seq', /^\d+$/)
+  await expect(panel.getByRole('button', { name: 'Unpublish', exact: true })).toBeVisible()
 })

@@ -13,6 +13,7 @@ import { navLinkClass } from '../lib/nav-link-class'
 import { AccountControl } from '../components/auth/AccountControl'
 import { BrandMark, LandingHeader, MENU_LINK_CLASS } from '../components/site/LandingHeader'
 import { SiteFooter } from '../components/site/SiteFooter'
+import { SiteMenu, menuLinkClass } from '../components/site/SiteMenu'
 import { onAccountChange, startSession, useSessionStore } from '../lib/auth/session-store'
 import { AUTH_REQUIRED, authConfigured, getSupabaseClient } from '../lib/auth/supabase-client'
 import { useEditorStore } from '../lib/editor-store'
@@ -85,6 +86,9 @@ function RootShell() {
     lookIdFromPathname({ pathname: location.pathname }) ??
     leaderId
   const isLanding = location.pathname === '/'
+  // The studio is a workspace: its own slim bar replaces the site header,
+  // so the garment and the tools get the whole screen (studio mode, 26 Nov).
+  const isStudio = location.pathname === '/create'
   const tab = activeNav({ pathname: location.pathname, search: location.search as Record<string, unknown> })
   const main = useRef<HTMLElement | null>(null)
   // The page actually on screen, unlike `location`, which moves first.
@@ -171,34 +175,49 @@ function RootShell() {
           account={<LandingAccountLink className="hidden min-h-11 items-center px-1 font-body text-sm text-flv-muted hover:text-flv-ink md:inline-flex" />}
           menuAccount={<LandingAccountLink className={MENU_LINK_CLASS} />}
         />
-      ) : (
+      ) : isStudio ? null : (
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-flv-line bg-flv-paper/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 text-flv-ink backdrop-blur-sm sm:px-6 sm:pt-4 sm:pb-4">
           <Link to="/" search={{}} className="flex shrink-0 items-center gap-2.5 text-flv-ink">
             <BrandMark />
           </Link>
-          <nav aria-label="Site" className="flex items-center gap-2 font-body text-sm sm:gap-4">
-            {/* On a phone the brand mark is the way home, which leaves room for Vote and Ranking. */}
-            <span className="hidden sm:contents">
-              <NavLink to="/" label="Home" active={tab === 'home'} />
-            </span>
-            <NavLink to="/create" label="Create" active={tab === 'create'} />
-            {/* Voting is the point: Vote (find designs) and Ranking (the top ones) are in the main nav in every build. */}
-            <NavLink to="/vote" label="Vote" active={tab === 'vote'} />
-            <NavLink to="/ranking" label="Ranking" active={tab === 'ranking'} />
-            {AUTH_REQUIRED ? null : (
-              <>
-                <Link
-                  to="/look/$lookId"
-                  params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
-                  aria-current={tab === 'look' ? 'page' : undefined}
-                  className={navLinkClass({ active: tab === 'look' })}
-                >
-                  Look
-                </Link>
-              </>
-            )}
-            <AccountControl studioActive={tab === 'studio'} />
-          </nav>
+          <div className="flex min-w-0 items-center gap-2">
+            <nav aria-label="Site" className="flex items-center gap-2 font-body text-sm md:gap-4">
+              {/*
+                On a phone Create, Vote and Ranking stay in the bar; Home, Look
+                and the account move to the menu beside it, so nothing is pushed
+                off a 375 px screen.
+              */}
+              <span className="hidden md:contents">
+                <NavLink to="/" label="Home" active={tab === 'home'} />
+              </span>
+              <NavLink to="/create" label="Create" active={tab === 'create'} />
+              {/* Voting is the point: Vote (find designs) and Ranking (the top ones) are in the main nav in every build. */}
+              <NavLink to="/vote" label="Vote" active={tab === 'vote'} />
+              <NavLink to="/ranking" label="Ranking" active={tab === 'ranking'} />
+              {AUTH_REQUIRED ? null : (
+                <span className="hidden md:contents">
+                  <LookLink lookId={lookId} active={tab === 'look'} className={navLinkClass({ active: tab === 'look' })} />
+                </span>
+              )}
+              <span className="hidden md:contents">
+                <AccountControl studioActive={tab === 'studio'} />
+              </span>
+            </nav>
+            <SiteMenu hideFrom="md" label="More">
+              <Link
+                to="/"
+                search={{}}
+                aria-current={tab === 'home' ? 'page' : undefined}
+                className={menuLinkClass({ current: tab === 'home' })}
+              >
+                Home
+              </Link>
+              {AUTH_REQUIRED ? null : (
+                <LookLink lookId={lookId} active={tab === 'look'} className={menuLinkClass({ current: tab === 'look' })} />
+              )}
+              <AccountControl studioActive={tab === 'studio'} variant="menu" />
+            </SiteMenu>
+          </div>
         </header>
       )}
       <main
@@ -212,6 +231,19 @@ function RootShell() {
       </main>
       {showsSiteFooter({ pathname: location.pathname }) ? <SiteFooter /> : null}
     </div>
+  )
+}
+
+function LookLink({ lookId, active, className }: { lookId: string | null; active: boolean; className: string }) {
+  return (
+    <Link
+      to="/look/$lookId"
+      params={{ lookId: lookId ?? HOUSE_LOOK_FALLBACK_ID }}
+      aria-current={active ? 'page' : undefined}
+      className={className}
+    >
+      Look
+    </Link>
   )
 }
 

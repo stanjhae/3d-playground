@@ -6,6 +6,7 @@ import {
   isTypingTarget,
   patternKeyAction,
   patternKeyList,
+  historyShortcuts,
   studioKeyAction,
   studioKeyList,
 } from './studio-keys'
@@ -80,8 +81,30 @@ describe('studioKeyAction (#163)', () => {
       expect(studioKeyAction({ key: 'z', metaKey: true, shiftKey: true, target, hasSelection: true })).toBeNull()
       expect(studioKeyAction({ key: 'ArrowLeft', target, hasSelection: true })).toBeNull()
       expect(studioKeyAction({ key: 'Backspace', target, hasSelection: true })).toBeNull()
-      expect(studioKeyAction({ key: 'Escape', target, hasSelection: true })).toBeNull()
+      expect(studioKeyAction({ key: '?', shiftKey: true, target, hasSelection: true })).toBeNull()
     }
+  })
+
+  test('Esc deselects even from the type field, so a word placed with Enter can be let go', () => {
+    const input = { tagName: 'INPUT', closest: () => null }
+    expect(studioKeyAction({ key: 'Escape', target: input, hasSelection: true })).toEqual({ type: 'deselect' })
+    // Paint (not placeable) still lets go on Esc.
+    expect(studioKeyAction({ key: 'Escape', hasSelection: false, canDeselect: true })).toEqual({ type: 'deselect' })
+    expect(studioKeyAction({ key: 'Escape', target: input, hasSelection: false })).toBeNull()
+    expect(studioKeyAction({ key: 'Escape', target: input, hasSelection: true, inDesign: false })).toBeNull()
+    expect(studioKeyAction({ key: 'Escape', shiftKey: true, hasSelection: true })).toBeNull()
+  })
+
+  test('Esc inside a dialog is the dialog’s', () => {
+    const inDialog = { tagName: 'BUTTON', closest: (selector: string) => (selector.includes('dialog') ? {} : null) }
+    expect(studioKeyAction({ key: 'Escape', target: inDialog, hasSelection: true })).toBeNull()
+  })
+
+  test('? toggles the shortcuts, but not from a text field or with a modifier', () => {
+    expect(studioKeyAction({ key: '?', shiftKey: true, hasSelection: false })).toEqual({ type: 'help' })
+    expect(studioKeyAction({ key: '?', shiftKey: true, hasSelection: true, inDesign: false })).toEqual({ type: 'help' })
+    expect(studioKeyAction({ key: '?', shiftKey: true, metaKey: true, hasSelection: false })).toBeNull()
+    expect(studioKeyAction({ key: '?', shiftKey: true, target: { tagName: 'TEXTAREA' }, hasSelection: false })).toBeNull()
   })
 
   test('arrows inside a radio group or tab list stay with that widget', () => {
@@ -145,8 +168,14 @@ describe('studioKeyList', () => {
   test('names every key the studio handles', () => {
     const keys = studioKeyList({ mod: 'Ctrl' }).map((entry) => entry.keys)
     expect(keys).toEqual(
-      expect.arrayContaining(['Arrow keys', 'Shift + arrow keys', 'Delete or Backspace', 'Esc', 'Ctrl + D', 'Ctrl + C, then Ctrl + V', 'B, E, T, G', 'Ctrl + Z', 'Shift + Ctrl + Z']),
+      expect.arrayContaining(['Arrow keys', 'Shift + arrow keys', 'Delete or Backspace', 'Esc', 'Ctrl + D', 'Ctrl + C, then Ctrl + V', 'B, E, T, G', 'Ctrl + Z', 'Shift + Ctrl + Z', '?']),
     )
+  })
+
+  test('undo and redo name their keys for the platform', () => {
+    expect(historyShortcuts({ apple: true })).toEqual({ undo: '⌘Z', redo: '⇧⌘Z', undoAria: 'Meta+Z', redoAria: 'Shift+Meta+Z' })
+    expect(historyShortcuts({ apple: false }).undo).toBe('Ctrl+Z')
+    expect(historyShortcuts({ apple: false }).redoAria).toContain('Control+Shift+Z')
   })
 })
 

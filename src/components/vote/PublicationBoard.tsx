@@ -13,6 +13,7 @@ import { BOARD_WINDOW_LABEL } from '../../lib/board-view'
 import { getGarment } from '../../lib/garments'
 import { GownCredit } from '../editor/GownCredit'
 import { VoteTally } from '../share/VoteTally'
+import { HowVotesCount } from './HowVotesCount'
 
 type Load = { state: 'loading' } | { state: 'ready'; designs: BoardEntry[] } | { state: 'failed' }
 
@@ -65,15 +66,16 @@ export function PublicationBoard() {
         <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Fashion Leader Vote</p>
         <h1 className="font-display text-4xl">Ranking</h1>
         <p className="font-body text-sm text-flv-muted">
-          The top designs, ranked by votes. {VOTE_RULE} To find new designs that need votes, go to{' '}
+          The top designs, ranked by votes. New designs that need votes are on{' '}
           <Link to="/vote" search={{}} className="underline">
             Vote
           </Link>
           .
         </p>
-        <p data-testid="tie-rule" className="font-body text-sm text-flv-muted">
-          {TIE_RULE}
-        </p>
+        <HowVotesCount>
+          <li>{VOTE_RULE}</li>
+          <li data-testid="tie-rule">{TIE_RULE}</li>
+        </HowVotesCount>
       </header>
 
       <div role="tablist" aria-label="Board order" className="flex gap-2">

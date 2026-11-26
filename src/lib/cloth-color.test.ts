@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { type CanonicalDocument, createEmptyCanonicalDocument } from './canonical-document'
-import { DEFAULT_CLOTH_COLOR, clothColorOf } from './cloth-color'
+import { DARK_TEXT_INK, DEFAULT_CLOTH_COLOR, LIGHT_TEXT_INK, clothColorOf, contrastingTextInk, relativeLuminance } from './cloth-color'
 import { INK_COLORS } from './paint-colors'
 import { paintOverCloth, rasterizeLayers } from './paint-atlas'
 import { atlasSourceRect } from './panel-uv'
@@ -89,5 +89,20 @@ describe('the flat panels and the 3D show the same base colours', () => {
 
   test('a garment with no template and no colour keeps the house cream', () => {
     expect(clothColorOf({ document: { garmentId: 'jacket', garmentVersion: 1, overrides: [] } })).toBe(DEFAULT_CLOTH_COLOR)
+  })
+})
+
+describe('contrastingTextInk (UX review, 26 Nov)', () => {
+  test('dark words on light cloth, light words on dark cloth', () => {
+    expect(contrastingTextInk({ ground: DEFAULT_CLOTH_COLOR })).toBe(DARK_TEXT_INK)
+    expect(contrastingTextInk({ ground: '#ffffff' })).toBe(DARK_TEXT_INK)
+    expect(contrastingTextInk({ ground: INK })).toBe(LIGHT_TEXT_INK)
+    expect(contrastingTextInk({ ground: OXBLOOD })).toBe(LIGHT_TEXT_INK)
+    expect(contrastingTextInk({ ground: '#000' })).toBe(LIGHT_TEXT_INK)
+  })
+
+  test('an unreadable ground falls back to dark ink', () => {
+    expect(relativeLuminance({ color: 'not-a-colour' })).toBeNull()
+    expect(contrastingTextInk({ ground: 'not-a-colour' })).toBe(DARK_TEXT_INK)
   })
 })

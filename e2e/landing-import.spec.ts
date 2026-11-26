@@ -88,7 +88,7 @@ test('a failed image upload stops before saving, and the design can be created w
 
   await expect(preview.getByRole('alert')).toContainText('1 image could not be uploaded, so nothing was created yet.')
   await expect(page).toHaveURL(/\/studio$/)
-  await expect(page.getByText('No designs yet. Create a T-shirt to start.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'No designs yet.' })).toBeVisible()
 
   await preview.getByRole('button', { name: 'Create without that image' }).click()
   await expect(page).toHaveURL(/\/create\?cloud=/)

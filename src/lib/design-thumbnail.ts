@@ -318,14 +318,30 @@ async function loadThumbnail({ design }: { design: DesignSummary }): Promise<Des
 
 /** One load per saved version; a failure can be tried again later. */
 export function designThumbnail({ design }: { design: DesignSummary }) {
-  const key = thumbnailKey({ design })
+  return cached({ key: thumbnailKey({ design }), load: () => loadThumbnail({ design }) })
+}
+
+/**
+ * The flat front drawn from the latest saved version, for when the stored
+ * front view will not load (a slow or failed image request just after
+ * publishing): the card shows the design, never the bare placeholder.
+ */
+export function designStill({ design }: { design: DesignSummary }) {
+  if (design.headSeq === null) {
+    return Promise.resolve(null)
+  }
+
+  return cached({ key: `${thumbnailKey({ design })}:still`, load: () => drawFromHead({ designId: design.id }) })
+}
+
+function cached({ key, load }: { key: string; load: () => Promise<DesignThumbnail | null> }) {
   const existing = cache.get(key)
 
   if (existing) {
     return existing
   }
 
-  const loading = loadThumbnail({ design }).catch(() => null)
+  const loading = load().catch(() => null)
   cache.set(key, loading)
   void loading.then((result) => {
     if (!result) {

@@ -561,9 +561,6 @@ function MyStudio() {
         />
       ) : null}
 
-      <PublicName />
-      <PublicProfile />
-
       <p role="status" className="sr-only">
         {listNotice}
       </p>
@@ -584,9 +581,24 @@ function MyStudio() {
           </button>
         </div>
       ) : list.designs.length === 0 ? (
-        <p className="flv-panel p-8 text-center font-body text-sm text-flv-muted">
-          No designs yet. Create a T-shirt to start.
-        </p>
+        <div className="flv-panel flex flex-col items-center gap-3 px-6 py-12 text-center">
+          <h2 className="font-display text-2xl text-flv-ink">No designs yet.</h2>
+          <p className="max-w-md font-body text-sm text-flv-muted">
+            Create a T-shirt to start. It saves privately as you work, and you publish it when you want votes.
+          </p>
+          <button
+            type="button"
+            className={buttonClass}
+            disabled={creating || (conversion?.fromLanding ? !TEE.ok : !newTemplate)}
+            onClick={() => (conversion?.fromLanding ? setPreviewing(true) : void create())}
+          >
+            {creating
+              ? 'Creating…'
+              : newGarment === 'tee'
+                ? 'Create your first T-shirt'
+                : `Create your first ${getGarment({ garmentId: newGarment }).label.toLowerCase()}`}
+          </button>
+        </div>
       ) : (
         <>
         <div role="search" aria-label="Find a design" className="flex flex-wrap items-end gap-3">
@@ -689,10 +701,21 @@ function MyStudio() {
         </>
       )}
 
-      {/* The list shows at most 100, so a full list doesn't give a count. */}
-      <DeleteAccount
-        designCount={list.status === 'ready' && list.designs.length < 100 ? list.designs.length : null}
-      />
+      {/* Account settings, apart from the designs: names, profile, deletion. */}
+      <section aria-labelledby="account-heading" className="mt-8 flex flex-col gap-6 border-t-2 border-flv-ink pt-8">
+        <div className="flex flex-col gap-1">
+          <h2 id="account-heading" className="font-display text-3xl leading-none uppercase">
+            Account
+          </h2>
+          <p className="font-body text-sm text-flv-muted">How you appear on designs you publish, and your account.</p>
+        </div>
+        <PublicName />
+        <PublicProfile />
+        {/* The list shows at most 100, so a full list doesn't give a count. */}
+        <DeleteAccount
+          designCount={list.status === 'ready' && list.designs.length < 100 ? list.designs.length : null}
+        />
+      </section>
     </section>
   )
 }
