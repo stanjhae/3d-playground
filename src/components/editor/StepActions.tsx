@@ -3,11 +3,12 @@ import { backToStepLabel, nextCreateStep, previousCreateStep, previousStepShortN
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
-import { UndoRedo } from './UndoRedo'
 
 /**
- * The step's one primary action, always in the same place. The publish step
- * has none here: publishing is its action, in the publish panel.
+ * The step's buttons, always in the same place at the end of the studio
+ * bar: back, Skip where a step is optional, and the one primary action.
+ * The publish step has no primary here: publishing is its action, in the
+ * publish panel.
  */
 export function StepActions() {
   const createStep = useEditorStore((state) => state.createStep)
@@ -18,34 +19,30 @@ export function StepActions() {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2" data-hint-keep-clear>
-      {/* Undo sits with the step's buttons: one row instead of two on a phone. */}
-      <div className="mr-auto">
-        <UndoRedo />
-      </div>
+    <div className="flex shrink-0 items-center justify-end gap-1.5" data-hint-keep-clear>
       {createStep === 'select' ? null : (
         <Button
           variant="quiet"
           aria-label={backToStepLabel({ step: createStep })}
-          className="px-1! sm:px-5!"
+          title={backToStepLabel({ step: createStep })}
+          // On a phone the step dots are the way back, and the bar keeps its room.
+          className="px-2! max-sm:hidden"
           onClick={() => go(previousCreateStep({ step: createStep }))}
         >
-          {/* A phone keeps the step's buttons on one row: "‹ Garment". */}
-          <span aria-hidden className="sm:hidden">
+          {/* "‹ Garment"; the full label is the button's name. */}
+          <span aria-hidden className="whitespace-nowrap">
             ‹ {previousStepShortName({ step: createStep })}
-          </span>
-          <span aria-hidden className="hidden sm:inline">
-            {backToStepLabel({ step: createStep })}
           </span>
         </Button>
       )}
+      {/* Skip goes where Continue does; it says the step is optional. A phone keeps only Continue. */}
       {createStep === 'color' ? (
-        <Button variant="secondary" onClick={() => go(nextCreateStep({ step: createStep }))}>
+        <Button variant="secondary" className="px-3! max-sm:hidden" onClick={() => go(nextCreateStep({ step: createStep }))}>
           {HOUSE_COPY.skip}
         </Button>
       ) : null}
       {createStep === 'share' ? null : (
-        <Button arrow onClick={() => go(nextCreateStep({ step: createStep }))}>
+        <Button arrow className="px-3! sm:px-4!" onClick={() => go(nextCreateStep({ step: createStep }))}>
           {createStep === 'select' ? FLV_COPY.selectUse : HOUSE_COPY.continue}
         </Button>
       )}

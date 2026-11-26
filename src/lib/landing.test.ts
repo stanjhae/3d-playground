@@ -155,7 +155,9 @@ describe('prerendered landing', () => {
     expect(body).not.toMatch(/\sstyle="/)
     expect(body).not.toMatch(/<canvas\b/)
     expect(body).not.toContain('/stills/')
-    expect(body).toContain('href="/studio"')
+    // Every Start creating goes where the hero does, with no sign-up.
+    expect(body).toContain('href="/create"')
+    expect(body).not.toContain('href="/studio"')
   })
 
   it('badges every concept', () => {

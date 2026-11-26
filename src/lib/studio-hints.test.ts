@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import {
   HINT_KEEP_CLEAR_SELECTOR,
   allHintsHidden,
+  hintsDoneBy,
   hintBoxesOverlap,
   hintPosition,
   nextHint,
@@ -87,5 +88,27 @@ describe('hint placement', () => {
     for (const control of ['button', '[role="switch"]', 'a[href]', 'input']) {
       expect(parts).toContain(control)
     }
+  })
+})
+
+describe('hintsDoneBy', () => {
+  test('a bare design has learnt nothing yet', () => {
+    expect(hintsDoneBy({ layers: [] })).toEqual([])
+    // The empty ink layer a new design keeps is not a stroke.
+    expect(hintsDoneBy({ layers: [{ kind: 'paint', strokes: [] }] })).toEqual([])
+  })
+
+  test('a stroke means a side was picked and drawn on', () => {
+    expect(hintsDoneBy({ layers: [{ kind: 'paint', strokes: [{}] }] })).toEqual(['panels', 'drawing'])
+  })
+
+  test('a word or graphic means a side was picked and pieces added', () => {
+    expect(hintsDoneBy({ layers: [{ kind: 'text' }] })).toEqual(['panels', 'precise'])
+    expect(hintsDoneBy({ layers: [{ kind: 'graphic' }] })).toEqual(['panels', 'precise'])
+  })
+
+  test('so the next hint skips what the design already shows', () => {
+    const learnt = hintsDoneBy({ layers: [{ kind: 'paint', strokes: [{}] }] })
+    expect(nextHint({ step: 'design', dismissed: learnt })?.id).toBe('precise')
   })
 })

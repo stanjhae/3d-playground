@@ -91,6 +91,7 @@ export const HOUSE_COPY = {
   artwork: 'Upload image',
   type: 'Your text',
   tapToPlace: 'Tap to place',
+  textColour: 'Text colour',
   morning: 'Save this look',
   restoreMorning: 'Morning',
   join: 'Your email',

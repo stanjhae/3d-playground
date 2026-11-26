@@ -5,9 +5,10 @@ import { useSessionStore } from '../../lib/auth/session-store'
 import { cn } from '../../lib/cn'
 import type { FeedEntry } from '../../lib/flp-api/publication'
 import { VOTE_RULE, getVoteFeed } from '../../lib/flp-api/votes'
+import { getBoard } from '../../lib/flp-api/public-read'
 import { getGarment, listRailGarments } from '../../lib/garments'
-import { templateForGarment } from '../../lib/template-manifest'
 import { ComparePair } from './ComparePair'
+import { HowVotesCount } from './HowVotesCount'
 import { VoteButton } from '../share/VoteButton'
 import { VoteTally } from '../share/VoteTally'
 import { GownCredit } from '../editor/GownCredit'
@@ -18,8 +19,18 @@ type Feed =
   | { state: 'failed' }
   | { state: 'ready'; designs: FeedEntry[]; next: string | null; more: 'idle' | 'loading' | 'failed' }
 
-/** The garments a design can be published on: each has a template. */
-const FEED_GARMENTS = listRailGarments().filter((garment) => templateForGarment({ garmentId: garment.id }))
+/** Rail order, so the filter chips read the same as the garment rail. */
+const RAIL_ORDER: readonly string[] = listRailGarments().map((garment) => garment.id)
+
+/** Garments with designs, in rail order (any garment off the rail goes last). */
+function orderGarments(ids: Iterable<string>) {
+  const rank = (id: string) => {
+    const index = RAIL_ORDER.indexOf(id)
+    return index === -1 ? RAIL_ORDER.length : index
+  }
+
+  return [...new Set(ids)].sort((a, b) => rank(a) - rank(b))
+}
 
 /**
  * Vote: the discover feed. Designs that need votes come first, then the
@@ -32,11 +43,28 @@ export function VoteFeed() {
   const accountEpoch = useSessionStore((state) => state.accountEpoch)
   const [garmentId, setGarmentId] = useState<string | null>(null)
   const [feed, setFeed] = useState<Feed>({ state: 'loading' })
+  // Only garments that have published designs, like Ranking: the board lists
+  // every published design, and the feed's own pages add any it missed.
+  const [garments, setGarments] = useState<string[]>([])
   // Each read belongs to one account and filter; a late answer is dropped.
   const readId = useRef(0)
   const signedIn = status === 'signed-in'
   const { mode } = useSearch({ from: '/vote' })
   const comparing = mode === 'compare'
+
+  useEffect(() => {
+    let cancelled = false
+
+    void getBoard().then((result) => {
+      if (!cancelled && result.ok) {
+        setGarments((known) => orderGarments([...known, ...result.data.map((design) => design.garmentId)]))
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (status === 'loading') {
@@ -49,6 +77,10 @@ export function VoteFeed() {
     void getVoteFeed({ garmentId }).then((result) => {
       if (id === readId.current) {
         setFeed(result.ok ? { state: 'ready', designs: result.data.designs, next: result.data.next, more: 'idle' } : { state: 'failed' })
+
+        if (result.ok) {
+          setGarments((known) => orderGarments([...known, ...result.data.designs.map((design) => design.garmentId)]))
+        }
       }
     })
   }, [garmentId, status, accountEpoch])
@@ -90,17 +122,25 @@ export function VoteFeed() {
         <p className="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Fashion Leader Vote</p>
         <h1 className="font-display text-4xl">Vote</h1>
         <p className="max-w-2xl font-body text-sm text-flv-muted">
-          Discover designs and vote for the ones you like. Designs that need votes come first (fewer than three
-          this week), then the rest, newest first, so new designs get seen too. The top designs are on{' '}
-          <Link to="/ranking" className="underline">
-            Ranking
-          </Link>
-          . {VOTE_RULE}{' '}
+          Vote for the designs you like. Designs that need votes come first.{' '}
           <Link to="/vote" search={comparing ? {} : { mode: 'compare' }} className="underline">
             {comparing ? 'Back to the list' : 'Compare two'}
           </Link>
-          .
         </p>
+        <HowVotesCount>
+          <li>
+            Designs that need votes (fewer than three this week) come first, then the rest, newest first, so new designs
+            get seen too.
+          </li>
+          <li>{VOTE_RULE}</li>
+          <li>
+            The top designs are on{' '}
+            <Link to="/ranking" className="underline">
+              Ranking
+            </Link>
+            .
+          </li>
+        </HowVotesCount>
         {signedIn ? (
           // Without this, your own design seems to vanish from here (tester pass 3).
           <p data-testid="own-designs-note" className="max-w-2xl font-body text-sm text-flv-muted">
@@ -124,9 +164,9 @@ export function VoteFeed() {
 
       {comparing ? <ComparePair /> : null}
 
-      {comparing || FEED_GARMENTS.length <= 1 ? null : (
+      {comparing || garments.length === 0 ? null : (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by garment">
-          {[null, ...FEED_GARMENTS.map((garment) => garment.id)].map((id) => (
+          {[null, ...garments].map((id) => (
             <button
               key={id ?? 'all'}
               type="button"

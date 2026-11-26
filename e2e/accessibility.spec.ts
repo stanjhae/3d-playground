@@ -261,8 +261,8 @@ test('save, history, publishing and sharing work from the keyboard alone', async
   await page.keyboard.press('Enter')
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   await expect(link).toBeVisible({ timeout: 120_000 })
-  await expect(page.getByRole('status').filter({ hasText: /^Published version \d+\./ })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Published' })).toBeFocused()
+  await expect(page.getByRole('status').filter({ hasText: /^Published\. Copy the link to share it/ })).toBeVisible()
+  await expect(page.getByTestId('publication-live')).toBeFocused()
 
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
   await tabTo({ page, target: page.getByRole('button', { name: 'Copy link' }) })
@@ -336,7 +336,8 @@ test('the steps over the dark scene keep their header on a solid background', as
       await page.goto(`/create?cloud=${designId}&step=${step}`)
       await expectSaved({ page })
       // Axe can't judge text over a canvas, so check what it can't see first.
-      const header = page.getByRole('navigation', { name: 'Create steps' }).locator('..')
+      // The studio bar that holds the steps (studio mode: the steps sit in a layout-only row inside it).
+      const header = page.locator('[data-studio-part="header"]')
       const background = await header.evaluate((element) => getComputedStyle(element).backgroundColor)
       expect(background, `${step} @${viewport.width}`).not.toMatch(/transparent|\/ 0(\.\d+)?\)|, 0(\.\d+)?\)$/)
       // The header would hide the garment if the scene ran behind it.

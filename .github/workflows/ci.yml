@@ -88,8 +88,10 @@ jobs:
   browser:
     name: Browser journey tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
-    # Setup alone can take 7 minutes when the runner's packages are slow.
-    timeout-minutes: 40
+    # Setup alone can take 7 minutes when the runner's packages are slow, and
+    # part 1 already ran 31-39 minutes on master (Nov 2026). 50 leaves room;
+    # a fourth part would rename the required checks in branch protection.
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:

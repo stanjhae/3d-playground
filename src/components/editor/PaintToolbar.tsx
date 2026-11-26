@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 
+import { textInkFor } from '../../lib/cloth-color'
 import { cn } from '../../lib/cn'
 import { isCanonicalGarment } from '../../lib/concept-flags'
 import { useEditorStore } from '../../lib/editor-store'
@@ -21,6 +22,7 @@ import { uploadForStudio } from '../../lib/uploaded-images'
 import { ImportNotice } from './ImportNotice'
 import { LimitMeter } from './LimitMeter'
 import { ProColour } from './ProColour'
+import { Swatch } from '../ui/Swatch'
 
 function inkWidthLabel({ width }: { width: number }) {
   if (width === INK_WIDTHS[0]) {
@@ -71,6 +73,9 @@ export function PaintToolbar({
   const v2Tee = useEditorStore((state) => isCanonicalGarment({ garmentId: state.garmentId }))
   const textFace = useEditorStore((state) => state.textFace)
   const textScale = useEditorStore((state) => state.textScale)
+  const setTextColor = useEditorStore((state) => state.setTextColor)
+  // The ink the next word takes: picked, or one that reads on the cloth.
+  const textInk = useEditorStore((state) => textInkFor({ textColor: state.textColor, document: state.document }))
   const typeDraft = useEditorStore((state) => state.typeDraft)
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId)
   const documentState = useEditorStore((state) => state.document)
@@ -408,6 +413,8 @@ export function PaintToolbar({
                   addText({ content: typeDraft, face: textFace, scale: textScale })
                 }}
                 placeholder={HOUSE_COPY.type}
+                // Esc here lets go of the word just placed (studio keys); other fields keep their Esc.
+                data-type-field
                 className="min-h-11 min-w-0 flex-1 border border-flv-line bg-flv-paper px-3 font-body text-sm text-flv-ink"
               />
             </label>
@@ -476,6 +483,29 @@ export function PaintToolbar({
                 {size.label}
               </button>
             ))}
+          </div>
+          <div role="group" aria-label={HOUSE_COPY.textColour} className="flex flex-col gap-2">
+            <span className={chromeMutedClass()}>{HOUSE_COPY.textColour}</span>
+            <div className="flex flex-wrap gap-2">
+              {INK_COLORS.map((ink) => {
+                const shown = selectedWord?.color ?? textInk
+                return (
+                  <Swatch
+                    key={ink.id}
+                    name={`${HOUSE_COPY.textColour}: ${ink.name}`}
+                    color={ink.value}
+                    selected={shown.toLowerCase() === ink.value.toLowerCase()}
+                    data-testid={`text-colour-${ink.id}`}
+                    onClick={() => {
+                      setTextColor({ textColor: ink.value })
+                      if (selectedWord) {
+                        updateLayer({ layerId: selectedWord.id, patch: { color: ink.value } })
+                      }
+                    }}
+                  />
+                )
+              })}
+            </div>
           </div>
         </>
       ) : null}

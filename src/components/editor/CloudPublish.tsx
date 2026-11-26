@@ -1,9 +1,10 @@
-import { Globe, Lock } from 'lucide-react'
+import { ExternalLink, Globe, Lock } from 'lucide-react'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { buttonClass } from '../ui/Button'
+import { isUntitled } from '../../lib/my-studio-list'
 import { atlasStamp, useAtlasBuild, waitForCurrentAtlas } from '../../lib/atlas-status'
 import { hashCanonicalDocument } from '../../lib/canonical-hash'
 import { PUBLISHED_STILL_PRESETS, captureAngleStills } from '../../lib/capture-still'
@@ -14,6 +15,7 @@ import { countUnavailableImages } from '../../lib/layer-images'
 import {
   getProfile,
   publishDesign,
+  updateDesign,
   unpublishDesign,
   uploadRenders,
 } from '../../lib/flp-api/client'
@@ -37,6 +39,7 @@ const KIND_BY_ANGLE: PublicRenderKind[] = ['view_front', 'view_three_quarter', '
 
 const primaryClass = buttonClass({ wide: true })
 const quietClass = buttonClass({ variant: 'quiet' })
+
 
 export function shareUrl({ slug }: { slug: string }) {
   return `${window.location.origin}/s/${slug}`
@@ -73,7 +76,14 @@ export function CloudPublish() {
     ;(reviewing ? reviewRef.current : openRef.current)?.focus()
   }, [reviewing])
   const [displayName, setDisplayName] = useState('')
+  // An untitled design is named in the review; blank keeps the starting name.
+  const [designName, setDesignName] = useState('')
   const [busy, setBusy] = useState<'publishing' | 'unpublishing' | null>(null)
+  // What publishing is doing now: it takes several seconds (five views are
+  // rendered and uploaded), so each phase is said, not just "Publishing…".
+  const [progress, setProgress] = useState<string | null>(null)
+  const liveRef = useRef<HTMLDivElement | null>(null)
+  const [focusLive, setFocusLive] = useState(false)
   const [confirmUnpublish, setConfirmUnpublish] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   // Good news goes through the same status line, without the warning colour.
@@ -125,11 +135,23 @@ export function CloudPublish() {
     }
   }, [publishedName, statusKnown])
 
+  const liveNow = publication?.status === 'published'
+
+  // Just published: focus moves to the published state (link, Copy link, View
+  // page, Unpublish) once the server's answer has drawn it.
+  useEffect(() => {
+    if (focusLive && liveNow) {
+      setFocusLive(false)
+      liveRef.current?.focus()
+    }
+  }, [focusLive, liveNow])
+
   if (!cloud || !designId || !headSeq) {
     return null
   }
 
-  const live = publication?.status === 'published'
+  const live = liveNow
+  const untitled = isUntitled({ title: cloud.title })
 
   async function publish() {
     if (!designId || !headSeq || !saved || !statusKnown) {
@@ -142,8 +164,10 @@ export function CloudPublish() {
     }
 
     setBusy('publishing')
+    setProgress('Checking the artwork…')
     setMessage(null)
     setNotice(null)
+    const wasLive = live
     const editor = useEditorStore.getState()
 
     // Published views show the garment alone, never the try-on mannequin. This
@@ -212,6 +236,7 @@ export function CloudPublish() {
         setCapturingAngles: editor.setCapturingAngles,
         restorePreset: editor.cameraPreset,
         presets: PUBLISHED_STILL_PRESETS,
+        onView: ({ index, total }) => setProgress(`Rendering view ${index + 1} of ${total}…`),
       })
 
       if (stills.length !== KIND_BY_ANGLE.length) {
@@ -228,6 +253,7 @@ export function CloudPublish() {
       }
 
       // What drew these views (C2): the stamp of the build checked above.
+      setProgress('Uploading the views…')
       const drawn = build ? await atlasStamp({ build }) : null
       const uploaded = await uploadRenders({
         designId,
@@ -247,6 +273,23 @@ export function CloudPublish() {
         return
       }
 
+      // Named in the review: a rename is metadata and adds no version.
+      const name = designName.trim()
+
+      if (untitled && name && name !== cloud?.title) {
+        setProgress('Saving the name…')
+        const renamed = await updateDesign({ designId, request: { title: name } })
+
+        if (!renamed.ok) {
+          setBusy(null)
+          setMessage(failureSentence({ lead: 'Not published: the name could not be saved', reason: renamed.message }))
+          return
+        }
+
+        useEditorStore.getState().setCloudTitle({ title: renamed.data.title })
+      }
+
+      setProgress('Publishing…')
       const result = await publishDesign({
         designId,
         seq: headSeq,
@@ -263,12 +306,19 @@ export function CloudPublish() {
 
       published = true
       void trackAssumption({ name: 'publish_succeeded' })
-      setNotice(`Published version ${headSeq}. Anyone with the link can view it.`)
-      // The button that was pressed goes with the review (see the effect above).
-      reviewToggled.current = true
+      setNotice(
+        wasLive
+          ? `Published your latest edits (v${headSeq}). Anyone with the link sees them now.`
+          : 'Published. Copy the link to share it and collect votes.',
+      )
+      // The review closes; focus goes to the published state once it shows.
+      setFocusLive(true)
       setReviewing(false)
       await refresh({ force: true })
     } finally {
+      setProgress(null)
+      setBusy((current) => (current === 'publishing' ? null : current))
+
       if (triedOn && !published) {
         useEditorStore.getState().setAvatarId({ avatarId: triedOn })
       }
@@ -306,7 +356,9 @@ export function CloudPublish() {
         : null
   // The preview starting is a normal wait, not a problem.
   const quietStatus =
-    copyStatus === 'copied' || (copyStatus === 'idle' && saved && !message && (Boolean(notice) || webglStatus === 'checking'))
+    copyStatus === 'copied' ||
+    (copyStatus === 'idle' && saved && !message && (busy === 'publishing' || Boolean(notice) || webglStatus === 'checking'))
+  const publishedHead = live && publication?.seq === headSeq
 
   return (
     <section className="flv-panel flex w-full flex-col gap-3 p-3" aria-label="Publish" data-hint-anchor="publishing">
@@ -324,20 +376,34 @@ export function CloudPublish() {
           ) : null}
         </div>
       ) : live && publication ? (
-        <div className="flex flex-col gap-2">
-          <p className="flex items-center gap-2 font-body text-sm font-medium text-flv-ink">
-            <Globe aria-hidden className="size-4 text-flv-accent" />
-            Published v{publication.seq} · latest saved v{headSeq}
+        <div
+          ref={liveRef}
+          tabIndex={-1}
+          role="group"
+          aria-label="Published"
+          data-testid="publication-live"
+          data-published-seq={publication.seq ?? undefined}
+          className="flex flex-col gap-2 outline-none"
+        >
+          <p className="flex items-start gap-2 font-body text-sm font-medium text-flv-ink">
+            <Globe aria-hidden className="mt-0.5 size-4 shrink-0 text-flv-accent" />
+            {publishedHead ? (
+              <span>Published. Anyone with the link can view it.</span>
+            ) : (
+              <span>
+                Published v{publication.seq}. Your newer edits (v{headSeq}) stay private until you publish them.
+              </span>
+            )}
           </p>
+          <a
+            href={shareUrl({ slug: publication.slug })}
+            target="_blank"
+            rel="noreferrer"
+            className="font-body text-sm break-all text-flv-ink underline"
+          >
+            {shareUrl({ slug: publication.slug })}
+          </a>
           <div className="flex flex-wrap items-center gap-2">
-            <a
-              href={shareUrl({ slug: publication.slug })}
-              target="_blank"
-              rel="noreferrer"
-              className="font-body text-sm break-all text-flv-ink underline"
-            >
-              {shareUrl({ slug: publication.slug })}
-            </a>
             <button
               type="button"
               className={quietClass}
@@ -345,6 +411,15 @@ export function CloudPublish() {
             >
               {copyStatus === 'copied' ? 'Link copied' : 'Copy link'}
             </button>
+            <a
+              href={shareUrl({ slug: publication.slug })}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(quietClass, 'gap-1.5')}
+            >
+              View page
+              <ExternalLink aria-hidden className="size-3.5" />
+            </a>
             <button
               type="button"
               className={quietClass}
@@ -388,10 +463,17 @@ export function CloudPublish() {
         className={cn('min-h-5 font-body text-xs', quietStatus ? 'text-flv-muted' : 'text-flv-accent')}
       >
         {copyFeedback ??
-          (!saved
-            ? 'Publishing is available once the design shows Saved.'
-            : (message ?? notice ?? renderBlocked))}
+          (busy === 'publishing'
+            ? progress
+            : !saved
+              ? 'Publishing is available once the design shows Saved.'
+              : (message ?? notice ?? renderBlocked))}
       </p>
+      {busy === 'publishing' ? (
+        <div aria-hidden className="h-1 w-full overflow-hidden rounded-full bg-flv-soft">
+          <div className="flv-progress-indeterminate h-full w-1/3 rounded-full bg-flv-accent" />
+        </div>
+      ) : null}
 
       {!statusKnown ? null : reviewing ? (
         <div
@@ -402,14 +484,41 @@ export function CloudPublish() {
           className="flex flex-col gap-3 border-t border-flv-line pt-3"
         >
           <p className="font-body text-sm">
-            Publishing version <strong>v{headSeq}</strong> of “{cloud.title}”. Anyone with the link can view its five
-            views (front, three-quarter, back and both sleeves), and public images can be copied. Later edits stay private until you publish again.
+            {live ? (
+              <>
+                Publishing your latest edits (<strong>v{headSeq}</strong>) of “{cloud.title}” in place of v
+                {publication?.seq}.{' '}
+              </>
+            ) : untitled ? null : (
+              <>Publishing “{cloud.title}”. </>
+            )}
+            Anyone with the link can view its five views (front, three-quarter, back and both sleeves), and public
+            images can be copied. Later edits stay private until you publish again.
           </p>
+          {untitled && !live ? (
+            <div className="flex flex-col gap-1 font-body text-sm">
+              <label htmlFor="publish-design-name">Name your design</label>
+              <input
+                id="publish-design-name"
+                aria-describedby="publish-design-name-hint"
+                value={designName}
+                maxLength={80}
+                placeholder={cloud.title}
+                disabled={busy !== null}
+                onChange={(event) => setDesignName(event.target.value)}
+                className="min-h-11 rounded-xl border border-flv-line bg-white px-3 text-base"
+              />
+              <span id="publish-design-name-hint" className="text-xs text-flv-muted">
+                Shown on its public page. Leave it blank to publish as “{cloud.title}”.
+              </span>
+            </div>
+          ) : null}
           <label className="flex flex-col gap-1 font-body text-sm">
             Public display name (optional)
             <input
               value={displayName}
               maxLength={40}
+              disabled={busy !== null}
               onChange={(event) => setDisplayName(event.target.value)}
               className="min-h-11 rounded-xl border border-flv-line bg-white px-3 text-base"
             />
@@ -426,6 +535,7 @@ export function CloudPublish() {
             <button
               type="button"
               className={quietClass}
+              disabled={busy === 'publishing'}
               onClick={() => {
                 reviewToggled.current = true
                 setReviewing(false)
@@ -435,7 +545,7 @@ export function CloudPublish() {
             </button>
           </div>
         </div>
-      ) : (
+      ) : publishedHead ? null : (
         <button
           ref={openRef}
           type="button"
@@ -446,7 +556,7 @@ export function CloudPublish() {
             setReviewing(true)
           }}
         >
-          {live ? (publication?.seq === headSeq ? 'Published' : 'Publish latest') : 'Publish publicly…'}
+          {live ? 'Publish latest' : 'Publish publicly…'}
         </button>
       )}
       {/*
@@ -460,7 +570,8 @@ export function CloudPublish() {
           className={quietClass}
           disabled={!saved}
           onClick={() => {
-            void navigate({ to: '/studio', search: { saved: true } })
+            // "Saved. Only you can see it" would be wrong for a published design.
+            void navigate({ to: '/studio', search: live ? {} : { saved: true } })
           }}
         >
           {saved ? (live ? 'Done, back to My Studio' : 'Save privately') : 'Saving…'}

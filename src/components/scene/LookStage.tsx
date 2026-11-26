@@ -11,13 +11,12 @@ import { STUDIO_CAMERA, StudioOrbit, StudioStage } from './StudioStage'
 export function LookStage({
   overrides,
   garmentId,
-  artMap,
-  structural,
+  document,
 }: {
   overrides: MaterialOverride[]
   garmentId?: GarmentId
-  artMap?: string
-  structural?: DesignDocument['structural']
+  /** The look as drawn (`lookRenderDocument`): its model and live layers. */
+  document: DesignDocument
 }) {
   return (
     <div className="relative h-full min-h-80 w-full">
@@ -34,13 +33,16 @@ export function LookStage({
         className="h-full min-h-80 w-full touch-none"
         style={{ background: studioStageBackdrop() }}
       >
-        <StudioStage framing={resolveGarmentId({ garmentId }) === 'tee' ? 'garment' : 'figure'}>
+        {/* As in the studio: a real model stands at its true height, fitted to its frame. */}
+        <StudioStage
+          framing={resolveGarmentId({ garmentId }) === 'tee' && !document.modelSrc ? 'garment' : 'figure'}
+          modelFrame={document.modelFrame}
+        >
           <Suspense fallback={<FashionLoader />}>
             <Garment
               garmentId={garmentId}
               overrides={overrides}
-              artMap={artMap}
-              structural={structural}
+              document={document}
               picking={false}
             />
           </Suspense>

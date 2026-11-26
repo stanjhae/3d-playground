@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { cn } from '../../lib/cn'
 import { useEditorStore } from '../../lib/editor-store'
 import { updateDesign } from '../../lib/flp-api/client'
 import { failureSentence } from '../../lib/flp-api/plain-messages'
@@ -8,7 +9,7 @@ import { failureSentence } from '../../lib/flp-api/plain-messages'
  * The open cloud design's name, renamable in place (A06 #150). A rename is
  * design metadata: it adds no version and does not touch the canvas.
  */
-export function CloudTitle() {
+export function CloudTitle({ compact = false }: { compact?: boolean } = {}) {
   const cloud = useEditorStore((state) => state.cloud)
   const setCloudTitle = useEditorStore((state) => state.setCloudTitle)
   const [draft, setDraft] = useState<string | null>(null)
@@ -41,13 +42,16 @@ export function CloudTitle() {
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className={cn('flex flex-col gap-1', { 'min-w-0': compact })}>
       <label className="sr-only" htmlFor="cloud-title">
         Design name
       </label>
       <input
         id="cloud-title"
-        className="min-h-9 w-full max-w-xs border border-transparent bg-transparent px-1 font-display text-lg hover:border-flv-line focus:border-flv-accent"
+        className={cn(
+          'min-h-9 w-full border border-transparent bg-transparent px-1 font-display hover:border-flv-line focus:border-flv-accent',
+          compact ? 'max-w-[14rem] truncate rounded-md text-base' : 'max-w-xs text-lg',
+        )}
         value={draft ?? current}
         maxLength={80}
         onFocus={() => setDraft(current)}
@@ -57,6 +61,8 @@ export function CloudTitle() {
           if (event.key === 'Enter') {
             event.currentTarget.blur()
           } else if (event.key === 'Escape') {
+            // Handled here: the studio's Esc (deselect) skips a handled key.
+            event.preventDefault()
             setDraft(current)
             requestAnimationFrame(() => event.currentTarget?.blur())
           }
@@ -67,7 +73,8 @@ export function CloudTitle() {
           {error}
         </p>
       ) : null}
-      <CloudDescription />
+      {/* In the studio bar the name stands alone; the note is on Preview & Publish. */}
+      {compact ? null : <CloudDescription />}
     </div>
   )
 }
@@ -75,7 +82,7 @@ export function CloudTitle() {
 const DESCRIPTION_LIMIT = 500
 
 /** A note about the design, for its owner; metadata, like the name. */
-function CloudDescription() {
+export function CloudDescription() {
   const cloud = useEditorStore((state) => state.cloud)
   const setCloudDescription = useEditorStore((state) => state.setCloudDescription)
   const [open, setOpen] = useState(false)

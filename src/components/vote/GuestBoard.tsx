@@ -16,7 +16,7 @@ import { cn } from '../../lib/cn'
 import { listDesigns } from '../../lib/designs-api'
 import type { Design, GarmentId } from '../../lib/design-schema'
 import { FLV_COPY } from '../../lib/flv-copy'
-import { getGarment, listRailGarments } from '../../lib/garments'
+import { garmentCreditLine, getGarment, listRailGarments } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
 import { isSafeThumbnail } from '../../lib/look-thumbnail'
 import { rankDesigns } from '../../lib/rank-designs'
@@ -358,7 +358,7 @@ export function GuestBoard({ entered }: { entered?: string }) {
                             target="_blank"
                             className="block text-[0.65rem] tracking-[0.08em] uppercase hover:text-flv-accent"
                           >
-                            Style3D CG · {garment.credit.license}
+                            {garmentCreditLine({ garmentId: garment.id })}
                           </a>
                         ) : null}
                       </td>

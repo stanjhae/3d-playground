@@ -32,7 +32,11 @@ test('Create starts a new design, My Studio is the library, and the current tab 
   await page.getByRole('button', { name: 'Create a hoodie' }).click()
   await expect(page).toHaveURL(/\/create\?cloud=/)
   await expectSaved({ page })
-  await expect(site.getByRole('link', { name: 'Create' })).toHaveAttribute('aria-current', 'page')
+  // The studio is a workspace: no site header, one way out, back to the library.
+  await expect(site).toHaveCount(0)
+  await page.getByRole('link', { name: 'Back to My Studio' }).click()
+  await expect(page.getByRole('heading', { name: 'Your designs' })).toBeVisible()
+  await expect(site.getByRole('link', { name: 'My Studio' })).toHaveAttribute('aria-current', 'page')
 
   // Vote (find designs to vote on) and Ranking (the top ones) are both in the main nav.
   await site.getByRole('link', { name: 'Vote', exact: true }).click()
