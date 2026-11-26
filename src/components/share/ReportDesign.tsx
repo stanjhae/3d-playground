@@ -4,6 +4,7 @@ import { reportDesignHref } from '../../lib/alpha-contact'
 import { useSessionStore } from '../../lib/auth/session-store'
 import { reportDesign } from '../../lib/flp-api/client'
 import { REPORT_REASONS, type ReportReason } from '../../lib/flp-api/contract'
+import { buttonClass } from '../ui/Button'
 
 const REASON_LABEL: Record<ReportReason, string> = {
   copyright: 'It copies someone else’s work',
@@ -109,11 +110,11 @@ export function ReportDesign({ slug }: { slug: string }) {
         <button
           type="submit"
           disabled={stage === 'sending'}
-          className="inline-flex min-h-9 items-center rounded-full bg-flv-ink px-3 font-body text-xs font-medium text-white disabled:opacity-50"
+          className={buttonClass({ variant: 'secondary' })}
         >
           {stage === 'sending' ? 'Sending…' : 'Send report'}
         </button>
-        <button type="button" className="min-h-9 px-2 font-body text-xs underline" onClick={() => setStage('closed')}>
+        <button type="button" className={buttonClass({ variant: 'quiet' })} onClick={() => setStage('closed')}>
           Cancel
         </button>
       </div>

@@ -13,6 +13,7 @@ import { BOARD_WINDOW_LABEL } from '../../lib/board-view'
 import { getGarment } from '../../lib/garments'
 import { GownCredit } from '../editor/GownCredit'
 import { VoteTally } from '../share/VoteTally'
+import { chipClass } from '../ui/Button'
 
 type Load = { state: 'loading' } | { state: 'ready'; designs: BoardEntry[] } | { state: 'failed' }
 
@@ -108,10 +109,7 @@ export function PublicationBoard() {
               type="button"
               aria-pressed={window === id}
               onClick={() => setWindow(id)}
-              className={cn('min-h-9 rounded-full border px-3 font-body text-xs', {
-                'border-flv-ink bg-flv-ink text-white': window === id,
-                'border-flv-line text-flv-muted hover:text-flv-accent': window !== id,
-              })}
+              className={chipClass({ selected: window === id })}
             >
               {BOARD_WINDOW_LABEL[id]}
             </button>
@@ -127,10 +125,7 @@ export function PublicationBoard() {
               type="button"
               aria-pressed={garmentId === id}
               onClick={() => setGarmentId(id)}
-              className={cn('min-h-9 rounded-full border px-3 font-body text-xs tracking-[0.08em] uppercase', {
-                'border-flv-accent text-flv-accent': garmentId === id,
-                'border-flv-line text-flv-muted hover:text-flv-accent': garmentId !== id,
-              })}
+              className={chipClass({ selected: garmentId === id })}
             >
               {id ? getGarment({ garmentId: id }).label : 'All garments'}
             </button>

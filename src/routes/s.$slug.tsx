@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
+import { buttonClass } from '../components/ui/Button'
 import { ReportDesign } from '../components/share/ReportDesign'
 import { COMMUNITY } from '../lib/community'
 import { VoteButton } from '../components/share/VoteButton'
@@ -60,8 +61,8 @@ function ViewTile({ view, src, title, lazy = false }: { view: View; src: string;
   )
 }
 
-const linkClass =
-  'inline-flex min-h-11 items-center justify-center border border-flv-line px-4 font-body text-xs tracking-[0.1em] uppercase hover:border-flv-accent hover:text-flv-accent'
+// Vote is this page's one primary action; the rest are house secondaries.
+const linkClass = buttonClass({ variant: 'secondary' })
 
 const FAILURES = {
   missing: {

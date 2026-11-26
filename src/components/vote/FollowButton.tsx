@@ -1,10 +1,11 @@
 import { Link } from '@tanstack/react-router'
+import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { useSessionStore } from '../../lib/auth/session-store'
-import { cn } from '../../lib/cn'
 import { followerLabel, getFollowState, setFollow } from '../../lib/community'
 import type { FollowState } from '../../lib/flp-api/contract'
+import { buttonClass } from '../ui/Button'
 
 /** Follow a designer's public profile (community); their designs show under Following on /vote. */
 export function FollowButton({ handle }: { handle: string }) {
@@ -38,7 +39,7 @@ export function FollowButton({ handle }: { handle: string }) {
   if (status === 'signed-out') {
     return (
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/sign-in" search={{ returnTo: `/u/${handle}` }} className="font-body text-sm underline">
+        <Link to="/sign-in" search={{ returnTo: `/u/${handle}` }} className={buttonClass({ variant: 'secondary' })}>
           Sign in to follow
         </Link>
         {count}
@@ -63,11 +64,9 @@ export function FollowButton({ handle }: { handle: string }) {
             if (result.ok) setState(result.data)
             else if (result.code !== 'account-changed') setError(result.message)
           }}
-          className={cn('inline-flex min-h-11 items-center border px-4 font-body text-xs tracking-[0.1em] uppercase disabled:opacity-60', {
-            'border-flv-accent bg-flv-accent text-white': state.following,
-            'border-flv-accent text-flv-accent hover:bg-flv-soft': !state.following,
-          })}
+          className={buttonClass({ variant: state.following ? 'secondary' : 'primary' })}
         >
+          {state.following ? <Check aria-hidden className="size-4 text-flv-accent" /> : null}
           {state.following ? 'Following' : 'Follow'}
         </button>
         {count}
