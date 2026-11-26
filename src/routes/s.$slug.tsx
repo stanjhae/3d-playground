@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
 import { ReportDesign } from '../components/share/ReportDesign'
+import { ShareStage } from '../components/share/ShareStage'
 import { COMMUNITY } from '../lib/community'
 import { VoteButton } from '../components/share/VoteButton'
 import { getGarment, sideViewAlt } from '../lib/garments'
@@ -17,7 +18,8 @@ import { STATIC_SHARE_ELEMENT_ID, takeEmbeddedPublicDesign } from '../lib/public
 /**
  * Public, read-only page for a published design (P04 #182). No sign-in to
  * view. Shows only what the owner published: title, display name and the
- * views of the published version. No editing, source or history. Voting
+ * views of the published version, and the version in 3D (`ShareStage`).
+ * No editing, source or history. Voting
  * (V1) needs an account; signed out, the page offers sign-in.
  */
 
@@ -218,6 +220,9 @@ function SharedDesign() {
           </p>
         </div>
       </header>
+
+      {/* The design in 3D, over its front still; the views below stay the fallback. */}
+      <ShareStage slug={design.slug} seq={design.seq} poster={design.renders.view_front} />
 
       <ul className="grid gap-4 sm:grid-cols-3">
         {VIEWS.map((view) => (

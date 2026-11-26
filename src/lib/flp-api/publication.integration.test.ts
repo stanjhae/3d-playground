@@ -413,7 +413,8 @@ describe.skipIf(!env)('publication against local Supabase', () => {
       const overlay = html.slice(html.indexOf('id="flp-static-share"'), html.indexOf('<div id="root">'))
 
       expect(response.status).toBe(200)
-      expect(overlay.match(/<img /g)).toHaveLength(3)
+      // The 3D view's poster, then the three views.
+      expect(overlay.match(/<img /g)).toHaveLength(4)
       expect(html).not.toContain('view=view_left')
       expect(html).toContain(`<link rel="preload" as="image" href="/api/flp/public/${slug}/image?seq=1"`)
     })

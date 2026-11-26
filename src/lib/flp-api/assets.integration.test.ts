@@ -65,7 +65,7 @@ describe.skipIf(!env)('FLP asset uploads against local Supabase', () => {
     body,
   }: {
     path: string
-    method?: 'GET' | 'POST'
+    method?: 'GET' | 'POST' | 'DELETE'
     token: string
     body?: unknown
   }) {
@@ -188,6 +188,86 @@ describe.skipIf(!env)('FLP asset uploads against local Supabase', () => {
     expect((await bucket.createSignedUrl(row!.storage_path as string, 60)).error).not.toBeNull()
     expect((await fetch(bucket.getPublicUrl(row!.storage_path as string).data.publicUrl)).ok).toBe(false)
     expect((await visitor.from('assets').select('id').eq('id', assetId)).data ?? []).toEqual([])
+
+    signIn({ account: a })
+    const files = await listFilesUnder({ admin, prefix: owner.id })
+    await admin.storage.from('design-assets').remove(files)
+    await admin.auth.admin.deleteUser(owner.id)
+  })
+
+  test('the 3D view gets the published version and its visible uploads, nothing more, and only while published', async () => {
+    // Uploads are rate limited per account, so this one has its own.
+    const owner = await createAccount({ admin, env: serverEnv, label: 'asset-scene' })
+    signIn({ account: owner })
+    const shown = await upload({ bytes: await rgbaPng({ width: 4, height: 4, alpha: 255 }), type: 'image/png' })
+    const hidden = await upload({ bytes: await rgbaPng({ width: 6, height: 6, alpha: 255 }), type: 'image/png' })
+
+    if (!shown.ok || !hidden.ok) {
+      throw new Error('upload failed')
+    }
+
+    const content = withImageAsset({ document: GOLDEN_DOCUMENT, assetId: shown.data.assetId })
+    content.panels.back!.layers.push({
+      id: 'hidden-upload',
+      kind: 'image',
+      visible: false,
+      opacity: 1,
+      assetId: hidden.data.assetId,
+      aspect: 1,
+      x: 0.5,
+      y: 0.5,
+      scale: 0.2,
+      rotation: 0,
+    })
+    const created = await api({ path: 'designs', method: 'POST', token: owner.token, body: { mutationKey: crypto.randomUUID(), content } })
+    const { designId } = (await created.json()) as { designId: string }
+    const data = btoa(String.fromCharCode(...TINY_JPEG))
+    const renders = PUBLIC_RENDER_KINDS.map((kind) => ({ kind, data }))
+    expect((await api({ path: `designs/${designId}/renders`, method: 'POST', token: owner.token, body: { seq: 1, renders } })).status).toBe(201)
+    const published = await api({ path: `designs/${designId}/publication`, method: 'POST', token: owner.token, body: { seq: 1 } })
+    const { slug } = (await published.json()) as { slug: string }
+    const signedOut = (path: string) => handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost/api/flp/${path}`) })
+    const { data: row } = await admin.from('assets').select('storage_path, sha256').eq('id', shown.data.assetId).single()
+
+    const sceneResponse = await signedOut(`public/${slug}/scene?seq=1`)
+    expect(sceneResponse.status).toBe(200)
+    expect(sceneResponse.headers.get('Cache-Control')).toBe('no-store')
+    const sceneText = await sceneResponse.text()
+    const scene = JSON.parse(sceneText) as { seq: number; assets: Record<string, string> }
+    expect(scene.seq).toBe(1)
+    expect(scene.assets).toEqual({ [shown.data.assetId]: `/api/flp/public/${slug}/asset/${shown.data.assetId}?seq=1` })
+
+    for (const secret of [hidden.data.assetId, row!.storage_path as string, owner.id, designId, 'Crest', 'token=', serverEnv.url]) {
+      expect(sceneText, `scene has ${secret}`).not.toContain(secret)
+    }
+
+    // The visible upload: exactly the validated bytes, through us.
+    const served = await handleFlpRequest({ env: serverEnv, request: new Request(`http://localhost${scene.assets[shown.data.assetId]}`) })
+    expect(served.status).toBe(200)
+    expect(served.headers.get('Content-Type')).toBe('image/png')
+    expect(served.headers.get('Cache-Control')).toBe('no-store')
+    expect(served.headers.get('X-Robots-Tag')).toBe('noindex')
+    expect(await sha256Hex({ bytes: new Uint8Array(await served.arrayBuffer()) })).toBe(row!.sha256)
+
+    // Not a hidden layer's upload, another version's, or anything else.
+    for (const path of [
+      `public/${slug}/asset/${hidden.data.assetId}?seq=1`,
+      `public/${slug}/asset/${shown.data.assetId}?seq=2`,
+      `public/${slug}/asset/${shown.data.assetId}?seq=x`,
+      `public/${slug}/asset/asset_lib_cross-simple`,
+      `public/${slug}/asset/${encodeURIComponent(row!.storage_path as string)}`,
+      `public/${slug}/asset/${shown.data.assetId}/more`,
+      `public/${slug}/scene?seq=2`,
+      'public/0000000000000000/scene',
+      `public/0000000000000000/asset/${shown.data.assetId}`,
+    ]) {
+      expect((await signedOut(path)).status, path).toBe(404)
+    }
+
+    // Unpublished: both are gone at once.
+    expect((await api({ path: `designs/${designId}/publication`, method: 'DELETE', token: owner.token })).ok).toBe(true)
+    expect((await signedOut(`public/${slug}/scene?seq=1`)).status).toBe(404)
+    expect((await signedOut(`public/${slug}/asset/${shown.data.assetId}?seq=1`)).status).toBe(404)
 
     signIn({ account: a })
     const files = await listFilesUnder({ admin, prefix: owner.id })

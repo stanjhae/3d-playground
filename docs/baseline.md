@@ -126,7 +126,7 @@ Refreshed 10 November 2026 (P4) on the P4 branch, which is `master` at `34808bf`
 
 | Budget | Limit | Today | Enforced |
 | --- | --- | --- | --- |
-| All JS, gzip | 680 KiB | 566.5 KiB (#372); 571.0 KiB with the graphics library (#373); 602.9 KiB with Pattern (beta) built in (16 Nov); 640.9 KiB with the Vote feed and layer panel (#401), about 648 KiB with the fabric, fill and stretch tools (17 Nov); 668.0 KiB with the polish and vote work (20 Nov) | CI `check` job, `scripts/check-budgets.mjs` |
+| All JS, gzip | 680 KiB | 566.5 KiB (#372); 571.0 KiB with the graphics library (#373); 602.9 KiB with Pattern (beta) built in (16 Nov); 640.9 KiB with the Vote feed and layer panel (#401), about 648 KiB with the fabric, fill and stretch tools (17 Nov); 668.0 KiB with the polish and vote work (20 Nov); 677.9 KiB locally with the share page's 3D view (27 Nov: the viewer chunk is 1.9 KiB, as it reuses the studio's lazy chunks) | CI `check` job, `scripts/check-budgets.mjs` |
 | Largest JS chunk, gzip | 310 KiB | 173.2 KiB (`StudioStage`) | CI `check` job, `scripts/check-budgets.mjs` |
 | GLB per garment template | 1.2 MiB | 1.19 MiB max (`coat.glb`, 1,214 KiB, with print UVs, 11 Nov; was `tailored.glb`, 1,149 KiB) | CI `check` job, `scripts/check-budgets.mjs` |
 | Editor first load, all bytes over the wire | 2.0 MiB | 611 KiB (the tee editor, signed in, cold cache) | CI browser tests, `e2e/budgets.spec.ts` |

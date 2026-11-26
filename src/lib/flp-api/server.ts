@@ -59,6 +59,7 @@ import {
   unpublish,
   uploadRenders,
 } from './publication.ts'
+import { readPublicAsset, readPublicScene } from './public-scene.ts'
 import {
   type OutagePolicy,
   type PublicLimiter,
@@ -1869,13 +1870,29 @@ export async function handleFlpRequest({
       })
     }
 
-    if (request.method !== 'GET' || (action && action !== 'image') || rest.length > 0) {
+    // GET /public/:slug/asset/:assetId — one image the published version draws (3D view).
+    const assetRead = action === 'asset' && rest.length === 1
+
+    if (
+      request.method !== 'GET' ||
+      (action && action !== 'image' && action !== 'scene' && !assetRead) ||
+      (rest.length > 0 && !assetRead)
+    ) {
       return fromError({ error: apiError({ code: 'not_found', message: 'This design is not available' }) })
     }
 
     const publicAdmin = createClient(env.url, env.secretKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
+
+    if (assetRead) {
+      return readPublicAsset({ admin: publicAdmin, slug: designId, assetId: rest[0], search: new URL(request.url).searchParams })
+    }
+
+    // GET /public/:slug/scene — the published design for the share page's 3D view.
+    if (action === 'scene') {
+      return readPublicScene({ admin: publicAdmin, slug: designId, search: new URL(request.url).searchParams, respond })
+    }
 
     return action === 'image'
       ? readPublicImage({ admin: publicAdmin, slug: designId, search: new URL(request.url).searchParams })

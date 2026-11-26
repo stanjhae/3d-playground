@@ -41,12 +41,19 @@ test('studio chrome and share page match their baselines', async ({ page, browse
 
   const slug = await publishWithPlaceholders({ page })
   const visitor = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  // A capable device, so the 3D view loads by itself on any runner (share-3d.spec.ts).
+  await visitor.addInitScript(() => {
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+  })
   const share = await visitor.newPage()
   await share.goto(`/s/${slug}`)
   await expect(share.getByRole('heading', { name: 'Visual tee' })).toBeVisible()
   await expect(share.getByRole('img')).toHaveCount(5)
   // The vote count loads after the page (V1); wait so the picture is stable.
   await expect(share.getByTestId('vote-count')).toHaveText('0 votes')
+  // The 3D view (masked, as every canvas) and its view buttons are up.
+  await expect(share.getByTestId('share-stage')).toHaveAttribute('data-stage', 'ready', { timeout: 60_000 })
   // The publish date changes every day.
   const published = share.getByText(/published \d/)
   await expect(share).toHaveScreenshot('share-page.png', { ...shot, fullPage: true, mask: [...(await visualMasks({ page: share })), published] })

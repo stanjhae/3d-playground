@@ -100,7 +100,8 @@ test('save acknowledgement and public first image', async ({ page, browser }) =>
     const noScript = await browser.newContext({ viewport, javaScriptEnabled: false })
     const overlay = await noScript.newPage()
     await overlay.goto(path)
-    await expect(overlay.locator('#flp-static-share img')).toHaveCount(5)
+    // The 3D view's poster, then the five views.
+    await expect(overlay.locator('#flp-static-share img')).toHaveCount(6)
     await overlay.screenshot({ path: `test-results/overlay-${name}.png`, fullPage: true })
     expect(
       await overlay.evaluate(() => {
