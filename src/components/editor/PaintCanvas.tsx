@@ -54,12 +54,26 @@ import { useTextFacesVersion } from '../../lib/text-faces'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { clothColorOf } from '../../lib/cloth-color'
 import { cn } from '../../lib/cn'
-import { BringToFront, Copy, SendToBack, Trash2 } from 'lucide-react'
+import { BringToFront, Copy, Minus, Plus, SendToBack, Trash2 } from 'lucide-react'
 import { LOCKED_NOTICE, announce, flashNotice } from '../../lib/studio-announcer'
 import { PanelShapeIcon } from './PanelShapeIcon'
 import { chromeKickerClass, chromeTextClass } from '../../lib/studio-chrome'
 import { useLgUp } from '../../lib/viewport'
 import { CANONICAL_LIMITS } from '../../lib/canonical-document'
+import {
+  type FramePoint,
+  type PanelView,
+  canvasResolution,
+  panBy,
+  panelViewOf,
+  pinchView,
+  spaceStartsPan,
+  stepZoom,
+  usePanelViews,
+  wheelZoom,
+  zoomAt,
+  zoomLabel,
+} from '../../lib/panel-zoom'
 
 /** Older templates draw every panel at 6:7; `@3` at each region's own shape. */
 const DEFAULT_PANEL_ASPECT = 6 / 7
@@ -81,6 +95,8 @@ const PANEL_FRAME_CLASS = 'grid min-h-0 flex-1 place-items-center [container-typ
 /** Two fingers resizing and turning a mark, or a pinch over whose fingers are still down. */
 type PinchState =
   | { kind: 'pinch'; start: [Point, Point]; layerId: string; x: number; y: number; scale: number; rotation: number }
+  /** Two fingers on the panel with no mark of its selected: they zoom and pan the view. */
+  | { kind: 'view'; start: [Point, Point]; view: PanelView }
   | { kind: 'spent' }
 
 type DragState = {
@@ -112,6 +128,20 @@ function panelFromEvent({
   return {
     x: Math.min(1, Math.max(0, x)),
     y: Math.min(1, Math.max(0, y)),
+  }
+}
+
+/** A screen point as a share of a panel's frame (its unzoomed box), from the top-left. */
+function frameShareOf({ node, clientX, clientY }: { node: HTMLElement | null; clientX: number; clientY: number }): FramePoint {
+  const rect = node?.getBoundingClientRect()
+
+  if (!rect) {
+    return { x: 0.5, y: 0.5 }
+  }
+
+  return {
+    x: (clientX - rect.left) / Math.max(1, rect.width),
+    y: (clientY - rect.top) / Math.max(1, rect.height),
   }
 }
 
@@ -383,10 +413,13 @@ function SelectionToolbar({
   layer,
   canvasWidth,
   canvasHeight,
+  zoom,
 }: {
   layer: PlaceableLayer
   canvasWidth: number
   canvasHeight: number
+  /** The panel's zoom: the toolbar keeps its size on screen. */
+  zoom: number
 }) {
   const removeLayer = useEditorStore((state) => state.removeLayer)
   const duplicateLayer = useEditorStore((state) => state.duplicateLayer)
@@ -417,7 +450,12 @@ function SelectionToolbar({
         'pointer-events-auto absolute z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-flv-line bg-white/95 p-0.5 shadow-md',
         below ? 'mt-2' : '-translate-y-full -mt-2',
       )}
-      style={{ left: `${left * 100}%`, top: `${Math.min(0.92, Math.max(0, at)) * 100}%` }}
+      style={{
+        left: `${left * 100}%`,
+        top: `${Math.min(0.92, Math.max(0, at)) * 100}%`,
+        scale: zoom === 1 ? undefined : String(1 / zoom),
+        transformOrigin: below ? 'top center' : 'bottom center',
+      }}
       // A press here is for the toolbar, not a stroke on the panel below.
       onPointerDown={(event) => event.stopPropagation()}
     >
@@ -473,9 +511,14 @@ function SelectionToolbar({
   )
 }
 
-function PanelGuideOverlay({ guides }: { guides: PanelGuides }) {
+function PanelGuideOverlay({ guides, zoom }: { guides: PanelGuides; zoom: number }) {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden font-body text-[0.6rem] text-flv-muted">
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 overflow-hidden font-body text-[0.6rem] text-flv-muted"
+      // Zoomed in, the labels stay their size on screen.
+      style={zoom === 1 ? undefined : { fontSize: `calc(0.6rem / ${zoom})` }}
+    >
       <div
         className="absolute inset-x-0 top-0 border-b border-dashed border-flv-muted/40 bg-[repeating-linear-gradient(135deg,transparent_0_4px,rgb(91_98_112/0.08)_4px_8px)]"
         style={{ height: `${guides.collarFromTop * 100}%` }}
@@ -494,16 +537,73 @@ function PanelGuideOverlay({ guides }: { guides: PanelGuides }) {
 }
 
 /** Where a dragged item has snapped: thin accent lines across the panel. */
-function SnapGuideOverlay({ guides }: { guides: SnapGuide[] }) {
+function SnapGuideOverlay({ guides, zoom }: { guides: SnapGuide[]; zoom: number }) {
+  // A hairline at any zoom.
+  const line = `${1 / zoom}px`
+
   return (
     <div aria-hidden data-testid="snap-guides" className="pointer-events-none absolute inset-0 overflow-hidden">
       {guides.map((guide) =>
         guide.axis === 'x' ? (
-          <div key="x" className="absolute inset-y-0 border-l border-flv-accent" style={{ left: `${guide.value * 100}%` }} />
+          <div key="x" className="absolute inset-y-0 border-l border-flv-accent" style={{ left: `${guide.value * 100}%`, borderLeftWidth: line }} />
         ) : (
-          <div key="y" className="absolute inset-x-0 border-t border-flv-accent" style={{ top: `${(1 - guide.value) * 100}%` }} />
+          <div key="y" className="absolute inset-x-0 border-t border-flv-accent" style={{ top: `${(1 - guide.value) * 100}%`, borderTopWidth: line }} />
         ),
       )}
+    </div>
+  )
+}
+
+/** −, the zoom, + and Fit for one panel (`panel-zoom.ts`); keys: + − 0. */
+function ZoomControl({ panel, label, view }: { panel: PanelId; label: string; view: PanelView }) {
+  const setView = usePanelViews((state) => state.setView)
+  const fit = usePanelViews((state) => state.fit)
+  const button =
+    'inline-flex size-8 items-center justify-center rounded-full text-flv-ink hover:bg-flv-soft hover:text-flv-accent disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-flv-ink'
+
+  return (
+    <div
+      role="group"
+      aria-label={`${label} zoom`}
+      data-zoom-control
+      className="absolute right-1.5 bottom-1.5 z-20 flex items-center gap-0.5 rounded-full border border-flv-line bg-white/95 p-0.5 font-body text-xs text-flv-ink shadow-sm"
+      // A press here is for the control, not a stroke on the panel.
+      onPointerDown={(event) => event.stopPropagation()}
+      // A click leaves focus where it was, so Space still pans after it.
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      <button
+        type="button"
+        aria-label={`Zoom out ${label}`}
+        title="Zoom out (−)"
+        className={button}
+        disabled={view.zoom <= 1}
+        onClick={() => setView({ panel, view: stepZoom({ view, direction: 'out' }) })}
+      >
+        <Minus aria-hidden className="size-3.5" />
+      </button>
+      <span data-testid="panel-zoom" aria-live="polite" className="min-w-10 text-center tabular-nums">
+        {zoomLabel({ zoom: view.zoom })}
+      </span>
+      <button
+        type="button"
+        aria-label={`Zoom in ${label}`}
+        title="Zoom in (+)"
+        className={button}
+        disabled={view.zoom >= 8}
+        onClick={() => setView({ panel, view: stepZoom({ view, direction: 'in' }) })}
+      >
+        <Plus aria-hidden className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        aria-label={`Fit ${label}`}
+        title="Fit (0)"
+        className="inline-flex h-8 items-center rounded-full px-2 hover:bg-flv-soft hover:text-flv-accent"
+        onClick={() => fit({ panel })}
+      >
+        Fit
+      </button>
     </div>
   )
 }
@@ -575,7 +675,107 @@ function PaintSurface({
   const outlineOnly = useEditorStore((state) => state.outlineOnly)
   const ground = outlineOnly ? OUTLINE_GROUND : clothColorOf({ document: documentState })
   const outlineColor = active ? ACTIVE_OUTLINE_COLOR : OUTLINE_COLOR
+  // Zoom and pan (`panel-zoom.ts`): the stage inside the frame scales and
+  // shifts, so the canvas's own rect (and so every panel point) follows.
+  const frameRef = useRef<HTMLDivElement | null>(null)
+  const view = usePanelViews((state) => panelViewOf({ views: state.views, panel }))
+  const setView = usePanelViews((state) => state.setView)
+  const spaceHeld = usePanelViews((state) => state.spaceHeld)
+  const resolution = canvasResolution({ zoom: view.zoom })
+  const panRef = useRef<{ pointerId: number; x: number; y: number } | null>(null)
+  /** Fingers down on this panel, so a trackpad's gesture events never double a touch pinch. */
+  const touchCountRef = useRef(0)
 
+  // Ctrl/⌘ + wheel (and a trackpad pinch, which the browser sends as one)
+  // zooms about the pointer; zoomed in, a plain scroll pans.
+  useEffect(() => {
+    const frame = frameRef.current
+
+    if (!frame) {
+      return
+    }
+
+    const node: HTMLDivElement = frame
+    const viewNow = () => panelViewOf({ views: usePanelViews.getState().views, panel })
+    const shareOf = (event: { clientX: number; clientY: number }) =>
+      frameShareOf({ node, clientX: event.clientX, clientY: event.clientY })
+
+    function onWheel(event: WheelEvent) {
+      const current = viewNow()
+
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault()
+        usePanelViews.getState().setView({
+          panel,
+          view: zoomAt({
+            view: current,
+            zoom: wheelZoom({ zoom: current.zoom, deltaY: event.deltaY, deltaMode: event.deltaMode }),
+            at: shareOf(event),
+          }),
+        })
+        return
+      }
+
+      // At fit the page scrolls as it always did.
+      if (current.zoom <= 1) {
+        return
+      }
+
+      event.preventDefault()
+      const rect = node.getBoundingClientRect()
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1
+      usePanelViews.getState().setView({
+        panel,
+        view: panBy({
+          view: current,
+          dx: (-event.deltaX * unit) / Math.max(1, rect.width),
+          dy: (-event.deltaY * unit) / Math.max(1, rect.height),
+        }),
+      })
+    }
+
+    // Safari's trackpad pinch comes as gesture events, not a Ctrl + wheel.
+    let gestureStart: PanelView | null = null
+    type GestureEvent = Event & { scale: number; clientX: number; clientY: number }
+
+    function onGestureStart(event: Event) {
+      if (touchCountRef.current > 0) {
+        return
+      }
+
+      event.preventDefault()
+      gestureStart = viewNow()
+    }
+
+    function onGestureChange(event: Event) {
+      if (!gestureStart || touchCountRef.current > 0) {
+        return
+      }
+
+      event.preventDefault()
+      const gesture = event as GestureEvent
+      usePanelViews.getState().setView({
+        panel,
+        view: zoomAt({ view: viewNow(), zoom: gestureStart.zoom * gesture.scale, at: shareOf(gesture) }),
+      })
+    }
+
+    function onGestureEnd() {
+      gestureStart = null
+    }
+
+    node.addEventListener('wheel', onWheel, { passive: false })
+    node.addEventListener('gesturestart', onGestureStart)
+    node.addEventListener('gesturechange', onGestureChange)
+    node.addEventListener('gestureend', onGestureEnd)
+
+    return () => {
+      node.removeEventListener('wheel', onWheel)
+      node.removeEventListener('gesturestart', onGestureStart)
+      node.removeEventListener('gesturechange', onGestureChange)
+      node.removeEventListener('gestureend', onGestureEnd)
+    }
+  }, [panel])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -612,7 +812,7 @@ function PaintSurface({
           : null,
       outlineColor,
     })
-  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, ground, outlineColor, panel, selected, shapeSrc, shapes])
+  }, [atlas, canvasRef, canvasSize.height, canvasSize.width, documentState.modelSrc, documentState.panelUv, ground, outlineColor, panel, resolution, selected, shapeSrc, shapes])
 
   // Two fingers on a selected mark resize and turn it, as on the cloth
   // (`ClothTwoFinger`). Whatever the first finger began (a stroke, a drag)
@@ -643,7 +843,20 @@ function PaintSurface({
         selectedPlaceable({ document: state.document, selectedLayerId: state.selectedLayerId }) ??
         selectedPlaceable({ document: state.document, selectedLayerId: selectedAtFirstTouch })
 
+      // The first finger's stroke goes, unrecorded; its drag goes back to where it began.
+      if (state.activeStroke) {
+        state.discardStroke()
+      }
+
+      setSnapGuides([])
+
+      // No mark of this panel's to pinch: two fingers zoom and pan the panel.
       if (!layer || layer.panel !== panel || !movableOnSurface({ layer })) {
+        pinchRef.current = {
+          kind: 'view',
+          start: pair(),
+          view: panelViewOf({ views: usePanelViews.getState().views, panel }),
+        }
         return
       }
 
@@ -651,13 +864,7 @@ function PaintSurface({
         state.selectLayer({ selectedLayerId: layer.id })
       }
 
-      // The first finger's stroke goes, unrecorded; its drag goes back to where it began.
-      if (state.activeStroke) {
-        state.discardStroke()
-      }
-
       dragRef.current = null
-      setSnapGuides([])
       const start = { layerId: layer.id, x: layer.x, y: layer.y, scale: layer.scale, rotation: layer.rotation }
 
       if (useEditorStore.getState().activeLayerEdit) {
@@ -680,6 +887,7 @@ function PaintSurface({
       }
 
       touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      touchCountRef.current = touches.size
 
       if (touches.size === 2 && !pinchRef.current) {
         begin()
@@ -693,6 +901,18 @@ function PaintSurface({
 
       touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
       const pinch = pinchRef.current
+
+      if (pinch?.kind === 'view' && touches.size === 2) {
+        const now = pair()
+        const change = twoFingerChange({ start: pinch.start, now })
+        const mid = (pair: [Point, Point]) =>
+          frameShareOf({ node: frameRef.current, clientX: (pair[0].x + pair[1].x) / 2, clientY: (pair[0].y + pair[1].y) / 2 })
+        usePanelViews.getState().setView({
+          panel,
+          view: pinchView({ view: pinch.view, start: mid(pinch.start), now: mid(now), scale: change.scale }),
+        })
+        return
+      }
 
       if (pinch?.kind !== 'pinch' || touches.size !== 2) {
         return
@@ -709,6 +929,12 @@ function PaintSurface({
     function onPointerUp(event: PointerEvent) {
       if (!touches.delete(event.pointerId)) {
         return
+      }
+
+      touchCountRef.current = touches.size
+
+      if (pinchRef.current?.kind === 'view') {
+        pinchRef.current = { kind: 'spent' }
       }
 
       // The first finger up ends the pinch (one undo step); the rest of the
@@ -777,6 +1003,7 @@ function PaintSurface({
         layer: selected,
         x: point.x,
         y: point.y,
+        zoom: view.zoom,
       })
 
       if (handle) {
@@ -1108,96 +1335,167 @@ function PaintSurface({
     }
   })
 
+  function endPan(event: ReactPointerEvent<HTMLDivElement>) {
+    if (panRef.current?.pointerId === event.pointerId) {
+      panRef.current = null
+    }
+  }
+
   return (
     <div
-      className={cn('relative border bg-flv-soft', {
+      ref={frameRef}
+      data-panel-frame={panel}
+      className={cn('relative touch-none overflow-hidden border bg-flv-soft', {
         'border-flv-accent': active,
         'border-flv-line': !active,
+        'cursor-grab': spaceHeld,
       })}
       style={{ aspectRatio: panelAspect, width: `min(100cqw, calc(100cqh * ${panelAspect}))` }}
-    >
-      <canvas
-        ref={canvasRef}
-        width={canvasSize.width}
-        height={canvasSize.height}
-        role="img"
-        data-panel-target={panel}
-        aria-label={`${HOUSE_COPY.designPanel} ${label}${active ? ', active' : ''}`}
-        // A tab stop per panel (#163): focusing one makes it the panel a
-        // typed word lands on, with no pointer needed.
-        tabIndex={0}
-        onFocus={() => {
-          if (!active) {
-            onActivate()
-          }
-        }}
-        className="h-full w-full cursor-crosshair touch-none bg-ivory"
-        onPointerDown={(event) => {
-          handlePointerDown({ event })
-        }}
-        onDragOver={(event) => {
-          if (carriesGraphic({ dataTransfer: event.dataTransfer })) {
-            event.preventDefault()
-            event.dataTransfer.dropEffect = 'copy'
-          }
-        }}
-        onDrop={(event) => {
-          const src = droppedGraphic({ dataTransfer: event.dataTransfer })
-          const node = canvasRef.current
+      // Space + drag, or the middle button, pans a zoomed panel (as in most
+      // editors); it never reaches the canvas, so it draws nothing.
+      onPointerDownCapture={(event) => {
+        if ((event.target as HTMLElement).closest('[data-zoom-control]')) {
+          return
+        }
 
-          if (!src || !node) {
-            return
-          }
+        const middle = event.pointerType === 'mouse' && event.button === 1
+        const space = spaceHeld && event.pointerType !== 'touch'
 
-          // A graphic dragged from the library lands where it was let go.
+        if (!middle && !space) {
+          return
+        }
+
+        event.preventDefault()
+        event.stopPropagation()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        panRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+      }}
+      // No autoscroll on a middle press.
+      onMouseDown={(event) => {
+        if (event.button === 1) {
           event.preventDefault()
-          const point = panelFromEvent({ event: event.nativeEvent, node })
-          onActivate()
-          useEditorStore.getState().addGraphic({ src, panel, x: point.x, y: point.y })
-        }}
-        onPointerMove={(event) => {
-          handlePointerMove({ event })
-        }}
-        onPointerUp={(event) => {
-          handlePointerUp({ event })
-        }}
-        onPointerCancel={(event) => {
-          if (isOtherPointer({ pointerId: event.pointerId }) || pinchRef.current) {
-            return
-          }
+        }
+      }}
+      onPointerMove={(event) => {
+        const pan = panRef.current
 
-          if (dragRef.current?.panel === panel) {
-            dragRef.current = null
-          }
-          setSnapGuides([])
-          endLayerEdit()
-          cancelStroke({ pointerType: event.pointerType })
-        }}
-      />
-      {guides ? <PanelGuideOverlay guides={guides} /> : null}
-      {snapGuides.length ? <SnapGuideOverlay guides={snapGuides} /> : null}
-      {selected && selected.panel === panel && selected.visible && !isBaseFill({ layer: selected }) && !editingWord ? (
-        <SelectionToolbar layer={selected} canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
-      ) : null}
-      {editingWord && selected?.kind === 'text' && selected.panel === panel ? (
-        <WordOnCloth
-          layer={selected}
-          canvasWidth={canvasSize.width}
-          canvasHeight={canvasSize.height}
-          draftWord={draftWord}
-          setDraftWord={setDraftWord}
-          editStartContent={editStartContentRef.current}
-          onClose={() => {
-            setEditingWord(false)
+        if (!pan || pan.pointerId !== event.pointerId) {
+          return
+        }
+
+        const rect = event.currentTarget.getBoundingClientRect()
+        setView({
+          panel,
+          view: panBy({
+            view,
+            dx: (event.clientX - pan.x) / Math.max(1, rect.width),
+            dy: (event.clientY - pan.y) / Math.max(1, rect.height),
+          }),
+        })
+        pan.x = event.clientX
+        pan.y = event.clientY
+      }}
+      onPointerUp={endPan}
+      onPointerCancel={endPan}
+      onLostPointerCapture={endPan}
+    >
+      <div
+        data-testid="panel-stage"
+        className="absolute inset-0"
+        style={
+          view.zoom === 1
+            ? undefined
+            : {
+                transform: `translate(${view.x * 100}%, ${view.y * 100}%) scale(${view.zoom})`,
+                transformOrigin: '0 0',
+              }
+        }
+      >
+        <canvas
+          ref={canvasRef}
+          width={canvasSize.width * resolution}
+          height={canvasSize.height * resolution}
+          role="img"
+          data-panel-target={panel}
+          aria-label={`${HOUSE_COPY.designPanel} ${label}${active ? ', active' : ''}`}
+          // A tab stop per panel (#163): focusing one makes it the panel a
+          // typed word lands on, with no pointer needed.
+          tabIndex={0}
+          onFocus={() => {
+            if (!active) {
+              onActivate()
+            }
           }}
-          onCommit={({ content }: { content: string }) => {
-            updateLayer({
-              layerId: selected.id,
-              patch: { content },
-            })
+          className={cn('block h-full w-full touch-none bg-ivory', spaceHeld ? 'cursor-grab' : 'cursor-crosshair')}
+          onPointerDown={(event) => {
+            handlePointerDown({ event })
+          }}
+          onDragOver={(event) => {
+            if (carriesGraphic({ dataTransfer: event.dataTransfer })) {
+              event.preventDefault()
+              event.dataTransfer.dropEffect = 'copy'
+            }
+          }}
+          onDrop={(event) => {
+            const src = droppedGraphic({ dataTransfer: event.dataTransfer })
+            const node = canvasRef.current
+
+            if (!src || !node) {
+              return
+            }
+
+            // A graphic dragged from the library lands where it was let go.
+            event.preventDefault()
+            const point = panelFromEvent({ event: event.nativeEvent, node })
+            onActivate()
+            useEditorStore.getState().addGraphic({ src, panel, x: point.x, y: point.y })
+          }}
+          onPointerMove={(event) => {
+            handlePointerMove({ event })
+          }}
+          onPointerUp={(event) => {
+            handlePointerUp({ event })
+          }}
+          onPointerCancel={(event) => {
+            if (isOtherPointer({ pointerId: event.pointerId }) || pinchRef.current) {
+              return
+            }
+
+            if (dragRef.current?.panel === panel) {
+              dragRef.current = null
+            }
+            setSnapGuides([])
+            endLayerEdit()
+            cancelStroke({ pointerType: event.pointerType })
           }}
         />
-      ) : null}
+        {guides ? <PanelGuideOverlay guides={guides} zoom={view.zoom} /> : null}
+        {snapGuides.length ? <SnapGuideOverlay guides={snapGuides} zoom={view.zoom} /> : null}
+        {selected && selected.panel === panel && selected.visible && !isBaseFill({ layer: selected }) && !editingWord ? (
+          <SelectionToolbar layer={selected} canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} zoom={view.zoom} />
+        ) : null}
+        {editingWord && selected?.kind === 'text' && selected.panel === panel ? (
+          <WordOnCloth
+            layer={selected}
+            canvasWidth={canvasSize.width}
+            canvasHeight={canvasSize.height}
+            draftWord={draftWord}
+            setDraftWord={setDraftWord}
+            editStartContent={editStartContentRef.current}
+            onClose={() => {
+              setEditingWord(false)
+            }}
+            onCommit={({ content }: { content: string }) => {
+              updateLayer({
+                layerId: selected.id,
+                patch: { content },
+              })
+            }}
+          />
+        ) : null}
+      </div>
+      {/* The active panel's zoom; another panel's too while it is zoomed, to Fit it. */}
+      {active || view.zoom > 1 ? <ZoomControl panel={panel} label={label} view={view} /> : null}
     </div>
   )
 }
@@ -1296,6 +1594,45 @@ export function PaintCanvas({
       setEditingWord(false)
     }
   }, [selected])
+
+  // Space held: the hand that pans a zoomed panel (Space + drag).
+  useEffect(() => {
+    const views = usePanelViews.getState
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== ' ' || event.metaKey || event.ctrlKey || event.altKey || !spaceStartsPan({ target: event.target })) {
+        return
+      }
+
+      // No page scroll while the hand is held.
+      event.preventDefault()
+
+      if (!views().spaceHeld) {
+        views().setSpaceHeld({ spaceHeld: true })
+      }
+    }
+
+    function release(event?: KeyboardEvent) {
+      if ((!event || event.key === ' ') && views().spaceHeld) {
+        views().setSpaceHeld({ spaceHeld: false })
+      }
+    }
+
+    function onBlur() {
+      release()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', release)
+    window.addEventListener('blur', onBlur)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', release)
+      window.removeEventListener('blur', onBlur)
+      release()
+    }
+  }, [])
 
   function surfaceProps({
     panel,
