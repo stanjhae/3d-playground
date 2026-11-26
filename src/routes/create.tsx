@@ -32,6 +32,7 @@ import {
 import { SilhouetteSwitch } from '../components/editor/SilhouetteSwitch'
 import { AtelierScene } from '../components/scene/AtelierScene'
 import { TermsGate } from '../components/auth/TermsGate'
+import { DownloadImage, DownloadImageButton } from '../components/editor/DownloadImage'
 import { CloudPublish } from '../components/editor/CloudPublish'
 import {
   CloudSaveProblem,
@@ -703,6 +704,12 @@ function AtelierHome() {
                 <CameraPresetBar compact />
               </div>
             ) : null}
+            {/* On a phone the publish column has no room to spare: Download image rides the stage. */}
+            {!lgUp && mode === 'design' && showsShareRail({ step: createStep }) ? (
+              <div className="pointer-events-auto absolute top-2 right-2">
+                <DownloadImageButton />
+              </div>
+            ) : null}
           </div>
         )}
         {mode === 'design' && !cloudFailed ? (
@@ -797,6 +804,8 @@ function AtelierHome() {
                   }}
                 />
               ) : null}
+              {/* A PNG of the look to keep or send, signed in or not. */}
+              {lgUp && showsShareRail({ step: createStep }) ? <DownloadImage /> : null}
             </div>
           </div>
         ) : null}

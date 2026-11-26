@@ -219,6 +219,65 @@ test('two fingers on a selected mark on a 2D panel resize and turn it, as one un
   expect(await savedStrokes({ page })).toHaveLength(0)
 })
 
+test('two fingers on a 2D panel with nothing selected zoom and pan it, and draw nothing; Fit puts it back', async ({ page }) => {
+  test.setTimeout(120_000)
+  const email = newEmail({ label: 'touch-panel-zoom' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).tap()
+  await expect(page).toHaveURL(/\/create\?cloud=/)
+  await expectSaved({ page })
+  await chooseTool({ page, tool: 'Draw' })
+  await showPanels({ page })
+  const front = panelCanvas({ page, panel: 'Front' })
+  await front.scrollIntoViewIfNeeded()
+  const readout = page.getByRole('group', { name: 'Front zoom' }).getByTestId('panel-zoom')
+  await expect(readout).toHaveText('100%')
+
+  const box = (await front.boundingBox())!
+  const cx = box.x + box.width / 2
+  const cy = box.y + box.height / 2
+  const fingers = (spread: number, shift: number) => [
+    { x: cx - spread + shift, y: cy, id: 1 },
+    { x: cx + spread + shift, y: cy, id: 2 },
+  ]
+  const cdp = await page.context().newCDPSession(page)
+  // One finger lands and starts a line, then the second: the line goes.
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(20, 0).slice(0, 1) })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...fingers(20, 0)[0]!, x: cx - 30 }] })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(20, 0) })
+  for (let step = 1; step <= 10; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(20 + step * 4, step * 2) })
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+
+  // The fingers spread to three times as far apart: 300%.
+  await expect.poll(async () => Number.parseInt((await readout.textContent()) ?? '0', 10)).toBeGreaterThan(250)
+  expect((await front.boundingBox())!.width).toBeGreaterThan(box.width * 2.5)
+  expect(await savedStrokes({ page })).toHaveLength(0)
+
+  // One finger zoomed in still draws, inside the panel's frame.
+  const frame = (await page.locator('[data-panel-frame="front"]').boundingBox())!
+  const draw = await page.context().newCDPSession(page)
+  const at = (fx: number) => [{ x: frame.x + frame.width * fx, y: frame.y + frame.height * 0.5, id: 1 }]
+  await draw.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0.3) })
+  for (let step = 1; step <= 12; step += 1) {
+    await draw.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(0.3 + 0.4 * (step / 12)) })
+  }
+  await draw.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await draw.detach()
+  await expect.poll(async () => (await savedStrokes({ page })).length, { timeout: 30_000 }).toBe(1)
+
+  await page.getByRole('button', { name: 'Fit Front' }).tap()
+  await expect(readout).toHaveText('100%')
+
+  // On a touch screen, Download image rides the 3D stage on Preview & Publish.
+  await page.getByRole('navigation', { name: 'Create steps' }).getByRole('button', { name: /Preview & Publish$/ }).tap()
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-image-button').tap()])
+  expect(download.suggestedFilename()).toMatch(/^fashion-leader-.+-3d-\d{4}-\d{2}-\d{2}\.png$/)
+})
+
 test('a graphic held and dragged from the library by a finger lands where it is let go on the cloth', async ({ page }) => {
   test.setTimeout(150_000)
   const email = newEmail({ label: 'touch-drop' })

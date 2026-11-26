@@ -25,6 +25,8 @@ import { useStudioMode } from '../../lib/studio-mode'
 import { useLgUp } from '../../lib/viewport'
 import { CameraPresetBar } from './CameraPresetBar'
 import { PaintCanvas } from './PaintCanvas'
+import { canDownloadDesignImage, downloadDesignImage } from './DownloadImage'
+import { panelViewOf, stepZoom, usePanelViews, zoomLabel } from '../../lib/panel-zoom'
 
 const TOOL_NAMES = { brush: 'Brush', eraser: 'Eraser', text: 'Text', graphics: 'Graphics' } as const
 
@@ -73,6 +75,9 @@ export function DualStudio({
         canPaste: hasCopiedLayer(),
         inDesign: showsDesignRails({ step: state.createStep }),
         canLock: lockable !== null,
+        // The active flat side is on screen to zoom.
+        canZoom: document.querySelector(`[data-panel-frame="${state.paintPanel}"]`) !== null,
+        canExport: canDownloadDesignImage(),
       })
 
       if (!action) {
@@ -88,6 +93,28 @@ export function DualStudio({
 
       if (action.type === 'redo') {
         redoLast()
+        return
+      }
+
+      if (action.type === 'zoom') {
+        const views = usePanelViews.getState()
+
+        if (action.direction === 'fit') {
+          views.fit({ panel: state.paintPanel })
+        } else {
+          views.setView({
+            panel: state.paintPanel,
+            view: stepZoom({ view: panelViewOf({ views: views.views, panel: state.paintPanel }), direction: action.direction }),
+          })
+        }
+
+        const zoom = panelViewOf({ views: usePanelViews.getState().views, panel: state.paintPanel }).zoom
+        announce({ message: `Zoom ${zoomLabel({ zoom })}.` })
+        return
+      }
+
+      if (action.type === 'export') {
+        void downloadDesignImage()
         return
       }
 

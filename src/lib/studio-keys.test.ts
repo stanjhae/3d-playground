@@ -141,7 +141,39 @@ describe('studioKeyAction, A3 keys', () => {
   })
 })
 
+describe('studioKeyAction, panel zoom and export', () => {
+  test('+ − 0 zoom or fit the active flat side, only where one is shown', () => {
+    expect(studioKeyAction({ key: '=', hasSelection: false, canZoom: true })).toEqual({ type: 'zoom', direction: 'in' })
+    expect(studioKeyAction({ key: '+', shiftKey: true, hasSelection: true, canZoom: true })).toEqual({ type: 'zoom', direction: 'in' })
+    expect(studioKeyAction({ key: '-', hasSelection: false, canZoom: true })).toEqual({ type: 'zoom', direction: 'out' })
+    expect(studioKeyAction({ key: '0', hasSelection: false, canZoom: true })).toEqual({ type: 'zoom', direction: 'fit' })
+    expect(studioKeyAction({ key: '=', hasSelection: false })).toBeNull()
+    expect(studioKeyAction({ key: '=', hasSelection: false, canZoom: true, inDesign: false })).toBeNull()
+    expect(studioKeyAction({ key: '-', hasSelection: false, canZoom: true, drawing: true })).toBeNull()
+    expect(studioKeyAction({ key: '-', hasSelection: false, canZoom: true, target: { tagName: 'INPUT' } })).toBeNull()
+  })
+
+  test('⌘ + and ⌘ − stay the browser zoom', () => {
+    expect(studioKeyAction({ key: '=', metaKey: true, hasSelection: false, canZoom: true })).toBeNull()
+    expect(studioKeyAction({ key: '-', ctrlKey: true, hasSelection: false, canZoom: true })).toBeNull()
+  })
+
+  test('Shift + ⌘ E downloads an image when the 3D view is there', () => {
+    expect(studioKeyAction({ key: 'E', metaKey: true, shiftKey: true, hasSelection: false, canExport: true })).toEqual({ type: 'export' })
+    expect(studioKeyAction({ key: 'e', ctrlKey: true, shiftKey: true, hasSelection: true, canExport: true })).toEqual({ type: 'export' })
+    expect(studioKeyAction({ key: 'E', metaKey: true, shiftKey: true, hasSelection: false })).toBeNull()
+    expect(studioKeyAction({ key: 'e', metaKey: true, hasSelection: false, canExport: true })).toBeNull()
+  })
+})
+
 describe('studioKeyList', () => {
+  test('lists panel zoom, pan and the image download', () => {
+    const keys = studioKeyList({ mod: 'Ctrl' }).map((entry) => entry.keys)
+    expect(keys).toEqual(
+      expect.arrayContaining(['+ or −', '0', 'Ctrl + scroll, or pinch', 'Space + drag, or middle-drag', 'Shift + Ctrl + E']),
+    )
+  })
+
   test('names every key the studio handles', () => {
     const keys = studioKeyList({ mod: 'Ctrl' }).map((entry) => entry.keys)
     expect(keys).toEqual(
