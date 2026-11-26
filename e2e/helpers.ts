@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 
-import { type BrowserContext, type Page, expect } from '@playwright/test'
+import { type BrowserContext, type Locator, type Page, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { loadEnv } from 'vite'
 
@@ -178,6 +178,22 @@ export async function signIn({
       await acceptTermsGate({ page })
     }
   }
+}
+
+/**
+ * Open a Layers row's More menu (UX review, 26 Nov): reorder, rename,
+ * duplicate and delete live there now. `name` is the row's name, or a
+ * pattern for it; the first matching row's menu opens.
+ */
+export async function openLayerMenu({ rail, name }: { rail: Locator; name: string | RegExp }) {
+  const label = typeof name === 'string' ? `More actions for ${name}` : new RegExp(`^More actions for ${name.source}`)
+  const button = rail.getByRole('button', { name: label, exact: typeof name === 'string' }).first()
+
+  if ((await button.getAttribute('aria-expanded')) !== 'true') {
+    await button.click()
+  }
+
+  await expect(rail.page().getByTestId('layer-row-menu')).toBeVisible()
 }
 
 /** Picks a Design step tool from the rail. Picking the current one changes nothing. */

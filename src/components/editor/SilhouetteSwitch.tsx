@@ -11,7 +11,7 @@ import { resolveGarmentId } from '../../lib/design-schema'
 import { useEditorStore } from '../../lib/editor-store'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { CONCEPT_FEATURES } from '../../lib/concept-flags'
-import { garmentCanPaint, garmentCredit, garmentPanels, getGarment, printAreas } from '../../lib/garments'
+import { garmentCanPaint, garmentPanels, getGarment, printAreas } from '../../lib/garments'
 import {
   garmentCategory,
   listGarmentsByCategory,
@@ -173,7 +173,6 @@ export function SilhouetteSwitch({
   // say so instead of letting the picker silently do nothing.
   const locked = useEditorStore((state) => state.cloud !== null)
   const current = resolveGarmentId({ garmentId: garmentId ?? storeId })
-  const credit = garmentCredit({ garmentId: current })
   const canPaint = garmentCanPaint({ garmentId: current })
   const [category, setCategory] = useState<GarmentCategoryId>(
     garmentCategory({ garmentId: current }),
@@ -412,27 +411,6 @@ export function SilhouetteSwitch({
           </div>
           ) : null}
         </aside>
-      ) : null}
-      {credit && garments.some((garment) => garment.id === current) ? (
-        <p className={cn(chromeMutedClass())}>
-          <a
-            href={credit.href}
-            rel="noopener noreferrer"
-            target="_blank"
-            className="hover:text-flv-accent"
-          >
-            {credit.label}
-          </a>
-          {' · '}
-          <a
-            href={credit.licenseHref}
-            rel="license noopener noreferrer"
-            target="_blank"
-            className="hover:text-flv-accent"
-          >
-            {credit.license}
-          </a>
-        </p>
       ) : null}
     </div>
   )

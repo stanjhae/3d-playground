@@ -2,7 +2,7 @@ import { type APIRequestContext, type Page, expect, test } from '@playwright/tes
 
 import { TINY_JPEG } from '../src/lib/image-fixtures'
 import { PUBLIC_RENDER_KINDS } from '../src/lib/flp-api/render-kinds.mjs'
-import { chooseTool, createExistingAccount, deleteAccounts, drawStroke, expectSaved, expireSentCode, latestCode, newEmail, panelCanvas, passTermsGate, signIn } from './helpers'
+import { chooseTool, createExistingAccount, deleteAccounts, drawStroke, expectSaved, expireSentCode, latestCode, newEmail, openLayerMenu, panelCanvas, passTermsGate, signIn } from './helpers'
 
 /**
  * What docs/evidence/requirements-rc.md found proven only below the UI:
@@ -503,27 +503,32 @@ test('drawing on both sleeves, erasing, and the layer list work from the editor'
   await expect(rail.getByRole('button', { name: 'Unhide all' })).toHaveAttribute('aria-disabled', 'true')
 
   // Rename in place: Esc cancels, Enter saves.
-  await rail.getByRole('button', { name: 'Rename ONE' }).click()
+  await openLayerMenu({ rail, name: 'ONE' })
+  await page.getByRole('button', { name: 'Rename ONE' }).click()
   const nameField = rail.getByRole('textbox', { name: 'New name for ONE' })
   await nameField.fill('Kept')
   await nameField.press('Escape')
   await expect(nameField).toHaveCount(0)
-  await rail.getByRole('button', { name: 'Rename ONE' }).click()
+  await openLayerMenu({ rail, name: 'ONE' })
+  await page.getByRole('button', { name: 'Rename ONE' }).click()
   await nameField.fill('Headline')
   await nameField.press('Enter')
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.find((layer) => layer.kind === 'text')?.name, { timeout: 20_000 }).toBe('Headline')
   await expect(rail.getByRole('button', { name: /^Headline/ })).toBeVisible()
-  await rail.getByRole('button', { name: 'Rename Headline' }).click()
+  await openLayerMenu({ rail, name: 'Headline' })
+  await page.getByRole('button', { name: 'Rename Headline' }).click()
   await rail.getByRole('textbox', { name: 'New name for Headline' }).fill('ONE')
   await rail.getByRole('textbox', { name: 'New name for Headline' }).press('Enter')
 
-  await rail.getByRole('button', { name: /^Duplicate .*ONE/ }).first().click()
+  await openLayerMenu({ rail, name: /.*ONE/ })
+  await page.getByRole('button', { name: /^Duplicate .*ONE/ }).first().click()
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.filter((layer) => layer.kind === 'text').length, { timeout: 20_000 }).toBe(2)
   const copies = (await savedHead({ page })).content.panels.front!.layers.filter((layer) => layer.kind === 'text')
   expect(new Set(copies.map((layer) => layer.id)).size).toBe(2)
 
   const before = (await savedHead({ page })).content.panels.front!.layers.map((layer) => layer.id)
-  await rail.getByRole('button', { name: /^Move .*ONE.* down/ }).first().click()
+  await openLayerMenu({ rail, name: /.*ONE/ })
+  await page.getByRole('button', { name: /^Move .*ONE.* down/ }).first().click()
   await expect.poll(async () => (await savedHead({ page })).content.panels.front!.layers.map((layer) => layer.id).join(), { timeout: 20_000 }).not.toBe(before.join())
   await expect(panelCanvas({ page, panel: 'Front' })).toBeVisible()
 })
@@ -566,7 +571,8 @@ test('every garment with a template is on offer, the T-shirt first, and the serv
 
   const main = page.getByRole('main')
   const garment = main.getByRole('combobox', { name: 'Garment' })
-  await expect(main.getByRole('button', { name: /^Create/ })).toHaveCount(1)
+  // One header button names the garment; the empty list's own "Create your first…" is separate.
+  await expect(main.getByRole('button', { name: /^Create an? / })).toHaveCount(1)
   await expect(main.getByRole('button', { name: 'Create a T-shirt' })).toBeVisible()
   await expect(garment).toHaveValue('tee')
   await expect(garment.getByRole('option', { name: 'Hoodie' })).toHaveCount(1)
@@ -599,6 +605,11 @@ test('the baked garments (D1) are on offer in the picker, and each one creates, 
     { id: 'dress', label: 'Dress', button: 'Create a dress' },
     { id: 'trousers', label: 'Trousers', button: 'Create a pair of trousers' },
   ]) {
+    // The studio has no site header: after the first garment, leave it first.
+    if (new URL(page.url()).pathname === '/create') {
+      await page.getByRole('link', { name: 'Back to My Studio' }).click()
+    }
+
     await site.getByRole('link', { name: 'Create' }).click()
     await expect(page.getByRole('heading', { name: 'Start a new design' })).toBeVisible()
     await page.getByRole('radiogroup', { name: 'Garment' }).getByRole('radio', { name: new RegExp(`^${label}`) }).click()

@@ -100,6 +100,7 @@ import { clampShape, type GarmentShape, type ShapeSpec } from './garment-shape-p
 import { writableShapeSpec } from './shape-beta'
 import { roundPlacement } from './transform-fields'
 import { layerNameMessage } from './glyph-coverage'
+import { textInkFor } from './cloth-color'
 
 export type EditorMode = 'design' | 'atelier'
 
@@ -194,6 +195,11 @@ type EditorState = {
   activeLayerEdit: LayerEdit | null
   textFace: TextFace
   textScale: number
+  /**
+   * The ink new words take. Null follows the cloth: dark on light, light on
+   * dark (`textInkFor`). Words no longer take the brush colour.
+   */
+  textColor: string | null
   typeDraft: string
   snapshots: DesignSnapshot[]
   undoCount: number
@@ -396,6 +402,7 @@ type EditorState = {
   setLayersVisible: ({ layerIds, visible }: { layerIds: string[]; visible: boolean }) => void
   setTextFace: ({ textFace }: { textFace: TextFace }) => void
   setTextScale: ({ textScale }: { textScale: number }) => void
+  setTextColor: ({ textColor }: { textColor: string | null }) => void
   setTypeDraft: ({ typeDraft }: { typeDraft: string }) => void
   removeLayer: ({ layerId }: { layerId: string }) => void
   /**
@@ -894,6 +901,7 @@ const INITIAL_EDITOR_STATE = {
   activeLayerEdit: null as LayerEdit | null,
   textFace: 'display' as TextFace,
   textScale: TYPE_SIZES[1]?.scale ?? 0.12,
+  textColor: null as string | null,
   typeDraft: '',
   snapshots: listSnapshots(),
   undoCount: 0,
@@ -1887,7 +1895,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
             panel: panel ?? state.paintPanel,
             content: trimmed.slice(0, 32),
             face: face ?? state.textFace,
-            color: state.paintColor,
+            color: textInkFor({ textColor: state.textColor, document: state.document }),
             x: x ?? 0.5,
             y: y ?? 0.38,
             scale: scale ?? state.textScale,
@@ -2067,6 +2075,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setTextScale: ({ textScale }) => {
     set({ textScale })
+  },
+  setTextColor: ({ textColor }) => {
+    set({ textColor })
   },
   setTypeDraft: ({ typeDraft }) => {
     set({ typeDraft })

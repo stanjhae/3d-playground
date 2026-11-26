@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { stillFrontBox, storedRenderSrc, teeOutlinePoints, teeStillScale, thumbnailKey } from './design-thumbnail'
 import type { DesignSummary } from './flp-api/client'
-import { copyTitle, readStudioSort, visibleDesigns, writeStudioSort } from './my-studio-list'
+import { copyTitle, isUntitled, readStudioSort, visibleDesigns, writeStudioSort } from './my-studio-list'
 
 const design = (title: string, updatedAt: string): DesignSummary => ({
   id: title,
@@ -124,5 +124,15 @@ describe('shaped tee stills (shape v1)', () => {
     expect(body[1]![0]).toBeCloseTo(1.12, 5)
     expect(body[8]![0]).toBeCloseTo(0.01, 9)
     expect(teeStillScale({ shape })).toBeLessThan(1)
+  })
+})
+
+describe('isUntitled', () => {
+  test('only the names a new design starts with count as untitled', () => {
+    expect(isUntitled({ title: 'Untitled tee' })).toBe(true)
+    expect(isUntitled({ title: '  untitled HOODIE ' })).toBe(true)
+    expect(isUntitled({ title: 'Untitled Love' })).toBe(false)
+    expect(isUntitled({ title: 'Untitled No. 5' })).toBe(false)
+    expect(isUntitled({ title: 'Midnight tee' })).toBe(false)
   })
 })

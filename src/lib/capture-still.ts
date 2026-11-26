@@ -209,6 +209,7 @@ export async function captureAngleStills({
   restorePreset,
   presets = LOOK_STILL_PRESETS,
   settleMs = 220,
+  onView,
 }: {
   canvas: HTMLCanvasElement | null
   setCameraPreset: ({
@@ -224,6 +225,8 @@ export async function captureAngleStills({
   restorePreset: CameraPreset
   presets?: AngleCameraPreset[]
   settleMs?: number
+  /** Called before each view is framed, for a progress line ("view 2 of 5"). */
+  onView?: ({ index, total }: { index: number; total: number }) => void
 }): Promise<string[]> {
   const stills: string[] = []
 
@@ -232,7 +235,8 @@ export async function captureAngleStills({
   await waitForDrape()
 
   try {
-    for (const cameraPreset of presets) {
+    for (const [index, cameraPreset] of presets.entries()) {
+      onView?.({ index, total: presets.length })
       setCameraPreset({ cameraPreset })
       await waitFrames({ count: 3 })
       await new Promise<void>((resolve) => {

@@ -145,7 +145,7 @@ async function publish({ page }: { page: Page }) {
   const { seq } = await savedHead({ page })
   await page.getByRole('button', { name: /^(Publish publicly…|Publish latest)$/ }).click()
   await page.getByRole('button', { name: /^(Confirm publish|Publish v\d+)$/ }).click()
-  await expect(page.getByText(new RegExp(`Published v${seq}\\b`))).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByTestId('publication-live')).toHaveAttribute('data-published-seq', String(seq), { timeout: 120_000 })
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   return (await link.getAttribute('href'))!.split('/s/')[1]!
 }
@@ -242,7 +242,7 @@ test('publishing with a figure tried on photographs the tee alone', async ({ pag
   const { seq } = await savedHead({ page })
   await page.getByRole('button', { name: 'Publish publicly…' }).click()
   await page.getByRole('button', { name: 'Confirm publish' }).click()
-  await expect(page.getByText(new RegExp(`Published v${seq}\\b`))).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByTestId('publication-live')).toHaveAttribute('data-published-seq', String(seq), { timeout: 120_000 })
   await expect(page.getByRole('button', { name: 'Tall · Male', exact: true })).toHaveAttribute('aria-pressed', 'false')
   const link = page.getByRole('link', { name: /\/s\/[a-f0-9]{16}$/ })
   const slug = (await link.getAttribute('href'))!.split('/s/')[1]!

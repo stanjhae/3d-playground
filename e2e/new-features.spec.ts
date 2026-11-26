@@ -20,6 +20,9 @@ async function openDesign({ page, label, pro = true }: { page: Page; label: stri
 
 test('the description takes up to 500 characters, says how many, and is there after a reload', async ({ page }) => {
   await openDesign({ page, label: 'describe' })
+  // The note is publishing metadata: it is on Preview & Publish, not in the studio bar.
+  const steps = page.getByRole('navigation', { name: 'Create steps' })
+  await steps.getByRole('button', { name: /Preview & Publish$/ }).click()
   await page.getByRole('button', { name: 'Add a description' }).click()
   const box = page.getByRole('textbox', { name: 'Design description' })
   const saved = page.waitForResponse((response) => response.request().method() === 'PATCH')
@@ -31,6 +34,7 @@ test('the description takes up to 500 characters, says how many, and is there af
 
   await page.reload()
   await expectSaved({ page })
+  await expect(page).toHaveURL(/step=share/)
   await page.getByRole('button', { name: 'Description', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Design description' })).toHaveValue('x'.repeat(500))
 })
