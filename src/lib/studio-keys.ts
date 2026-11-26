@@ -26,6 +26,10 @@ export type StudioKeyAction =
   | { type: 'arrange'; direction: 'up' | 'down' | 'front' | 'back' }
   /** Lock or unlock the selected item (W3). */
   | { type: 'lock' }
+  /** Zoom the active flat panel in or out, or fit it (`panel-zoom.ts`). */
+  | { type: 'zoom'; direction: 'in' | 'out' | 'fit' }
+  /** Save a PNG of the design (`design-export.ts`). */
+  | { type: 'export' }
   /** Open or close the keyboard shortcuts (`?`). */
   | { type: 'help' }
 
@@ -37,6 +41,15 @@ const TOOL_KEYS: Record<string, StudioToolKey> = {
   e: 'eraser',
   t: 'text',
   g: 'graphics',
+}
+
+/** `+` comes with Shift on most layouts, `=` without; `_` is Shift + `-`. */
+const PANEL_ZOOM_KEYS: Record<string, 'in' | 'out' | 'fit'> = {
+  '+': 'in',
+  '=': 'in',
+  '-': 'out',
+  _: 'out',
+  '0': 'fit',
 }
 
 type KeyTarget = {
@@ -111,6 +124,8 @@ export function studioKeyAction({
   canPaste = false,
   inDesign = true,
   canLock = false,
+  canZoom = false,
+  canExport = false,
   canDeselect = hasSelection,
 }: {
   key: string
@@ -129,6 +144,10 @@ export function studioKeyAction({
   inDesign?: boolean
   /** The selected item takes a lock: paint, a mark or a word. */
   canLock?: boolean
+  /** A flat panel is on screen to zoom. */
+  canZoom?: boolean
+  /** The 3D view is on screen to save as an image. */
+  canExport?: boolean
   /** Something is selected on the design step, of any kind. */
   canDeselect?: boolean
 }): StudioKeyAction | null {
@@ -178,6 +197,11 @@ export function studioKeyAction({
       return { type: 'arrange', direction: shiftKey ? 'back' : 'down' }
     }
 
+    // As in Figma; without the 3D view on screen, the browser keeps it.
+    if (shiftKey && lower === 'e' && canExport) {
+      return { type: 'export' }
+    }
+
     if (shiftKey) {
       return null
     }
@@ -212,6 +236,15 @@ export function studioKeyAction({
 
   if (tool && !shiftKey && inDesign && !drawing) {
     return { type: 'tool', tool }
+  }
+
+  // Plain + − 0, as in most editors; ⌘ + and ⌘ − stay the browser's zoom.
+  if (canZoom && inDesign && !drawing) {
+    const zoom = PANEL_ZOOM_KEYS[key]
+
+    if (zoom) {
+      return { type: 'zoom', direction: zoom }
+    }
   }
 
   if (!hasSelection) {
@@ -266,6 +299,11 @@ export function studioKeyList({ mod = MOD }: { mod?: string } = {}) {
     { keys: `${mod} + ] or ${mod} + [`, does: 'Bring the selected item forward, or send it back' },
     { keys: `Shift + ${mod} + ] or [`, does: 'Bring it to the front, or send it to the back' },
     { keys: `${mod} + L`, does: 'Lock the selected item, or unlock it' },
+    { keys: '+ or −', does: 'Zoom the active flat side in or out' },
+    { keys: '0', does: 'Fit the active flat side' },
+    { keys: `${mod} + scroll, or pinch`, does: 'Zoom a flat side where the pointer is' },
+    { keys: 'Space + drag, or middle-drag', does: 'Pan a zoomed flat side (two fingers on touch)' },
+    { keys: `Shift + ${mod} + E`, does: 'Download an image of the design' },
     { keys: `${mod} + Z`, does: 'Undo' },
     { keys: `Shift + ${mod} + Z`, does: 'Redo' },
     { keys: 'Enter in the type field', does: 'Place the word on the active panel' },

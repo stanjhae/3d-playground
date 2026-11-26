@@ -400,17 +400,21 @@ export function hitLayerHandle({
   layer,
   x,
   y,
+  zoom = 1,
 }: {
   layer: PlaceableLayer
   x: number
   y: number
+  /** The panel's zoom (`panel-zoom.ts`): the least reach stays the same on screen. */
+  zoom?: number
 }): LayerHandle | null {
   const local = toLocal({ layer, x, y })
   const half = layerHalf({ layer })
   const handles = layerHandleLocal({ layer })
-  const pad = Math.max(0.03, Math.min(half.width, half.height) * 0.45)
+  const near = 1 / Math.max(1, zoom)
+  const pad = Math.max(0.03 * near, Math.min(half.width, half.height) * 0.45)
   // Edge handles sit between the corner and the rotate handle, so they reach less far.
-  const edgePad = Math.max(0.025, Math.min(half.width, half.height) * 0.3)
+  const edgePad = Math.max(0.025 * near, Math.min(half.width, half.height) * 0.3)
   // The nearest handle within reach wins, so the top edge and the rotate
   // handle just above it can each be grabbed.
   let nearest: { handle: LayerHandle; distance: number } | null = null
