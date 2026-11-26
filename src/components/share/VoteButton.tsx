@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { Check } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { useSessionStore } from '../../lib/auth/session-store'
@@ -13,7 +12,7 @@ import { FeedbackPanel } from './FeedbackPanel'
 import { VoteTally } from './VoteTally'
 
 // Vote is the primary action on a design; once cast, Voted steps back to a
-// secondary with a tick (pressing it again takes the vote back).
+// secondary (pressing it again takes the vote back).
 const primaryClass = buttonClass()
 const secondaryClass = buttonClass({ variant: 'secondary' })
 
@@ -175,7 +174,6 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
           onClick={() => void toggle()}
           className={vote.voted ? secondaryClass : primaryClass}
         >
-          {vote.voted ? <Check aria-hidden className="size-4 text-flv-accent" /> : null}
           {vote.voted ? 'Voted' : 'Vote'}
         </button>
         {count}

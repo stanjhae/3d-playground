@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { useSessionStore } from '../../lib/auth/session-store'
@@ -66,7 +65,6 @@ export function FollowButton({ handle }: { handle: string }) {
           }}
           className={buttonClass({ variant: state.following ? 'secondary' : 'primary' })}
         >
-          {state.following ? <Check aria-hidden className="size-4 text-flv-accent" /> : null}
           {state.following ? 'Following' : 'Follow'}
         </button>
         {count}
