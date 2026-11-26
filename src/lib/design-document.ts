@@ -42,7 +42,7 @@ export const STROKE_TOOLS = ['brush', 'eraser', 'fill'] as const
 
 export type StrokeTool = (typeof STROKE_TOOLS)[number]
 
-export const TEXT_FACES = ['display', 'sans'] as const
+export const TEXT_FACES = ['display', 'sans', 'slab', 'condensed', 'script', 'marker', 'mono', 'blackletter'] as const
 
 export type TextFace = (typeof TEXT_FACES)[number]
 
@@ -146,6 +146,8 @@ export type TextLayer = {
   scale: number
   /** Height scale when stretched (canonical `scaleY`, reader R2); absent means `scale`. */
   scaleY?: number
+  /** Set along an arc, −1…1 (canonical `curve`); absent is straight. */
+  curve?: number
   rotation: number
   opacity: number
   visible: boolean

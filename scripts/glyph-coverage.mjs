@@ -15,6 +15,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const FACE_SOURCES = {
   display: '@fontsource/cormorant-garamond/600.css',
   sans: '@fontsource/outfit/400.css',
+  slab: '@fontsource/roboto-slab/700.css',
+  condensed: '@fontsource/oswald/600.css',
+  script: '@fontsource/pacifico/400.css',
+  marker: '@fontsource/sedgwick-ave/400.css',
+  mono: '@fontsource/space-mono/700.css',
+  blackletter: '@fontsource/unifrakturmaguntia/400.css',
 }
 
 function parseUnicodeRange(value) {

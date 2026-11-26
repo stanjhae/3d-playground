@@ -30,6 +30,7 @@ type Layer = {
   color?: string
   content?: string
   face?: string
+  curve?: number
   aspect?: number
   strokes?: Stroke[]
 }
@@ -195,6 +196,49 @@ test('both bundled faces are available, load from this site and draw differently
     await page.evaluate(() => ['Cormorant Garamond', 'Outfit'].map((family) => document.fonts.check(`600 24px "${family}"`))),
   ).toEqual([true, true])
   expect(external).toEqual([])
+})
+
+test('in Guided, a word takes any font, any colour, and bends along an arc', async ({ page }) => {
+  // Tester, 22 Nov: more fonts, more colours, and text in a circle or along an arc.
+  test.setTimeout(150_000)
+  const email = newEmail({ label: 'word-arc' })
+  emails.push(email)
+  await signIn({ page, email, pro: false })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  // Guided opens on the garment: go on to Design.
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'design')
+  await page.goto(url.toString())
+  await expectSaved({ page })
+  await addWord({ page, word: 'CLUB' })
+  const word = async () => (await layers({ page, kind: 'text' }))[0]
+
+  const fonts = page.getByRole('group', { name: 'Font' })
+  await expect(fonts.getByRole('button')).toHaveCount(8)
+  await fonts.getByRole('button', { name: 'Script', exact: true }).click()
+  await saved({ read: async () => (await word())?.face }).toBe('script')
+
+  // Any colour, not only the swatches, without Pro tools.
+  const hex = page.getByRole('textbox', { name: 'Word colour: hex' })
+  await hex.fill('#2a7f62')
+  await hex.press('Enter')
+  await saved({ read: async () => (await word())?.color }).toBe('#2a7f62')
+
+  const straight = await panelPixels({ page, panel: 'Front' })
+  const arc = page.getByRole('slider', { name: /^Arc of / })
+  await arc.focus()
+  await arc.press('ArrowRight')
+  await arc.press('ArrowRight')
+  await saved({ read: async () => (await word())?.curve }).toBeCloseTo(0.1, 2)
+  await arc.fill('0.5')
+  await arc.press('ArrowRight')
+  await saved({ read: async () => (await word())?.curve }).toBeCloseTo(0.55, 2)
+  await expect.poll(async () => (await panelPixels({ page, panel: 'Front' })).picture).not.toBe(straight.picture)
+
+  // Straight again: the field goes from the design.
+  await page.getByRole('button', { name: 'Straight', exact: true }).click()
+  await saved({ read: async () => 'curve' in ((await word()) ?? { curve: 0 }) }).toBe(false)
 })
 
 test('a word takes the chosen colour, in the design and on the panel', async ({ page }) => {

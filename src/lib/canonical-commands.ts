@@ -51,6 +51,8 @@ export type CanonicalLayerPatch = {
   locked?: boolean
   /** An image's colour strength; 1 (as uploaded) removes it. */
   saturation?: number
+  /** A word's arc, −1…1; 0 (straight) removes it. */
+  curve?: number
 }
 
 /**
@@ -366,7 +368,7 @@ function applyToDocument({
         ? ['opacity', 'visible', 'name', 'locked']
         : found.layer.kind === 'image'
           ? ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked', 'saturation']
-          : ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY', 'locked']
+          : ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY', 'locked', 'curve']
 
     for (const [key, value] of Object.entries(command.patch)) {
       if (value === undefined) {
@@ -397,6 +399,11 @@ function applyToDocument({
     // An image back at its own colour leaves `saturation` out.
     if (found.layer.kind === 'image' && found.layer.saturation === 1) {
       delete found.layer.saturation
+    }
+
+    // A word made straight again leaves `curve` out.
+    if (found.layer.kind === 'text' && found.layer.curve === 0) {
+      delete found.layer.curve
     }
 
     return { ok: true, document: next }

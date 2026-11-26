@@ -826,6 +826,11 @@ function layerPatchChanges({
     return true
   }
 
+  // A word's arc; absent means straight (0).
+  if (patch.curve !== undefined && layer.kind === 'text' && patch.curve !== (layer.curve ?? 0)) {
+    return true
+  }
+
   // An image's colour strength; absent means as uploaded (1).
   if (patch.saturation !== undefined && layer.kind === 'graphic' && patch.saturation !== (layer.saturation ?? 1)) {
     return true

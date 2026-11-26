@@ -21,6 +21,7 @@ import {
   type ValidationIssue,
   CANONICAL_LIMITS,
   IMAGE_SATURATION_MAX,
+  TEXT_CURVE_MAX,
   panelIdsOf,
   createEmptyCanonicalDocument,
   validateCanonicalDocument,
@@ -275,6 +276,7 @@ function translatePatch({
     // Over-long text is refused with a message, never cut (#162).
     if (patch.content !== undefined) next.content = patch.content
     if (patch.face !== undefined) next.face = patch.face
+    if (patch.curve !== undefined) next.curve = Math.min(TEXT_CURVE_MAX, Math.max(-TEXT_CURVE_MAX, patch.curve))
     if (patch.color !== undefined) {
       const color = toColor({ value: patch.color })
 
@@ -420,6 +422,8 @@ export function translateCommand({
           content: layer.content,
           face: layer.face,
           color,
+          // A copy keeps its arc; a straight word leaves it out.
+          ...(layer.curve ? { curve: Math.min(TEXT_CURVE_MAX, Math.max(-TEXT_CURVE_MAX, layer.curve)) } : {}),
           ...flipsFrom(layer),
         },
       },

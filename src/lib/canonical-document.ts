@@ -59,7 +59,7 @@ export const CANONICAL_LAYER_KINDS = ['paint', 'image', 'text', 'fill'] as const
 
 export type CanonicalLayerKind = (typeof CANONICAL_LAYER_KINDS)[number]
 
-export const CANONICAL_TEXT_FACES = ['display', 'sans'] as const
+export const CANONICAL_TEXT_FACES = ['display', 'sans', 'slab', 'condensed', 'script', 'marker', 'mono', 'blackletter'] as const
 
 export type CanonicalTextFace = (typeof CANONICAL_TEXT_FACES)[number]
 
@@ -222,6 +222,8 @@ export type CanonicalTextLayer = LayerCommon &
     content: string
     face: CanonicalTextFace
     color: Color
+    /** Set along an arc, −1…1 (`text-curve.ts`); left out when straight. */
+    curve?: number
   }
 
 /** What a `fill` layer repeats: an uploaded image, or stripes or a check. */
@@ -911,10 +913,13 @@ const LAYER_FIELDS: Record<CanonicalLayerKind, readonly string[]> = {
 /** The richest colour an image may be given (`saturation`); 0 is black and white. */
 export const IMAGE_SATURATION_MAX = 2
 
+/** Strongest curve of a word: all the way round (`text-curve.ts`). */
+export const TEXT_CURVE_MAX = 1
+
 const LAYER_OPTIONAL_FIELDS: Record<CanonicalLayerKind, readonly string[]> = {
   paint: ['name', 'locked'],
   image: ['name', 'locked', 'flipX', 'flipY', 'scaleY', 'saturation'],
-  text: ['name', 'locked', 'flipX', 'flipY', 'scaleY'],
+  text: ['name', 'locked', 'flipX', 'flipY', 'scaleY', 'curve'],
   fill: ['name', 'locked', 'offsetX', 'offsetY'],
 }
 
@@ -969,6 +974,15 @@ function checkLayer({
     // One form per look: an image as uploaded leaves it out.
     if (value.saturation === 1) {
       report({ context, path: `${path}.saturation`, message: 'equal to 1; leave it out' })
+    }
+  }
+
+  if (kind === 'text' && 'curve' in value) {
+    checkNumber({ context, value: value.curve, path: `${path}.curve`, min: -TEXT_CURVE_MAX, max: TEXT_CURVE_MAX })
+
+    // One form per look: a straight word leaves it out.
+    if (value.curve === 0) {
+      report({ context, path: `${path}.curve`, message: 'equal to 0; leave it out' })
     }
   }
 
