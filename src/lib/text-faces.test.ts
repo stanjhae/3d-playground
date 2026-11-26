@@ -45,7 +45,7 @@ describe('textFaceState', () => {
     expect(textFaceState({ face: 'sans', text: 'Hi', fonts })).toBe('loading')
     expect(textFaceState({ face: 'sans', text: 'Hi', fonts })).toBe('loading')
     expect(fonts.load).toHaveBeenCalledTimes(1)
-    expect(fonts.load).toHaveBeenCalledWith('600 32px Outfit', 'Hi')
+    expect(fonts.load).toHaveBeenCalledWith('600 32px "Outfit"', 'Hi')
 
     finish([{}])
     await vi.runAllTimersAsync()

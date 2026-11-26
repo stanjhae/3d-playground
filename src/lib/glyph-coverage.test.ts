@@ -64,13 +64,13 @@ describe('unsupportedCharacters', () => {
 describe('glyphMessage', () => {
   test('suggests the other face when it can draw the word', () => {
     expect(glyphMessage({ text: 'ПРИВЕТ', face: 'sans' })).toBe(
-      'The sans face can\'t draw “П”, “Р”, “И”, “В” or “Е” (and 1 more). Remove them or switch to Display.',
+      'The sans face can\'t draw “П”, “Р”, “И”, “В” or “Е” (and 1 more). Remove them or switch to Serif.',
     )
   })
 
   test('only says remove when neither face can', () => {
     expect(glyphMessage({ text: 'Hi 字', face: 'display' })).toBe(
-      'The display face can\'t draw “字”. Remove it.',
+      'The serif face can\'t draw “字”. Remove it.',
     )
   })
 

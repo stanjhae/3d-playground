@@ -1,4 +1,5 @@
 import type { DesignDocument, DesignLayer, Stroke } from './design-document'
+import { arcGeometry, arcGlyph } from './text-curve'
 import { imageBox } from './canonical-document'
 import { MAX_ART_MAP_CHARS, isSafeDataImage } from './look-thumbnail'
 import {
@@ -604,7 +605,26 @@ function drawTextMark({
         context.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1)
       }
 
-      context.fillText(shown, 0, 0)
+      const arc = layer.curve ? arcGeometry({ length: context.measureText(shown).width, curve: layer.curve }) : null
+
+      if (arc) {
+        // Letter by letter round the arc, each turned to follow it.
+        let along = -context.measureText(shown).width / 2
+
+        for (const glyph of Array.from(shown)) {
+          const advance = context.measureText(glyph).width
+          const at = arcGlyph({ arc, offset: along + advance / 2 })
+          context.save()
+          context.translate(at.x, at.y)
+          context.rotate(at.rotation)
+          context.fillText(glyph, 0, 0)
+          context.restore()
+          along += advance
+        }
+      } else {
+        context.fillText(shown, 0, 0)
+      }
+
       context.restore()
       const pixels = context.getImageData(0, 0, buffer.width, buffer.height)
       blitBuffer({

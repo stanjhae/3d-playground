@@ -12,7 +12,8 @@ import { chooseTool, deleteAccounts, expectSaved, localSql, newEmail, signIn } f
 
 test.skip(Boolean(process.env.E2E_BASE_URL), 'fills quotas in the local database')
 
-const GLYPH_MESSAGE = /The display face can.t draw “日”/
+// The display face is called Serif in the picker, and in the message too.
+const GLYPH_MESSAGE = /The serif face can.t draw “日”/
 
 const emails: string[] = []
 
