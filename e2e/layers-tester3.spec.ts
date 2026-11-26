@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { HOUSE_COPY } from '../src/lib/house-copy'
-import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn, graphicTile } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, newEmail, signIn, graphicTile, openLayerMenu } from './helpers'
 
 /**
  * Tester pass 3, the Layers panel: a library graphic is named for itself,
@@ -38,7 +38,8 @@ test('layers are named, shown, renamed and filled under as the tester expects', 
   await expect(rail.getByRole('button', { name: 'Hide Rising Flame', exact: true })).toBeVisible()
 
   // Rename: emoji are refused in plain words, the field stays to fix it.
-  await rail.getByRole('button', { name: 'Rename Rising Flame' }).click()
+  await openLayerMenu({ rail, name: 'Rising Flame' })
+  await page.getByRole('button', { name: 'Rename Rising Flame' }).click()
   const field = rail.getByRole('textbox', { name: 'New name for Rising Flame' })
   await field.fill('Fire \u{1F525}')
   await field.press('Enter')

@@ -1,5 +1,19 @@
-import { Eye, EyeOff, GripVertical, Lock, LockOpen } from 'lucide-react'
-import { type PointerEvent as ReactPointerEvent, useId, useRef, useState } from 'react'
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Ellipsis,
+  Eye,
+  EyeOff,
+  GripVertical,
+  Lock,
+  LockOpen,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
+import { type PointerEvent as ReactPointerEvent, useCallback, useId, useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
 import { isLockableLayer, isLockedLayer } from '../../lib/design-document'
@@ -28,18 +42,23 @@ import {
 } from '../../lib/layer-list'
 import { announce } from '../../lib/studio-announcer'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
+import { IS_APPLE_KEYBOARD } from '../../lib/studio-keys'
+import { LayerRowMenu } from './LayerRowMenu'
+
+const MOD = IS_APPLE_KEYBOARD ? '⌘' : 'Ctrl+'
 
 const actionClass = cn(
   'min-h-11 text-flv-muted hover:text-flv-accent aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:text-flv-muted',
   chromeTextClass(),
 )
 
-/** The eye and the lock: always shown, so a row's state reads at a glance. */
-const toggleClass =
-  'grid size-11 shrink-0 place-items-center border text-flv-muted hover:text-flv-accent aria-pressed:border-flv-accent aria-pressed:text-flv-accent'
-
-const moveClass =
-  'grid size-11 place-items-center border border-flv-line text-flv-ink hover:text-flv-accent aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:text-flv-ink'
+/**
+ * The eye, the lock and More: small icon buttons at the row's end, always
+ * shown so a row's state reads at a glance. They grow to a full touch
+ * target on a coarse pointer.
+ */
+const iconClass =
+  'grid size-8 shrink-0 place-items-center rounded-sm text-flv-muted hover:bg-flv-paper hover:text-flv-accent aria-pressed:text-flv-accent aria-expanded:bg-flv-paper aria-expanded:text-flv-accent pointer-coarse:size-11'
 
 /**
  * The Layers panel on the Design step: every item on the cloth, by panel,
@@ -66,6 +85,17 @@ export function LayerRail() {
   /** Why the last name typed was not kept (emoji), shown under its row. */
   const [renameError, setRenameError] = useState<{ layerId: string; message: string } | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
+  /** The row whose More menu is open, and its button. */
+  const [menu, setMenu] = useState<{ layerId: string; anchor: HTMLElement } | null>(null)
+  const menuAnchor = useRef<HTMLElement | null>(null)
+  menuAnchor.current = menu?.anchor ?? null
+  const closeMenu = useCallback(({ refocus }: { refocus: boolean }) => {
+    if (refocus) {
+      menuAnchor.current?.focus()
+    }
+
+    setMenu(null)
+  }, [])
   const headingId = useId()
   const panels = garmentPanels({ garmentId })
   const groups = layerListGroups({ layers, panels, placement: layerPlacement })
@@ -217,6 +247,8 @@ export function LayerRail() {
                   const movable = row.index !== null
                   const reasonId = `${headingId}-${layer.id}-locked`
                   const editing = renaming?.layerId === layer.id
+                  const menuOpen = menu?.layerId === layer.id
+                  const menuId = `${headingId}-${layer.id}-menu`
                   // Off while locked, with the reason beside them (W3).
                   const lockedProps = locked
                     ? { 'aria-disabled': true as const, 'aria-describedby': reasonId, title: LOCKED_REASON }
@@ -243,7 +275,9 @@ export function LayerRail() {
                         panelLabel: group.label,
                       }),
                     })
-                    focusRow({ layerId: layer.id, control: direction === 'front' ? 'up' : direction === 'back' ? 'down' : direction })
+                    // The menu closes; focus goes back to the row's More button.
+                    setMenu(null)
+                    focusRow({ layerId: layer.id, control: 'more' })
                   }
 
                   function startRename() {
@@ -261,220 +295,240 @@ export function LayerRail() {
                       key={layer.id}
                       data-layer-row={layer.id}
                       data-layer-panel={group.panel ?? undefined}
-                      className={cn('flex flex-wrap items-center gap-x-1.5 border-t-2 border-l-2 pl-1', {
-                        'border-l-flv-accent': selected,
+                      className={cn('flex flex-col border-t-2 border-l-2', {
+                        'border-l-flv-accent bg-flv-paper/60': selected,
                         'border-l-transparent': !selected,
                         'border-t-flv-accent': drag !== null && drag.overId === layer.id && drag.layerId !== layer.id,
                         'border-t-transparent': !(drag !== null && drag.overId === layer.id && drag.layerId !== layer.id),
                         'opacity-50': drag?.layerId === layer.id,
                       })}
                     >
-                      {movable && !locked ? (
-                        // Pointer only: the arrow buttons and To front / To back do the same from the keyboard.
-                        <span
-                          aria-hidden
-                          data-layer-control="grip"
-                          title={`Drag to reorder ${name}`}
-                          onPointerDown={(event) => {
-                            event.preventDefault()
-                            event.currentTarget.setPointerCapture(event.pointerId)
-                            setDrag({ layerId: layer.id, panel: group.panel, overId: layer.id })
-                          }}
-                          onPointerMove={(event) => {
-                            if (drag?.layerId === layer.id) {
-                              const overId = rowUnder({ event })
-                              if (overId !== drag.overId) {
-                                setDrag({ ...drag, overId })
+                      {/* One line: grip, name, then the eye, the lock and More (UX review, 26 Nov). */}
+                      <div className="group/row flex min-w-0 items-center gap-0.5">
+                        {movable && !locked ? (
+                          // Pointer only: More's Move up / Move down and the ⌘[ ⌘] keys do the same from the keyboard.
+                          <span
+                            aria-hidden
+                            data-layer-control="grip"
+                            title={`Drag to reorder ${name}`}
+                            onPointerDown={(event) => {
+                              event.preventDefault()
+                              event.currentTarget.setPointerCapture(event.pointerId)
+                              setDrag({ layerId: layer.id, panel: group.panel, overId: layer.id })
+                            }}
+                            onPointerMove={(event) => {
+                              if (drag?.layerId === layer.id) {
+                                const overId = rowUnder({ event })
+                                if (overId !== drag.overId) {
+                                  setDrag({ ...drag, overId })
+                                }
                               }
-                            }
-                          }}
-                          onPointerUp={dropDrag}
-                          onPointerCancel={() => setDrag(null)}
-                          className="grid min-h-11 w-5 cursor-grab touch-none place-items-center text-flv-muted active:cursor-grabbing"
-                        >
-                          <GripVertical className="size-4" />
-                        </span>
-                      ) : (
-                        <span aria-hidden className="w-5" />
-                      )}
-                      <button
-                        type="button"
-                        data-layer-control="visibility"
-                        aria-label={visibilityToggleLabel({ name, visible: layer.visible })}
-                        title={visibilityToggleLabel({ name, visible: layer.visible })}
-                        onClick={() => {
-                          // Hiding is about the view, so it works while locked.
-                          updateLayer({ layerId: layer.id, patch: { visible: !layer.visible } })
-                          announce({ message: layerVisibilityMessage({ name, visible: !layer.visible }) })
-                        }}
-                        className={cn(toggleClass, 'border-flv-line')}
-                      >
-                        {layer.visible ? <Eye aria-hidden className="size-4" /> : <EyeOff aria-hidden className="size-4" />}
-                      </button>
-                      {lockable ? (
-                        <button
-                          type="button"
-                          data-layer-control="lock"
-                          aria-label={`Lock ${name}`}
-                          aria-pressed={locked}
-                          title={locked ? `Unlock ${name}` : `Lock ${name}`}
-                          onClick={() => {
-                            updateLayer({ layerId: layer.id, patch: { locked: !locked } })
-                            announce({ message: layerLockMessage({ name, locked: !locked }) })
-                          }}
-                          className={cn(toggleClass, 'border-flv-line')}
-                        >
-                          {locked ? <Lock aria-hidden className="size-4" /> : <LockOpen aria-hidden className="size-4" />}
-                        </button>
-                      ) : null}
-                      {editing ? (
-                        <input
-                          // Focus goes straight to the name being edited.
-                          autoFocus
-                          aria-label={`New name for ${name}`}
-                          aria-invalid={renameError?.layerId === layer.id ? true : undefined}
-                          aria-describedby={renameError?.layerId === layer.id ? `${headingId}-${layer.id}-rename` : undefined}
-                          value={renaming.draft}
-                          maxLength={LAYER_NAME_MAX}
-                          onChange={(event) => setRenaming({ layerId: layer.id, draft: event.target.value })}
-                          onFocus={(event) => event.currentTarget.select()}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              event.preventDefault()
-                              finishRename({ save: true, draft: event.currentTarget.value, keepOpen: true })
-                            } else if (event.key === 'Escape') {
-                              // Esc here cancels the rename, not the selection.
-                              event.preventDefault()
-                              event.stopPropagation()
-                              finishRename({ save: false, draft: event.currentTarget.value })
-                            }
-                          }}
-                          onBlur={(event) => finishRename({ save: true, draft: event.currentTarget.value })}
-                          className={cn('min-h-11 min-w-0 flex-1 basis-24 border border-flv-accent bg-flv-paper px-2', chromeTextClass())}
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          data-layer-control="select"
-                          aria-current={selected ? 'true' : undefined}
-                          title={locked ? name : `${name}. Double-click to rename`}
-                          onClick={() => {
-                            selectLayer({ selectedLayerId: selected ? null : layer.id })
-                          }}
-                          onDoubleClick={startRename}
-                          className={cn('min-h-11 min-w-0 flex-1 basis-24 truncate text-left', chromeTextClass(), {
-                            'text-flv-accent': selected,
-                            'text-flv-muted hover:text-flv-accent': !selected,
-                            'opacity-40': !layer.visible,
-                          })}
-                        >
-                          {name}
-                          {layer.visible ? null : <span className="sr-only">, hidden</span>}
-                          {locked ? <span className="sr-only">, locked</span> : null}
-                        </button>
-                      )}
-                      {movable ? (
-                        <span className="flex gap-1">
+                            }}
+                            onPointerUp={dropDrag}
+                            onPointerCancel={() => setDrag(null)}
+                            className="grid min-h-8 w-4 shrink-0 cursor-grab touch-none place-items-center text-flv-muted opacity-60 group-hover/row:opacity-100 active:cursor-grabbing pointer-coarse:min-h-11 pointer-coarse:w-5"
+                          >
+                            <GripVertical className="size-3.5" />
+                          </span>
+                        ) : (
+                          <span aria-hidden className="w-4 shrink-0 pointer-coarse:w-5" />
+                        )}
+                        {editing ? (
+                          <input
+                            // Focus goes straight to the name being edited.
+                            autoFocus
+                            aria-label={`New name for ${name}`}
+                            aria-invalid={renameError?.layerId === layer.id ? true : undefined}
+                            aria-describedby={renameError?.layerId === layer.id ? `${headingId}-${layer.id}-rename` : undefined}
+                            value={renaming.draft}
+                            maxLength={LAYER_NAME_MAX}
+                            onChange={(event) => setRenaming({ layerId: layer.id, draft: event.target.value })}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault()
+                                finishRename({ save: true, draft: event.currentTarget.value, keepOpen: true })
+                              } else if (event.key === 'Escape') {
+                                // Esc here cancels the rename, not the selection.
+                                event.preventDefault()
+                                event.stopPropagation()
+                                finishRename({ save: false, draft: event.currentTarget.value })
+                              }
+                            }}
+                            onBlur={(event) => finishRename({ save: true, draft: event.currentTarget.value })}
+                            className={cn('min-h-8 min-w-0 flex-1 border border-flv-accent bg-flv-paper px-2 pointer-coarse:min-h-11', chromeTextClass())}
+                          />
+                        ) : (
                           <button
                             type="button"
-                            data-layer-control="up"
-                            aria-label={`Move ${name} up`}
-                            aria-disabled={row.canMoveUp && !locked ? undefined : true}
-                            aria-describedby={locked ? reasonId : undefined}
-                            title={`Move ${name} up`}
-                            onClick={() => move('up')}
-                            className={moveClass}
+                            data-layer-control="select"
+                            aria-current={selected ? 'true' : undefined}
+                            title={locked ? name : `${name}. Double-click to rename`}
+                            onClick={() => {
+                              selectLayer({ selectedLayerId: selected ? null : layer.id })
+                            }}
+                            onDoubleClick={startRename}
+                            className={cn('min-h-8 min-w-0 flex-1 truncate px-1 text-left pointer-coarse:min-h-11', chromeTextClass(), {
+                              'text-flv-accent': selected,
+                              'text-flv-ink hover:text-flv-accent': !selected,
+                              'opacity-40': !layer.visible,
+                            })}
                           >
-                            <span aria-hidden>↑</span>
+                            {name}
+                            {layer.visible ? null : <span className="sr-only">, hidden</span>}
+                            {locked ? <span className="sr-only">, locked</span> : null}
                           </button>
+                        )}
+                        <button
+                          type="button"
+                          data-layer-control="visibility"
+                          aria-label={visibilityToggleLabel({ name, visible: layer.visible })}
+                          title={visibilityToggleLabel({ name, visible: layer.visible })}
+                          onClick={() => {
+                            // Hiding is about the view, so it works while locked.
+                            updateLayer({ layerId: layer.id, patch: { visible: !layer.visible } })
+                            announce({ message: layerVisibilityMessage({ name, visible: !layer.visible }) })
+                          }}
+                          className={cn(iconClass, { 'text-flv-accent': !layer.visible })}
+                        >
+                          {layer.visible ? <Eye aria-hidden className="size-4" /> : <EyeOff aria-hidden className="size-4" />}
+                        </button>
+                        {lockable ? (
                           <button
                             type="button"
-                            data-layer-control="down"
-                            aria-label={`Move ${name} down`}
-                            aria-disabled={row.canMoveDown && !locked ? undefined : true}
-                            aria-describedby={locked ? reasonId : undefined}
-                            title={`Move ${name} down`}
-                            onClick={() => move('down')}
-                            className={moveClass}
+                            data-layer-control="lock"
+                            aria-label={`Lock ${name}`}
+                            aria-pressed={locked}
+                            title={locked ? `Unlock ${name}` : `Lock ${name}`}
+                            onClick={() => {
+                              updateLayer({ layerId: layer.id, patch: { locked: !locked } })
+                              announce({ message: layerLockMessage({ name, locked: !locked }) })
+                            }}
+                            className={iconClass}
                           >
-                            <span aria-hidden>↓</span>
+                            {locked ? <Lock aria-hidden className="size-4" /> : <LockOpen aria-hidden className="size-4" />}
                           </button>
-                        </span>
-                      ) : null}
+                        ) : (
+                          <span aria-hidden className="size-8 shrink-0 pointer-coarse:size-11" />
+                        )}
+                        <button
+                          type="button"
+                          data-layer-control="more"
+                          aria-label={`More actions for ${name}`}
+                          title={`More actions for ${name}`}
+                          aria-expanded={menuOpen}
+                          aria-controls={menuOpen ? menuId : undefined}
+                          onClick={(event) => {
+                            const anchor = event.currentTarget
+                            setMenu(menuOpen ? null : { layerId: layer.id, anchor })
+                          }}
+                          className={iconClass}
+                        >
+                          <Ellipsis aria-hidden className="size-4" />
+                        </button>
+                      </div>
                       {locked ? (
-                        <span id={reasonId} className={cn('w-full', chromeMutedClass())}>
+                        <span id={reasonId} className={cn('pb-1 pl-5 text-xs', chromeMutedClass())}>
                           Locked. {LOCKED_REASON}.
                         </span>
                       ) : null}
                       {renameError?.layerId === layer.id ? (
-                        <span id={`${headingId}-${layer.id}-rename`} data-testid="rename-error" className={cn('w-full pl-6', chromeMutedClass())}>
+                        <span id={`${headingId}-${layer.id}-rename`} data-testid="rename-error" className={cn('pb-1 pl-5', chromeMutedClass())}>
                           {renameError.message}
                         </span>
                       ) : null}
-                      <span className="flex w-full flex-wrap gap-x-3 pl-6">
-                        {movable ? (
-                          <>
-                            <button
-                              type="button"
-                              aria-label={`Move ${name} to the front`}
-                              aria-disabled={row.canMoveUp && !locked ? undefined : true}
-                              aria-describedby={locked ? reasonId : undefined}
-                              onClick={() => move('front')}
-                              className={actionClass}
-                            >
-                              To front
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`Move ${name} to the back`}
-                              aria-disabled={row.canMoveDown && !locked ? undefined : true}
-                              aria-describedby={locked ? reasonId : undefined}
-                              onClick={() => move('back')}
-                              className={actionClass}
-                            >
-                              To back
-                            </button>
-                          </>
-                        ) : null}
-                        <button
-                          type="button"
-                          data-layer-control="rename"
-                          aria-label={`${FLV_COPY.layerRename} ${name}`}
-                          {...lockedProps}
-                          onClick={startRename}
-                          className={actionClass}
-                        >
-                          {FLV_COPY.layerRename}
-                        </button>
-                        {canDuplicate ? (
-                          <button
-                            type="button"
-                            aria-label={`${FLV_COPY.layerDuplicate} ${name}`}
-                            onClick={() => duplicateLayer({ layerId: layer.id })}
-                            className={actionClass}
-                          >
-                            {FLV_COPY.layerDuplicate}
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          aria-label={`${FLV_COPY.layerDelete} ${name}`}
-                          {...lockedProps}
-                          onClick={() => {
-                            if (locked) {
-                              return
-                            }
-
-                            const next = focusAfterDelete({ orderedIds, deletedId: layer.id })
-                            removeLayer({ layerId: layer.id })
-                            announce({ message: layerDeletedMessage({ name }) })
-                            focusRow({ layerId: next, control: 'select' })
-                          }}
-                          className={actionClass}
-                        >
-                          {FLV_COPY.layerDelete}
-                        </button>
-                      </span>
+                      {menuOpen && menu ? (
+                        <LayerRowMenu
+                          id={menuId}
+                          label={`Actions for ${name}`}
+                          anchor={menu.anchor}
+                          onClose={closeMenu}
+                          items={[
+                            ...(movable
+                              ? [
+                                  {
+                                    label: `Move ${name} up`,
+                                    text: 'Move up',
+                                    icon: ChevronUp,
+                                    hint: `${MOD}]`,
+                                    control: 'up',
+                                    'aria-disabled': row.canMoveUp && !locked ? undefined : (true as const),
+                                    'aria-describedby': locked ? reasonId : undefined,
+                                    onSelect: () => move('up'),
+                                  },
+                                  {
+                                    label: `Move ${name} down`,
+                                    text: 'Move down',
+                                    icon: ChevronDown,
+                                    hint: `${MOD}[`,
+                                    control: 'down',
+                                    'aria-disabled': row.canMoveDown && !locked ? undefined : (true as const),
+                                    'aria-describedby': locked ? reasonId : undefined,
+                                    onSelect: () => move('down'),
+                                  },
+                                  {
+                                    label: `Move ${name} to the front`,
+                                    text: 'Bring to front',
+                                    icon: ArrowUpToLine,
+                                    hint: `⇧${MOD}]`,
+                                    'aria-disabled': row.canMoveUp && !locked ? undefined : (true as const),
+                                    'aria-describedby': locked ? reasonId : undefined,
+                                    onSelect: () => move('front'),
+                                  },
+                                  {
+                                    label: `Move ${name} to the back`,
+                                    text: 'Send to back',
+                                    icon: ArrowDownToLine,
+                                    hint: `⇧${MOD}[`,
+                                    'aria-disabled': row.canMoveDown && !locked ? undefined : (true as const),
+                                    'aria-describedby': locked ? reasonId : undefined,
+                                    onSelect: () => move('back'),
+                                  },
+                                ]
+                              : []),
+                            {
+                              label: `${FLV_COPY.layerRename} ${name}`,
+                              text: FLV_COPY.layerRename,
+                              icon: Pencil,
+                              control: 'rename',
+                              ...lockedProps,
+                              onSelect: () => {
+                                setMenu(null)
+                                startRename()
+                              },
+                            },
+                            ...(canDuplicate
+                              ? [
+                                  {
+                                    label: `${FLV_COPY.layerDuplicate} ${name}`,
+                                    text: FLV_COPY.layerDuplicate,
+                                    icon: Copy,
+                                    hint: `${MOD}D`,
+                                    onSelect: () => {
+                                      closeMenu({ refocus: true })
+                                      duplicateLayer({ layerId: layer.id })
+                                    },
+                                  },
+                                ]
+                              : []),
+                            {
+                              label: `${FLV_COPY.layerDelete} ${name}`,
+                              text: FLV_COPY.layerDelete,
+                              icon: Trash2,
+                              hint: '⌫',
+                              danger: true,
+                              ...lockedProps,
+                              onSelect: () => {
+                                const next = focusAfterDelete({ orderedIds, deletedId: layer.id })
+                                setMenu(null)
+                                removeLayer({ layerId: layer.id })
+                                announce({ message: layerDeletedMessage({ name }) })
+                                focusRow({ layerId: next, control: 'select' })
+                              },
+                            },
+                          ]}
+                        />
+                      ) : null}
                     </li>
                   )
                 })}

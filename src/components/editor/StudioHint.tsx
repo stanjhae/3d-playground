@@ -10,6 +10,7 @@ import {
   allHintsHidden,
   hintPosition,
   hintBoxesOverlap as overlapsBox,
+  hintsDoneBy,
   nextHint,
   placeHint,
   readDismissedHints,
@@ -98,7 +99,9 @@ export function StudioHint() {
   const step = useEditorStore((state) => state.createStep)
   const [dismissed, setDismissed] = useState(() => readDismissedHints({ storage: hintStorage() }))
   const pro = useStudioMode((state) => state.pro)
-  const hint = pro ? null : nextHint({ step, dismissed })
+  // A hint whose lesson the design already shows is skipped, not just dismissed by hand.
+  const learnt = useEditorStore((state) => hintsDoneBy({ layers: state.document.layers }).join(' '))
+  const hint = pro ? null : nextHint({ step, dismissed: learnt ? [...dismissed, ...learnt.split(' ')] : dismissed })
   const card = useRef<HTMLElement>(null)
   const ring = useRef<HTMLDivElement>(null)
   const decision = useRef<Decision | null>(null)

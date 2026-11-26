@@ -114,6 +114,11 @@ test('moving a shape slider changes the render, saves the shape, and undoes', as
 })
 
 async function createGarment({ page, label, button }: { page: Page; label: RegExp; button: string | RegExp }) {
+  // The studio has no site header: from a design, leave it first.
+  if (new URL(page.url()).pathname === '/create') {
+    await page.getByRole('link', { name: 'Back to My Studio' }).click()
+  }
+
   await page.getByRole('navigation', { name: 'Site' }).getByRole('link', { name: 'Create' }).click()
   await page.getByRole('radiogroup', { name: 'Garment' }).getByRole('radio', { name: label }).click({ timeout: 20_000 })
   await page.getByRole('button', { name: button }).click({ timeout: 20_000 })

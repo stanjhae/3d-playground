@@ -6,13 +6,13 @@ import { useActiveSection } from '../../lib/use-active-section'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { LANDING_COPY, LANDING_NAV } from '../../lib/landing-copy'
 import { CreateCta, type LandingMode } from '../landing/LandingLink'
-import { SiteMenu } from './SiteMenu'
+import { MENU_LINK_CLASS, SiteMenu } from './SiteMenu'
 
 /** The landing's sections, in page order: every link has a section to land on. */
 export const LANDING_LINKS = LANDING_NAV
 const SECTION_IDS = LANDING_LINKS.map((link) => link.href.slice(1))
 
-export const MENU_LINK_CLASS = 'flex min-h-11 items-center rounded-lg px-3 text-flv-ink hover:bg-flv-soft'
+export { MENU_LINK_CLASS }
 
 /** The FLV mark and name; `home` is the element that wraps it (a link). */
 export function BrandMark() {

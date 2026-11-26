@@ -30,6 +30,8 @@ export type StudioKeyAction =
   | { type: 'zoom'; direction: 'in' | 'out' | 'fit' }
   /** Save a PNG of the design (`design-export.ts`). */
   | { type: 'export' }
+  /** Open or close the keyboard shortcuts (`?`). */
+  | { type: 'help' }
 
 /** Single-letter tools, as in most drawing apps. */
 export type StudioToolKey = 'brush' | 'eraser' | 'text' | 'graphics'
@@ -83,6 +85,16 @@ function hasTextSelection({ target }: { target: unknown }) {
   return Boolean(view?.getSelection?.()?.toString())
 }
 
+/** Inside a dialog, Esc closes the dialog and nothing else. */
+function inDialog({ target }: { target: unknown }) {
+  if (!target || typeof target !== 'object') {
+    return false
+  }
+
+  const node = target as NonNullable<KeyTarget>
+  return typeof node.closest === 'function' && Boolean(node.closest('dialog,[role="dialog"]'))
+}
+
 function ownsArrows({ target }: { target: unknown }) {
   if (!target || typeof target !== 'object') {
     return false
@@ -114,6 +126,7 @@ export function studioKeyAction({
   canLock = false,
   canZoom = false,
   canExport = false,
+  canDeselect = hasSelection,
 }: {
   key: string
   shiftKey?: boolean
@@ -135,14 +148,29 @@ export function studioKeyAction({
   canZoom?: boolean
   /** The 3D view is on screen to save as an image. */
   canExport?: boolean
+  /** Something is selected on the design step, of any kind. */
+  canDeselect?: boolean
 }): StudioKeyAction | null {
   // Esc drops a stroke mid-draw, wherever focus is.
   if (key === 'Escape' && drawing) {
     return { type: 'cancelStroke' }
   }
 
+  // Esc lets go of the selection from anywhere on the design step, the
+  // type field included, so a word just placed with Enter can be let go
+  // (UX review, 26 Nov). A field with its own Esc (rename, revert) takes
+  // the key first and stops it; a dialog keeps it to close itself.
+  if (key === 'Escape' && !shiftKey && !metaKey && !ctrlKey && !altKey && inDesign && canDeselect && !inDialog({ target })) {
+    return { type: 'deselect' }
+  }
+
   if (isTypingTarget({ target })) {
     return null
+  }
+
+  // ? (Shift + / on most layouts) shows the keys, outside text fields.
+  if (key === '?' && !metaKey && !ctrlKey && !altKey) {
+    return { type: 'help' }
   }
 
   if (metaKey || ctrlKey) {
@@ -243,14 +271,20 @@ export function studioKeyAction({
     return { type: 'delete' }
   }
 
-  if (key === 'Escape') {
-    return { type: 'deselect' }
-  }
-
   return null
 }
 
-const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
+/** True on Apple keyboards, where ⌘ does what Ctrl does elsewhere. */
+export const IS_APPLE_KEYBOARD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
+const MOD = IS_APPLE_KEYBOARD ? '⌘' : 'Ctrl'
+
+/** Undo and redo as a tooltip shows them and as `aria-keyshortcuts` names them. */
+export function historyShortcuts({ apple = IS_APPLE_KEYBOARD }: { apple?: boolean } = {}) {
+  return apple
+    ? { undo: '⌘Z', redo: '⇧⌘Z', undoAria: 'Meta+Z', redoAria: 'Shift+Meta+Z' }
+    : { undo: 'Ctrl+Z', redo: 'Ctrl+Shift+Z', undoAria: 'Control+Z', redoAria: 'Control+Shift+Z Control+Y' }
+}
 
 /** The studio's keys, as the Keyboard help lists them. */
 export function studioKeyList({ mod = MOD }: { mod?: string } = {}) {
@@ -273,6 +307,7 @@ export function studioKeyList({ mod = MOD }: { mod?: string } = {}) {
     { keys: `${mod} + Z`, does: 'Undo' },
     { keys: `Shift + ${mod} + Z`, does: 'Redo' },
     { keys: 'Enter in the type field', does: 'Place the word on the active panel' },
+    { keys: '?', does: 'Show or hide these shortcuts' },
   ]
 }
 

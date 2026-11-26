@@ -2,7 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { NotInAlpha } from '../components/ui/NotInAlpha'
 import { AUTH_REQUIRED } from '../lib/auth/supabase-client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
 import { LookStage } from '../components/scene/LookStage'
@@ -13,6 +13,7 @@ import { useEditorStore } from '../lib/editor-store'
 import { resolveFetchedLook } from '../lib/fetched-look'
 import { HOUSE_COPY } from '../lib/house-copy'
 import { lookRecipe } from '../lib/look-recipe'
+import { lookRenderDocument } from '../lib/render-projection'
 import { lookSheetBodyClass, lookSheetFrameClass } from '../lib/studio-chrome'
 
 export const Route = createFileRoute('/look/$lookId')({
@@ -28,6 +29,10 @@ function LookPage() {
   >('loading')
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>(
     'idle',
+  )
+  const lookDocument = useMemo(
+    () => (look ? lookRenderDocument({ design: look }) : null),
+    [look],
   )
 
   useEffect(() => {
@@ -81,12 +86,11 @@ function LookPage() {
 
   return (
     <section className="relative h-dvh overflow-hidden">
-      {status === 'ready' && look ? (
+      {status === 'ready' && look && lookDocument ? (
         <LookStage
           garmentId={look.garmentId}
           overrides={look.overrides}
-          artMap={look.artMap}
-          structural={look.structural}
+          document={lookDocument}
         />
       ) : (
         <div className="flex h-full items-center justify-center px-6">

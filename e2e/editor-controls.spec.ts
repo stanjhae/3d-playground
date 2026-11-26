@@ -4,7 +4,7 @@ import { type PlaceableLayer, canvasLayerFrame } from '../src/lib/layer-hit'
 import { INK_COLORS } from '../src/lib/paint-colors'
 import { SELECTION_COLOR } from '../src/lib/selection-chrome'
 import { currentTemplateFor } from '../src/lib/template-manifest'
-import { deleteAccounts, drawStroke, expectSaved, newEmail, newTeePanelAspect, panelCanvas, signIn, chooseTool, graphicTile } from './helpers'
+import { deleteAccounts, drawStroke, expectSaved, newEmail, newTeePanelAspect, panelCanvas, signIn, chooseTool, graphicTile, openLayerMenu } from './helpers'
 
 /**
  * What the editor's controls do on screen, not only in the saved document
@@ -494,7 +494,8 @@ test('undo and redo cover add, colour, word, position, order and delete', async 
   await addWord({ page, word: 'TWO' })
   await saved({ read: order }).toBe('EDITED,TWO')
   const rail = page.getByRole('complementary', { name: 'Layers' })
-  await rail.getByRole('button', { name: /^Move .*TWO.* down/ }).click()
+  await openLayerMenu({ rail, name: /.*TWO/ })
+  await page.getByRole('button', { name: /^Move .*TWO.* down/ }).click()
   await saved({ read: order }).toBe('TWO,EDITED')
   await undo.click()
   await saved({ read: order }).toBe('EDITED,TWO')
@@ -502,7 +503,8 @@ test('undo and redo cover add, colour, word, position, order and delete', async 
   await saved({ read: order }).toBe('TWO,EDITED')
 
   // Delete.
-  await rail.getByRole('button', { name: /^Delete .*TWO/ }).click()
+  await openLayerMenu({ rail, name: /.*TWO/ })
+  await page.getByRole('button', { name: /^Delete .*TWO/ }).click()
   await saved({ read: order }).toBe('EDITED')
   await undo.click()
   await saved({ read: order }).toBe('TWO,EDITED')

@@ -152,3 +152,42 @@ describe('editor store on canonical v2 (E01 #152)', () => {
     expect(store().document.layers.some((layer) => layer.kind === 'pattern')).toBe(false)
   })
 })
+
+describe('word colour is its own, not the brush’s (UX review, 26 Nov)', () => {
+  beforeEach(() => {
+    store().reset()
+  })
+
+  const wordColor = () => {
+    const word = store().document.layers.findLast((layer) => layer.kind === 'text')
+    return word?.kind === 'text' ? word.color : null
+  }
+
+  test('a cream brush does not make a cream word; on light cloth the word is dark', () => {
+    store().setPaintColor({ paintColor: '#f4ead4' })
+    drawOn({ panel: 'front' })
+    store().addText({ content: 'MAISON' })
+    expect(wordColor()).toBe('#1a1c22')
+  })
+
+  test('on dark cloth a new word is light', () => {
+    store().applyBaseColor({ color: '#111318' })
+    store().addText({ content: 'NIGHT' })
+    expect(wordColor()).toBe('#f7f3ea')
+  })
+
+  test('a picked text colour is what the next word takes, and reset forgets it', () => {
+    store().setTextColor({ textColor: '#6b1d2a' })
+    store().addText({ content: 'RED' })
+    expect(wordColor()).toBe('#6b1d2a')
+    store().reset()
+    expect(store().textColor).toBeNull()
+  })
+
+  test('changing a placed word’s colour still works', () => {
+    store().addText({ content: 'EDIT' })
+    const word = store().document.layers.find((layer) => layer.kind === 'text')!
+    store().updateLayer({ layerId: word.id, patch: { color: '#c4a15a' } })
+    expect(wordColor()).toBe('#c4a15a')
+  })
+})

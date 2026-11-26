@@ -1,6 +1,6 @@
 import type { CanonicalDocument } from './canonical-document'
 import type { DesignSummary } from './flp-api/client'
-import { getGarment } from './garments'
+import { GARMENTS, getGarment } from './garments'
 import { garmentOfTemplate } from './template-manifest'
 
 /** How My Studio orders its cards (P3). */
@@ -43,6 +43,16 @@ export function visibleDesigns({
 /** "Untitled hoodie": the title a new design of `garmentId` starts with. */
 export function untitledTitle({ garmentId }: { garmentId: string }) {
   return `Untitled ${getGarment({ garmentId }).label.toLowerCase()}`
+}
+
+/**
+ * A design still under the exact name it started with ("Untitled tee"):
+ * publishing asks for one. A name the designer chose stays theirs, even
+ * one that starts with "Untitled".
+ */
+export function isUntitled({ title }: { title: string }) {
+  const name = title.trim().toLowerCase()
+  return GARMENTS.some((garment) => untitledTitle({ garmentId: garment.id }).toLowerCase() === name)
 }
 
 /** The garment a saved document is drawn on, from its own template. */

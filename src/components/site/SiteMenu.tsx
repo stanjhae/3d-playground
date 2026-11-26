@@ -1,13 +1,34 @@
 import { Menu, X } from 'lucide-react'
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 
+import { cn } from '../../lib/cn'
 import { buttonClass } from '../ui/Button'
 
+export const MENU_LINK_CLASS = 'flex min-h-11 items-center rounded-lg px-3 text-flv-ink hover:bg-flv-soft'
+
+/** A menu link for the page on screen: marked by colour and an underline, not colour alone. */
+export const MENU_LINK_CURRENT_CLASS = 'font-medium text-flv-accent underline decoration-flv-accent decoration-2 underline-offset-4'
+
+export function menuLinkClass({ current = false }: { current?: boolean } = {}) {
+  return cn(MENU_LINK_CLASS, { [MENU_LINK_CURRENT_CLASS]: current })
+}
+
 /**
- * The landing page's links on a phone, where they don't fit the header.
- * A plain disclosure: Escape or a tap elsewhere closes it.
+ * The header links that don't fit a phone (the landing's sections; the app
+ * header's Home, Look and account). A plain disclosure: Escape or a tap
+ * elsewhere closes it. It shows below `hideFrom`, where the header's own
+ * links take over.
  */
-export function SiteMenu({ children }: { children: ReactNode }) {
+export function SiteMenu({
+  children,
+  hideFrom = 'lg',
+  label = 'Site',
+}: {
+  children: ReactNode
+  hideFrom?: 'md' | 'lg'
+  /** The menu's navigation name; the app header's is not the whole site. */
+  label?: string
+}) {
   const [open, setOpen] = useState(false)
   const button = useRef<HTMLButtonElement | null>(null)
   const root = useRef<HTMLDivElement | null>(null)
@@ -40,9 +61,9 @@ export function SiteMenu({ children }: { children: ReactNode }) {
     }
   }, [open])
 
-  // Up to lg, where the header's own section links take over: no width is left without them.
+  // Up to lg (or md), where the header's own links take over: no width is left without them.
   return (
-    <div ref={root} className="relative lg:hidden">
+    <div ref={root} className={cn('relative', hideFrom === 'md' ? 'md:hidden' : 'lg:hidden')}>
       <button
         ref={button}
         type="button"
@@ -61,9 +82,13 @@ export function SiteMenu({ children }: { children: ReactNode }) {
         className="flv-panel absolute top-full right-0 z-40 mt-2 w-56 bg-white p-2"
         onClick={() => setOpen(false)}
       >
-        <nav aria-label="Site" className="flex flex-col font-body text-sm">
-          {children}
-        </nav>
+        {/* Closed, its links are not in the page at all: the header's own
+            copies of them are then the only ones a search or a reader finds. */}
+        {open ? (
+          <nav aria-label={label} className="flex flex-col font-body text-sm">
+            {children}
+          </nav>
+        ) : null}
       </div>
     </div>
   )

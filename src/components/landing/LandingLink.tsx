@@ -26,25 +26,44 @@ export function CreateCta({
   className?: string
   size?: 'md' | 'lg'
 }) {
-  const signedIn = useSessionStore((state) => state.status === 'signed-in')
   const classes = cn(
     buttonClass(),
     'flv-cta-sheen group relative overflow-hidden',
     { 'min-h-14 px-7 text-base': size === 'lg' },
     className,
   )
-  const body = (
-    <>
+
+  return (
+    <CreateLink mode={mode} className={classes} data-cta="create">
       <span>{children}</span>
       <ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" />
-    </>
+    </CreateLink>
   )
+}
+
+/**
+ * The unstyled Start creating link, so every landing entry (hero, final
+ * call, footer) lands in the same place: Create with no sign-up when
+ * signed out, a new design in My Studio when signed in.
+ */
+export function CreateLink({
+  mode,
+  className,
+  children,
+  'data-cta': dataCta,
+}: {
+  mode: LandingMode
+  className?: string
+  children: ReactNode
+  'data-cta'?: string
+}) {
+  const signedIn = useSessionStore((state) => state.status === 'signed-in')
 
   if (!signedIn) {
     if (mode === 'static') {
       return (
-        <a href="/create" className={classes} data-cta="create">
-          {body}
+        <a href="/create" className={className} data-cta={dataCta}>
+          {children}
         </a>
       )
     }
@@ -53,21 +72,21 @@ export function CreateCta({
       <Link
         to="/create"
         viewTransition
-        className={classes}
-        data-cta="create"
+        className={className}
+        data-cta={dataCta}
         onClick={() => {
           handOffLandingDesign()
         }}
       >
-        {body}
+        {children}
       </Link>
     )
   }
 
   if (mode === 'static') {
     return (
-      <a href="/studio?new=true" className={classes} data-cta="create">
-        {body}
+      <a href="/studio?new=true" className={className} data-cta={dataCta}>
+        {children}
       </a>
     )
   }
@@ -78,13 +97,13 @@ export function CreateCta({
       // Start creating opens Create (a new design), not the saved-designs library.
       search={{ new: true }}
       viewTransition
-      className={classes}
-      data-cta="create"
+      className={className}
+      data-cta={dataCta}
       onClick={() => {
         handOffLandingDesign()
       }}
     >
-      {body}
+      {children}
     </Link>
   )
 }
@@ -97,7 +116,7 @@ export function SiteLink({
   children,
 }: {
   mode: LandingMode
-  to: '/privacy' | '/terms' | '/studio'
+  to: '/privacy' | '/terms'
   className?: string
   children: ReactNode
 }) {

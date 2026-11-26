@@ -19,7 +19,8 @@ import {
 } from '../../lib/layer-list'
 import { isOtherPointer } from '../../lib/pointer-owner'
 import { announce } from '../../lib/studio-announcer'
-import { studioKeyAction } from '../../lib/studio-keys'
+import { useShortcutsHelp } from '../../lib/shortcuts-help'
+import { isTypingTarget, studioKeyAction } from '../../lib/studio-keys'
 import { dualStudioGridClass, studioSceneClass } from '../../lib/studio-chrome'
 import { useStudioMode } from '../../lib/studio-mode'
 import { useLgUp } from '../../lib/viewport'
@@ -78,6 +79,7 @@ export function DualStudio({
         // The active flat side is on screen to zoom.
         canZoom: document.querySelector(`[data-panel-frame="${state.paintPanel}"]`) !== null,
         canExport: canDownloadDesignImage(),
+        canDeselect: showsDesignRails({ step: state.createStep }) && layer !== undefined,
       })
 
       if (!action) {
@@ -115,6 +117,28 @@ export function DualStudio({
 
       if (action.type === 'export') {
         void downloadDesignImage()
+        return
+      }
+
+      if (action.type === 'help') {
+        useShortcutsHelp.getState().toggle()
+        return
+      }
+
+      if (action.type === 'deselect') {
+        // Esc deselects from the type field (a word just placed with Enter),
+        // and leaves it so the next keys are the studio's. Any other field
+        // (a name, a search, a note) keeps Esc to itself.
+        if (isTypingTarget({ target: event.target })) {
+          if (!(event.target instanceof HTMLElement) || !event.target.closest('[data-type-field]')) {
+            return
+          }
+
+          event.target.blur()
+        }
+
+        state.selectLayer({ selectedLayerId: null })
+        announce({ message: layer ? `${layerVoice({ layer })} deselected.` : 'Deselected.' })
         return
       }
 
@@ -213,11 +237,7 @@ export function DualStudio({
             document.querySelector<HTMLElement>('[data-layer-control="select"]')?.focus()
           }
         })
-        return
       }
-
-      state.selectLayer({ selectedLayerId: null })
-      announce({ message: `${layerVoice({ layer: placeable })} deselected.` })
     }
 
     function endPaintStroke(event: PointerEvent) {

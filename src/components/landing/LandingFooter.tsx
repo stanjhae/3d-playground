@@ -1,7 +1,7 @@
 import { CONTACT_EMAIL } from '../../lib/alpha-contact'
 import { LANDING_COPY, LANDING_NAV } from '../../lib/landing-copy'
 import { BrandMark } from '../site/LandingHeader'
-import { type LandingMode, SiteLink } from './LandingLink'
+import { CreateLink, type LandingMode, SiteLink } from './LandingLink'
 
 const linkClass = 'inline-flex min-h-11 items-center text-flv-muted underline-offset-4 hover:text-flv-ink hover:underline'
 
@@ -28,9 +28,9 @@ export function LandingFooter({ mode }: { mode: LandingMode }) {
         </nav>
         <nav aria-label={footer.studio} className="flex flex-col">
           <p className="mb-1 text-xs tracking-[0.18em] text-flv-ink uppercase">{footer.studio}</p>
-          <SiteLink mode={mode} to="/studio" className={linkClass}>
+          <CreateLink mode={mode} className={linkClass}>
             {LANDING_COPY.hero.cta}
-          </SiteLink>
+          </CreateLink>
           <a href="#waitlist" className={linkClass}>
             {LANDING_COPY.final.waitlistButton}
           </a>

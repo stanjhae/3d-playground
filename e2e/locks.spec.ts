@@ -1,7 +1,7 @@
 import { type Page, expect, test } from '@playwright/test'
 
 import { HOUSE_COPY } from '../src/lib/house-copy'
-import { chooseTool, deleteAccounts, expectSaved, newEmail, panelCanvas, savedStrokes, signIn } from './helpers'
+import { chooseTool, deleteAccounts, expectSaved, newEmail, openLayerMenu, panelCanvas, savedStrokes, signIn } from './helpers'
 
 /**
  * Locks (W3): an item locked from the layer list can't be dragged on the
@@ -52,20 +52,23 @@ test('a locked word is not picked on the panel until it is unlocked', async ({ p
   const positionX = page.getByRole('textbox', { name: 'Position X, percent of panel' })
   await expect(select).toHaveAttribute('aria-current', 'true')
   const spot = await wordSpot({ page })
+  // Reorder, duplicate and rename are in the row's More menu.
+  await openLayerMenu({ rail, name: WORD })
   for (const action of [`Move ${WORD} to the front`, `Move ${WORD} to the back`, `Duplicate ${WORD}`, `Rename ${WORD}`]) {
-    await expect(rail.getByRole('button', { name: action, exact: true })).toBeVisible()
+    await expect(page.getByTestId('layer-row-menu').getByRole('button', { name: action, exact: true })).toBeVisible()
   }
 
   // Lock it from the list: its edit controls go off and say why.
   await expect(lock).toHaveAttribute('aria-pressed', 'false')
   await lock.click()
   await expect(lock).toHaveAttribute('aria-pressed', 'true')
-  await expect(rail.getByRole('button', { name: `Delete ${WORD}`, exact: true })).toHaveAttribute('aria-disabled', 'true')
+  await openLayerMenu({ rail, name: WORD })
+  await expect(page.getByRole('button', { name: `Delete ${WORD}`, exact: true })).toHaveAttribute('aria-disabled', 'true')
   await expect(rail.getByText('Locked. Unlock to edit.')).toBeVisible()
   await expect(select).toHaveAccessibleName(/, locked$/)
   await expect(positionX).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Left to right' })).toBeDisabled()
-  await expect(rail.getByRole('button', { name: `Rename ${WORD}`, exact: true })).toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByRole('button', { name: `Rename ${WORD}`, exact: true })).toHaveAttribute('aria-disabled', 'true')
 
   // Hiding is about the view, so it works while locked, and it stays locked.
   // The eye's name says what a press does (tester pass 3).
