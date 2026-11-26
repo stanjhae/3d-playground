@@ -1,3 +1,4 @@
+import { MOTIF_LABELS, isMotifId } from './base-motifs'
 import { curvedBox } from './text-curve'
 import { LAYER_SCALE_RANGE, clampLayerScale } from './layer-scale'
 import type {
@@ -535,7 +536,7 @@ export function layerVoice({
   }
 
   if (layer.kind === 'pattern') {
-    return layer.patternId === 'check' ? 'Check' : 'Stripe'
+    return isMotifId(layer.patternId) ? MOTIF_LABELS[layer.patternId] : layer.patternId === 'check' ? 'Check' : 'Stripe'
   }
 
   // A whole-panel fill (reader R2), named for what it repeats.

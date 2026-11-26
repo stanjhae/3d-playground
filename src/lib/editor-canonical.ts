@@ -1,3 +1,4 @@
+import { isMotifId } from './base-motifs'
 import {
   type CanonicalCommand,
   type CanonicalLayerPatch,
@@ -168,6 +169,10 @@ export function basePatternCommand({
 
   if (patternId === 'check') {
     return { type: 'setBase', base: { kind: 'check', colors: [ground, fill], period } }
+  }
+
+  if (isMotifId(patternId)) {
+    return { type: 'setBase', base: { kind: 'motif', motif: patternId, colors: [ground, fill], period } }
   }
 
   return null

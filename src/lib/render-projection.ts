@@ -245,7 +245,7 @@ export function toRenderDocument({
       layers.push({
         id: `base-fill-${render}`,
         kind: 'pattern',
-        patternId: base.kind === 'stripes' ? 'stripe' : 'check',
+        patternId: base.kind === 'stripes' ? 'stripe' : base.kind === 'motif' ? base.motif : 'check',
         panel: render,
         color: base.colors[1],
         x: 0.5,

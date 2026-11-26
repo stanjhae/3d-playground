@@ -274,3 +274,43 @@ test('evidence: the 3D cloth in each fabric, and fills', async ({ page }) => {
   await page.waitForTimeout(1500)
   await page.screenshot({ path: 'docs/evidence/fabric-fill-all-sides.png' })
 })
+
+test('the further patterns are offered, and Honeycomb saves and draws on the garment', async ({ page }) => {
+  // Tester, 22 Nov: more patterns, such as scales, honeycomb and leopard.
+  test.setTimeout(120_000)
+  await newTee({ page, label: 'motif' })
+  await goToStep({ page, step: 'color' })
+
+  for (const name of ['Dots', 'Chevron', 'Houndstooth', 'Honeycomb', 'Scales', 'Leopard']) {
+    await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
+  }
+
+  await page.getByRole('button', { name: 'Honeycomb', exact: true }).click()
+  // Picked, its name gains a tick.
+  await expect(page.getByRole('button', { name: /Honeycomb$/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect
+    .poll(async () => (await savedContent({ page })).base as unknown as { kind: string; motif?: string }, { timeout: 20_000 })
+    .toMatchObject({ kind: 'motif', motif: 'honeycomb' })
+
+  // On the 2D side: the cloth colour and the honeycomb's lines both show.
+  await goToStep({ page, step: 'design' })
+  const front = page.locator('canvas[aria-label^="Design panel Front"]')
+  await expect
+    .poll(() =>
+      front.evaluate((canvas: HTMLCanvasElement) => {
+        const { width, height } = canvas
+        const data = canvas.getContext('2d')!.getImageData(width * 0.3, height * 0.3, width * 0.4, height * 0.4).data
+        let dark = 0
+        let light = 0
+
+        for (let at = 0; at < data.length; at += 4) {
+          const level = (data[at]! + data[at + 1]! + data[at + 2]!) / 3
+          dark += level < 90 ? 1 : 0
+          light += level > 180 ? 1 : 0
+        }
+
+        return Math.min(dark, light)
+      }),
+    )
+    .toBeGreaterThan(100)
+})

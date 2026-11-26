@@ -16,6 +16,7 @@
  * See docs/canonical-document.md.
  */
 
+import { MOTIF_IDS, type MotifId } from './base-motifs'
 import {
   type GarmentShape,
   isNeutralShape,
@@ -50,7 +51,7 @@ export type CanonicalPanelId = string
 /** A key of `TEMPLATE_ARCHIVE` in template-manifest.ts. */
 export type TemplateId = string
 
-export const BASE_KINDS = ['solid', 'stripes', 'check'] as const
+export const BASE_KINDS = ['solid', 'stripes', 'check', 'motif'] as const
 
 export type BaseKind = (typeof BASE_KINDS)[number]
 
@@ -130,7 +131,15 @@ export type CheckBase = BaseFabric & {
   period: number
 }
 
-export type GarmentBase = SolidBase | StripesBase | CheckBase
+/** A two-colour motif (`base-motifs.ts`): dots, honeycomb, leopard and the rest. */
+export type MotifBase = BaseFabric & {
+  kind: 'motif'
+  motif: MotifId
+  colors: [Color, Color]
+  period: number
+}
+
+export type GarmentBase = SolidBase | StripesBase | CheckBase | MotifBase
 
 export type BrushStroke = {
   id: string
@@ -569,7 +578,7 @@ function checkBase({
     return
   }
 
-  if ('fabric' in value && (value.kind === 'solid' || value.kind === 'stripes' || value.kind === 'check')) {
+  if ('fabric' in value && (value.kind === 'solid' || value.kind === 'stripes' || value.kind === 'check' || value.kind === 'motif')) {
     checkEnum({ context, value: value.fabric, path: `${path}.fabric`, options: CANONICAL_FABRIC_IDS })
   }
 
@@ -577,6 +586,23 @@ function checkBase({
     if (checkRecord({ context, value, path, required: ['kind', 'color'], optional: ['fabric'] })) {
       checkColor({ context, value: value.color, path: `${path}.color` })
     }
+    return
+  }
+
+  if (value.kind === 'motif') {
+    if (!checkRecord({ context, value, path, required: ['kind', 'motif', 'colors', 'period'], optional: ['fabric'] })) {
+      return
+    }
+
+    checkEnum({ context, value: value.motif, path: `${path}.motif`, options: MOTIF_IDS })
+    checkColorPair({ context, value: value.colors, path: `${path}.colors` })
+    checkNumber({
+      context,
+      value: value.period,
+      path: `${path}.period`,
+      min: CANONICAL_LIMITS.minPatternPeriod,
+      max: CANONICAL_LIMITS.maxPatternPeriod,
+    })
     return
   }
 

@@ -1,3 +1,4 @@
+import { MOTIF_IDS } from './base-motifs'
 import type { GarmentShape } from './garment-shape-params.ts'
 import type { CanonicalPattern } from './pattern/pattern-document.ts'
 import {
@@ -57,7 +58,7 @@ export const SLEEVE_IDS = ['short', 'long'] as const
 
 export type SleeveId = (typeof SLEEVE_IDS)[number]
 
-export const PATTERN_IDS = ['stripe', 'check', 'gradient'] as const
+export const PATTERN_IDS = ['stripe', 'check', 'gradient', ...MOTIF_IDS] as const
 
 export type PatternId = (typeof PATTERN_IDS)[number]
 
