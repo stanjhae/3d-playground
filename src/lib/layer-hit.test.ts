@@ -54,6 +54,29 @@ describe('layer hit', () => {
     expect(layerVoice({ layer: hit! })).toBe('FLV')
   })
 
+  test('zoomed in, a handle reaches as far on screen, not as far on the panel', () => {
+    const layer = {
+      id: 'small',
+      kind: 'graphic' as const,
+      panel: 'front' as const,
+      src: 'data:image/png;base64,abc',
+      x: 0.5,
+      y: 0.5,
+      scale: 0.05,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+    }
+    const corner = layerHandleLocal({ layer }).scale
+    // Just below the scale corner, outside the box.
+    const press = { x: layer.x + corner.x, y: layer.y + corner.y - 0.02 }
+
+    expect(hitLayerHandle({ layer, ...press })).toBe('scale')
+    expect(hitLayerHandle({ layer, ...press, zoom: 4 })).toBeNull()
+    // Right on the corner still grabs it.
+    expect(hitLayerHandle({ layer, x: layer.x + corner.x, y: layer.y + corner.y, zoom: 4 })).toBe('scale')
+  })
+
   test('applies a live edit without flattening the document', () => {
     const document = createEmptyDocument({ garmentId: 'tee' })
     const layerId = createObjectId({ prefix: 'mark' })
