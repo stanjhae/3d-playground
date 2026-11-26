@@ -31,15 +31,6 @@ import {
 } from '../../lib/studio-chrome'
 import { RadioGroup } from '../ui/RadioGroup'
 
-const SAMPLE_COLORS = [
-  { name: 'White', value: '#ffffff' },
-  { name: 'Coral', value: '#ff6a3d' },
-  { name: 'Charcoal', value: '#2c2c2c' },
-  { name: 'Sand', value: '#f5e6d3' },
-  { name: 'Olive', value: '#5c6b4a' },
-  { name: 'Navy', value: '#1e2a44' },
-] as const
-
 const FIT_LABEL: Partial<Record<GarmentId, string>> = {
   tee: FLV_COPY.selectFitClassic,
   slip: FLV_COPY.selectFitRelaxed,
@@ -165,7 +156,6 @@ export function SilhouetteSwitch({
 }) {
   const storeId = useEditorStore((state) => state.garmentId)
   const setGarmentId = useEditorStore((state) => state.setGarmentId)
-  const applyBaseColor = useEditorStore((state) => state.applyBaseColor)
   const setAvatarMeasurements = useEditorStore(
     (state) => state.setAvatarMeasurements,
   )
@@ -182,7 +172,6 @@ export function SilhouetteSwitch({
   useEffect(() => {
     setCategory(garmentCategory({ garmentId: current }))
   }, [current])
-  const [sampleColor, setSampleColor] = useState<string>(SAMPLE_COLORS[0].value)
   const [sampleSize, setSampleSize] = useState<SampleSizeId>('L')
   const garments = listGarmentsByCategory({ category })
   const planned = listPlannedGarments({ category })
@@ -352,29 +341,7 @@ export function SilhouetteSwitch({
               })}
             </RadioGroup>
           </div>
-          <div className="flex flex-col gap-2">
-            <p className={chromeTextClass()}>{FLV_COPY.selectAvailableColors}</p>
-            <RadioGroup className="flex flex-wrap gap-2" aria-label={FLV_COPY.selectAvailableColors}>
-              {SAMPLE_COLORS.map((color) => (
-                <button
-                  key={color.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={sampleColor === color.value}
-                  aria-label={color.name}
-                  title={color.name}
-                  onClick={() => {
-                    setSampleColor(color.value)
-                    applyBaseColor({ color: color.value })
-                  }}
-                  className={cn('size-11 rounded-full border border-black/10 ring-offset-2 ring-offset-white', {
-                    'ring-2 ring-flv-accent': sampleColor === color.value,
-                  })}
-                  style={{ backgroundColor: color.value }}
-                />
-              ))}
-            </RadioGroup>
-          </div>
+          {/* Colour is the next step (Color & Pattern), with the one palette; it isn't offered twice. */}
           {CONCEPT_FEATURES ? (
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
