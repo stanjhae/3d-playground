@@ -129,7 +129,7 @@ test('create → edit → save → publish → view signed out → unpublish →
     return (await (await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })).json()).headSeq as number
   }, designId)
   expect(payload.seq).toBe(headSeq)
-  await expect(page.getByText(`Published v${payload.seq} `)).toBeVisible()
+  await expect(page.getByTestId('publication-live')).toHaveAttribute('data-published-seq', String(payload.seq))
   const shown = await anonymous.evaluate(async (path) => (await (await fetch(path)).json()).seq as number, `/api/flp/public/${slug}`)
   expect(shown).toBe(payload.seq)
   expect(JSON.stringify(payload)).not.toContain(designId)

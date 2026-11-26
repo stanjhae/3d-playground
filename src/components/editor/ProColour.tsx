@@ -84,6 +84,8 @@ export function ProColour({
               }
 
               if (event.key === 'Escape') {
+                // Esc reverts the field; it does not also let go of the selection.
+                event.preventDefault()
                 setText(current)
                 setError(null)
               }

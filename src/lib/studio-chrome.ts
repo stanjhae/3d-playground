@@ -81,11 +81,29 @@ export function studioSectionClass({ drawInFlow = false }: { drawInFlow?: boolea
  * pass), so the header never grows or reflows when a save starts or ends.
  */
 export function saveIndicatorClass() {
-  return 'flex h-9 w-[11rem] max-w-full shrink-0 items-center gap-1 overflow-hidden font-body text-xs'
+  return 'flex h-9 w-[11rem] max-w-full shrink-0 max-sm:w-auto items-center gap-1 overflow-hidden font-body text-xs'
 }
 
+/**
+ * The studio bar (studio mode, 26 Nov). The site header is not shown in the
+ * studio, so this is the only chrome above the work. At lg it is one row:
+ * the way out, name and save state on the left, the steps in the middle,
+ * history and the step's buttons on the right. The right keeps its natural
+ * width, so Continue is never pushed off screen; the name gives way instead.
+ * On a phone, two short rows.
+ */
 export function studioHeaderClass() {
-  return 'pointer-events-auto flex shrink-0 flex-col gap-2 bg-flv-paper px-4 pt-1 pb-3 lg:absolute lg:inset-x-0 lg:top-0 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)_minmax(0,1fr)] lg:items-center lg:gap-x-6 lg:gap-y-1 lg:px-6 lg:pt-3 lg:pb-2'
+  return 'pointer-events-auto flex shrink-0 flex-col gap-1 border-b border-flv-line bg-flv-paper px-2 pt-[max(0.25rem,env(safe-area-inset-top))] pb-1 lg:absolute lg:inset-x-0 lg:top-0 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] lg:items-center lg:gap-x-4 lg:gap-y-1 lg:px-3 lg:py-1.5'
+}
+
+/** The bar's left: the way out, the design's name and its save state. */
+export function studioBarStartClass() {
+  return 'flex min-w-0 items-center gap-2'
+}
+
+/** The steps and the step's buttons: a row of their own on a phone, the bar's middle and right at lg. */
+export function studioBarEndClass() {
+  return 'flex min-w-0 items-center gap-1 lg:contents'
 }
 
 /**
@@ -110,10 +128,22 @@ export function dualStudioGridClass({ flatSides = true }: { flatSides?: boolean 
  * The one tool column at lg: tools scroll above, publishing sits below. Below
  * lg its children stay in the page's flow.
  */
-export function studioToolColumnClass({ side }: { side: 'left' | 'right' }) {
+export function studioToolColumnClass({
+  side,
+  singleScroll = false,
+}: {
+  side: 'left' | 'right'
+  /**
+   * Preview & Publish: the try-on cards and the publish panel scroll as one
+   * column at lg. Two scrollers squeezed the try-on card to a sliver at
+   * 900 px tall, and hid it once the publish confirmation opened.
+   */
+  singleScroll?: boolean
+}) {
   return cn(
     'contents lg:pointer-events-auto lg:absolute lg:top-[calc(var(--studio-chrome-bottom,6rem)_+_0.25rem)] lg:bottom-3 lg:flex lg:w-80 lg:flex-col lg:gap-2',
     side === 'left' ? 'lg:left-3' : 'lg:right-3',
+    { 'lg:overflow-y-auto lg:overscroll-contain': singleScroll },
   )
 }
 
@@ -144,13 +174,20 @@ export function studioPhoneDrawClass() {
   return 'flex h-[min(70dvh,34rem)] min-h-72 shrink-0 flex-col px-3 pb-2'
 }
 
-export function studioPhoneToolsClass({ drawInFlow = false }: { drawInFlow?: boolean } = {}) {
+export function studioPhoneToolsClass({
+  drawInFlow = false,
+  singleScroll = false,
+}: { drawInFlow?: boolean; singleScroll?: boolean } = {}) {
   // With the Draw canvas in flow the whole column scrolls, so tools keep their height.
   if (drawInFlow) {
     return 'pointer-events-auto flex shrink-0 flex-col gap-2 px-3'
   }
 
-  return 'pointer-events-auto flex max-h-[min(32vh,18rem)] min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 lg:max-h-none lg:flex-1 lg:px-0'
+  const base = 'pointer-events-auto flex max-h-[min(32vh,18rem)] min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 lg:max-h-none lg:px-0'
+
+  // In a single-scroll column (`studioToolColumnClass`) the tools keep their
+  // own height and grow to fill a short column, so publishing stays at the bottom.
+  return singleScroll ? `${base} lg:shrink-0 lg:grow lg:overflow-visible` : `${base} lg:flex-1`
 }
 
 /**
@@ -159,8 +196,14 @@ export function studioPhoneToolsClass({ drawInFlow = false }: { drawInFlow?: boo
  * Anchored there, the header settling or a hint going never moves the
  * button out from under a click in progress.
  */
-export function studioPhonePublishClass() {
-  return 'pointer-events-auto flex max-h-[min(34vh,24rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-h-[70%] lg:px-0 lg:pb-0 lg:empty:hidden'
+export function studioPhonePublishClass({ singleScroll = false }: { singleScroll?: boolean } = {}) {
+  const base = 'pointer-events-auto flex max-h-[min(34vh,24rem)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-0 lg:pb-0 lg:empty:hidden'
+
+  // In a single-scroll column it is pinned to the column's bottom while the
+  // try-on cards scroll behind it: the button still never moves mid-click.
+  return singleScroll
+    ? `${base} lg:sticky lg:bottom-0 lg:z-10 lg:max-h-none lg:overflow-visible lg:bg-flv-paper lg:pt-2`
+    : `${base} lg:max-h-[70%]`
 }
 
 export function railFrameClass() {

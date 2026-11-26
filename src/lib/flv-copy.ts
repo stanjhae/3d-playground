@@ -99,7 +99,6 @@ export const FLV_COPY = {
   getEarlyAccess: 'Get updates',
   conceptPreview: 'Concept Preview',
   selectUseGarment: 'Use this garment',
-  selectAvailableColors: 'Available colors',
   selectSampleSize: 'Size (sample)',
   selectFitOversized: 'Crew neck',
   selectFitClassic: 'Classic Fit',

@@ -61,6 +61,32 @@ export function allHintsHidden() {
   return [ALL_HIDDEN]
 }
 
+/**
+ * Hints whose lesson the design already shows (UX review, 26 Nov): a hint
+ * about doing something goes once it's done, rather than staying up over
+ * work that proves it was learnt. A stroke means a side was picked and
+ * drawn on; a word, graphic or image means pieces were added.
+ */
+export function hintsDoneBy({ layers }: { layers: ReadonlyArray<{ kind: string; strokes?: readonly unknown[] }> }) {
+  const done: StudioHintId[] = []
+  const drew = layers.some((layer) => layer.kind === 'paint' && (layer.strokes?.length ?? 0) > 0)
+  const placed = layers.some((layer) => layer.kind === 'text' || layer.kind === 'graphic')
+
+  if (drew || placed) {
+    done.push('panels')
+  }
+
+  if (drew) {
+    done.push('drawing')
+  }
+
+  if (placed) {
+    done.push('precise')
+  }
+
+  return done
+}
+
 /** The next hint for this step, one at a time. */
 export function nextHint({ step, dismissed }: { step: CreateStepId; dismissed: readonly string[] }) {
   if (dismissed.includes(ALL_HIDDEN)) {

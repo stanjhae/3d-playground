@@ -4,11 +4,11 @@ import {
   type CanonicalPanelId,
   panelIdsOf,
 } from './canonical-document.ts'
-import type { DesignDocument, DesignLayer, PanelId, PanelSurface } from './design-document.ts'
-import type { MaterialOverride } from './design-schema.ts'
+import { type DesignDocument, type DesignLayer, type PanelId, type PanelSurface, documentFromDesign } from './design-document.ts'
+import type { Design, MaterialOverride } from './design-schema.ts'
 import { getFabricById } from './fabrics.ts'
 import { templateHasShape } from './garment-shape-params.ts'
-import { CURRENT_TEMPLATE, type TemplateManifest, resolveTemplate } from './template-manifest.ts'
+import { CURRENT_TEMPLATE, TEMPLATE_IDS, type TemplateManifest, resolveTemplate } from './template-manifest.ts'
 
 /**
  * The single interim conversion (FLP E01 #152): canonical v2 → the v1
@@ -423,4 +423,51 @@ export function toRenderDocument({
     },
     missingAssets,
   }
+}
+
+/**
+ * The template a stored render document was projected from: its garment and
+ * `garmentVersion` (the manifest's version for a real model, 2 for the
+ * procedural tee). Null when this build has no such template.
+ */
+function storedTemplateOf({ document }: { document: Pick<DesignDocument, 'garmentId' | 'garmentVersion'> }) {
+  for (const id of TEMPLATE_IDS) {
+    const resolved = resolveTemplate({ id, version: document.garmentVersion })
+
+    if (resolved.ok && resolved.manifest.garmentId === document.garmentId) {
+      return resolved.manifest
+    }
+  }
+
+  return null
+}
+
+/**
+ * A board look as the 3D viewer draws it. A published look stores its
+ * render document without the model it was projected onto (`parseDocument`
+ * keeps garment, version, overrides and layers only), so without this a
+ * tee on the real model (@4 and up) fell back to the procedural house form
+ * and its live layers were dropped for the baked `artMap`, which is laid
+ * out for the real model's atlas. The model, its atlas rectangles and its
+ * frame come back from the pinned template. Looks with no stored document
+ * (house seeds, older entries) keep the artMap path unchanged.
+ */
+export function lookRenderDocument({
+  design,
+}: {
+  design: Pick<Design, 'garmentId' | 'overrides' | 'artMap' | 'structural' | 'document'>
+}): DesignDocument {
+  const document = documentFromDesign({ design })
+
+  if (!design.document || document.modelSrc) {
+    return document
+  }
+
+  const manifest = storedTemplateOf({ document })
+
+  if (!manifest || manifest.geometry.kind === 'procedural') {
+    return document
+  }
+
+  return { ...document, ...panelAspects({ manifest }), ...panelUvOf({ manifest }) }
 }

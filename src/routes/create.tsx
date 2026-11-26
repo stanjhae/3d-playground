@@ -4,7 +4,9 @@ import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 're
 import { AvatarRail } from '../components/editor/AvatarRail'
 import { CameraPresetBar } from '../components/editor/CameraPresetBar'
 import { ColorPatternPanel } from '../components/editor/ColorPatternPanel'
-import { CreateStepper } from '../components/editor/CreateStepper'
+import { StudioSteps } from '../components/editor/StudioSteps'
+import { StudioExit } from '../components/editor/StudioExit'
+import { UndoRedo } from '../components/editor/UndoRedo'
 import { DesignToolRail } from '../components/editor/DesignToolRail'
 import { ProToolsSwitch } from '../components/editor/ProToolsSwitch'
 import { DualStudio } from '../components/editor/DualStudio'
@@ -40,7 +42,7 @@ import {
   useCloudAutosave,
   useRecoveryStore,
 } from '../components/editor/CloudSave'
-import { CloudTitle } from '../components/editor/CloudTitle'
+import { CloudDescription, CloudTitle } from '../components/editor/CloudTitle'
 import { sessionExpiredOnStudio } from '../lib/auth/session-expiry'
 import { accountGuard, useSessionStore, waitForSession } from '../lib/auth/session-store'
 import {
@@ -79,6 +81,9 @@ import {
   STUDIO_CHROME_BOTTOM_VAR,
   STUDIO_TOOLS_HEIGHT_VAR,
   STUDIO_TOP_VAR,
+  railFrameClass,
+  studioBarEndClass,
+  studioBarStartClass,
   studioHeaderClass,
   studioOverlayClass,
   studioCameraBarClass,
@@ -219,6 +224,10 @@ function AtelierHome() {
   const sectionRef = useRef<HTMLElement | null>(null)
   const headerRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
+  const overlayRef = useRef<HTMLDivElement | null>(null)
+  const toolColumnRef = useRef<HTMLDivElement | null>(null)
+  const toolsRef = useRef<HTMLDivElement | null>(null)
+  const publishRef = useRef<HTMLDivElement | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [enteredLabel, setEnteredLabel] = useState<string | null>(null)
@@ -617,36 +626,88 @@ function AtelierHome() {
     }
   }, [drawInFlow, createStep, lgUp])
 
+  // On Preview & Publish the publish panel is pinned to the column's bottom
+  // (`studioPhonePublishClass`). The column keeps its height as scroll
+  // padding, so a button reached by keyboard scrolls clear of it, not under it.
+  const singleScroll = showsShareRail({ step: createStep })
+  useEffect(() => {
+    const column = toolColumnRef.current
+    const publish = publishRef.current
+
+    if (!singleScroll || !column || !publish) {
+      return
+    }
+
+    const pad = () => {
+      column.style.scrollPaddingBottom = `${publish.offsetHeight + 8}px`
+    }
+    pad()
+    const observer = new ResizeObserver(pad)
+    observer.observe(publish)
+    return () => {
+      observer.disconnect()
+      column.style.scrollPaddingBottom = ''
+    }
+  }, [singleScroll])
+
+  // Each step opens at the top of its panels: they are the same scrolling
+  // boxes on every step, so without this the next step opened wherever the
+  // last one was left (Color halfway down, Design at Layers).
+  useLayoutEffect(() => {
+    for (const box of [overlayRef, toolColumnRef, toolsRef, publishRef]) {
+      if (box.current) {
+        box.current.scrollTop = 0
+      }
+    }
+  }, [createStep])
+
   // Nothing to edit: drawing here would reach no design and be lost.
   const cloudFailed = cloudStatus === 'missing' || cloudStatus === 'error' || cloudStatus === 'unsupported'
 
   return (
     <section ref={sectionRef} className={studioSectionClass({ drawInFlow })}>
-      <div className={studioOverlayClass({ drawInFlow })}>
+      <div ref={overlayRef} className={studioOverlayClass({ drawInFlow })}>
         {adoptError ? (
           <p role="alert" className="px-4 pt-3 font-body text-sm text-flv-accent">
             {adoptError}
           </p>
         ) : null}
+        {/*
+          The studio bar (studio mode, 26 Nov): the site header is not shown
+          here, and everything the bar holds is for designing. One row at lg:
+          the way out, the name and save state; the steps; history and the
+          step's buttons. Two short rows on a phone.
+        */}
         <div ref={headerRef} className={studioHeaderClass()} data-studio-part="header">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+          <div className={studioBarStartClass()}>
+            <StudioExit />
             {AUTH_REQUIRED ? null : <ModeToggle mode={mode} />}
-            {mode === 'design' &&
-            canPaint &&
-            allowsDrawView({ step: createStep }) ? (
-              <StudioViewToggle />
-            ) : null}
-            {cloudStatus === 'loaded' ? <CloudTitle /> : null}
+            {cloudStatus === 'loaded' ? <CloudTitle compact /> : null}
             {cloudStatus === 'loaded' ? <CloudSaveStatus /> : null}
-            {mode === 'design' ? <ProToolsSwitch /> : null}
             {cloudStatus === 'loading' ? (
               <p className="font-body text-sm text-flv-muted">Opening your design…</p>
             ) : null}
+            {mode === 'design' &&
+            canPaint &&
+            allowsDrawView({ step: createStep }) ? (
+              <span className="ml-auto lg:hidden">
+                <StudioViewToggle />
+              </span>
+            ) : null}
           </div>
-          {mode === 'design' && !cloudFailed ? <CreateStepper /> : null}
-          {mode === 'design' && !cloudFailed ? <StepActions /> : null}
+          {mode === 'design' && !cloudFailed ? (
+            <div className={studioBarEndClass()}>
+              <StudioSteps className="shrink-0 lg:justify-self-center" />
+              <div className="ml-auto flex shrink-0 items-center gap-1 lg:justify-self-end">
+                {/* On a phone the Garment step has nothing to undo yet, and its button is the longest. */}
+                <span className={createStep === 'select' ? 'max-sm:hidden' : undefined}>
+                  <UndoRedo />
+                </span>
+                <StepActions />
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1 empty:hidden lg:col-span-3">
-            {mode === 'design' ? <GownCredit garmentId={garmentId} /> : null}
             {cloudStatus === 'loaded' ? <CloudSaveProblem /> : null}
             {cloudStatus === 'loaded' ? <RecoveryPrompt /> : null}
             {cloudStatus === 'loaded' && mode === 'design' ? <TemplateUpgradeBanner /> : null}
@@ -706,9 +767,26 @@ function AtelierHome() {
           </div>
         )}
         {mode === 'design' && !cloudFailed ? (
-          <div className={studioToolColumnClass({ side: showsDesignRails({ step: createStep }) ? 'left' : 'right' })}>
-            <div className={studioPhoneToolsClass({ drawInFlow })} data-hint-keep-clear data-studio-part="tools">
+          <div
+            ref={toolColumnRef}
+            className={studioToolColumnClass({
+              side: showsDesignRails({ step: createStep }) ? 'left' : 'right',
+              singleScroll: showsShareRail({ step: createStep }),
+            })}
+          >
+            <div
+              ref={toolsRef}
+              className={studioPhoneToolsClass({ drawInFlow, singleScroll: showsShareRail({ step: createStep }) })}
+              data-hint-keep-clear
+              data-studio-part="tools"
+            >
               <StepIntro />
+              {/* Pro adds controls to these tools, so it is switched here, not in the bar. */}
+              {mode === 'design' ? (
+                <div className="-my-1 flex justify-end">
+                  <ProToolsSwitch />
+                </div>
+              ) : null}
               {cloudStatus === 'loaded' ? <StudioHint /> : null}
               {showsSilhouetteRail({ step: createStep }) ? (
                 <SilhouetteSwitch />
@@ -746,11 +824,27 @@ function AtelierHome() {
                 </div>
               ) : null}
               {/* Try-on is a concept; on a phone it would push publishing off screen. */}
+              {/* The design's note is publishing metadata, so it lives with publishing. */}
+              {cloudStatus === 'loaded' && showsShareRail({ step: createStep }) ? (
+                <div className={railFrameClass()}>
+                  <CloudDescription />
+                </div>
+              ) : null}
               {lgUp && showsPreviewRails({ step: createStep }) ? (
                 <AvatarRail />
               ) : null}
+              {/* The garment's credit, out of the bar and at the foot of the tools. */}
+              {mode === 'design' ? (
+                <div className="px-1 pb-1">
+                  <GownCredit garmentId={garmentId} />
+                </div>
+              ) : null}
             </div>
-            <div className={studioPhonePublishClass()} data-studio-part="publish">
+            <div
+              ref={publishRef}
+              className={studioPhonePublishClass({ singleScroll: showsShareRail({ step: createStep }) })}
+              data-studio-part="publish"
+            >
               {publishError ? (
                 <p className="font-body text-sm text-flv-muted">
                   {publishError}

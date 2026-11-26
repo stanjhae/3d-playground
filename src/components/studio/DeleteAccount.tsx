@@ -64,10 +64,10 @@ export function DeleteAccount({ designCount }: { designCount: number | null }) {
   }
 
   return (
-    <section aria-labelledby="delete-account-heading" className="mt-8 flex flex-col gap-3 border-t border-flv-line pt-6">
-      <h2 id="delete-account-heading" className="font-display text-2xl">
+    <section aria-labelledby="delete-account-heading" className="flex flex-col gap-3 border-t border-flv-line pt-6">
+      <h3 id="delete-account-heading" className="font-display text-xl">
         Delete account
-      </h2>
+      </h3>
       {!open ? (
         <div className="flex flex-col items-start gap-2">
           <p className="font-body text-sm text-flv-muted">

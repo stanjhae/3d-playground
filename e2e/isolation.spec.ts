@@ -29,7 +29,8 @@ test("another account can neither open a design nor see its unsaved local copy",
   await expect(page.getByText('Only on this device')).toBeVisible()
   await page.unroute('**/api/flp/designs/*/versions')
 
-  // Same browser, different account.
+  // Same browser, different account. The studio has no site header: leave it, then sign out.
+  await page.getByRole('link', { name: 'Back to My Studio' }).click()
   await page.getByRole('button', { name: 'Sign out' }).click()
   await signIn({ page, email: other })
   await page.goto(designUrl)

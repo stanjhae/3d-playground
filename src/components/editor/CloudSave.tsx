@@ -210,8 +210,8 @@ export function CloudSaveStatus() {
         >
           {indicator.label}
         </span>
-        {/* Always laid out, empty or not, so the indicator keeps one height. */}
-        <span className="min-h-[1.2em] truncate text-[11px] text-flv-muted">{indicator.detail}</span>
+        {/* Always laid out, empty or not, so the indicator keeps one height. A phone's studio bar shows the first line only; the whole of it is the title. */}
+        <span className="min-h-[1.2em] truncate text-[11px] text-flv-muted max-sm:hidden">{indicator.detail}</span>
       </span>
       {/* The slot is kept even when hidden, for the same reason. */}
       <button

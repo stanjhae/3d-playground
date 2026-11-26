@@ -3,7 +3,7 @@ import { Globe, Lock, Shirt } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { clearRecovery, indexedDbRecoveryStorage } from '../../lib/cloud-recovery'
-import { type DesignThumbnail, designThumbnail, keptThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
+import { type DesignThumbnail, designStill, designThumbnail, keptThumbnail, thumbnailKey } from '../../lib/design-thumbnail'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { type DesignSummary, deleteDesign, unpublishDesign, updateDesign } from '../../lib/flp-api/client'
 import { tieLabel } from '../../lib/flp-api/compare'
@@ -323,7 +323,7 @@ function CardThumbnail({ design }: { design: DesignSummary }) {
   const frame = useRef<HTMLDivElement>(null)
   const key = thumbnailKey({ design })
   const [loaded, setLoaded] = useState<{ key: string; thumbnail: DesignThumbnail | null } | null>(null)
-  const [broken, setBroken] = useState<string | null>(null)
+  const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set())
   // While a new key loads (a save, or publishing and unpublishing), the last
   // picture stays rather than dropping back to the placeholder; the new one
   // replaces it when it's ready (tester pass 3).
@@ -345,7 +345,13 @@ function CardThumbnail({ design }: { design: DesignSummary }) {
       })
     }
 
-    if (typeof IntersectionObserver === 'undefined') {
+    // Already on screen: start now. An observer's first report waits for a
+    // rendered frame, and a page drawn in the background (a hidden pane or
+    // tab) may not get one, which left the placeholder up.
+    const box = element.getBoundingClientRect()
+    const onScreen = box.bottom > -200 && box.top < window.innerHeight + 200
+
+    if (onScreen || typeof IntersectionObserver === 'undefined') {
       start()
       return () => {
         cancelled = true
@@ -370,7 +376,28 @@ function CardThumbnail({ design }: { design: DesignSummary }) {
     // A rename changes `design` but not `key`; the cached picture returns at once.
   }, [design, key])
 
-  const shown = thumbnail && broken !== thumbnail.src ? thumbnail : null
+  // The stored front view would not load: draw the flat front instead.
+  const [fallback, setFallback] = useState<{ key: string; thumbnail: DesignThumbnail | null } | null>(null)
+  const still = fallback?.key === key ? fallback.thumbnail : null
+  const failed = thumbnail !== null && broken.has(thumbnail.src)
+  const shown = [thumbnail, failed ? still : null].find((each) => each && !broken.has(each.src)) ?? null
+
+  useEffect(() => {
+    if (!failed || thumbnail?.kind !== 'render') {
+      return
+    }
+
+    let cancelled = false
+    void designStill({ design }).then((result) => {
+      if (!cancelled) {
+        setFallback({ key, thumbnail: result })
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [failed, thumbnail, design, key])
 
   return (
     <div
@@ -385,7 +412,7 @@ function CardThumbnail({ design }: { design: DesignSummary }) {
           alt=""
           decoding="async"
           className={shown.kind === 'render' ? 'size-full object-contain' : 'h-[88%] w-auto object-contain'}
-          onError={() => setBroken(shown.src)}
+          onError={() => setBroken((current) => new Set(current).add(shown.src))}
         />
       ) : (
         <Shirt className="size-16 stroke-[1.1]" />
