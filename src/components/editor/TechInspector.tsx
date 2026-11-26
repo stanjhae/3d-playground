@@ -11,6 +11,7 @@ import {
   type PointerEvent,
 } from 'react'
 
+import { IMAGE_SATURATION_MAX, TEXT_CURVE_MAX } from '../../lib/canonical-document'
 import { cn } from '../../lib/cn'
 import type { LayerPatch } from '../../lib/design-commands'
 import { Swatch } from '../ui/Swatch'
@@ -446,8 +447,26 @@ export function TechInspector() {
           {pro ? numberField({ key: 'rotation' }) : null}
         </div>
       </div>
-      {/* An image on the tee keeps its own colours: swatches there did nothing. */}
-      {selected.kind === 'graphic' && isCanonicalGarment({ garmentId }) ? null : (
+      {selected.kind === 'text' && isCanonicalGarment({ garmentId }) ? (
+        <TextArc
+          key={selected.id}
+          name={layerVoice({ layer: selected })}
+          curve={selected.curve ?? 0}
+          disabled={locked}
+          onCommit={({ curve }) => commitDraft({ patch: { curve } })}
+        />
+      ) : null}
+      {/* An image on the tee keeps its own colours: swatches there did nothing.
+          Its colour can be turned down to black and white, or up (tester, 22 Nov). */}
+      {selected.kind === 'graphic' && isCanonicalGarment({ garmentId }) ? (
+        <ImageColour
+          key={selected.id}
+          name={layerVoice({ layer: selected })}
+          saturation={selected.saturation ?? 1}
+          disabled={locked}
+          onCommit={({ saturation }) => commitDraft({ patch: { saturation } })}
+        />
+      ) : (
       <div className="flex flex-col gap-2 border-t border-flv-line pt-3">
         <span className="font-body text-xs font-medium text-flv-ink">Colour</span>
         <div className="flex flex-wrap gap-2">
@@ -463,7 +482,8 @@ export function TechInspector() {
             />
           ))}
         </div>
-        {pro ? (
+        {/* Any colour for words, not only the swatches (tester, 22 Nov). */}
+        {pro || selected.kind === 'text' ? (
           <ProColour
             label={`${selected.kind === 'text' ? 'Word' : 'Item'} colour`}
             value={color}
@@ -586,5 +606,142 @@ export function TechInspector() {
       ) : null}
       </fieldset>
     </aside>
+  )
+}
+
+/**
+ * An image's colour strength: a slider from black and white to richer
+ * colour, committed when let go, and a Black & white toggle. One undo step
+ * each.
+ */
+function ImageColour({
+  name,
+  saturation,
+  disabled,
+  onCommit,
+}: {
+  name: string
+  saturation: number
+  disabled: boolean
+  onCommit: ({ saturation }: { saturation: number }) => void
+}) {
+  const [draft, setDraft] = useState(saturation)
+  const mono = saturation === 0
+
+  useEffect(() => {
+    setDraft(saturation)
+  }, [saturation])
+
+  function commit({ value }: { value: number }) {
+    const rounded = Math.round(value * 100) / 100
+
+    if (rounded !== saturation) {
+      onCommit({ saturation: rounded })
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-flv-line pt-3">
+      <label className="flex flex-col gap-1">
+        <span className="flex items-center justify-between font-body text-xs font-medium text-flv-ink">
+          Colour strength
+          <span className="font-normal text-flv-muted">{Math.round(draft * 100)}%</span>
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={IMAGE_SATURATION_MAX}
+          step={0.05}
+          disabled={disabled}
+          aria-label={`Colour strength of ${name}`}
+          className="accent-[var(--color-flv-accent)]"
+          value={draft}
+          onChange={(event) => setDraft(Number(event.target.value))}
+          onPointerUp={(event) => commit({ value: Number(event.currentTarget.value) })}
+          onKeyUp={(event) => commit({ value: Number(event.currentTarget.value) })}
+          onBlur={(event) => commit({ value: Number(event.currentTarget.value) })}
+        />
+      </label>
+      <button
+        type="button"
+        aria-pressed={mono}
+        disabled={disabled}
+        onClick={() => onCommit({ saturation: mono ? 1 : 0 })}
+        className={cn('min-h-11 border px-3 disabled:opacity-50', chromeTextClass(), {
+          'border-flv-accent text-flv-accent': mono,
+          'border-flv-line text-flv-muted hover:text-flv-accent': !mono,
+        })}
+      >
+        Black &amp; white
+      </button>
+    </div>
+  )
+}
+
+/**
+ * A word's arc (tester, 22 Nov): the slider bends it up into a badge's top
+ * edge or down into a smile, all the way round at either end; committed
+ * when let go, so each bend is one undo step. Straight puts it back.
+ */
+function TextArc({
+  name,
+  curve,
+  disabled,
+  onCommit,
+}: {
+  name: string
+  curve: number
+  disabled: boolean
+  onCommit: ({ curve }: { curve: number }) => void
+}) {
+  const [draft, setDraft] = useState(curve)
+
+  useEffect(() => {
+    setDraft(curve)
+  }, [curve])
+
+  function commit({ value }: { value: number }) {
+    const rounded = Math.round(value * 100) / 100
+
+    if (rounded !== curve) {
+      onCommit({ curve: rounded })
+    }
+  }
+
+  const shown = Math.round(Math.abs(draft) * 360)
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-flv-line pt-3">
+      <label className="flex flex-col gap-1">
+        <span className="flex items-center justify-between font-body text-xs font-medium text-flv-ink">
+          Arc
+          <span className="font-normal text-flv-muted">
+            {shown === 0 ? 'Straight' : `${shown}° ${draft > 0 ? 'up' : 'down'}`}
+          </span>
+        </span>
+        <input
+          type="range"
+          min={-TEXT_CURVE_MAX}
+          max={TEXT_CURVE_MAX}
+          step={0.05}
+          disabled={disabled}
+          aria-label={`Arc of ${name}`}
+          className="accent-[var(--color-flv-accent)]"
+          value={draft}
+          onChange={(event) => setDraft(Number(event.target.value))}
+          onPointerUp={(event) => commit({ value: Number(event.currentTarget.value) })}
+          onKeyUp={(event) => commit({ value: Number(event.currentTarget.value) })}
+          onBlur={(event) => commit({ value: Number(event.currentTarget.value) })}
+        />
+      </label>
+      <button
+        type="button"
+        disabled={disabled || curve === 0}
+        onClick={() => onCommit({ curve: 0 })}
+        className={cn('min-h-11 border border-flv-line px-3 text-flv-muted hover:text-flv-accent disabled:opacity-50', chromeTextClass())}
+      >
+        Straight
+      </button>
+    </div>
   )
 }

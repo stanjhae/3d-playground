@@ -1,3 +1,4 @@
+import { isMotifId } from './base-motifs'
 import {
   type CanonicalCommand,
   type CanonicalLayerPatch,
@@ -19,6 +20,8 @@ import {
   type Color,
   type ValidationIssue,
   CANONICAL_LIMITS,
+  IMAGE_SATURATION_MAX,
+  TEXT_CURVE_MAX,
   panelIdsOf,
   createEmptyCanonicalDocument,
   validateCanonicalDocument,
@@ -168,6 +171,10 @@ export function basePatternCommand({
     return { type: 'setBase', base: { kind: 'check', colors: [ground, fill], period } }
   }
 
+  if (isMotifId(patternId)) {
+    return { type: 'setBase', base: { kind: 'motif', motif: patternId, colors: [ground, fill], period } }
+  }
+
   return null
 }
 
@@ -261,11 +268,15 @@ function translatePatch({
   // Flips are about the item's own axes, so a mirrored panel keeps them as they are.
   if (patch.flipX !== undefined) next.flipX = patch.flipX
   if (patch.flipY !== undefined) next.flipY = patch.flipY
+  if (patch.saturation !== undefined && kind === 'image') {
+    next.saturation = Math.min(IMAGE_SATURATION_MAX, Math.max(0, patch.saturation))
+  }
 
   if (kind === 'text') {
     // Over-long text is refused with a message, never cut (#162).
     if (patch.content !== undefined) next.content = patch.content
     if (patch.face !== undefined) next.face = patch.face
+    if (patch.curve !== undefined) next.curve = Math.min(TEXT_CURVE_MAX, Math.max(-TEXT_CURVE_MAX, patch.curve))
     if (patch.color !== undefined) {
       const color = toColor({ value: patch.color })
 
@@ -375,6 +386,10 @@ export function translateCommand({
           rotation: wrapAngle({ value: layer.rotation }),
           assetId,
           aspect: layer.aspect ?? 1,
+          // A copy keeps its colour strength too; as uploaded it is left out.
+          ...(layer.saturation === undefined || layer.saturation === 1
+            ? {}
+            : { saturation: Math.min(IMAGE_SATURATION_MAX, Math.max(0, layer.saturation)) }),
           ...flipsFrom(layer),
         },
       },
@@ -407,6 +422,8 @@ export function translateCommand({
           content: layer.content,
           face: layer.face,
           color,
+          // A copy keeps its arc; a straight word leaves it out.
+          ...(layer.curve ? { curve: Math.min(TEXT_CURVE_MAX, Math.max(-TEXT_CURVE_MAX, layer.curve)) } : {}),
           ...flipsFrom(layer),
         },
       },

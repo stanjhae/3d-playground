@@ -1,3 +1,4 @@
+import { MOTIF_LABELS } from './base-motifs'
 import {
   panelIdsOf,
   type CanonicalDocument,
@@ -172,7 +173,10 @@ export function previewVersion({ document }: { document: CanonicalDocument }): V
   const base =
     document.base.kind === 'solid'
       ? { label: 'Solid', colors: [document.base.color] }
-      : { label: document.base.kind === 'stripes' ? 'Stripes' : 'Check', colors: [...document.base.colors] }
+      : {
+          label: document.base.kind === 'motif' ? MOTIF_LABELS[document.base.motif] : document.base.kind === 'stripes' ? 'Stripes' : 'Check',
+          colors: [...document.base.colors],
+        }
   const panels = panelIdsOf({ document: document }).map((panel) => ({
     panel,
     layers: [...document.panels[panel].layers].reverse().map((layer) => ({

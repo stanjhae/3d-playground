@@ -145,3 +145,35 @@ test('the example opens as a private copy, and changing one copy leaves another 
   await expect.poll(async () => (await details(second)).headSeq, { timeout: 20_000 }).toBeGreaterThan(1)
   expect((await details(first)).head.content).toEqual(before.head.content)
 })
+
+test('garment details are in the graphics library, and a zip goes on the tee', async ({ page }) => {
+  // Tester, 22 Nov: zips, buttons and snaps, stitching, collars, pockets and holes.
+  test.setTimeout(120_000)
+  const email = newEmail({ label: 'details' })
+  emails.push(email)
+  await signIn({ page, email })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  await chooseTool({ page, tool: 'Graphics' })
+
+  await page.getByRole('group', { name: 'Graphic categories' }).getByRole('button', { name: 'Details' }).click()
+  const library = page.getByRole('list', { name: 'Graphics library' })
+  for (const label of ['Centre Zip', 'Button', 'Snap Row', 'Double Topstitch', 'Patch Pocket', 'Polo Collar', 'Rip', 'Frayed Edge']) {
+    await expect(library.getByRole('button', { name: label, exact: true })).toBeVisible()
+  }
+
+  await graphicTile({ page, label: 'Centre Zip' }).click()
+  const designId = new URL(page.url()).searchParams.get('cloud')!
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async (id) => {
+          const token = JSON.parse(localStorage.getItem('flp-auth')!).access_token
+          const response = await fetch(`/api/flp/designs/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+          const panels = (await response.json()).head.content.panels as Record<string, { layers: { kind: string; assetId?: string }[] }>
+          return Object.values(panels).flatMap((panel) => panel.layers).find((layer) => layer.kind === 'image')?.assetId ?? null
+        }, designId),
+      { timeout: 20_000 },
+    )
+    .toBe('asset_lib_detail-zip-centre')
+})

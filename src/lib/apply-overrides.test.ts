@@ -352,7 +352,7 @@ describe('surface detail', () => {
     const material = dress({ mapId: 'denim-twill' })
 
     expect(material.normalMap).toBe(detailNormalMap({ id: 'twill' }))
-    expect(material.normalScale.x).toBeCloseTo(0.8)
+    expect(material.normalScale.x).toBeCloseTo(1.4)
   })
 
   test("a fabric with no relief clears the model's own", () => {
@@ -360,7 +360,8 @@ describe('surface detail', () => {
     body.material.normalMap = new Texture()
     const root = new Group()
     root.add(body)
-    applyDesignOverrides({ root, overrides: [{ meshName: 'body', mapId: 'cotton-weave' }] })
+    // Leather is smooth: no relief of its own (cotton has a knit since 22 Nov).
+    applyDesignOverrides({ root, overrides: [{ meshName: 'body', mapId: 'leather-grain' }] })
 
     expect((body.material as MeshPhysicalMaterial).normalMap).toBeNull()
   })

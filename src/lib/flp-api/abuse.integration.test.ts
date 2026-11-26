@@ -49,7 +49,12 @@ describe.skipIf(!env)('abuse and moderation against local Supabase', () => {
     const rules = Object.fromEntries(
       Object.entries(PUBLIC_LIMITS).map(([bucket, rule]) => [
         bucket,
-        { ...rule, limit: limits[bucket as PublicBucket] ?? rule.limit },
+        // A lowered limit gets a day-long window. Windows are fixed, so a
+        // minute window can reset between a test's requests (it did on CI
+        // at 19:48:00) and let the request that should be refused through.
+        limits[bucket as PublicBucket] === undefined
+          ? rule
+          : { ...rule, limit: limits[bucket as PublicBucket], windowSeconds: 24 * 60 * 60 },
       ]),
     ) as Record<PublicBucket, (typeof PUBLIC_LIMITS)[PublicBucket]>
 

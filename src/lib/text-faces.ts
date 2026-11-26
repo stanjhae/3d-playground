@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 import type { CanonicalTextFace } from './canonical-document'
+import { TEXT_FACE_CATALOGUE, faceCss } from './text-face-catalogue'
 
 /**
  * Web font loading for text drawn into the atlas (#155). Canvas text never
@@ -13,15 +14,6 @@ import type { CanonicalTextFace } from './canonical-document'
  * so a word is never left blank for good.
  */
 
-const FAMILIES: Record<CanonicalTextFace, string> = {
-  display: '"Cormorant Garamond"',
-  sans: 'Outfit',
-}
-
-const FALLBACKS: Record<CanonicalTextFace, string> = {
-  display: 'Palatino, "Iowan Old Style", Georgia, serif',
-  sans: '"Avenir Next", "Segoe UI", system-ui, sans-serif',
-}
 
 /** How long a face may take before the word settles in the fallback. */
 export const TEXT_FACE_TIMEOUT_MS = 3_000
@@ -42,7 +34,7 @@ function bump() {
 }
 
 function faceFont({ face, size }: { face: CanonicalTextFace; size: number }) {
-  return `600 ${size}px ${FAMILIES[face]}`
+  return faceCss({ face, size })
 }
 
 type FontSet = Pick<FontFaceSet, 'check' | 'load'>
@@ -119,9 +111,10 @@ export function textCanvasFont({
   size: number
   state: TextFaceState
 }) {
+  const info = TEXT_FACE_CATALOGUE[face]
   return state === 'ready'
-    ? `600 ${size}px ${FAMILIES[face]}, ${FALLBACKS[face]}`
-    : `600 ${size}px ${FALLBACKS[face]}`
+    ? `${info.weight} ${size}px "${info.family}", ${info.fallback}`
+    : `${info.weight} ${size}px ${info.fallback}`
 }
 
 export function textFacesVersion() {

@@ -41,6 +41,42 @@ async function goToStep({ page, step }: { page: Page; step: 'color' | 'design' |
   await expectSaved({ page })
 }
 
+test('Surface changes a plain tee too, and Cotton, Wool, Denim and Silk each look their own', async ({ page }) => {
+  // Tester, 22 Nov: switching fabrics barely changed the look, and Surface seemed to do nothing.
+  test.setTimeout(150_000)
+  await newTee({ page, label: 'surface' })
+  await goToStep({ page, step: 'color' })
+  const material = page.getByTestId('garment-material')
+  const surface = page.getByRole('group', { name: 'Surface' })
+
+  // The plain tee shows its own cloth; Surface swaps the relief, or takes it away.
+  await expect(material).toHaveAttribute('data-detail', /^(own|knit|none)$/, { timeout: 30_000 })
+  const own = (await material.getAttribute('data-detail'))!
+  await surface.getByRole('button', { name: 'Twill' }).click()
+  await expect(material).toHaveAttribute('data-detail', 'twill')
+  await surface.getByRole('button', { name: 'None' }).click()
+  await expect(material).toHaveAttribute('data-detail', 'none')
+  await surface.getByRole('button', { name: 'Fabric’s own' }).click()
+  await expect(material).toHaveAttribute('data-detail', own)
+
+  // Each of the four reads differently: its relief, how rough it is, and its sheen.
+  const chooser = page.getByTestId('fabric-chooser')
+  const looks: string[] = []
+
+  for (const name of ['Cotton', 'Wool', 'Denim', 'Silk']) {
+    await chooser.getByRole('button', { name, exact: true }).click()
+    await expect(chooser.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(material).not.toHaveAttribute('data-map-id', '')
+    looks.push(
+      [await material.getAttribute('data-detail'), await material.getAttribute('data-roughness'), await material.getAttribute('data-sheen')].join(' '),
+    )
+  }
+
+  expect(new Set(looks).size).toBe(4)
+  expect(looks[0]).toBe('knit 0.95 0')
+  expect(looks[2]).toBe('twill 0.85 0')
+})
+
 test('picking Satin saves base.fabric, changes the 3D cloth, keeps the colour and survives a reload', async ({ page }) => {
   test.setTimeout(150_000)
   await newTee({ page, label: 'fabric' })
@@ -237,4 +273,44 @@ test('evidence: the 3D cloth in each fabric, and fills', async ({ page }) => {
   await expectSaved({ page })
   await page.waitForTimeout(1500)
   await page.screenshot({ path: 'docs/evidence/fabric-fill-all-sides.png' })
+})
+
+test('the further patterns are offered, and Honeycomb saves and draws on the garment', async ({ page }) => {
+  // Tester, 22 Nov: more patterns, such as scales, honeycomb and leopard.
+  test.setTimeout(120_000)
+  await newTee({ page, label: 'motif' })
+  await goToStep({ page, step: 'color' })
+
+  for (const name of ['Dots', 'Chevron', 'Houndstooth', 'Honeycomb', 'Scales', 'Leopard']) {
+    await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
+  }
+
+  await page.getByRole('button', { name: 'Honeycomb', exact: true }).click()
+  // Picked, its name gains a tick.
+  await expect(page.getByRole('button', { name: /Honeycomb$/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect
+    .poll(async () => (await savedContent({ page })).base as unknown as { kind: string; motif?: string }, { timeout: 20_000 })
+    .toMatchObject({ kind: 'motif', motif: 'honeycomb' })
+
+  // On the 2D side: the cloth colour and the honeycomb's lines both show.
+  await goToStep({ page, step: 'design' })
+  const front = page.locator('canvas[aria-label^="Design panel Front"]')
+  await expect
+    .poll(() =>
+      front.evaluate((canvas: HTMLCanvasElement) => {
+        const { width, height } = canvas
+        const data = canvas.getContext('2d')!.getImageData(width * 0.3, height * 0.3, width * 0.4, height * 0.4).data
+        let dark = 0
+        let light = 0
+
+        for (let at = 0; at < data.length; at += 4) {
+          const level = (data[at]! + data[at + 1]! + data[at + 2]!) / 3
+          dark += level < 90 ? 1 : 0
+          light += level > 180 ? 1 : 0
+        }
+
+        return Math.min(dark, light)
+      }),
+    )
+    .toBeGreaterThan(100)
 })

@@ -139,4 +139,26 @@ and run `pnpm graphics`.
 | `mark-varsity-patch.svg` | Varsity Patch | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
 | `mark-ticket-stamp.svg` | Ticket Stamp | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
 | `mark-shield-stripes.svg` | Striped Club Shield | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-zip-centre.svg` | Centre Zip | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-zip-half.svg` | Half Zip | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-zip-pocket.svg` | Zip Pocket | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-button.svg` | Button | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-button-placket.svg` | Button Placket | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-snap.svg` | Snap | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-snap-row.svg` | Snap Row | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-toggle.svg` | Toggle | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-stitch-line.svg` | Stitch Line | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-topstitch.svg` | Double Topstitch | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-contrast-seam.svg` | Contrast Seam | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-cross-stitch.svg` | Cross Stitch | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-pocket-patch.svg` | Patch Pocket | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-pocket-kangaroo.svg` | Kangaroo Pocket | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-pocket-welt.svg` | Welt Pocket | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-pocket-flap.svg` | Flap Pocket | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-collar-rib.svg` | Rib Collar | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-collar-polo.svg` | Polo Collar | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-collar-mandarin.svg` | Mandarin Collar | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-rip.svg` | Rip | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-holes.svg` | Holes | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
+| `detail-frayed-edge.svg` | Frayed Edge | Fashion Leader Vote studio | CC0-1.0 | Drawn in code, `scripts/build-graphics.mjs` |
 | `logo-flv.svg` | FLV Mark | Fashion Leader Vote | All rights reserved | Brand mark, supplied |

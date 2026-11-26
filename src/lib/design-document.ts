@@ -1,3 +1,4 @@
+import { MOTIF_IDS } from './base-motifs'
 import type { GarmentShape } from './garment-shape-params.ts'
 import type { CanonicalPattern } from './pattern/pattern-document.ts'
 import {
@@ -41,7 +42,7 @@ export const STROKE_TOOLS = ['brush', 'eraser', 'fill'] as const
 
 export type StrokeTool = (typeof STROKE_TOOLS)[number]
 
-export const TEXT_FACES = ['display', 'sans'] as const
+export const TEXT_FACES = ['display', 'sans', 'slab', 'condensed', 'script', 'marker', 'mono', 'blackletter'] as const
 
 export type TextFace = (typeof TEXT_FACES)[number]
 
@@ -57,7 +58,7 @@ export const SLEEVE_IDS = ['short', 'long'] as const
 
 export type SleeveId = (typeof SLEEVE_IDS)[number]
 
-export const PATTERN_IDS = ['stripe', 'check', 'gradient'] as const
+export const PATTERN_IDS = ['stripe', 'check', 'gradient', ...MOTIF_IDS] as const
 
 export type PatternId = (typeof PATTERN_IDS)[number]
 
@@ -110,6 +111,8 @@ export type GraphicLayer = {
   scale: number
   /** Height scale when stretched (canonical `scaleY`, reader R2); absent means `scale`. */
   scaleY?: number
+  /** Colour strength (canonical `saturation`): 0 black and white; absent as uploaded. */
+  saturation?: number
   rotation: number
   opacity: number
   color?: string
@@ -143,6 +146,8 @@ export type TextLayer = {
   scale: number
   /** Height scale when stretched (canonical `scaleY`, reader R2); absent means `scale`. */
   scaleY?: number
+  /** Set along an arc, −1…1 (canonical `curve`); absent is straight. */
+  curve?: number
   rotation: number
   opacity: number
   visible: boolean

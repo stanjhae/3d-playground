@@ -1,3 +1,4 @@
+import type { MotifId } from './base-motifs'
 import { patternAvailable } from './pattern-beta'
 import type { CanonicalPattern } from './pattern/pattern-document'
 import { drapeFabricFor, withDrapeFabric } from './pattern/fabric-drape'
@@ -121,7 +122,7 @@ export const DESIGN_TOOLS = ['draw', 'text', 'graphics', 'upload'] as const
 export type DesignTool = (typeof DESIGN_TOOLS)[number]
 export type CameraPreset = 'front' | 'threeQuarter' | 'back' | 'left' | 'right' | 'orbit'
 export type AngleCameraPreset = Exclude<CameraPreset, 'orbit'>
-export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient'
+export type BasePatternId = 'solid' | 'stripe' | 'check' | 'gradient' | MotifId
 
 export type { AvatarMeasurements } from './avatar-geometry'
 
@@ -228,6 +229,12 @@ type EditorState = {
   baseFabricId: CanonicalFabricId | null
   /** Surface relief shown on chosen fabrics; a view setting, not saved. */
   surface: SurfaceChoice
+  /**
+   * The 2D sides show only the garment's outline and what was drawn, not its
+   * colour or pattern, so a busy print doesn't hide the shape (tester, 22 Nov).
+   * A view setting, not saved.
+   */
+  outlineOnly: boolean
   setMode: ({ mode }: { mode: EditorMode }) => void
   selectMesh: ({ selectedMeshName }: { selectedMeshName: string | null }) => void
   setGarmentId: ({ garmentId }: { garmentId: GarmentId }) => void
@@ -322,6 +329,7 @@ type EditorState = {
   setBasePattern: ({ patternId }: { patternId: BasePatternId }) => void
   setBaseFinish: ({ finishId }: { finishId: BaseFinishId }) => void
   setSurface: ({ surface }: { surface: SurfaceChoice }) => void
+  setOutlineOnly: ({ outlineOnly }: { outlineOnly: boolean }) => void
   copyLayerToOpposite: ({ layerId }: { layerId: string }) => void
   duplicateLayer: ({ layerId }: { layerId: string }) => void
   /** Remembers the selected mark or word for `pasteLayer`, this session only. */
@@ -615,10 +623,9 @@ function restoreShelf({ garmentId }: { garmentId: GarmentId }) {
   return commandStack
 }
 
-const TEE_BASE_PATTERN: Record<CanonicalDocument['base']['kind'], BasePatternId> = {
-  solid: 'solid',
-  stripes: 'stripe',
-  check: 'check',
+/** The picker's pattern for a saved base. */
+function teeBasePattern({ base }: { base: CanonicalDocument['base'] }): BasePatternId {
+  return base.kind === 'motif' ? base.motif : base.kind === 'stripes' ? 'stripe' : base.kind
 }
 
 function syncFromStack({
@@ -638,7 +645,7 @@ function syncFromStack({
       redoCount: tee.stack.future.length,
       limitNotice: documentNotice({ document: tee.stack.document }),
       // The picker follows the document, so undo and reopening keep it true.
-      basePatternId: TEE_BASE_PATTERN[tee.stack.document.base.kind],
+      basePatternId: teeBasePattern({ base: tee.stack.document.base }),
       // So does the fabric (writer W): a reload shows the saved cloth.
       baseFabricId: tee.stack.document.base.fabric ?? null,
       ...extra,
@@ -826,6 +833,16 @@ function layerPatchChanges({
     return true
   }
 
+  // A word's arc; absent means straight (0).
+  if (patch.curve !== undefined && layer.kind === 'text' && patch.curve !== (layer.curve ?? 0)) {
+    return true
+  }
+
+  // An image's colour strength; absent means as uploaded (1).
+  if (patch.saturation !== undefined && layer.kind === 'graphic' && patch.saturation !== (layer.saturation ?? 1)) {
+    return true
+  }
+
   if (patch.rotation !== undefined && patch.rotation !== layer.rotation) {
     return true
   }
@@ -926,6 +943,7 @@ const INITIAL_EDITOR_STATE = {
   baseFinishId: 'matte' as BaseFinishId,
   baseFabricId: null as CanonicalFabricId | null,
   surface: 'preset' as SurfaceChoice,
+  outlineOnly: false,
 }
 
 /** The tee's canonical v2 document, for cloud saving (S04 #173). */
@@ -1525,6 +1543,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
   setSurface: ({ surface }) => {
     set({ surface })
+  },
+  setOutlineOnly: ({ outlineOnly }) => {
+    set({ outlineOnly })
   },
   setBasePattern: ({ patternId }) => {
     set((state) => {

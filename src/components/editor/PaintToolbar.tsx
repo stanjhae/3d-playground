@@ -8,7 +8,9 @@ import { useStudioMode } from '../../lib/studio-mode'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { garmentPanels } from '../../lib/garments'
 import { HOUSE_COPY } from '../../lib/house-copy'
+import { TEXT_FACES } from '../../lib/design-document'
 import { selectedTextLayer } from '../../lib/layer-hit'
+import { TEXT_FACE_CATALOGUE } from '../../lib/text-face-catalogue'
 import { isSafeLayerSrc } from '../../lib/look-thumbnail'
 import { INK_COLORS, INK_WIDTHS, TYPE_SIZES } from '../../lib/paint-colors'
 import {
@@ -428,31 +430,37 @@ export function PaintToolbar({
             </button>
           </div>
           <p className="font-body text-sm text-flv-muted">{HOUSE_COPY.typeHint}</p>
+          {/* Each font named in itself (tester, 22 Nov: more fonts to choose from). */}
+          <div role="group" aria-label="Font" className="grid grid-cols-2 gap-2">
+            {TEXT_FACES.map((face) => {
+              const info = TEXT_FACE_CATALOGUE[face]
+
+              return (
+                <button
+                  key={face}
+                  type="button"
+                  aria-pressed={textFace === face}
+                  onClick={() => {
+                    setTextFace({ textFace: face })
+                    if (selectedWord) {
+                      updateLayer({
+                        layerId: selectedWord.id,
+                        patch: { face },
+                      })
+                    }
+                  }}
+                  style={{ fontFamily: `"${info.family}", ${info.fallback}`, fontWeight: info.weight }}
+                  className={cn('min-h-11 border px-2 text-base', {
+                    'border-flv-accent text-flv-accent': textFace === face,
+                    'border-flv-line text-flv-ink hover:text-flv-accent': textFace !== face,
+                  })}
+                >
+                  {info.label}
+                </button>
+              )
+            })}
+          </div>
           <div className="flex flex-wrap gap-2">
-            {(['display', 'sans'] as const).map((face) => (
-              <button
-                key={face}
-                type="button"
-                aria-pressed={textFace === face}
-                onClick={() => {
-                  setTextFace({ textFace: face })
-                  if (selectedWord) {
-                    updateLayer({
-                      layerId: selectedWord.id,
-                      patch: { face },
-                    })
-                  }
-                }}
-                className={cn('min-h-11 flex-1 border', chromeTextClass(), {
-                  'border-flv-accent text-flv-accent': textFace === face,
-                  'border-flv-line text-flv-muted': textFace !== face,
-                })}
-              >
-                {face === 'display'
-                  ? HOUSE_COPY.displayFace
-                  : HOUSE_COPY.sansFace}
-              </button>
-            ))}
             {TYPE_SIZES.map((size) => (
               <button
                 key={size.id}

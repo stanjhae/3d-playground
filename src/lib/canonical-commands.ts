@@ -49,6 +49,10 @@ export type CanonicalLayerPatch = {
   flipY?: boolean
   /** true locks the layer; false removes the flag, as locks are stored only when on. */
   locked?: boolean
+  /** An image's colour strength; 1 (as uploaded) removes it. */
+  saturation?: number
+  /** A word's arc, −1…1; 0 (straight) removes it. */
+  curve?: number
 }
 
 /**
@@ -363,8 +367,8 @@ function applyToDocument({
       found.layer.kind === 'paint' || found.layer.kind === 'fill'
         ? ['opacity', 'visible', 'name', 'locked']
         : found.layer.kind === 'image'
-          ? ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked']
-          : ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY', 'locked']
+          ? ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'flipX', 'flipY', 'locked', 'saturation']
+          : ['x', 'y', 'scale', 'scaleY', 'rotation', 'opacity', 'visible', 'name', 'content', 'face', 'color', 'flipX', 'flipY', 'locked', 'curve']
 
     for (const [key, value] of Object.entries(command.patch)) {
       if (value === undefined) {
@@ -390,6 +394,16 @@ function applyToDocument({
     // one form per look, so `scaleY` goes.
     if ('scaleY' in found.layer && found.layer.scaleY === found.layer.scale) {
       delete found.layer.scaleY
+    }
+
+    // An image back at its own colour leaves `saturation` out.
+    if (found.layer.kind === 'image' && found.layer.saturation === 1) {
+      delete found.layer.saturation
+    }
+
+    // A word made straight again leaves `curve` out.
+    if (found.layer.kind === 'text' && found.layer.curve === 0) {
+      delete found.layer.curve
     }
 
     return { ok: true, document: next }

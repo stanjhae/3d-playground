@@ -16,6 +16,7 @@
  * See docs/canonical-document.md.
  */
 
+import { MOTIF_IDS, type MotifId } from './base-motifs'
 import {
   type GarmentShape,
   isNeutralShape,
@@ -50,7 +51,7 @@ export type CanonicalPanelId = string
 /** A key of `TEMPLATE_ARCHIVE` in template-manifest.ts. */
 export type TemplateId = string
 
-export const BASE_KINDS = ['solid', 'stripes', 'check'] as const
+export const BASE_KINDS = ['solid', 'stripes', 'check', 'motif'] as const
 
 export type BaseKind = (typeof BASE_KINDS)[number]
 
@@ -58,7 +59,7 @@ export const CANONICAL_LAYER_KINDS = ['paint', 'image', 'text', 'fill'] as const
 
 export type CanonicalLayerKind = (typeof CANONICAL_LAYER_KINDS)[number]
 
-export const CANONICAL_TEXT_FACES = ['display', 'sans'] as const
+export const CANONICAL_TEXT_FACES = ['display', 'sans', 'slab', 'condensed', 'script', 'marker', 'mono', 'blackletter'] as const
 
 export type CanonicalTextFace = (typeof CANONICAL_TEXT_FACES)[number]
 
@@ -130,7 +131,15 @@ export type CheckBase = BaseFabric & {
   period: number
 }
 
-export type GarmentBase = SolidBase | StripesBase | CheckBase
+/** A two-colour motif (`base-motifs.ts`): dots, honeycomb, leopard and the rest. */
+export type MotifBase = BaseFabric & {
+  kind: 'motif'
+  motif: MotifId
+  colors: [Color, Color]
+  period: number
+}
+
+export type GarmentBase = SolidBase | StripesBase | CheckBase | MotifBase
 
 export type BrushStroke = {
   id: string
@@ -199,6 +208,11 @@ export type CanonicalImageLayer = LayerCommon &
      * `scale`-sided square, so aspect 1 reproduces legacy square stamps.
      */
     aspect: number
+    /**
+     * Colour strength: 0 is black and white, 1 as uploaded (left out), up
+     * to 2 for richer colour (tester, 22 Nov).
+     */
+    saturation?: number
   }
 
 export type CanonicalTextLayer = LayerCommon &
@@ -208,6 +222,8 @@ export type CanonicalTextLayer = LayerCommon &
     content: string
     face: CanonicalTextFace
     color: Color
+    /** Set along an arc, −1…1 (`text-curve.ts`); left out when straight. */
+    curve?: number
   }
 
 /** What a `fill` layer repeats: an uploaded image, or stripes or a check. */
@@ -562,7 +578,7 @@ function checkBase({
     return
   }
 
-  if ('fabric' in value && (value.kind === 'solid' || value.kind === 'stripes' || value.kind === 'check')) {
+  if ('fabric' in value && (value.kind === 'solid' || value.kind === 'stripes' || value.kind === 'check' || value.kind === 'motif')) {
     checkEnum({ context, value: value.fabric, path: `${path}.fabric`, options: CANONICAL_FABRIC_IDS })
   }
 
@@ -570,6 +586,23 @@ function checkBase({
     if (checkRecord({ context, value, path, required: ['kind', 'color'], optional: ['fabric'] })) {
       checkColor({ context, value: value.color, path: `${path}.color` })
     }
+    return
+  }
+
+  if (value.kind === 'motif') {
+    if (!checkRecord({ context, value, path, required: ['kind', 'motif', 'colors', 'period'], optional: ['fabric'] })) {
+      return
+    }
+
+    checkEnum({ context, value: value.motif, path: `${path}.motif`, options: MOTIF_IDS })
+    checkColorPair({ context, value: value.colors, path: `${path}.colors` })
+    checkNumber({
+      context,
+      value: value.period,
+      path: `${path}.period`,
+      min: CANONICAL_LIMITS.minPatternPeriod,
+      max: CANONICAL_LIMITS.maxPatternPeriod,
+    })
     return
   }
 
@@ -877,10 +910,16 @@ const LAYER_FIELDS: Record<CanonicalLayerKind, readonly string[]> = {
   fill: [...LAYER_COMMON_FIELDS, 'source', 'tile', 'rotation'],
 }
 
+/** The richest colour an image may be given (`saturation`); 0 is black and white. */
+export const IMAGE_SATURATION_MAX = 2
+
+/** Strongest curve of a word: all the way round (`text-curve.ts`). */
+export const TEXT_CURVE_MAX = 1
+
 const LAYER_OPTIONAL_FIELDS: Record<CanonicalLayerKind, readonly string[]> = {
   paint: ['name', 'locked'],
-  image: ['name', 'locked', 'flipX', 'flipY', 'scaleY'],
-  text: ['name', 'locked', 'flipX', 'flipY', 'scaleY'],
+  image: ['name', 'locked', 'flipX', 'flipY', 'scaleY', 'saturation'],
+  text: ['name', 'locked', 'flipX', 'flipY', 'scaleY', 'curve'],
   fill: ['name', 'locked', 'offsetX', 'offsetY'],
 }
 
@@ -926,6 +965,24 @@ function checkLayer({
   for (const flag of ['locked', 'flipX', 'flipY'] as const) {
     if (flag in value && value[flag] !== true) {
       report({ context, path: `${path}.${flag}`, message: 'expected true, or left out' })
+    }
+  }
+
+  if (kind === 'image' && 'saturation' in value) {
+    checkNumber({ context, value: value.saturation, path: `${path}.saturation`, min: 0, max: IMAGE_SATURATION_MAX })
+
+    // One form per look: an image as uploaded leaves it out.
+    if (value.saturation === 1) {
+      report({ context, path: `${path}.saturation`, message: 'equal to 1; leave it out' })
+    }
+  }
+
+  if (kind === 'text' && 'curve' in value) {
+    checkNumber({ context, value: value.curve, path: `${path}.curve`, min: -TEXT_CURVE_MAX, max: TEXT_CURVE_MAX })
+
+    // One form per look: a straight word leaves it out.
+    if (value.curve === 0) {
+      report({ context, path: `${path}.curve`, message: 'equal to 0; leave it out' })
     }
   }
 

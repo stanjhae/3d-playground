@@ -1,3 +1,4 @@
+import { MOTIF_IDS, MOTIF_LABELS, type MotifId, isMotifId, motifInk } from '../../lib/base-motifs'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { Swatch } from '../ui/Swatch'
 import { cn } from '../../lib/cn'
@@ -26,6 +27,9 @@ const PATTERN_OPTIONS: { id: BasePatternId; label: string }[] = [
   { id: 'gradient', label: HOUSE_COPY.gradient },
 ]
 
+/** More patterns for template-built garments (tester, 22 Nov). */
+const MOTIF_OPTIONS: { id: BasePatternId; label: string }[] = MOTIF_IDS.map((id) => ({ id, label: MOTIF_LABELS[id] }))
+
 /** A small picture of each base pattern, so the choice reads without words. */
 function patternPreview({ id }: { id: BasePatternId }) {
   const ink = '#c9c4ba'
@@ -44,7 +48,48 @@ function patternPreview({ id }: { id: BasePatternId }) {
     return { backgroundImage: `linear-gradient(90deg, white, ${ink})` }
   }
 
+  if (isMotifId(id)) {
+    return { backgroundImage: `url(${motifTile({ motif: id, ink })})`, backgroundSize: '24px 24px' }
+  }
+
   return { backgroundColor: '#f1efea' }
+}
+
+const motifTiles = new Map<string, string>()
+
+/** A 48px tile of a motif, drawn by the same rule as the garment, as a data URL. */
+function motifTile({ motif, ink }: { motif: MotifId; ink: string }) {
+  const cached = motifTiles.get(motif)
+
+  if (cached || typeof document === 'undefined') {
+    return cached ?? ''
+  }
+
+  const size = 48
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    return ''
+  }
+
+  context.fillStyle = '#f1efea'
+  context.fillRect(0, 0, size, size)
+  context.fillStyle = ink
+  // One repeat across the tile: two bands, so 24px a band.
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (motifInk({ motif, x: x / 24, y: y / 24 })) {
+        context.fillRect(x, y, 1, 1)
+      }
+    }
+  }
+
+  const url = canvas.toDataURL()
+  motifTiles.set(motif, url)
+  return url
 }
 
 function finishLacksRealMap({ fabricId }: { fabricId: string }) {
@@ -108,9 +153,9 @@ export function ColorPatternPanel() {
           </p>
         </div>
       ) : null}
-      <p className={chromeKickerClass()}>{HOUSE_COPY.patternFill}</p>
-      <div className="grid grid-cols-2 gap-2">
-        {PATTERN_OPTIONS.filter(
+      <p className={cn(chromeKickerClass(), 'border-t border-flv-line pt-4')}>{HOUSE_COPY.patternFill}</p>
+      <div className={cn('grid gap-2', v2Tee ? 'grid-cols-3' : 'grid-cols-2')}>
+        {[...PATTERN_OPTIONS, ...(v2Tee ? MOTIF_OPTIONS : [])].filter(
           (pattern) => !v2Tee || pattern.id !== 'gradient',
         ).map((pattern) => (
           <button
@@ -143,8 +188,10 @@ export function ColorPatternPanel() {
       </div>
       {v2Tee ? (
         <>
-          <fieldset className="flex flex-col gap-2" data-testid="fabric-chooser">
-            <legend className={chromeKickerClass()}>{HOUSE_COPY.fabric}</legend>
+          {/* Each part says what it changes (tester, 22 Nov: what does Surface do?). */}
+          <fieldset className="flex flex-col gap-2 border-t border-flv-line pt-4" data-testid="fabric-chooser">
+            <legend className={cn(chromeKickerClass(), 'float-left w-full')}>{HOUSE_COPY.fabric}</legend>
+            <p className="font-body text-xs text-flv-muted">{HOUSE_COPY.fabricHint}</p>
             <FabricGrid />
           </fieldset>
           <SurfaceChooser />

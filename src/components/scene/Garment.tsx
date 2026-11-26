@@ -5,6 +5,7 @@ import {
   BufferAttribute,
   CanvasTexture,
   Color,
+  type Material,
   Matrix4,
   Mesh,
   MeshPhysicalMaterial,
@@ -33,7 +34,8 @@ import {
 } from '../../lib/design-document'
 import { CONCEPT_FEATURES } from '../../lib/concept-flags'
 import type { GarmentId, MaterialOverride } from '../../lib/design-schema'
-import { shapesFromScene, usePanelShapes } from '../../lib/panel-shape'
+import { ACTIVE_OUTLINE_COLOR } from '../../lib/outline-view'
+import { panelOutline, shapesFromScene, usePanelShapes } from '../../lib/panel-shape'
 import { atlasSourceRect } from '../../lib/panel-uv'
 import { resolveGarmentId } from '../../lib/design-schema'
 import { getCanonicalDocument, liveStrokeLayerId, useEditorStore } from '../../lib/editor-store'
@@ -44,7 +46,7 @@ import { ATLAS_COMPILER_VERSION, artworkState, useAtlasBuild } from '../../lib/a
 import { createLiveAtlas } from '../../lib/paint-atlas'
 import { LIVE_STROKE_CACHE } from '../../lib/studio-flags'
 import { useTextFacesVersion } from '../../lib/text-faces'
-import { detailNormalMap } from '../../lib/fabric-detail'
+import { detailNormalMap, resolveDetail } from '../../lib/fabric-detail'
 import { FABRIC_MAP_SRC } from '../../lib/fabric-maps'
 import { readGarmentMaterial, useGarmentMaterialProbe } from '../../lib/garment-material-probe'
 import { createClothingMesh } from '../../lib/tee-geometry'
@@ -342,6 +344,13 @@ function GltfGarment({
   )
 }
 
+/**
+ * Each cloth material's own relief (a model's normal map, or none), kept
+ * the first time the Surface choice is applied, so "Fabric's own" puts it
+ * back. A WeakMap, as a material's `userData` is copied through JSON.
+ */
+const ownNormalMaps = new WeakMap<Material, Texture | null>()
+
 export function SeatedForm({
   scene,
   inkDocument,
@@ -358,6 +367,12 @@ export function SeatedForm({
   const activeStroke = useEditorStore((state) => state.activeStroke)
   const activeLayerEdit = useEditorStore((state) => state.activeLayerEdit)
   const panelFlash = useEditorStore((state) => state.panelFlash)
+  // The side being drawn on is outlined on the garment too (tester, 22 Nov):
+  // only while designing, and never in the stills a publish captures.
+  const outlinedPanel = useEditorStore((state) =>
+    picking && state.createStep === 'design' && !state.capturingAngles ? state.paintPanel : null,
+  )
+  const panelShapes = usePanelShapes((state) => (state.src === inkDocument.modelSrc ? state.shapes : null))
   const loadedMaps = useTexture(FABRIC_MAP_SRC)
   // The studio's Surface choice; anywhere else, each fabric's own relief.
   const storeSurface = useEditorStore((state) => state.surface)
@@ -470,19 +485,33 @@ export function SeatedForm({
     })
 
     // After the overrides, which can swap a mesh's material for a new one.
-    // The built tee is knit; a chosen fabric's own relief (or none) wins.
-    if (clothDetail) {
-      for (const mesh of meshes) {
-        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-          if (
-            material instanceof MeshStandardMaterial &&
-            !material.normalMap &&
-            material.userData.detailId === undefined &&
-            surface !== 'none'
-          ) {
-            material.normalMap = detailNormalMap({ id: 'knit' })
-            material.needsUpdate = true
-          }
+    // With no fabric chosen, the cloth's relief is its own (the built tee's
+    // knit, or a model's own normal map) or the studio's Surface choice; a
+    // chosen fabric's relief (or none) wins over both. The cloth's own map is
+    // kept on the material the first time, so "Fabric's own" puts it back
+    // (tester, 22 Nov: Surface changed nothing on a plain tee).
+    const chosen = surface === 'preset' ? null : resolveDetail({ surface })
+
+    for (const mesh of meshes) {
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        if (!(material instanceof MeshStandardMaterial) || material.userData.detailId !== undefined) {
+          continue
+        }
+
+        if (!ownNormalMaps.has(material)) {
+          ownNormalMaps.set(material, material.normalMap ?? null)
+        }
+
+        const modelOwn = ownNormalMaps.get(material) ?? null
+        const own = modelOwn ?? (clothDetail ? detailNormalMap({ id: 'knit' }) : null)
+        const next = surface === 'preset' ? own : chosen ? detailNormalMap({ id: chosen.id }) : null
+        const label = surface === 'preset' ? (modelOwn ? 'own' : own ? 'knit' : 'none') : (chosen?.id ?? 'none')
+
+        if (material.normalMap !== next || material.userData.clothDetail !== label) {
+          material.normalMap = next
+          material.normalScale.set(chosen?.scale ?? 1, chosen?.scale ?? 1)
+          material.userData.clothDetail = label
+          material.needsUpdate = true
         }
       }
     }
@@ -551,10 +580,33 @@ export function SeatedForm({
       }
     }
 
+    const outlineTriangles = outlinedPanel && inkDocument.panelUv?.[outlinedPanel] ? panelShapes?.[outlinedPanel] : undefined
+    let outlined = false
+
+    if (outlinedPanel && outlineTriangles && inkDocument.modelSrc) {
+      const source = atlasSourceRect({ panel: outlinedPanel, width: buffer.width, height: buffer.height, rects: inkDocument.panelUv })
+      const width = Math.max(1, Math.round(source.sourceWidth))
+      const height = Math.max(1, Math.round(source.sourceHeight))
+      const ring = panelOutline({
+        src: inkDocument.modelSrc,
+        panel: outlinedPanel,
+        triangles: outlineTriangles,
+        width,
+        height,
+        color: ACTIVE_OUTLINE_COLOR,
+        lineWidth: Math.max(2, Math.round(buffer.width / 256)),
+      })
+
+      if (ring) {
+        canvas.getContext('2d')?.drawImage(ring, source.sourceX, source.sourceY, width, height)
+        outlined = true
+      }
+    }
+
     texture.needsUpdate = true
 
     const hasInk =
-      documentHasInk({ document: inkDocument }) || Boolean(picking && activeStroke) || Boolean(flashing)
+      documentHasInk({ document: inkDocument }) || Boolean(picking && activeStroke) || Boolean(flashing) || outlined
 
     bindInkMap({
       meshes,
@@ -577,7 +629,7 @@ export function SeatedForm({
         },
       })
     }
-  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, panelFlash, picking, textFaces])
+  }, [activeLayerEdit, activeStroke, imagesSettled, inkDocument, invalidate, layerImages, liveAtlas, meshes, outlinedPanel, panelFlash, panelShapes, picking, textFaces])
 
   // Nothing is on screen to be current once this form goes.
   useEffect(() => () => useAtlasBuild.setState({ build: null }), [])

@@ -70,11 +70,11 @@ async function sha256({ texels }: { texels: Uint8Array }) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-test('the knit is the tee cloth from before the details, texel for texel', async () => {
+test('the knit stays the same texel for texel (coarser since 22 Nov, so it shows)', async () => {
   const { texels } = detailNormalTexels({ id: 'knit' })
 
   expect(await sha256({ texels })).toBe(
-    'e86a42202e509ef3eeb5e0b65c070a5c8b10e3f6c704ccc67386ba73ba2e2cef',
+    '896a362c93ac78c6735c29d5450d3d1a8bdadab684013c978a3196627938c352',
   )
   expect(detailNormalMap({ id: 'knit' }).repeat.x).toBe(3)
 })

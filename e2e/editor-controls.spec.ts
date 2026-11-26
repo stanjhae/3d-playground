@@ -30,6 +30,7 @@ type Layer = {
   color?: string
   content?: string
   face?: string
+  curve?: number
   aspect?: number
   strokes?: Stroke[]
 }
@@ -83,7 +84,11 @@ async function addWord({ page, word }: { page: Page; word: string }) {
   await type.press('Enter')
 }
 
-/** How the panel's pixels look: changed from the paper colour, matching `match`, and the darkest found. */
+/**
+ * How the panel's pixels look: changed from the paper colour, matching
+ * `match`, and the darkest along the middle row the strokes cross (the side's
+ * outline runs along its edges and would always be darkest).
+ */
 async function panelPixels({ page, panel, match }: { page: Page; panel: Panel; match?: string }) {
   return panelCanvas({ page, panel }).evaluate((node, hex) => {
     const canvas = node as HTMLCanvasElement
@@ -94,9 +99,12 @@ async function panelPixels({ page, panel, match }: { page: Page; panel: Panel; m
 
     for (let at = 0; at < data.length; at += 4) {
       const rgb = [data[at]!, data[at + 1]!, data[at + 2]!]
+      const x = (at / 4) % canvas.width
+      const y = Math.floor(at / 4 / canvas.width)
+      const inBand = x > canvas.width * 0.35 && x < canvas.width * 0.65 && y > canvas.height * 0.45 && y < canvas.height * 0.55
       changed += rgb.some((value, index) => Math.abs(value - paper[index]!) > 12) ? 1 : 0
       matching += wanted && rgb.every((value, index) => Math.abs(value - wanted[index]!) < 12) ? 1 : 0
-      darkest = Math.min(darkest, (rgb[0]! + rgb[1]! + rgb[2]!) / 3)
+      darkest = inBand ? Math.min(darkest, (rgb[0]! + rgb[1]! + rgb[2]!) / 3) : darkest
     }
 
     return { changed, matching, darkest, picture: canvas.toDataURL() }
@@ -188,6 +196,49 @@ test('both bundled faces are available, load from this site and draw differently
     await page.evaluate(() => ['Cormorant Garamond', 'Outfit'].map((family) => document.fonts.check(`600 24px "${family}"`))),
   ).toEqual([true, true])
   expect(external).toEqual([])
+})
+
+test('in Guided, a word takes any font, any colour, and bends along an arc', async ({ page }) => {
+  // Tester, 22 Nov: more fonts, more colours, and text in a circle or along an arc.
+  test.setTimeout(150_000)
+  const email = newEmail({ label: 'word-arc' })
+  emails.push(email)
+  await signIn({ page, email, pro: false })
+  await page.getByRole('button', { name: 'Create a T-shirt' }).click()
+  await expectSaved({ page })
+  // Guided opens on the garment: go on to Design.
+  const url = new URL(page.url())
+  url.searchParams.set('step', 'design')
+  await page.goto(url.toString())
+  await expectSaved({ page })
+  await addWord({ page, word: 'CLUB' })
+  const word = async () => (await layers({ page, kind: 'text' }))[0]
+
+  const fonts = page.getByRole('group', { name: 'Font' })
+  await expect(fonts.getByRole('button')).toHaveCount(8)
+  await fonts.getByRole('button', { name: 'Script', exact: true }).click()
+  await saved({ read: async () => (await word())?.face }).toBe('script')
+
+  // Any colour, not only the swatches, without Pro tools.
+  const hex = page.getByRole('textbox', { name: 'Word colour: hex' })
+  await hex.fill('#2a7f62')
+  await hex.press('Enter')
+  await saved({ read: async () => (await word())?.color }).toBe('#2a7f62')
+
+  const straight = await panelPixels({ page, panel: 'Front' })
+  const arc = page.getByRole('slider', { name: /^Arc of / })
+  await arc.focus()
+  await arc.press('ArrowRight')
+  await arc.press('ArrowRight')
+  await saved({ read: async () => (await word())?.curve }).toBeCloseTo(0.1, 2)
+  await arc.fill('0.5')
+  await arc.press('ArrowRight')
+  await saved({ read: async () => (await word())?.curve }).toBeCloseTo(0.55, 2)
+  await expect.poll(async () => (await panelPixels({ page, panel: 'Front' })).picture).not.toBe(straight.picture)
+
+  // Straight again: the field goes from the design.
+  await page.getByRole('button', { name: 'Straight', exact: true }).click()
+  await saved({ read: async () => 'curve' in ((await word()) ?? { curve: 0 }) }).toBe(false)
 })
 
 test('a word takes the chosen colour, in the design and on the panel', async ({ page }) => {
