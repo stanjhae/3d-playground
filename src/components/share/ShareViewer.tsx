@@ -311,7 +311,8 @@ export default function ShareViewer({
   }
 
   const { document } = prepared
-  const framing: StageFraming = resolveGarmentId({ garmentId: document.garmentId }) === 'tee' ? 'garment' : 'figure'
+  // As in the studio and the look page (#435): a real model stands at its true height.
+  const framing: StageFraming = resolveGarmentId({ garmentId: document.garmentId }) === 'tee' && !document.modelSrc ? 'garment' : 'figure'
   const sleeves = document.modelFrame ? Boolean(document.modelFrame.sleeves.left || document.modelFrame.sleeves.right) : true
 
   return (
