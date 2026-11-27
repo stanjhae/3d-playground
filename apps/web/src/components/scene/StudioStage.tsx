@@ -2,7 +2,7 @@ import { ContactShadows, OrbitControls } from '@react-three/drei'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ACESFilmicToneMapping,
+  NeutralToneMapping,
   CanvasTexture,
   PCFShadowMap,
   PMREMGenerator,
@@ -114,7 +114,10 @@ export function StudioRenderer({
 
   useLayoutEffect(() => {
     gl.outputColorSpace = SRGBColorSpace
-    gl.toneMapping = ACESFilmicToneMapping
+    // Khronos PBR Neutral keeps a lit cloth close to its swatch: ACES Filmic
+    // washed the darker colours out (Oxblood #6b1d2a drew about #97303f) so
+    // the studio's swatches and the garment disagreed (UX review 26 Nov, item 8).
+    gl.toneMapping = NeutralToneMapping
     gl.toneMappingExposure = exposure
     gl.shadowMap.enabled = true
     // PCFSoftShadowMap is deprecated in three@0.185 (falls back with a warning).

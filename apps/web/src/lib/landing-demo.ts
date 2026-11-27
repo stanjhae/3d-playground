@@ -352,7 +352,7 @@ export function studioEnvAppearance({
       background: '#87a4b8',
       backgroundLow: '#c4d2d6',
       environmentIntensity: 1.15,
-      exposure: 1.28,
+      exposure: 1.05,
       keyIntensity: 2.35,
     }
   }
@@ -362,7 +362,8 @@ export function studioEnvAppearance({
     background: '#ffffff',
     backgroundLow: '#eeedea',
     environmentIntensity: 0.68,
-    exposure: 1.1,
+    // With Neutral tone mapping (StudioRenderer) the lit cloth meets its swatch here.
+    exposure: 0.9,
     keyIntensity: 1.7,
   }
 }
