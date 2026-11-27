@@ -4,14 +4,16 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5180 --strictPort",
-    "build": "tsc --noEmit && vite build",
+    "dev": "pnpm summary && vite --port 5180 --strictPort",
+    "build": "pnpm summary && tsc --noEmit && vite build",
     "preview": "vite preview --port 5180 --strictPort",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "summary": "node scripts/hosted-summary.mjs"
   },
   "dependencies": {
+    "@flv/moderation": "workspace:*",
     "@flv/supabase": "workspace:*",
     "@supabase/supabase-js": "^2.118.0",
     "react": "^19.2.8",

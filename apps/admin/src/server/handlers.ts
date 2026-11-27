@@ -1,6 +1,18 @@
 import { type Caller, type ServiceEnv, isAdmin, serviceClient, serviceEnv, userFromRequest } from '@flv/supabase'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import {
+  PanelError,
+  type ReportAction,
+  actOnReport,
+  flagsPanel,
+  healthPanel,
+  listDesigns,
+  listReports,
+  listUsers,
+  unpublishDesign,
+} from './panels.ts'
+
 /**
  * The admin app's server side. Every route needs a signed-in account that is
  * in `public.admins`; anything else gets 401 or 403 and no data. All reads
@@ -15,11 +27,42 @@ export type Overview = {
   openReports: number
 }
 
+/** Admin server settings beyond Supabase: where the site and PostHog are. */
+export type AdminConfig = {
+  /** The public site's origin, for its health route and links to share pages. */
+  siteUrl: string | null
+  /** A PostHog dashboard to link to. */
+  posthogUrl: string | null
+}
+
+export function adminConfig(source: Record<string, string | undefined> = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {}): AdminConfig {
+  const url = (value: string | undefined) => (value && /^https?:\/\//.test(value) ? value.replace(/\/+$/, '') : null)
+  return { siteUrl: url(source.FLV_SITE_URL), posthogUrl: url(source.FLV_POSTHOG_URL) }
+}
+
 type Deps = {
   env?: ServiceEnv | null
   /** Tests pass a stub; otherwise a service-role client for `env`. */
   client?: SupabaseClient
+  config?: AdminConfig
+  /** Tests stub the site's health route here. */
+  fetchImpl?: typeof fetch
 }
+
+/** Every route, and the methods it answers. Anything else is 404 or 405. */
+const ROUTES: Record<string, readonly string[]> = {
+  '/api/me': ['GET'],
+  '/api/overview': ['GET'],
+  '/api/users': ['GET'],
+  '/api/designs': ['GET', 'POST'],
+  '/api/reports': ['GET', 'POST'],
+  '/api/health': ['GET'],
+  '/api/flags': ['GET'],
+}
+
+const MAX_BODY_BYTES = 4096
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const REPORT_ACTIONS: readonly ReportAction[] = ['dismiss', 'action', 'hide']
 
 function json(status: number, body: unknown) {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
@@ -86,11 +129,110 @@ async function overview(client: SupabaseClient): Promise<Overview> {
   return { users, designs, publications, openReports }
 }
 
-export async function handleAdminRequest({ request, env = serviceEnv(), client }: { request: Request } & Deps) {
-  const { pathname } = new URL(request.url)
+/** A small JSON object body, or null. */
+async function readBody(request: Request): Promise<Record<string, unknown> | null> {
+  const text = await request.text()
 
-  if (request.method !== 'GET') {
+  if (text.length > MAX_BODY_BYTES) {
+    return null
+  }
+
+  try {
+    const value = JSON.parse(text) as unknown
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
+
+/** Who did it, as the moderation records name an operator (at most 80 characters). */
+function operatorName(caller: Caller) {
+  return `admin: ${caller.email ?? caller.id}`.slice(0, 80)
+}
+
+async function route({
+  pathname,
+  request,
+  caller,
+  client,
+  config,
+  fetchImpl,
+}: {
+  pathname: string
+  request: Request
+  caller: Caller
+  client: SupabaseClient
+  config: AdminConfig
+  fetchImpl?: typeof fetch
+}): Promise<Response> {
+  const search = new URL(request.url).searchParams
+
+  if (pathname === '/api/me') {
+    return json(200, { email: caller.email, siteUrl: config.siteUrl, posthogUrl: config.posthogUrl })
+  }
+
+  if (pathname === '/api/overview') {
+    return json(200, await overview(client))
+  }
+
+  if (pathname === '/api/users') {
+    return json(200, await listUsers({ client, query: search.get('q') ?? '' }))
+  }
+
+  if (pathname === '/api/health') {
+    return json(200, await healthPanel({ siteUrl: config.siteUrl, fetchImpl }))
+  }
+
+  if (pathname === '/api/flags') {
+    return json(200, await flagsPanel({ siteUrl: config.siteUrl, fetchImpl }))
+  }
+
+  if (pathname === '/api/designs' && request.method === 'GET') {
+    return json(200, await listDesigns({ client, query: search.get('q') ?? '', published: search.get('published') === '1' }))
+  }
+
+  if (pathname === '/api/reports' && request.method === 'GET') {
+    return json(200, { reports: await listReports({ client }) })
+  }
+
+  const body = await readBody(request)
+
+  if (pathname === '/api/designs') {
+    if (body?.action !== 'unpublish' || typeof body.designId !== 'string' || !UUID.test(body.designId)) {
+      return error(400, 'invalid', 'Send { action: "unpublish", designId }')
+    }
+
+    await unpublishDesign({ client, designId: body.designId })
+    return json(200, { ok: true })
+  }
+
+  const action = body?.action as ReportAction
+
+  if (!body || typeof body.id !== 'string' || !UUID.test(body.id) || !REPORT_ACTIONS.includes(action)) {
+    return error(400, 'invalid', 'Send { id, action: "dismiss" | "action" | "hide" }')
+  }
+
+  await actOnReport({ client, id: body.id, action, operator: operatorName(caller) })
+  return json(200, { ok: true })
+}
+
+export async function handleAdminRequest({ request, env = serviceEnv(), client, config = adminConfig(), fetchImpl }: { request: Request } & Deps) {
+  const { pathname } = new URL(request.url)
+  const methods = ROUTES[pathname]
+
+  if (!methods) {
+    return error(404, 'not_found', 'Not found')
+  }
+
+  if (!methods.includes(request.method)) {
     return error(405, 'method_not_allowed', 'Method not allowed')
+  }
+
+  // Writes carry the bearer token, so this is defence in depth against CSRF.
+  const origin = request.headers.get('origin')
+
+  if (request.method !== 'GET' && origin !== null && origin !== new URL(request.url).origin) {
+    return error(403, 'cross_origin', 'Cross-origin requests are not allowed')
   }
 
   if (!env && !client) {
@@ -104,18 +246,14 @@ export async function handleAdminRequest({ request, env = serviceEnv(), client }
     return gate.refused
   }
 
-  if (pathname === '/api/me') {
-    return json(200, { email: gate.caller.email })
-  }
-
-  if (pathname === '/api/overview') {
-    try {
-      return json(200, await overview(service))
-    } catch (failure) {
-      console.error('admin overview failed', { message: failure instanceof Error ? failure.message : 'unknown' })
-      return error(502, 'upstream', 'Couldn’t read the numbers. Try again.')
+  try {
+    return await route({ pathname, request, caller: gate.caller, client: service, config, fetchImpl })
+  } catch (failure) {
+    if (failure instanceof PanelError) {
+      return error(failure.status, failure.code, failure.message)
     }
-  }
 
-  return error(404, 'not_found', 'Not found')
+    console.error('admin route failed', { pathname, message: failure instanceof Error ? failure.message : 'unknown' })
+    return error(502, 'upstream', 'Couldn’t read that. Try again.')
+  }
 }

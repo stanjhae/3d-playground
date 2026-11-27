@@ -166,6 +166,7 @@ describe('GET /api/health', () => {
       environment: 'preview',
       supabase: 'ok',
       errorTracking: 'off',
+      flags: { VITE_PATTERN_BETA: false, VITE_AI_ASSIST: false, FLP_AI_ASSIST: false },
     })
     expect(fetchImpl.mock.calls[0][0]).toBe('https://ref.supabase.co/auth/v1/health')
   })

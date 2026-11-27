@@ -15,7 +15,15 @@ async function toRequest(req: IncomingMessage) {
     if (typeof value === 'string') headers.set(key, value)
   }
 
-  return new Request(`http://localhost${req.url}`, { method: req.method, headers })
+  const chunks: Buffer[] = []
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    for await (const chunk of req) chunks.push(chunk as Buffer)
+  }
+
+  // The dev server's own origin, so a same-origin write passes the Origin check.
+  const host = req.headers.host ?? 'localhost'
+  return new Request(`http://${host}${req.url}`, { method: req.method, headers, body: chunks.length ? Buffer.concat(chunks) : undefined })
 }
 
 async function send(res: ServerResponse, response: Response) {

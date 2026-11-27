@@ -1,0 +1,22 @@
+{
+  "name": "@flv/moderation",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Operator moderation shared by the apps: the open reports queue, closing reports, takedowns and hiding comments. Service-role client only.",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.118.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.4"
+  }
+}
