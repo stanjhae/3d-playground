@@ -23,6 +23,21 @@ export function buttonClass({
   )
 }
 
+/**
+ * The one chip: a filter or a pick from a small set (`aria-pressed`). Same
+ * 44px height and pill shape as the buttons; chosen reads as filled ink, so
+ * the red stays for the primary action.
+ */
+export function chipClass({ selected = false }: { selected?: boolean } = {}) {
+  return cn(
+    'inline-flex min-h-11 items-center justify-center rounded-full border px-4 font-body text-sm disabled:opacity-50',
+    {
+      'border-flv-ink bg-flv-ink text-white': selected,
+      'border-flv-line bg-white text-flv-ink hover:border-flv-ink': !selected,
+    },
+  )
+}
+
 export function Button({
   variant,
   wide,

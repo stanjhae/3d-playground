@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { LookCard } from './LookCard'
+import { buttonClass, chipClass } from '../ui/Button'
 import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import {
   DEFAULT_BOARD_FILTERS,
@@ -128,18 +129,9 @@ export function GuestBoard({ entered }: { entered?: string }) {
             onClick={() => {
               setFilters((current) => ({ ...current, garmentId: 'all' }))
             }}
-            className={cn(
-              'min-h-9 rounded-full border px-3',
-              chromeTextClass(),
-              {
-                'border-flv-accent bg-flv-accent text-white':
-                  filters.garmentId === 'all',
-                'border-flv-line text-flv-muted hover:text-flv-accent':
-                  filters.garmentId !== 'all',
-              },
-            )}
+            className={chipClass({ selected: filters.garmentId === 'all' })}
           >
-            All Garments
+            All garments
           </button>
           {(railGarments.length > 0
             ? railGarments
@@ -156,16 +148,7 @@ export function GuestBoard({ entered }: { entered?: string }) {
                   garmentId: garment.id as GarmentId | 'all',
                 }))
               }}
-              className={cn(
-                'min-h-9 rounded-full border px-3',
-                chromeTextClass(),
-                {
-                  'border-flv-accent bg-flv-accent text-white':
-                    filters.garmentId === garment.id,
-                  'border-flv-line text-flv-muted hover:text-flv-accent':
-                    filters.garmentId !== garment.id,
-                },
-              )}
+              className={chipClass({ selected: filters.garmentId === garment.id })}
             >
               {garment.label}
             </button>
@@ -182,16 +165,7 @@ export function GuestBoard({ entered }: { entered?: string }) {
             onClick={() => {
               setFilters((current) => ({ ...current, challengeId: 'all' }))
             }}
-            className={cn(
-              'min-h-9 rounded-full border px-3',
-              chromeTextClass(),
-              {
-                'border-flv-accent text-flv-accent':
-                  filters.challengeId === 'all',
-                'border-flv-line text-flv-muted hover:text-flv-accent':
-                  filters.challengeId !== 'all',
-              },
-            )}
+            className={chipClass({ selected: filters.challengeId === 'all' })}
           >
             {HOUSE_COPY.challenge}: {HOUSE_COPY.allChallenges}
           </button>
@@ -207,16 +181,7 @@ export function GuestBoard({ entered }: { entered?: string }) {
                   challengeId: challenge.id,
                 }))
               }}
-              className={cn(
-                'min-h-9 rounded-full border px-3',
-                chromeTextClass(),
-                {
-                  'border-flv-accent text-flv-accent':
-                    filters.challengeId === challenge.id,
-                  'border-flv-line text-flv-muted hover:text-flv-accent':
-                    filters.challengeId !== challenge.id,
-                },
-              )}
+              className={chipClass({ selected: filters.challengeId === challenge.id })}
             >
               {challenge.title}
             </button>
@@ -235,16 +200,7 @@ export function GuestBoard({ entered }: { entered?: string }) {
               onClick={() => {
                 setFilters((current) => ({ ...current, timeframe }))
               }}
-              className={cn(
-                'min-h-9 rounded-full border px-3',
-                chromeTextClass(),
-                {
-                  'border-flv-accent text-flv-accent':
-                    filters.timeframe === timeframe,
-                  'border-flv-line text-flv-muted hover:text-flv-accent':
-                    filters.timeframe !== timeframe,
-                },
-              )}
+              className={chipClass({ selected: filters.timeframe === timeframe })}
             >
               {timeframe === 'week' ? HOUSE_COPY.thisWeek : HOUSE_COPY.allTime}
             </button>
@@ -264,7 +220,7 @@ export function GuestBoard({ entered }: { entered?: string }) {
             onClick={() => {
               loadBoard()
             }}
-            className="min-h-11 self-start border border-flv-accent px-4 font-body text-xs tracking-[0.08em] text-flv-accent uppercase"
+            className={cn(buttonClass({ variant: 'secondary' }), 'self-start')}
           >
             {HOUSE_COPY.tryAgain}
           </button>
@@ -278,7 +234,7 @@ export function GuestBoard({ entered }: { entered?: string }) {
           <Link
             to="/create"
             search={{}}
-            className="min-h-11 self-start border border-flv-accent px-4 font-body text-xs tracking-[0.08em] text-flv-accent uppercase"
+            className={cn(buttonClass(), 'self-start')}
           >
             {HOUSE_COPY.studioOpen}
           </Link>
@@ -411,7 +367,7 @@ export function GuestBoard({ entered }: { entered?: string }) {
                           {(look.tags ?? []).slice(0, 3).map((tag) => (
                             <span
                               key={tag}
-                              className="rounded-full border border-flv-line px-2 py-0.5 font-body text-[0.65rem] text-flv-muted uppercase"
+                              className="rounded-full border border-flv-line px-2 py-0.5 font-body text-xs text-flv-muted"
                             >
                               {tag}
                             </span>

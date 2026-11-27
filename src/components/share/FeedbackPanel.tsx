@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { cn } from '../../lib/cn'
+import { buttonClass, chipClass } from '../ui/Button'
 import {
   FEEDBACK_SIZES,
   FEEDBACK_SIZE_LABELS,
@@ -16,9 +16,6 @@ import {
   type PriceBand,
 } from '../../lib/flp-api/feedback'
 import { getFeedback, putFeedback } from '../../lib/flp-api/feedback-client'
-
-const chipClass =
-  'inline-flex min-h-9 items-center border border-flv-line px-3 font-body text-xs text-flv-ink hover:border-flv-accent'
 
 /**
  * One-tap answers after a vote, for the version that is live now. The
@@ -131,7 +128,7 @@ export function FeedbackPanel({ slug, voted, own }: { slug: string; voted: boole
           <button
             type="button"
             aria-pressed={wouldWear === true}
-            className={cn(chipClass, { 'border-flv-accent bg-flv-accent text-white': wouldWear === true })}
+            className={chipClass({ selected: wouldWear === true })}
             onClick={() => {
               setSaved(false)
               setWouldWear(true)
@@ -142,7 +139,7 @@ export function FeedbackPanel({ slug, voted, own }: { slug: string; voted: boole
           <button
             type="button"
             aria-pressed={wouldWear === false}
-            className={cn(chipClass, { 'border-flv-accent bg-flv-accent text-white': wouldWear === false })}
+            className={chipClass({ selected: wouldWear === false })}
             onClick={() => {
               setSaved(false)
               setWouldWear(false)
@@ -160,7 +157,7 @@ export function FeedbackPanel({ slug, voted, own }: { slug: string; voted: boole
               key={band}
               type="button"
               aria-pressed={priceBand === band}
-              className={cn(chipClass, { 'border-flv-accent bg-flv-accent text-white': priceBand === band })}
+              className={chipClass({ selected: priceBand === band })}
               onClick={() => {
                 setSaved(false)
                 setPriceBand(band)
@@ -179,7 +176,7 @@ export function FeedbackPanel({ slug, voted, own }: { slug: string; voted: boole
               key={item}
               type="button"
               aria-pressed={size === item}
-              className={cn(chipClass, { 'border-flv-accent bg-flv-accent text-white': size === item })}
+              className={chipClass({ selected: size === item })}
               onClick={() => {
                 setSaved(false)
                 setSize(size === item ? null : item)
@@ -198,7 +195,7 @@ export function FeedbackPanel({ slug, voted, own }: { slug: string; voted: boole
               key={tag}
               type="button"
               aria-pressed={tags.includes(tag)}
-              className={cn(chipClass, { 'border-flv-accent bg-flv-accent text-white': tags.includes(tag) })}
+              className={chipClass({ selected: tags.includes(tag) })}
               onClick={() => toggleTag({ tag })}
             >
               {FEEDBACK_TAG_LABELS[tag]}
@@ -221,7 +218,7 @@ export function FeedbackPanel({ slug, voted, own }: { slug: string; voted: boole
       </label>
       <button
         type="button"
-        className="inline-flex min-h-11 items-center justify-center border border-flv-accent px-4 font-body text-xs tracking-[0.1em] text-flv-accent uppercase disabled:opacity-50"
+        className={buttonClass({ variant: 'secondary' })}
         disabled={busy || wouldWear === null || !priceBand}
         onClick={() => void save()}
       >

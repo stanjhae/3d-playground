@@ -6,6 +6,7 @@ import { acceptTerms, reportDesign } from '../../lib/flp-api/client'
 import type { DesignComment } from '../../lib/flp-api/contract'
 import { addComment, getComments, hideComment } from '../../lib/community'
 import { TERMS_VERSION } from '../../lib/terms'
+import { buttonClass } from '../ui/Button'
 
 const MAX = 500
 
@@ -148,7 +149,7 @@ export default function Comments({ slug }: { slug: string }) {
             <button
               type="submit"
               disabled={busy || !draft.trim()}
-              className="inline-flex min-h-9 items-center rounded-full bg-flv-ink px-4 font-body text-xs font-medium text-white disabled:opacity-50"
+              className={buttonClass()}
             >
               {busy ? 'Posting…' : 'Post comment'}
             </button>
@@ -169,7 +170,7 @@ export default function Comments({ slug }: { slug: string }) {
                 type="button"
                 disabled={busy}
                 onClick={() => void acceptAndPost()}
-                className="inline-flex min-h-9 items-center rounded-full bg-flv-ink px-3 font-medium text-white disabled:opacity-50"
+                className={buttonClass()}
               >
                 Accept and post
               </button>

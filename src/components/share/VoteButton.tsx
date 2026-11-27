@@ -2,17 +2,19 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import { useSessionStore } from '../../lib/auth/session-store'
-import { cn } from '../../lib/cn'
 import { acceptTerms } from '../../lib/flp-api/client'
 import type { VoteState } from '../../lib/flp-api/contract'
 import { UNPUBLISHED_VOTES, VOTE_RULE, castVote, getVoteState, optimisticVote, retractVote, voteCountsLater } from '../../lib/flp-api/votes'
 import { voteDeviceId } from '../../lib/vote-device'
 import { TERMS_VERSION } from '../../lib/terms'
+import { buttonClass } from '../ui/Button'
 import { FeedbackPanel } from './FeedbackPanel'
 import { VoteTally } from './VoteTally'
 
-const controlClass =
-  'inline-flex min-h-11 items-center justify-center gap-2 border px-4 font-body text-xs tracking-[0.1em] uppercase disabled:opacity-60'
+// Vote is the primary action on a design; once cast, Voted steps back to a
+// secondary (pressing it again takes the vote back).
+const primaryClass = buttonClass()
+const secondaryClass = buttonClass({ variant: 'secondary' })
 
 /**
  * One vote per account on a published design (V1). Signed out, the count
@@ -126,7 +128,7 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
         <Link
           to="/sign-in"
           search={{ returnTo: `/s/${slug}` }}
-          className={cn(controlClass, 'border-flv-line hover:border-flv-accent hover:text-flv-accent')}
+          className={primaryClass}
         >
           Sign in to vote
         </Link>
@@ -149,7 +151,7 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
             type="button"
             disabled
             title="You can’t vote for your own design"
-            className={cn(controlClass, 'border-flv-line text-flv-muted')}
+            className={secondaryClass}
           >
             Your design
           </button>
@@ -170,10 +172,7 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
           aria-pressed={vote.voted}
           disabled={pending}
           onClick={() => void toggle()}
-          className={cn(controlClass, {
-            'border-flv-accent bg-flv-accent text-white': vote.voted,
-            'border-flv-accent text-flv-accent hover:bg-flv-soft': !vote.voted,
-          })}
+          className={vote.voted ? secondaryClass : primaryClass}
         >
           {vote.voted ? 'Voted' : 'Vote'}
         </button>
@@ -192,7 +191,7 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
             type="button"
             disabled={pending}
             onClick={() => void acceptAndVote()}
-            className="inline-flex min-h-9 items-center rounded-full bg-flv-ink px-3 font-medium text-white disabled:opacity-50"
+            className={primaryClass}
           >
             Accept and vote
           </button>
