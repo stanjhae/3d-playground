@@ -2,7 +2,8 @@ import { describe, expect, test } from 'vitest'
 
 import { shareCardHead } from '../og-card'
 import { takeEmbeddedPublicDesign } from '../public-embed'
-import { PUBLIC_PAYLOAD_ELEMENT_ID, SLEEVE_GRID_CLASS, injectShareHead, shareStatus } from './share-page'
+import { SHARE_STAGE_CLASS as APP_STAGE_CLASS } from '../../components/share/ShareStage'
+import { PUBLIC_PAYLOAD_ELEMENT_ID, SHARE_STAGE_CLASS, SLEEVE_GRID_CLASS, injectShareHead, shareStatus } from './share-page'
 import type { PublicDesign } from './publication'
 
 const SHELL = `<!doctype html>
@@ -114,12 +115,23 @@ describe('share page head (#182, #184)', () => {
     const html = injectShareHead({ shell, head: headFor(PAYLOAD), payload: PAYLOAD })
     const root = html.slice(html.indexOf('<div id="flp-static-share"'), html.indexOf('<div id="root">'))
 
-    expect(root.match(/<img /g)).toHaveLength(3)
+    // The 3D view's poster (decorative) and the three views.
+    expect(root.match(/<img /g)).toHaveLength(4)
+    expect(root.match(/alt=""/g)).toHaveLength(1)
     expect(root).toContain(`src="${PAYLOAD.renders.view_front}"`)
     expect(root).toContain('&lt;/script&gt;&lt;script&gt;alert(1)&lt;/script&gt;')
     expect(root).not.toContain('<script')
     expect(root).toContain('By Ada &amp; co · Hoodie (Hoodie by Style3D CG, CC BY 4.0) · version 4')
     expect(html).toContain('<div id="root"></div>')
+  })
+
+  test('the 3D poster sits where the app draws its 3D view, above the views', () => {
+    const html = injectShareHead({ shell: SHELL, head: headFor(PAYLOAD), payload: PAYLOAD })
+    const root = html.slice(html.indexOf('<div id="flp-static-share"'), html.indexOf('<div id="root">'))
+
+    expect(SHARE_STAGE_CLASS).toBe(APP_STAGE_CLASS)
+    expect(root).toContain(`<div class="${SHARE_STAGE_CLASS}"><img src="${PAYLOAD.renders.view_front}" alt=""`)
+    expect(root.indexOf(SHARE_STAGE_CLASS)).toBeLessThan(root.indexOf('grid gap-4 sm:grid-cols-3'))
   })
 
   test('a three-view publication (before #179) shows no sleeve row', () => {
@@ -134,7 +146,7 @@ describe('share page head (#182, #184)', () => {
     const root = html.slice(html.indexOf('<div id="flp-static-share"'), html.indexOf('<div id="root">'))
     const sleeveRow = root.slice(root.indexOf(SLEEVE_GRID_CLASS))
 
-    expect(root.match(/<img /g)).toHaveLength(5)
+    expect(root.match(/<img /g)).toHaveLength(6)
     expect(root.indexOf('view=view_back')).toBeGreaterThan(0)
     expect(root.indexOf('view=view_back')).toBeLessThan(root.indexOf(SLEEVE_GRID_CLASS))
     expect(sleeveRow.indexOf('view=view_left')).toBeGreaterThan(0)

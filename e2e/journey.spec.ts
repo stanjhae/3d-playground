@@ -112,7 +112,8 @@ test('create → edit → save → publish → view signed out → unpublish →
   const noScript = await browser.newContext({ javaScriptEnabled: false })
   const overlay = await noScript.newPage()
   await overlay.goto(`/s/${slug}`)
-  await expect(overlay.locator('#flp-static-share img')).toHaveCount(5)
+  // The 3D view's poster, then the five views.
+  await expect(overlay.locator('#flp-static-share img')).toHaveCount(6)
   await expect(overlay.locator('#flp-static-share')).toContainText("Wearer's right")
   await expect(overlay.locator('#flp-static-share')).toContainText("Wearer's left")
   await noScript.close()

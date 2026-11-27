@@ -26,9 +26,10 @@ import {
  * - Publish: only a version whose five views are ready; the pointer moves
  *   atomically in `flp_publish_version`, and the slug survives republish.
  * - Public read: anonymous, returns only title, display name and our own
- *   seq-pinned image URLs, and only while published. Never the document,
- *   history or owner (signed storage URLs would leak the owner ID in the
- *   path). Unpublish makes it 404 at once, and nothing public is cached
+ *   seq-pinned image URLs, and only while published. Never the stored
+ *   document, history or owner (signed storage URLs would leak the owner
+ *   ID in the path). The share page's 3D view reads a pared-down document
+ *   through its own route (`public-scene.ts`). Unpublish makes it 404 at once, and nothing public is cached
  *   (#183), so no copy outlives the publication.
  */
 

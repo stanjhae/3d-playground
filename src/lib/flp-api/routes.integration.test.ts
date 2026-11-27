@@ -141,10 +141,25 @@ describe.skipIf(!env)('every /api/flp route against strangers', () => {
     },
   )
 
-  test.each(FLP_ROUTES.filter((route) => route.scope === 'public').map((route) => [label(route), route] as const))(
+  // A public image read names an upload; the fixture's is staged and in no
+  // published version, so it is the 404 case. assets.integration.test.ts
+  // reads one a published version draws.
+  const namesAsset = (route: Route) => route.path({ designId: ':id', assetId: ':asset', slug: ':slug' }).includes(':asset')
+
+  test.each(FLP_ROUTES.filter((route) => route.scope === 'public' && !namesAsset(route)).map((route) => [label(route), route] as const))(
     '%s is readable signed out',
     async (_, route) => {
       expect((await api({ route })).status).toBe(200)
+    },
+  )
+
+  test.each(FLP_ROUTES.filter((route) => route.scope === 'public' && namesAsset(route)).map((route) => [label(route), route] as const))(
+    '%s serves no upload the published version does not draw',
+    async (_, route) => {
+      const response = await api({ route })
+      expect(response.status).toBe(404)
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      expect(await response.text()).not.toContain(fixture.assetId)
     },
   )
 })

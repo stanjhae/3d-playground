@@ -33,6 +33,9 @@ export const STATIC_SHARE_ELEMENT_ID = 'flp-static-share'
  * `s.$slug.tsx` uses the same classes.
  */
 export const SLEEVE_GRID_CLASS = 'grid grid-cols-2 gap-4 sm:mx-auto sm:w-2/3'
+/** Must match `SHARE_STAGE_CLASS` in `components/share/ShareStage.tsx`: the 3D view's poster box. */
+export const SHARE_STAGE_CLASS =
+  'relative aspect-[4/5] w-full overflow-hidden border border-flv-line bg-flv-paper sm:aspect-[16/9]'
 
 type ShellLoader = (origin: string) => Promise<string | null>
 
@@ -96,8 +99,10 @@ function staticShareMarkup({ payload }: { payload: PublicDesign }) {
     return src ? [item({ ...view, alt: sideViewAlt({ alt: view.alt, garmentId: payload.garmentId }) }, src, true)] : []
   }).join('')
   const sleeveList = sleeves ? `<ul class="${SLEEVE_GRID_CLASS}">${sleeves}</ul>` : ''
+  // The 3D view's poster: the front still, where the 3D view will draw.
+  const stage = `<div class="${SHARE_STAGE_CLASS}"><img src="${escapeHtml({ value: payload.renders.view_front })}" alt="" class="absolute inset-0 h-full w-full object-contain" /></div>`
 
-  return `<div id="${STATIC_SHARE_ELEMENT_ID}" class="fixed inset-0 z-50 overflow-auto bg-flv-paper text-flv-ink"><main class="relative min-h-dvh bg-flv-paper text-flv-ink"><section class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16"><header class="flex flex-col gap-1"><p class="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Shared design</p><h1 class="font-display text-4xl leading-tight [overflow-wrap:anywhere]">${title}</h1><p class="font-body text-sm text-flv-muted">${byline}</p></header><ul class="grid gap-4 sm:grid-cols-3">${views}</ul>${sleeveList}</section></main></div>`
+  return `<div id="${STATIC_SHARE_ELEMENT_ID}" class="fixed inset-0 z-50 overflow-auto bg-flv-paper text-flv-ink"><main class="relative min-h-dvh bg-flv-paper text-flv-ink"><section class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16"><header class="flex flex-col gap-1"><p class="font-body text-xs tracking-[0.16em] text-flv-muted uppercase">Shared design</p><h1 class="font-display text-4xl leading-tight [overflow-wrap:anywhere]">${title}</h1><p class="font-body text-sm text-flv-muted">${byline}</p></header>${stage}<ul class="grid gap-4 sm:grid-cols-3">${views}</ul>${sleeveList}</section></main></div>`
 }
 
 /**
