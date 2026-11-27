@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { crc32, deflateSync } from 'node:zlib'
 
@@ -33,7 +34,7 @@ const EMAIL = 'demo@example.test'
 const DISPLAY_NAME = 'Demo Studio'
 const BUCKET = 'design-assets'
 
-const env = { ...loadEnv('development', process.cwd(), ['SUPABASE_', 'DEMO_']), ...process.env }
+const env = { ...loadEnv('development', fileURLToPath(new URL('../../..', import.meta.url)), ['SUPABASE_', 'DEMO_']), ...process.env }
 const baseUrl = (env.DEMO_BASE_URL ?? 'http://localhost:4173').replace(/\/$/, '')
 
 if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY || !env.SUPABASE_PUBLISHABLE_KEY) {

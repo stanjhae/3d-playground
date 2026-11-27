@@ -37,8 +37,8 @@ jobs:
         with:
           sparse-checkout: |
             package.json
-            scripts/synthetic-check.mjs
-            src/lib/synthetic-check.ts
+            apps/web/scripts/synthetic-check.mjs
+            apps/web/src/lib/synthetic-check.ts
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -46,7 +46,7 @@ jobs:
       # No install: the script and its library have no dependencies.
       - name: Check the site
         id: check
-        run: SYNTHETIC_REPORT=report.md node scripts/synthetic-check.mjs
+        run: SYNTHETIC_REPORT=report.md node apps/web/scripts/synthetic-check.mjs
 
       - name: Open or update the alert issue
         if: failure() && steps.check.outcome == 'failure'

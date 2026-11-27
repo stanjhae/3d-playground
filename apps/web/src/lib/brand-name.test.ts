@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
-import authConfig from '../../supabase/config.toml?raw'
-import emailTemplate from '../../supabase/templates/email-code.html?raw'
+import authConfig from '../../../../supabase/config.toml?raw'
+import emailTemplate from '../../../../supabase/templates/email-code.html?raw'
 
 /** One public name, Fashion Leader Vote (decided 4 Nov, #198). */
 const OLD_NAME = ['Fashion', 'Leaderboard'].join(' ')

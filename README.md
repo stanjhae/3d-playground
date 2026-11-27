@@ -4,25 +4,39 @@ The garment is the product. The building is the house.
 
 Live (beta): [https://beta.fashionleadervote.com/](https://beta.fashionleadervote.com/)
 
+## Layout
+
+A pnpm workspace:
+
+| Path | What |
+| --- | --- |
+| `apps/web` | The site and studio: React, three.js, its Vercel functions (`api/`), scripts and e2e tests. |
+| `apps/admin` | The internal admin: its own app, deploy and sign-in, for admins only (`docs/admin.md`). |
+| `packages/supabase` | Server-side Supabase helpers shared by the apps. |
+| `supabase/` | Migrations, config and database tests, shared by every app. |
+| `docs/` | Docs. Code paths in them (`src/…`, `api/…`, `scripts/…`, `e2e/…`, `public/…`, `templates/…`) are inside `apps/web` unless they name another app. |
+
+`.env.local` and the other `.env.*` files stay at the repo root; both apps read them from there.
+
 ## Develop
 
 ```bash
 pnpm install
-pnpm garments
-pnpm stills
+pnpm --filter @flv/web garments
+pnpm --filter @flv/web stills
 pnpm dev
 ```
 
-`pnpm garments` rebuilds the jacket only. The seated Style3D forms stay in `public/models/` and must not be overwritten by the lathe scripts.
+`garments` rebuilds the jacket only. The seated Style3D forms stay in `apps/web/public/models/` and must not be overwritten by the lathe scripts. Any script of the web app runs as `pnpm --filter @flv/web <script>`, or as `pnpm <script>` inside `apps/web`.
 
-Open the local URL. You should see a gown in frame and **Fashion Leader Vote**.
+Open the local URL. You should see a gown in frame and **Fashion Leader Vote**. The admin runs with `pnpm dev:admin` (port 5180).
 
 ```bash
-pnpm test
-pnpm build
+pnpm test     # every package
+pnpm build    # the web app; pnpm build:admin for the admin
 ```
 
-`pnpm build` regenerates `src/routeTree.gen.ts` before typecheck.
+`pnpm build` regenerates `apps/web/src/routeTree.gen.ts` before typecheck.
 
 ## Persist the board
 

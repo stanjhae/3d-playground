@@ -40,11 +40,11 @@ trap cleanup EXIT
 
 echo "== Backup"
 SUPABASE_URL=$SOURCE_SUPABASE_URL SUPABASE_SECRET_KEY=$SOURCE_SUPABASE_SECRET_KEY SUPABASE_DB_URL=$SOURCE_SUPABASE_DB_URL \
-  node scripts/backup.mjs "$out"
+  node "$(dirname "$0")/backup.mjs" "$out"
 
 echo "== Restore check on the scratch stack"
 SUPABASE_URL=$CHECK_SUPABASE_URL SUPABASE_SECRET_KEY=$CHECK_SUPABASE_SECRET_KEY SUPABASE_DB_URL=$CHECK_SUPABASE_DB_URL \
-  node scripts/restore-check.mjs "$out"
+  node "$(dirname "$0")/restore-check.mjs" "$out"
 
 echo "== Encrypt"
 tar -C "$(dirname "$out")" -cf - "$(basename "$out")" | age --encrypt --recipient "$BACKUP_AGE_RECIPIENT" > "$out.tar.age"

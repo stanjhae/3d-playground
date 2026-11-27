@@ -35,7 +35,7 @@ describe('built bundle', () => {
   })
 
   describe.runIf(built)('contains no server secret', () => {
-    const secret = { ...loadEnv('production', root, 'SUPABASE_'), ...processEnv.env }.SUPABASE_SECRET_KEY
+    const secret = { ...loadEnv('production', `${root}/../..`, 'SUPABASE_'), ...processEnv.env }.SUPABASE_SECRET_KEY
 
     test('has JavaScript to scan', () => {
       expect(Object.keys(files).some((file) => file.endsWith('.js'))).toBe(true)

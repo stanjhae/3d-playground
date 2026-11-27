@@ -27,6 +27,8 @@ const { values: flags } = parseArgs({
 })
 
 const root = new URL('..', import.meta.url)
+/** The repo root: migrations, the changelog and evidence live there. */
+const repo = new URL('../../../', import.meta.url)
 
 function run(command, args) {
   try {
@@ -51,12 +53,12 @@ const dirty = flags.commit === 'HEAD' && run('git', ['status', '--porcelain', '-
 
 // Migrations in apply order, with checksums to compare against
 // `supabase migration list` on the linked project.
-const migrations = readdirSync(new URL('supabase/migrations/', root))
+const migrations = readdirSync(new URL('supabase/migrations/', repo))
   .filter((name) => name.endsWith('.sql'))
   .sort()
   .map((name) => ({
     name,
-    sha256: createHash('sha256').update(readFileSync(new URL(`supabase/migrations/${name}`, root))).digest('hex'),
+    sha256: createHash('sha256').update(readFileSync(new URL(`supabase/migrations/${name}`, repo))).digest('hex'),
   }))
 
 // The latest CI runs for this exact commit.
@@ -84,12 +86,12 @@ const suites = [...flags.suite, ...(process.env.RELEASE_SUITES ?? '').split(';')
 let hosted = null
 
 if (flags.hosted) {
-  if (!existsSync(new URL(flags.hosted, root))) {
+  if (!existsSync(new URL(flags.hosted, repo))) {
     console.error(`release-record: ${flags.hosted} does not exist`)
     process.exit(2)
   }
 
-  hosted = { path: flags.hosted, verdict: read(flags.hosted).match(/^# Hosted check: (.+)$/m)?.[1] ?? 'unknown' }
+  hosted = { path: flags.hosted, verdict: readFileSync(new URL(flags.hosted, repo), "utf8").match(/^# Hosted check: (.+)$/m)?.[1] ?? 'unknown' }
 }
 
 /**
@@ -97,7 +99,7 @@ if (flags.hosted) {
  * newest entry that has one.
  */
 function knownLimits() {
-  const entries = read('CHANGELOG.md').split(/^(?=## )/m).slice(1)
+  const entries = readFileSync(new URL('CHANGELOG.md', repo), 'utf8').split(/^(?=## )/m).slice(1)
   const withLimits = entries
     .map((entry) => ({
       heading: entry.split('\n')[0].replace(/^## /, ''),
@@ -157,7 +159,7 @@ ${limits ? `From CHANGELOG.md, ${limits.heading}:\n\n${limits.limits}` : 'CHANGE
 `
 
 console.log(record)
-const out = new URL(`docs/evidence/release-${version}.md`, root)
+const out = new URL(`docs/evidence/release-${version}.md`, repo)
 mkdirSync(new URL('.', out), { recursive: true })
 writeFileSync(out, record)
 console.error(`wrote docs/evidence/release-${version}.md`)

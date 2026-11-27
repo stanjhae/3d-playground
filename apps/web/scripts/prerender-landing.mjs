@@ -31,7 +31,7 @@ await build({
 })
 
 const landing = await import(pathToFileURL(fileURLToPath(new URL('landing.mjs', outDir))).href)
-const env = { ...process.env, ...loadEnv(mode, root, 'VITE_') }
+const env = { ...process.env, ...loadEnv(mode, fileURLToPath(new URL('../../../', import.meta.url)), 'VITE_') }
 const origin = landing.siteOrigin({ env })
 const indexable = landing.siteIndexable({ env })
 

@@ -10,7 +10,7 @@ runs:
     - name: Playwright version
       id: version
       shell: bash
-      run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      run: echo "version=$(pnpm --filter @flv/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
     - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       id: cache
       with:
@@ -20,7 +20,7 @@ runs:
     # The browser itself comes from Playwright's own download server (cached).
     - if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
-      run: pnpm exec playwright install ${{ inputs.browser }}
+      run: pnpm --filter @flv/web exec playwright install ${{ inputs.browser }}
     # Its system packages come from Ubuntu's apt servers, which can be
     # unreachable for hours (19 Nov: the Azure mirror and archive.ubuntu.com
     # both down), failing every browser job before a test ran. Retry, then
@@ -30,7 +30,7 @@ runs:
     - shell: bash
       run: |
         for attempt in 1 2 3; do
-          if pnpm exec playwright install-deps ${{ inputs.browser }}; then
+          if pnpm --filter @flv/web exec playwright install-deps ${{ inputs.browser }}; then
             exit 0
           fi
           echo "::warning::Installing ${{ inputs.browser }} system packages failed (attempt $attempt of 3); retrying in 30 s."

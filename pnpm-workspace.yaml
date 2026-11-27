@@ -1,4 +1,9 @@
-# Settings only (one package). Audit exceptions: docs/release.md, release checklist.
+# The web app (apps/web), the internal admin (apps/admin) and shared code
+# (packages/*). Supabase migrations, docs and CI stay at the root.
+packages:
+  - apps/*
+  - packages/*
+
 auditConfig:
   ignoreGhsas:
     # picomatch ReDoS (17 Nov 2026), no patched release yet. Build tooling only

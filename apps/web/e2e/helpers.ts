@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 
 import { type BrowserContext, type Locator, type Page, expect } from '@playwright/test'
@@ -10,7 +11,7 @@ import { currentTemplateFor } from '../src/lib/template-manifest.ts'
 
 /** Shared steps for the journey suites (Q04 #189). */
 
-const fileEnv = loadEnv('development', process.cwd(), ['SUPABASE_', 'MAILPIT_'])
+const fileEnv = loadEnv('development', fileURLToPath(new URL('../../..', import.meta.url)), ['SUPABASE_', 'MAILPIT_'])
 const env = { ...fileEnv, ...process.env }
 const MAILPIT = env.MAILPIT_URL ?? 'http://127.0.0.1:54324'
 

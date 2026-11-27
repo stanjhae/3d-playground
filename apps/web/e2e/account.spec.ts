@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 // The plain Playwright `test`, not ./fixtures: these tests meet the terms
 // gate themselves instead of having it accepted for them.
 import { type Page, expect, test } from '@playwright/test'
@@ -22,7 +23,7 @@ import {
 
 // These tests read and write accounts directly, so they need the secret key
 // of the stack the app uses (local, or a test environment).
-const fileEnv = loadEnv('development', process.cwd(), ['SUPABASE_'])
+const fileEnv = loadEnv('development', fileURLToPath(new URL('../../..', import.meta.url)), ['SUPABASE_'])
 const env = { ...fileEnv, ...process.env }
 test.skip(!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY, 'needs SUPABASE_URL and SUPABASE_SECRET_KEY')
 
