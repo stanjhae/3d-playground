@@ -162,12 +162,15 @@ test('ink drawn on a panel appears on the 3D garment straight away, on the side 
   test.setTimeout(180_000)
   await openDesign({ page, label: 'ink3d' })
   const blank = await sceneShot({ page })
-  expect((await statsOf({ page, picture: blank })).oxblood).toBe(0)
+  // The side being drawn on is outlined on the garment in the accent red; in
+  // its shade a few of those pixels read as oxblood. Ink is many more.
+  const blankOxblood = (await statsOf({ page, picture: blank })).oxblood
+  expect(blankOxblood).toBeLessThan(30)
 
   await chooseInk({ page, name: 'Oxblood' })
   await drawStroke({ page, panel: 'Front' })
   // Still on the Design step: no reload, no save needed.
-  await expect.poll(async () => (await statsOf({ page, picture: await sceneShot({ page }) })).oxblood, { timeout: 20_000 }).toBeGreaterThan(30)
+  await expect.poll(async () => (await statsOf({ page, picture: await sceneShot({ page }) })).oxblood, { timeout: 20_000 }).toBeGreaterThan(blankOxblood + 30)
 
   await chooseInk({ page, name: 'Meadow' })
   await drawStroke({ page, panel: 'Back' })

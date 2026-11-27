@@ -358,11 +358,12 @@ export function studioEnvAppearance({
   }
 
   return {
-    // A pale, warm grey sweep. It was pure white, which a white garment
+    // A pale neutral grey sweep. It was pure white, which a white garment
     // matched once Neutral tone mapping drew white cloth as white (the
     // trousers' edges vanished); the light grey keeps an edge on every cloth.
-    background: '#efeeeb',
-    backgroundLow: '#e0ded9',
+    // Neutral, not warm, so it never reads as a cream cloth.
+    background: '#efefef',
+    backgroundLow: '#e1e1e0',
     environmentIntensity: 0.68,
     // With Neutral tone mapping (StudioRenderer) the lit cloth meets its swatch here.
     exposure: 0.8,
