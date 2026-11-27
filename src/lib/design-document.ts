@@ -1,4 +1,4 @@
-import { MOTIF_IDS } from './base-motifs'
+import { MOTIF_IDS } from './base-motifs.ts'
 import type { GarmentShape } from './garment-shape-params.ts'
 import type { CanonicalPattern } from './pattern/pattern-document.ts'
 import {
