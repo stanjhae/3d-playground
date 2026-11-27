@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 
-import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { cn } from '../../lib/cn'
 import {
   getAvatarById,
@@ -194,13 +193,13 @@ export function AvatarRail() {
         })}
       </div>
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className={chromeKickerClass()}>Environment</p>
-          <ConceptPreviewBadge />
-        </div>
+        {/* It lights the stage and is the backdrop of the published pictures,
+            so it is a real setting, not a concept preview (UX review 26 Nov). */}
+        <p className={chromeKickerClass()}>Environment</p>
+        <p className={chromeMutedClass()}>The light and backdrop of your published pictures.</p>
         <RadioGroup
           className="flex flex-wrap gap-2"
-          aria-label="Environment preview"
+          aria-label="Environment"
         >
           {ENV_OPTIONS.map((entry) => (
             <button

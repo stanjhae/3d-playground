@@ -1,7 +1,6 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { ConceptPreviewBadge } from '../ui/ConceptPreviewBadge'
 import { trackAssumption } from '../../lib/assumption-events'
 import { useSessionStore } from '../../lib/auth/session-store'
 import { useCloudSaveStore } from './CloudSave'
@@ -24,10 +23,9 @@ import {
   useEditorStore,
   type AngleCameraPreset,
 } from '../../lib/editor-store'
-import { getFabricById } from '../../lib/fabrics'
+import { isCanonicalGarment } from '../../lib/concept-flags'
 import { FLV_COPY } from '../../lib/flv-copy'
 import { HOUSE_COPY } from '../../lib/house-copy'
-import { CANNED_STILLS } from '../../lib/landing-demo'
 import { decodeDocumentImages } from '../../lib/layer-images'
 import { resolveDraftTitle } from '../../lib/look-title'
 import { bakePublishedArt } from '../../lib/paint-atlas'
@@ -37,6 +35,7 @@ import {
   chromeTextClass,
 } from '../../lib/studio-chrome'
 import { trimAngleStillsForLook } from '../../lib/look-payload'
+import { publishTitleLead, suggestedPublishTags } from '../../lib/publish-suggestions'
 import { RadioGroup } from '../ui/RadioGroup'
 
 let studioCanvas: HTMLCanvasElement | null = null
@@ -68,17 +67,6 @@ const VISIBILITY_OPTIONS: {
   { id: 'private', label: FLV_COPY.visibilityPrivate },
   { id: 'unlisted', label: FLV_COPY.visibilityUnlisted },
 ]
-
-const ATTACHMENT_OPTIONS = [
-  { id: 'garment', label: FLV_COPY.attachGarment },
-  { id: 'avatar', label: FLV_COPY.attachAvatar },
-  { id: 'shoot', label: FLV_COPY.attachShoot },
-  { id: 'video', label: FLV_COPY.attachVideo },
-] as const
-
-type AttachmentId = (typeof ATTACHMENT_OPTIONS)[number]['id']
-
-const SUGGESTED_TAGS = ['night', 'ivory', 'mark', 'house', 'soft', 'bold']
 
 export function PublishThumbnailSync() {
   const gl = useThree((state) => state.gl)
@@ -128,7 +116,19 @@ export function PublishBar({
     (state) => state.setCapturingAngles,
   )
   const lookSerial = useEditorStore((state) => state.lookSerial)
-  const fabricName = getFabricById({ id: fabricId ?? '' })?.name ?? 'Look'
+  const baseFabricId = useEditorStore((state) => state.baseFabricId)
+  // The name and tags come from the design (UX review 26 Nov, item 2). A
+  // canonical garment's cloth is the document's base fabric.
+  const publishFacts = {
+    garmentId,
+    fabricId: isCanonicalGarment({ garmentId }) ? baseFabricId : fabricId,
+    bodyColor: overrides.find((entry) => entry.meshName === 'body')?.color,
+    layers: designDocument.layers,
+  }
+  const titleLead = publishTitleLead({ facts: publishFacts })
+  const suggestedTags = [
+    ...new Set([...suggestedPublishTags({ facts: publishFacts }), ...publishTags]),
+  ]
   const [titleTouched, setTitleTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
@@ -137,10 +137,6 @@ export function PublishBar({
   const [tagDraft, setTagDraft] = useState('')
   const [description, setDescription] = useState('')
   const [visibility, setVisibility] = useState<VisibilityOption>('public')
-  const [attachments, setAttachments] = useState<AttachmentId[]>([
-    'garment',
-    'avatar',
-  ])
   const submittingRef = useRef(false)
   const busy = publishing || submitting
   const challenges = listChallenges()
@@ -148,7 +144,7 @@ export function PublishBar({
     resolveDraftTitle({
       title,
       storeTitle,
-      fabricName,
+      fabricName: titleLead,
       serial: lookSerial,
     }),
   )
@@ -165,11 +161,11 @@ export function PublishBar({
       resolveDraftTitle({
         title,
         storeTitle,
-        fabricName,
+        fabricName: titleLead,
         serial: lookSerial,
       }),
     )
-  }, [fabricName, lookSerial, storeTitle, title, titleTouched])
+  }, [titleLead, lookSerial, storeTitle, title, titleTouched])
 
   useEffect(() => {
     let cancelled = false
@@ -224,7 +220,7 @@ export function PublishBar({
         const resolvedTitle =
           draftTitle.trim() ||
           resolveDraftTitle({
-            fabricName,
+            fabricName: titleLead,
             serial: lookSerial,
           })
 
@@ -312,9 +308,6 @@ export function PublishBar({
                           }
                         : {}),
                       ...(visibility !== 'public' ? { visibility } : {}),
-                      ...(attachments.length > 0
-                        ? { attachments: [...attachments] }
-                        : {}),
                     },
                   }),
                 ).then(() => {
@@ -415,7 +408,7 @@ export function PublishBar({
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.tags}</p>
         <div className="flex flex-wrap gap-2">
-          {SUGGESTED_TAGS.map((tag) => {
+          {suggestedTags.map((tag) => {
             const active = publishTags.includes(tag)
 
             return (
@@ -536,51 +529,6 @@ export function PublishBar({
             </button>
           ))}
         </RadioGroup>
-      </div>
-      <div className="flex w-full flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className={chromeKickerClass()}>Attachments</p>
-          <ConceptPreviewBadge />
-        </div>
-        <div className="flex flex-col gap-2">
-          {ATTACHMENT_OPTIONS.map((option) => {
-            const checked = attachments.includes(option.id)
-
-            return (
-              <label
-                key={option.id}
-                className="flex min-h-9 items-center gap-2"
-              >
-                <input
-                  type="checkbox"
-                  disabled={busy}
-                  checked={checked}
-                  onChange={() => {
-                    setAttachments((current) =>
-                      checked
-                        ? current.filter((entry) => entry !== option.id)
-                        : [...current, option.id],
-                    )
-                  }}
-                  className="accent-[var(--color-flv-accent)]"
-                />
-                <span className={chromeTextClass()}>{option.label}</span>
-              </label>
-            )
-          })}
-        </div>
-        {attachments.includes('shoot') || attachments.includes('video') ? (
-          <div className="grid grid-cols-4 gap-2">
-            {CANNED_STILLS.slice(0, 4).map((src) => (
-              <img
-                key={src}
-                src={src}
-                alt=""
-                className="aspect-square rounded-lg border border-flv-line object-cover"
-              />
-            ))}
-          </div>
-        ) : null}
       </div>
       <div className="flex w-full flex-col gap-2">
         <p className={chromeKickerClass()}>{HOUSE_COPY.challenge}</p>
