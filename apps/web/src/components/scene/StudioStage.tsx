@@ -26,6 +26,8 @@ import { prefersReducedMotion } from '../../lib/prefers-reduced-motion'
 import {
   CAMERA_PRESET_POSITIONS,
   captureFov,
+  COMPACT_STAGE_WIDTH,
+  compactLiveSeat,
   HAND_TURN_PX,
   liveSeat,
   modelSeat,
@@ -284,6 +286,7 @@ export function StudioCamera({
 }) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const aspect = useThree((state) => state.size.width / state.size.height)
+  const stageWidth = useThree((state) => state.size.width)
   const invalidate = useThree((state) => state.invalidate)
   const cameraPreset = useEditorStore((state) => state.cameraPreset)
   const capturingAngles = useEditorStore((state) => state.capturingAngles)
@@ -300,13 +303,23 @@ export function StudioCamera({
     () => (modelFrame ? modelSeat({ preset: seatPreset, frame: modelFrame, live: !capturingAngles }) : null),
     [capturingAngles, modelFrame, seatPreset],
   )
-  const presetSeat = fitted
+  // The sleeve views aim at their sleeve; every other preset at the garment.
+  const presetAim = fitted ? fitted.target : presetTarget({ preset: seatPreset })
+  const baseSeat = fitted
     ? fitted.seat
     : capturingAngles
       ? stillSeat({ preset: seatPreset, framing })
       : liveSeat({ preset: seatPreset, framing })
-  // The sleeve views aim at their sleeve; every other preset at the garment.
-  const presetAim = fitted ? fitted.target : presetTarget({ preset: seatPreset })
+  // A phone's live stage comes closer; stills keep their own framing.
+  const presetSeat = useMemo(
+    () =>
+      capturingAngles
+        ? baseSeat
+        : compactLiveSeat({ seat: baseSeat, aim: presetAim, preset: seatPreset, stageWidth }),
+    // The seat and aim are new arrays each render; their values are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [capturingAngles, seatPreset, stageWidth, ...baseSeat, ...presetAim],
+  )
 
   const controls = useThree((state) => state.controls) as
     | { target: Vector3; enabled: boolean }
@@ -620,6 +633,9 @@ export function StudioOrbit({
   const controlsRef = useRef<{ enabled: boolean } | null>(null)
   // A held view doesn't disable the orbit: a drag lets go of it (`onTurn`).
   const orbitEnabled = enabled && !painting && !draggingLayer && !capturingAngles
+  // A phone's stage seats the camera closer (`compactLiveSeat`): the orbit's
+  // nearest distance must let it, or it pulls the tee back out.
+  const compactStage = useThree((state) => state.size.width < COMPACT_STAGE_WIDTH)
 
   // Ink or a dragged graphic holds the cloth: stand the orbit down in the
   // same pointer event, and give it back only when the press lets go.
@@ -667,7 +683,7 @@ export function StudioOrbit({
         enableZoom={zoom}
         maxDistance={6.5}
         maxPolarAngle={Math.PI / 2.05}
-        minDistance={1.7}
+        minDistance={compactStage ? 1.2 : 1.7}
         minPolarAngle={Math.PI / 4}
         onStart={() => {
           setSpinning(false)

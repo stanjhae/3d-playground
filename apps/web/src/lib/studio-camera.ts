@@ -188,3 +188,38 @@ export function captureFov({ aspect }: { aspect: number }) {
  * the camera is still gliding to a side doesn't stop it halfway.
  */
 export const HAND_TURN_PX = 6
+
+/** Below this canvas width, in CSS pixels, the live stage is a phone's. */
+export const COMPACT_STAGE_WIDTH = 640
+
+/**
+ * How close the live camera sits on a phone's stage, as a share of its usual
+ * distance (UX review 26 Nov, item 5: the tee filled about half a phone's
+ * stage). The whole-garment views come closer; the sleeve views already
+ * frame their sleeve, and published stills (`capturingAngles`) keep their
+ * own framing. At this fit the tee still clears a still's 12% margin.
+ */
+export const COMPACT_LIVE_FIT = 0.78
+
+/** The live seat for a stage of `stageWidth` CSS pixels. */
+export function compactLiveSeat({
+  seat,
+  aim,
+  preset,
+  stageWidth,
+}: {
+  seat: Vec3
+  aim: Vec3
+  preset: CameraPresetName
+  stageWidth: number
+}): readonly [number, number, number] {
+  if (stageWidth >= COMPACT_STAGE_WIDTH || SLEEVE_TARGETS[preset]) {
+    return seat as readonly [number, number, number]
+  }
+
+  return [
+    aim[0] + (seat[0] - aim[0]) * COMPACT_LIVE_FIT,
+    aim[1] + (seat[1] - aim[1]) * COMPACT_LIVE_FIT,
+    aim[2] + (seat[2] - aim[2]) * COMPACT_LIVE_FIT,
+  ]
+}
