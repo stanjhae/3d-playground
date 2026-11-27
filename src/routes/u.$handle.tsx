@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { buttonClass } from '../components/ui/Button'
 import { FollowButton } from '../components/vote/FollowButton'
 import { COMMUNITY } from '../lib/community'
 import { getPublicProfile } from '../lib/flp-api/public-read'
@@ -65,13 +66,13 @@ function ProfilePage() {
             ? 'The link may be wrong, or the designer has made their profile private.'
             : 'The problem is on our side. Try again in a moment.'}
         </p>
-        <div className="mt-6 flex flex-wrap gap-3 font-body text-sm">
+        <div className="mt-6 flex flex-wrap gap-3">
           {state.status === 'failed' ? (
-            <button type="button" className="underline" onClick={() => setAttempt((count) => count + 1)}>
+            <button type="button" className={buttonClass({ variant: 'secondary' })} onClick={() => setAttempt((count) => count + 1)}>
               Try again
             </button>
           ) : null}
-          <Link to="/ranking" className="underline">
+          <Link to="/ranking" className={buttonClass({ variant: 'secondary' })}>
             See the rankings
           </Link>
         </div>

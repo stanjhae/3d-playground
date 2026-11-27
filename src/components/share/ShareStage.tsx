@@ -7,6 +7,7 @@ import {
   type Share3dMode,
   type ShareViewPreset,
 } from '../../lib/share-3d'
+import { buttonClass, chipClass } from '../ui/Button'
 
 /**
  * The share page's big view: the front still as the poster, then, once the
@@ -23,9 +24,6 @@ export const SHARE_STAGE_CLASS =
   'relative aspect-[4/5] w-full overflow-hidden border border-flv-line bg-flv-paper sm:aspect-[16/9]'
 
 type StageState = 'poster' | 'ask' | 'loading' | 'ready' | 'failed'
-
-const viewButtonClass =
-  'inline-flex min-h-11 items-center justify-center border px-3 font-body text-xs tracking-[0.08em] uppercase aria-pressed:border-flv-ink aria-pressed:text-flv-ink'
 
 export function ShareStage({ slug, seq, poster }: { slug: string; seq: number; poster: string }) {
   const [mode, setMode] = useState<Share3dMode | null>(null)
@@ -90,7 +88,7 @@ export function ShareStage({ slug, seq, poster }: { slug: string; seq: number; p
           <div className="absolute inset-x-0 bottom-4 flex justify-center">
             <button
               type="button"
-              className="inline-flex min-h-11 items-center justify-center border border-flv-ink bg-flv-paper px-5 font-body text-xs tracking-[0.1em] uppercase hover:border-flv-accent hover:text-flv-accent"
+              className={buttonClass({ variant: 'secondary' })}
               onClick={() => setStage('loading')}
             >
               Turn in 3D
@@ -110,7 +108,8 @@ export function ShareStage({ slug, seq, poster }: { slug: string; seq: number; p
                 key={view.preset}
                 type="button"
                 aria-pressed={preset === view.preset}
-                className={`${viewButtonClass} ${preset === view.preset ? '' : 'border-flv-line text-flv-muted hover:border-flv-accent hover:text-flv-accent'}`}
+                // House chips (#436): a pick from a small set, chosen in ink.
+                className={chipClass({ selected: preset === view.preset })}
                 onClick={() => {
                   setPreset(view.preset)
                   setTurn((count) => count + 1)

@@ -5,6 +5,7 @@ import { useSessionStore } from '../../lib/auth/session-store'
 import type { ComparisonPair } from '../../lib/flp-api/publication'
 import { chooseComparison, getComparison } from '../../lib/flp-api/votes'
 import { getGarment } from '../../lib/garments'
+import { buttonClass } from '../ui/Button'
 
 /**
  * Two designs, the ones this account has seen least. Choosing one records
@@ -101,7 +102,7 @@ export function ComparePair() {
               type="button"
               disabled={busy}
               onClick={() => void choose({ slug: design.slug })}
-              className="inline-flex min-h-11 items-center justify-center border border-flv-accent px-4 font-body text-xs tracking-[0.1em] text-flv-accent uppercase disabled:opacity-50"
+              className={buttonClass()}
             >
               This one
             </button>

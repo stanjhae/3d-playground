@@ -74,7 +74,7 @@ export function LookCard({
             {design.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-full border border-flv-line px-2 py-1 font-body text-xs tracking-[0.08em] text-flv-muted uppercase"
+                className="rounded-full border border-flv-line px-2 py-1 font-body text-xs text-flv-muted"
               >
                 {tag}
               </span>
@@ -86,7 +86,7 @@ export function LookCard({
             {design.attachments.map((attachment) => (
               <span
                 key={attachment}
-                className="rounded-full border border-flv-accent/40 bg-flv-soft px-2 py-1 font-body text-xs tracking-[0.08em] text-flv-accent uppercase"
+                className="rounded-full border border-flv-accent/40 bg-flv-soft px-2 py-1 font-body text-xs text-flv-accent"
               >
                 {ATTACHMENT_LABELS[attachment]}
               </span>

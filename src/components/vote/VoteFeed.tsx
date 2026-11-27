@@ -12,6 +12,7 @@ import { HowVotesCount } from './HowVotesCount'
 import { VoteButton } from '../share/VoteButton'
 import { VoteTally } from '../share/VoteTally'
 import { GownCredit } from '../editor/GownCredit'
+import { buttonClass, chipClass } from '../ui/Button'
 
 type Feed =
   | { state: 'loading' }
@@ -154,7 +155,7 @@ export function VoteFeed() {
           <Link
             to="/sign-in"
             search={{ returnTo: '/vote' }}
-            className="inline-flex min-h-11 w-fit items-center border border-flv-line px-4 font-body text-xs tracking-[0.1em] uppercase hover:border-flv-accent hover:text-flv-accent"
+            className={cn(buttonClass(), 'w-fit')}
           >
             Sign in to vote
           </Link>
@@ -171,10 +172,7 @@ export function VoteFeed() {
               type="button"
               aria-pressed={garmentId === id}
               onClick={() => setGarmentId(id)}
-              className={cn('min-h-9 rounded-full border px-3 font-body text-xs tracking-[0.08em] uppercase', {
-                'border-flv-accent text-flv-accent': garmentId === id,
-                'border-flv-line text-flv-muted hover:text-flv-accent': garmentId !== id,
-              })}
+              className={chipClass({ selected: garmentId === id })}
             >
               {id ? getGarment({ garmentId: id }).label : 'All garments'}
             </button>
@@ -257,7 +255,7 @@ export function VoteFeed() {
             type="button"
             disabled={feed.more === 'loading'}
             onClick={() => void loadMore()}
-            className="inline-flex min-h-11 items-center border border-flv-ink px-5 font-body text-xs tracking-[0.1em] uppercase hover:bg-flv-soft disabled:opacity-60"
+            className={buttonClass({ variant: 'secondary' })}
           >
             {feed.more === 'loading' ? 'Loading…' : 'Load more'}
           </button>
