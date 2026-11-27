@@ -4,6 +4,11 @@ packages:
   - apps/*
   - packages/*
 
+# Install scripts that are deliberately not run. core-js (from posthog-js,
+# docs/analytics.md) only prints a funding banner on install.
+allowBuilds:
+  core-js: false
+
 auditConfig:
   ignoreGhsas:
     # picomatch ReDoS (17 Nov 2026), no patched release yet. Build tooling only

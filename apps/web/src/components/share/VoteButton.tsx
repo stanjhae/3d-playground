@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
+import { track } from '../../lib/assumption-events'
 import { useSessionStore } from '../../lib/auth/session-store'
 import { acceptTerms } from '../../lib/flp-api/client'
 import type { VoteState } from '../../lib/flp-api/contract'
@@ -83,6 +84,7 @@ export function VoteButton({ slug, initial, explain = false }: { slug: string; i
 
     if (result.ok) {
       setVote(result.data)
+      void track({ name: before.voted ? 'vote_retracted' : 'vote_cast' })
     } else if (result.code === 'terms_required') {
       setVote(before)
       setNeedsTerms(true)

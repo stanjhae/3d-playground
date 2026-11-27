@@ -40,6 +40,7 @@
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-router": "^1.170.46",
     "lucide-react": "^1.68.0",
+    "posthog-js": "^1.455.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.185.1",

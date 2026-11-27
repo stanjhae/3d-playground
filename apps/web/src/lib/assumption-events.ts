@@ -1,3 +1,5 @@
+import { type AnalyticsProperties, capture } from './analytics.ts'
+
 export const ASSUMPTION_EVENTS = [
   'viewed_demo',
   'voted',
@@ -116,12 +118,29 @@ async function postEvent(body: { name: string; bucket?: TimingBucket | VitalRati
   }
 }
 
+/**
+ * The one way an event leaves the browser (docs/analytics.md). Every event
+ * goes to product analytics (a no-op without `VITE_POSTHOG_KEY`); the
+ * assumption counts (`/api/events`, KV `flv:assumptions`) also get the
+ * ones they know, by name only, exactly as before. Properties are
+ * filtered to known names and id-like values in `analytics.ts`.
+ */
+export async function track({ name, properties }: { name: string; properties?: AnalyticsProperties }) {
+  capture({ name, properties })
+
+  const counted = parseAssumptionEvent({ value: name })
+
+  if (counted) {
+    await postEvent({ name: counted })
+  }
+}
+
 export async function trackAssumption({
   name,
 }: {
   name: AssumptionEvent
 }) {
-  await postEvent({ name })
+  await track({ name })
 }
 
 const sentOnce = new Set<string>()
@@ -184,7 +203,9 @@ export function trackTiming({ name, ms }: { name: TimingEvent; ms: number }) {
     return
   }
 
-  void postEvent({ name, bucket: timingBucket({ ms }) })
+  const bucket = timingBucket({ ms })
+  capture({ name: `timing_${name}`, properties: { bucket } })
+  void postEvent({ name, bucket })
 }
 
 const vitalsSent = new Set<VitalEvent>()
@@ -196,5 +217,6 @@ export function trackVital({ name, rating }: { name: VitalEvent; rating: VitalRa
   }
 
   vitalsSent.add(name)
+  capture({ name: `vital_${name}`, properties: { rating } })
   void postEvent({ name, bucket: rating }, { keepalive: true })
 }

@@ -14,7 +14,11 @@ import { createRoot } from 'react-dom/client'
 
 import { RouteError, RouteNotFound } from './components/ui/RouteFallbacks'
 import { RoutePending } from './components/ui/RoutePending'
+import { analyticsConfig, prefersNoTracking, startAnalytics } from './lib/analytics'
+import { track } from './lib/assumption-events'
+import { useEditorStore } from './lib/editor-store'
 import { createErrorReporter, installWindowHandlers, sendToTunnel } from './lib/error-reporter'
+import { installStudioAnalytics, watchErrorMessages } from './lib/studio-analytics'
 import { startWebVitals } from './lib/web-vitals'
 import { routeTree } from './routeTree.gen'
 import './styles.css'
@@ -41,6 +45,16 @@ installWindowHandlers({ target: window, report })
 // Web Vitals ratings (P4, docs/operations.md), also production only.
 if (import.meta.env.PROD) {
   void startWebVitals()
+}
+
+// Product analytics (docs/analytics.md): anonymous and cookieless, and
+// only when VITE_POSTHOG_KEY is set and the browser doesn't ask not to be
+// tracked. Without it, nothing loads and every event is counts only.
+if (analyticsConfig({ env: import.meta.env }) && !prefersNoTracking()) {
+  void startAnalytics({ env: import.meta.env })
+  const send = (event: Parameters<typeof track>[0]) => void track(event)
+  installStudioAnalytics({ store: useEditorStore as unknown as Parameters<typeof installStudioAnalytics>[0]['store'], track: send })
+  watchErrorMessages({ track: send })
 }
 
 /** Router control flow (a redirect or a not-found) is thrown, but isn't a fault. */

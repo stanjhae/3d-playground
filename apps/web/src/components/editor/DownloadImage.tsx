@@ -1,6 +1,7 @@
 import { Download } from 'lucide-react'
 import { create } from 'zustand'
 
+import { track } from '../../lib/assumption-events'
 import { isLiveStudioCanvas } from '../../lib/capture-still'
 import { cn } from '../../lib/cn'
 import {
@@ -47,6 +48,7 @@ export async function downloadDesignImage() {
   }
 
   useDownloadImage.setState({ busy: true, failed: false })
+  void track({ name: 'image_downloaded', properties: { kind: store.withSides ? 'sheet' : 'view' } })
 
   try {
     const view = studioViewCanvas({ canvas: getStudioCanvas() })

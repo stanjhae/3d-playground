@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { askForEdits, prepareSketch } from '../../lib/ai-assist'
+import { track } from '../../lib/assumption-events'
 import { cn } from '../../lib/cn'
 import { getCanonicalDocument } from '../../lib/editor-store'
 import { applyPatternOps } from '../../lib/pattern/pattern-ops'
@@ -37,7 +38,10 @@ export default function AiAssist({
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true)
+          void track({ name: 'ai_assist_opened' })
+        }}
         className={cn('min-h-11 border border-flv-line px-3 text-flv-ink hover:text-flv-accent', chromeTextClass())}
       >
         AI suggestion (beta)
@@ -74,6 +78,7 @@ export default function AiAssist({
             <button
               type="button"
               onClick={() => {
+                void track({ name: 'ai_assist_applied' })
                 onApply(suggestion.pattern, 'Applied the AI suggestion')
                 setSuggestion(null)
                 setOpen(false)
@@ -82,7 +87,13 @@ export default function AiAssist({
             >
               Apply
             </button>
-            <button type="button" onClick={reset} className={cn('min-h-11 border border-flv-line px-3', chromeTextClass())}>
+            <button
+              type="button"
+              onClick={() => {
+                void track({ name: 'ai_assist_discarded' })
+                reset()
+              }}
+              className={cn('min-h-11 border border-flv-line px-3', chromeTextClass())}>
               Discard
             </button>
           </div>
@@ -95,31 +106,38 @@ export default function AiAssist({
             onClick={async () => {
               setBusy(true)
               setMessage(null)
+              void track({ name: 'ai_assist_requested', properties: { sketch: Boolean(sketch), words: Boolean(prompt.trim()) } })
+              const result = (value: string) => void track({ name: 'ai_assist_result', properties: { result: value } })
 
               try {
                 const image = sketch ? await prepareSketch(sketch) : null
                 const answer = await askForEdits({ template: getCanonicalDocument().template, prompt: prompt.trim(), image })
 
                 if (!answer.ok) {
+                  result('failed')
                   setMessage(answer.message)
                   return
                 }
 
                 if (answer.data.ops.length === 0) {
+                  result('no_changes')
                   setMessage(answer.data.notes || 'No changes suggested. Try a clearer sketch or more words.')
                   return
                 }
 
-                const result = applyPatternOps({ pattern, ops: answer.data.ops })
+                const applied = applyPatternOps({ pattern, ops: answer.data.ops })
 
-                if (!result.ok) {
+                if (!applied.ok) {
+                  result('unsewable')
                   setMessage('The suggestion couldn’t be sewn on this pattern. Try again, or edit by hand.')
                   return
                 }
 
-                setSuggestion({ pattern: result.pattern, notes: answer.data.notes })
-                onPreview(result.pattern)
+                result('suggested')
+                setSuggestion({ pattern: applied.pattern, notes: answer.data.notes })
+                onPreview(applied.pattern)
               } catch {
+                result('unreadable')
                 setMessage('That sketch couldn’t be read. Try a PNG or JPEG.')
               } finally {
                 setBusy(false)
@@ -132,6 +150,7 @@ export default function AiAssist({
           <button
             type="button"
             onClick={() => {
+              void track({ name: suggestion ? 'ai_assist_discarded' : 'ai_assist_closed' })
               reset()
               setOpen(false)
             }}

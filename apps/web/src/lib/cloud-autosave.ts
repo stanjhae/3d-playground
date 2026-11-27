@@ -16,7 +16,7 @@ import {
   type SaveState,
   createSaveController,
 } from './save-controller.ts'
-import { trackAssumptionOnce, trackTiming } from './assumption-events.ts'
+import { track, trackAssumptionOnce, trackTiming } from './assumption-events.ts'
 
 /**
  * Binds the editor store to a save controller for one open cloud design
@@ -50,6 +50,8 @@ export function startCloudAutosave({
 
       if (result.ok) {
         trackTiming({ name: 'save_ack', ms: performance.now() - sentAt })
+      } else {
+        void track({ name: 'save_failed' })
       }
 
       return result

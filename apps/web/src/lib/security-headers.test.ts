@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import vercelConfig from '../../vercel.json' with { type: 'json' }
 import {
+  POSTHOG_SOURCES,
   DEPLOYED_SUPABASE_SOURCE,
   contentSecurityPolicy,
   securityHeaders,
@@ -45,14 +46,16 @@ describe('contentSecurityPolicy', () => {
     }
   })
 
-  test('Supabase is the only remote source, and only for calls and images', () => {
+  test('Supabase and PostHog are the only remote sources, and only for calls and images', () => {
     const remote = Object.entries(deployed).filter(([, sources]) => sources.some((source) => source.includes('://')))
     expect(remote.map(([name]) => name).sort()).toEqual(['connect-src', 'img-src'])
     expect(deployed['connect-src']).toContain(DEPLOYED_SUPABASE_SOURCE)
+    expect(deployed['img-src']).toEqual(["'self'", 'data:', 'blob:', DEPLOYED_SUPABASE_SOURCE])
   })
 
-  test('sends error reports only to this site (O1, docs/alerts.md)', () => {
-    expect(deployed['connect-src']).toEqual(["'self'", 'blob:', DEPLOYED_SUPABASE_SOURCE])
+  test('sends error reports only to this site (O1, docs/alerts.md), analytics only to PostHog EU', () => {
+    expect(deployed['connect-src']).toEqual(["'self'", 'blob:', DEPLOYED_SUPABASE_SOURCE, ...POSTHOG_SOURCES])
+    expect(POSTHOG_SOURCES.every((source) => source.endsWith('.eu.i.posthog.com') || source.startsWith('https://eu'))).toBe(true)
   })
 
   test('the dev nonce only adds to script and style', () => {
@@ -69,6 +72,7 @@ describe('supabaseMetaPolicy', () => {
     const meta = directives({ policy: supabaseMetaPolicy({ supabase: 'https://abc.supabase.co' }) })
     expect(meta['connect-src']).toContain('https://abc.supabase.co')
     expect(meta['img-src']).toContain('https://abc.supabase.co')
+    expect(meta['connect-src']).toEqual(expect.arrayContaining([...POSTHOG_SOURCES]))
     expect(JSON.stringify(meta)).not.toContain('*')
   })
 })

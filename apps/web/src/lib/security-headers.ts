@@ -13,6 +13,14 @@
  */
 export const DEPLOYED_SUPABASE_SOURCE = 'https://*.supabase.co'
 
+/**
+ * PostHog EU cloud (product analytics, docs/analytics.md): events go to
+ * the ingest host, and the project's remote config (whether replay is on)
+ * comes from the assets host. The recorder is bundled, so no script host.
+ * Calls only: nothing is loaded from either as a script or image.
+ */
+export const POSTHOG_SOURCES = ['https://eu.i.posthog.com', 'https://eu-assets.i.posthog.com'] as const
+
 /** The origin of a configured Supabase URL, or null when unset or invalid. */
 export function supabaseOrigin({ url }: { url?: string | null }) {
   if (!url) {
@@ -47,7 +55,8 @@ export function contentSecurityPolicy({ supabase, devNonce }: { supabase: string
     // GLTFLoader fetches a model's embedded textures from blob: URLs.
     // Error reports go to this site's /api/errors, which forwards them
     // server-side (src/lib/error-tunnel.ts), so the tracker needs no host here.
-    ['connect-src', ["'self'", 'blob:', ...remote]],
+    // Product analytics goes to PostHog's EU hosts (POSTHOG_SOURCES).
+    ['connect-src', ["'self'", 'blob:', ...remote, ...POSTHOG_SOURCES]],
     // drei runs the Draco decoder in workers built from blob: URLs.
     ['worker-src', ["'self'", 'blob:']],
     ['object-src', ["'none'"]],
@@ -65,7 +74,7 @@ export function contentSecurityPolicy({ supabase, devNonce }: { supabase: string
  * configured project only.
  */
 export function supabaseMetaPolicy({ supabase }: { supabase: string }) {
-  return `img-src 'self' data: blob: ${supabase}; connect-src 'self' blob: ${supabase}`
+  return `img-src 'self' data: blob: ${supabase}; connect-src 'self' blob: ${supabase} ${POSTHOG_SOURCES.join(' ')}`
 }
 
 export function securityHeaders({ supabase, devNonce }: { supabase: string | null; devNonce?: string }) {

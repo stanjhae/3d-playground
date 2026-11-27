@@ -26,7 +26,7 @@ import { type SaveAudience, saveIndicator } from '../../lib/save-indicator'
 import { publicationStatusFor, usePublicationStatus } from '../../lib/publication-status'
 import { saveIndicatorClass } from '../../lib/studio-chrome'
 import { cn } from '../../lib/cn'
-import { trackAssumption } from '../../lib/assumption-events'
+import { track, trackAssumption } from '../../lib/assumption-events'
 
 /** Latest cloud save state for the open design; null outside cloud mode. */
 export const useCloudSaveStore = create<{
@@ -219,7 +219,10 @@ export function CloudSaveStatus() {
         className={cn('inline-flex min-h-9 shrink-0 items-center px-1.5 font-body text-xs text-flv-ink underline underline-offset-2 hover:text-flv-accent', { invisible: !indicator.canRetryNow })}
         tabIndex={indicator.canRetryNow ? undefined : -1}
         aria-hidden={indicator.canRetryNow ? undefined : true}
-        onClick={() => controller?.flush()}
+        onClick={() => {
+          void track({ name: 'save_retried' })
+          controller?.flush()
+        }}
       >
         Retry
       </button>
