@@ -73,7 +73,7 @@ import {
 import { TERMS_VERSION } from '../terms.ts'
 import { deleteAccountAndFiles } from './account-deletion.mjs'
 import { handlePatternMeshes } from './pattern-meshes.ts'
-import { AI_LIMITS, type AiEnv, aiEnv, parseAiRequest, sketchToOps } from './ai-sketch.ts'
+import { AI_LIMITS, type AiEnv, type AiUsage, aiEnv, parseAiRequest, sketchToOps } from './ai-sketch.ts'
 import { patternTemplateFor } from '../pattern/templates.ts'
 
 /**
@@ -1582,9 +1582,58 @@ async function handleReport({ request, env, slug }: { request: Request; env: Flp
 }
 
 /**
+ * Whether the assist may spend: refused (503) once this month's estimated
+ * spend reaches the budget, paused (429) for an account with too many
+ * refused requests in a day, and refused when either check can't answer,
+ * since each call costs money (`public.ai_usage`).
+ */
+async function aiSpendRefusal({ admin, userId, ai }: { admin: SupabaseClient; userId: string; ai: AiEnv }) {
+  const [spend, refusals] = await Promise.all([
+    admin.rpc('flp_ai_month_spend').abortSignal(AbortSignal.timeout(LIMIT_TIMEOUT_MS)),
+    admin.rpc('flp_ai_refusals_today', { p_owner_id: userId }).abortSignal(AbortSignal.timeout(LIMIT_TIMEOUT_MS)),
+  ])
+
+  if (spend.error || refusals.error) {
+    console.error('flp ai spend check failed', { code: spend.error?.code ?? refusals.error?.code })
+    return json({ status: 503, body: { error: { code: 'unavailable', message: 'The assist isn’t available right now. Try again later.' } } })
+  }
+
+  if (Number(spend.data) >= ai.monthlyBudgetMicros) {
+    return json({ status: 503, body: { error: { code: 'budget', message: 'The assist has reached its limit for this month. It’s back next month.' } } })
+  }
+
+  if (Number(refusals.data) >= ai.refusalLimit) {
+    return Response.json(
+      { error: { code: 'paused', message: 'The assist is paused for your account until tomorrow. Describe a garment to use it again then.' } },
+      { status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': '86400' } },
+    )
+  }
+
+  return null
+}
+
+/** Records what a call cost. A failure is logged, never shown: the answer already arrived. */
+async function recordAiUsage({ admin, userId, usage }: { admin: SupabaseClient; userId: string; usage: AiUsage }) {
+  const { error } = await admin.from('ai_usage').insert({
+    owner_id: userId,
+    model: usage.model,
+    input_tokens: usage.inputTokens,
+    output_tokens: usage.outputTokens,
+    cost_micros: usage.costMicros,
+    outcome: usage.outcome,
+  })
+
+  if (error) {
+    console.error('flp ai usage record failed', { code: error.code })
+  }
+}
+
+/**
  * POST /ai/sketch — the AI assist (`ai-sketch.ts`). Signed in, current
- * terms accepted, 5 a minute and the daily limit per account; refused when
- * the limiter can't answer, since each call costs money.
+ * terms accepted, under the month's budget and the account's refusal limit,
+ * 5 a minute and the daily limit per account; refused when the limiter
+ * can't answer, since each call costs money. Every call that reaches
+ * Claude is recorded in `public.ai_usage`.
  */
 async function handleAiSketch({
   request,
@@ -1605,6 +1654,12 @@ async function handleAiSketch({
 
   if (terms) {
     return terms
+  }
+
+  const spending = await aiSpendRefusal({ admin, userId, ai: env.ai })
+
+  if (spending) {
+    return spending
   }
 
   const daily = await rateLimited({ admin, userId, bucket: 'ai', env, name: 'ai-day', limit: env.ai.dailyLimit, windowSeconds: 86_400 })
@@ -1632,6 +1687,11 @@ async function handleAiSketch({
   }
 
   const result = await sketchToOps({ request: parsed.request, template, env: env.ai, fetchImpl: env.aiFetch })
+
+  if (result.usage) {
+    await recordAiUsage({ admin, userId, usage: result.usage })
+  }
+
   return result.ok
     ? json({ status: 200, body: result.body })
     : json({ status: result.status, body: { error: { code: result.code, message: result.message } } })

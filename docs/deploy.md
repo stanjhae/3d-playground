@@ -125,6 +125,8 @@ Set these per environment (Preview = staging, Production = production). **Never 
 | `ANTHROPIC_API_KEY` | Server only | The Anthropic API key for the AI suggestion. **Never** give it a `VITE_` prefix: the build would ship it to browsers. `build-secrets.test.ts` and `hosted:check` fail on an `sk-ant-` value in the bundle. |
 | `FLP_AI_MODEL` | Server | Optional. Default `claude-opus-5-5` (low effort, refusal fallbacks on). |
 | `FLP_AI_DAILY_LIMIT` | Server | Optional. Suggestions per account per day; default 30, plus 5 a minute. Each one costs a few cents. |
+| `FLP_AI_MONTHLY_BUDGET_USD` | Server | Optional. Estimated spend for all accounts together per calendar month (UTC), in dollars; default 25. At the limit the assist answers "back next month" until the 1st. `0` turns it off for the month. Each call's estimated cost is recorded in `public.ai_usage` (migration `20261128140000_flp_ai_usage.sql`). Also set a monthly spending limit in the Anthropic console: this cap is an estimate from list prices, the console's is the hard stop. |
+| `FLP_AI_REFUSAL_LIMIT` | Server | Optional. Requests Claude refuses, per account in 24 hours, before the assist pauses for that account until the next day; default 3. |
 | `VITE_FLP_CONTACT_EMAIL` | Browser | The alpha contact address, required: a Vercel build fails without it. It's shown on `/privacy` and in "Report this design". |
 | `SUPABASE_URL` | Server only | Same as `VITE_SUPABASE_URL` |
 | `SUPABASE_PUBLISHABLE_KEY` | Server only | Same publishable key |
