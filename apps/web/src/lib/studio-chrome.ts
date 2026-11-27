@@ -164,10 +164,15 @@ export function studioOverlayClass({ drawInFlow }: { drawInFlow: boolean }) {
 
 /**
  * Below lg, the stage between the header and the tools. Its floor keeps the
- * tee in view on short phones: the tools scroll in what is left.
+ * tee in view on short phones: the tools scroll in what is left. Preview &
+ * Publish scrolls as one column on a phone, so its stage can take more of
+ * the screen without squeezing anything (UX review 26 Nov, item 5: it was
+ * about 230 px tall).
  */
-export function studioPhoneStageClass() {
-  return 'relative min-h-48 flex-1 lg:hidden'
+export function studioPhoneStageClass({ singleScroll = false }: { singleScroll?: boolean } = {}) {
+  return singleScroll
+    ? 'relative min-h-[min(40dvh,24rem)] flex-1 lg:hidden'
+    : 'relative min-h-48 flex-1 lg:hidden'
 }
 
 export function studioPhoneDrawClass() {

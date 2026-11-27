@@ -101,6 +101,9 @@ describe('studio phone chrome', () => {
     expect(studioSceneClass()).toContain('lg:pb-0')
     expect(studioPhoneStageClass()).toContain('min-h-48')
     expect(studioPhoneStageClass()).toContain('lg:hidden')
+    // Preview & Publish's phone stage keeps a larger floor (UX review 26 Nov).
+    expect(studioPhoneStageClass({ singleScroll: true })).toContain('min-h-[min(40dvh,24rem)]')
+    expect(studioPhoneStageClass({ singleScroll: true })).toContain('lg:hidden')
     expect(dualStudioGridClass()).toContain('pb-[var(--studio-tools-height,0px)]')
     expect(dualStudioGridClass()).toContain('lg:pb-3')
   })

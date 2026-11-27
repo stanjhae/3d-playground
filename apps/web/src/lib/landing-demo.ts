@@ -352,17 +352,21 @@ export function studioEnvAppearance({
       background: '#87a4b8',
       backgroundLow: '#c4d2d6',
       environmentIntensity: 1.15,
-      exposure: 1.28,
+      exposure: 1.05,
       keyIntensity: 2.35,
     }
   }
 
   return {
-    // White, as the mockups' 3D preview. The tee separates by its shading and shadow.
-    background: '#ffffff',
-    backgroundLow: '#eeedea',
+    // A pale neutral grey sweep. It was pure white, which a white garment
+    // matched once Neutral tone mapping drew white cloth as white (the
+    // trousers' edges vanished); the light grey keeps an edge on every cloth.
+    // Neutral, not warm, so it never reads as a cream cloth.
+    background: '#efefef',
+    backgroundLow: '#e1e1e0',
     environmentIntensity: 0.68,
-    exposure: 1.1,
+    // With Neutral tone mapping (StudioRenderer) the lit cloth meets its swatch here.
+    exposure: 0.8,
     keyIntensity: 1.7,
   }
 }

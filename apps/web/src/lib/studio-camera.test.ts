@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { modelSeat } from './studio-camera'
+import { COMPACT_LIVE_FIT, COMPACT_STAGE_WIDTH, compactLiveSeat, modelSeat } from './studio-camera'
 
 function expectNear({ actual, expected }: { actual: readonly number[]; expected: readonly number[] }) {
   expected.forEach((value, axis) => expect(actual[axis]).toBeCloseTo(value, 6))
@@ -31,5 +31,19 @@ describe('modelSeat (real models)', () => {
   test('a sleeveless garment turns the sleeve views to its side', () => {
     const frame = { ...HOODIE, sleeves: {} }
     expectNear({ actual: modelSeat({ preset: 'right', frame }).target, expected: [0, 1.26, -0.01] })
+  })
+})
+
+describe('compactLiveSeat', () => {
+  const aim = [0, 1, 0] as const
+  const seat = [0, 1, 2] as const
+
+  test('brings the whole-garment views closer on a phone-width stage', () => {
+    expect(compactLiveSeat({ seat, aim, preset: 'front', stageWidth: 375 })).toEqual([0, 1, 2 * COMPACT_LIVE_FIT])
+  })
+
+  test('leaves a wide stage and the sleeve views where they were', () => {
+    expect(compactLiveSeat({ seat, aim, preset: 'front', stageWidth: COMPACT_STAGE_WIDTH })).toEqual(seat)
+    expect(compactLiveSeat({ seat, aim, preset: 'left', stageWidth: 375 })).toEqual(seat)
   })
 })

@@ -66,7 +66,6 @@ test('hints come one at a time, stay out of the way, and stay dismissed', async 
   await page.setViewportSize({ width: 1366, height: 768 })
   // Hints are for Guided: Pro turns them off.
   await openDesign({ page, label: 'hints', pro: false })
-  await page.getByRole('button', { name: 'Use this garment' }).click()
   await page.getByRole('button', { name: 'Continue' }).click()
   const hint = page.getByRole('complementary', { name: 'Hint' })
   await expect(hint).toContainText('Pick a side')

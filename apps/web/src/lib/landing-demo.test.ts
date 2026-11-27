@@ -119,16 +119,18 @@ describe('landing-demo', () => {
     expect(outdoor.keyIntensity).toBeGreaterThan(studio.keyIntensity)
   })
 
-  test('the studio is a white backdrop that darkens a touch downward, as in the mockups', () => {
+  test('the studio is a pale grey sweep, not white, that darkens a touch downward', () => {
     const luma = (hex: string) => {
       const value = Number.parseInt(hex.slice(1), 16)
       return (value >> 16) * 0.3 + ((value >> 8) & 255) * 0.59 + (value & 255) * 0.11
     }
     const { background, backgroundLow } = studioEnvAppearance({ envMode: 'studio' })
 
-    expect(background).toBe('#ffffff')
+    // White cloth draws white under Neutral tone mapping: the sweep stays off it.
+    expect(luma(background)).toBeLessThan(245)
+    expect(luma(background)).toBeGreaterThan(230)
     expect(luma(backgroundLow)).toBeLessThan(luma(background))
-    expect(luma(backgroundLow)).toBeGreaterThan(225)
+    expect(luma(backgroundLow)).toBeGreaterThan(215)
     expect(studioStageBackdrop()).toContain(background)
     expect(studioStageBackdrop()).toContain(backgroundLow)
   })

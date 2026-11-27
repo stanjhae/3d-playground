@@ -73,7 +73,12 @@ export const useStudioMode = create<StudioModeState>((set) => ({
   },
 }))
 
-/** Where a new design opens: Pro goes straight to drawing. */
+/**
+ * Where a design made in My Studio opens. Its garment was picked there and a
+ * saved design keeps it, so the Garment step would repeat that choice
+ * (UX review 26 Nov, item 1): it opens at Colour, and Pro goes straight to
+ * drawing. The Garment step's cut sliders stay one step back.
+ */
 export function firstCreateStep({ pro }: { pro: boolean }) {
-  return pro ? ('design' as const) : ('select' as const)
+  return pro ? ('design' as const) : ('color' as const)
 }
