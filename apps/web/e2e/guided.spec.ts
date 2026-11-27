@@ -19,7 +19,7 @@ async function savedSeq({ page }: { page: Page }) {
   }, designId)
 }
 
-test('a new design starts on the garment and keeps expert controls out of the way until Pro is on', async ({ page }) => {
+test('a new design from My Studio starts on Colour (its garment is chosen) and keeps expert controls out of the way until Pro is on', async ({ page }) => {
   const email = newEmail({ label: 'guided' })
   emails.push(email)
   await page.setViewportSize({ width: 1366, height: 768 })
@@ -27,8 +27,6 @@ test('a new design starts on the garment and keeps expert controls out of the wa
   await page.getByRole('button', { name: 'Create a T-shirt' }).click()
   await expectSaved({ page })
 
-  await expect(page).toHaveURL(/step=select/)
-  await page.getByRole('button', { name: 'Use this garment' }).click()
   await expect(page).toHaveURL(/step=color/)
   await page.getByRole('button', { name: 'Skip' }).click()
   await expect(page).toHaveURL(/step=design/)

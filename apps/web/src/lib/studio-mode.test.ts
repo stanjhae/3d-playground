@@ -36,7 +36,7 @@ describe('studio mode', () => {
   })
 
   test('Guided opens on the garment, Pro on the design', () => {
-    expect(firstCreateStep({ pro: false })).toBe('select')
+    expect(firstCreateStep({ pro: false })).toBe('color')
     expect(firstCreateStep({ pro: true })).toBe('design')
   })
 
