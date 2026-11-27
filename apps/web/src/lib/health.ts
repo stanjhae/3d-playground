@@ -14,6 +14,20 @@ export type SupabaseHealth = 'ok' | 'unreachable' | 'not_configured'
 
 const SUPABASE_TIMEOUT_MS = 3000
 
+/**
+ * The feature flags this deployment runs with, as on or off, for the admin's
+ * read-only flag panel. Nothing new is revealed: the `VITE_` ones are baked
+ * into the public bundle, and whether the AI route exists can be seen by
+ * calling it. The values themselves (keys, limits) are never sent.
+ */
+export const HEALTH_FLAGS = ['VITE_PATTERN_BETA', 'VITE_AI_ASSIST', 'FLP_AI_ASSIST'] as const
+
+export type HealthFlags = Record<(typeof HEALTH_FLAGS)[number], boolean>
+
+export function healthFlags({ env }: { env: Env }): HealthFlags {
+  return Object.fromEntries(HEALTH_FLAGS.map((key) => [key, env[key] === 'true'])) as HealthFlags
+}
+
 export async function checkSupabase({
   env,
   fetchImpl = fetch,
@@ -68,6 +82,7 @@ export async function handleHealthRequest({
       environment: environmentName({ env }),
       supabase,
       errorTracking: env.SENTRY_DSN ? 'on' : 'off',
+      flags: healthFlags({ env }),
     },
     { status: ok ? 200 : 503, headers },
   )

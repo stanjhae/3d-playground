@@ -1,4 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { type HoldRow, type ModerationHold, ModerationError, holdFromRow } from '@flv/moderation'
+
+// The queue, closing reports, takedowns and hiding comments are shared with
+// the admin app (packages/moderation); they are re-exported here for the scripts.
+export {
+  type ModerationHold,
+  type OpenReport,
+  ModerationError,
+  clearModerationHold,
+  hideCommentAsOperator,
+  openReports,
+  resolveReport,
+  takeDownPublication,
+} from '@flv/moderation'
 
 /**
  * Moderation takedowns (P2), for operators only: everything here needs the
@@ -13,41 +27,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 const SLUG = /^[a-f0-9]{16}$/
 
-export type ModerationHold = {
-  slug: string
-  reason: string
-  heldBy: string
-  heldAt: string
-  clearedBy: string | null
-  clearedAt: string | null
-}
-
 export type ModerationStatus = {
   slug: string
   /** `published` or `revoked`; null when the slug was never a publication. */
   publication: 'published' | 'revoked' | null
   title: string | null
   hold: ModerationHold | null
-}
-
-type HoldRow = {
-  slug: string
-  reason: string
-  held_by: string
-  held_at: string
-  cleared_by: string | null
-  cleared_at: string | null
-}
-
-function holdFromRow(row: HoldRow): ModerationHold {
-  return {
-    slug: row.slug,
-    reason: row.reason,
-    heldBy: row.held_by,
-    heldAt: row.held_at,
-    clearedBy: row.cleared_by,
-    clearedAt: row.cleared_at,
-  }
 }
 
 /**
@@ -67,72 +52,6 @@ export function slugFromReport({ value }: { value: string }) {
   } catch {
     return null
   }
-}
-
-export class ModerationError extends Error {
-  readonly code: 'not_found' | 'no_hold' | 'invalid' | 'failed'
-
-  // No parameter properties: scripts load this file with Node's type stripping.
-  constructor(message: string, code: ModerationError['code']) {
-    super(message)
-    this.code = code
-  }
-}
-
-function failure({ error, notFound }: { error: { code?: string; message: string }; notFound: ModerationError }) {
-  if (error.code === 'FL404') {
-    return notFound
-  }
-
-  if (error.code === '23514') {
-    return new ModerationError('A reason and an operator name are needed', 'invalid')
-  }
-
-  return new ModerationError(`The database refused: ${error.message}`, 'failed')
-}
-
-/** Takes a published (or already unpublished) design down and holds it. */
-export async function takeDownPublication({
-  admin,
-  slug,
-  reason,
-  heldBy,
-}: {
-  admin: SupabaseClient
-  slug: string
-  reason: string
-  heldBy: string
-}): Promise<ModerationHold> {
-  const { data, error } = await admin
-    .rpc('flp_take_down_publication', { p_slug: slug, p_reason: reason, p_held_by: heldBy })
-    .single<HoldRow>()
-
-  if (error) {
-    throw failure({ error, notFound: new ModerationError(`No publication has the link ${slug}`, 'not_found') })
-  }
-
-  return holdFromRow(data)
-}
-
-/** Lifts a hold; the owner may publish again, nothing is republished. */
-export async function clearModerationHold({
-  admin,
-  slug,
-  clearedBy,
-}: {
-  admin: SupabaseClient
-  slug: string
-  clearedBy: string
-}): Promise<ModerationHold> {
-  const { data, error } = await admin
-    .rpc('flp_clear_moderation_hold', { p_slug: slug, p_cleared_by: clearedBy })
-    .single<HoldRow>()
-
-  if (error) {
-    throw failure({ error, notFound: new ModerationError(`${slug} has no hold to clear`, 'no_hold') })
-  }
-
-  return holdFromRow(data)
 }
 
 /** What the public sees for a link, and any hold on it. */
@@ -179,80 +98,6 @@ export async function activeHolds({ admin }: { admin: SupabaseClient }): Promise
 // ---------------------------------------------------------------------------
 // Reports (`public.publication_reports`, 20261122090000)
 // ---------------------------------------------------------------------------
-
-export type OpenReport = {
-  id: string
-  slug: string
-  /** Set when the report is about one comment on the design. */
-  commentId: string | null
-  /** That comment's text, and whether it's already hidden. */
-  comment: { body: string; hidden: boolean } | null
-  reason: string
-  note: string | null
-  createdAt: string
-}
-
-/** Reports still open, oldest first: the queue an operator works through. */
-export async function openReports({ admin }: { admin: SupabaseClient }): Promise<OpenReport[]> {
-  const { data, error } = await admin
-    .from('publication_reports')
-    .select('id, slug, comment_id, reason, note, created_at, publication_comments(body, hidden_at)')
-    .eq('status', 'open')
-    .order('created_at', { ascending: true })
-    .returns<
-      Array<{
-        id: string
-        slug: string
-        comment_id: string | null
-        reason: string
-        note: string | null
-        created_at: string
-        publication_comments: { body: string; hidden_at: string | null } | null
-      }>
-    >()
-
-  if (error) {
-    throw new ModerationError('Reports could not be listed', 'failed')
-  }
-
-  return data.map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    commentId: row.comment_id,
-    comment: row.publication_comments ? { body: row.publication_comments.body, hidden: row.publication_comments.hidden_at !== null } : null,
-    reason: row.reason,
-    note: row.note,
-    createdAt: row.created_at,
-  }))
-}
-
-/** Hides a comment for everyone (community). The text is kept for the record. */
-export async function hideCommentAsOperator({ admin, commentId, hiddenBy }: { admin: SupabaseClient; commentId: string; hiddenBy: string }) {
-  const { error } = await admin.rpc('flp_hide_comment_operator', { p_comment_id: commentId, p_operator: hiddenBy })
-
-  if (error) {
-    throw failure({ error, notFound: new ModerationError(`No comment has the id ${commentId}`, 'not_found') })
-  }
-}
-
-/** Closes a report: `dismissed` (nothing wrong) or `actioned` (taken down, or the owner told). */
-export async function resolveReport({
-  admin,
-  id,
-  status,
-  resolvedBy,
-}: {
-  admin: SupabaseClient
-  id: string
-  status: 'dismissed' | 'actioned'
-  resolvedBy: string
-}) {
-  const { error } = await admin.rpc('flp_resolve_report', { p_id: id, p_status: status, p_operator: resolvedBy })
-
-  if (error) {
-    throw failure({ error, notFound: new ModerationError(`No open report has the id ${id}`, 'not_found') })
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Vote review: signs of one person voting through several accounts
