@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 
@@ -13,7 +14,7 @@ import { formatDemoPreflight, runDemoPreflight } from './demo-preflight-lib.mjs'
  *   pnpm demo:preflight
  */
 
-const env = { ...loadEnv('development', process.cwd(), ['SUPABASE_', 'VITE_']), ...process.env }
+const env = { ...loadEnv('development', fileURLToPath(new URL('../../..', import.meta.url)), ['SUPABASE_', 'VITE_']), ...process.env }
 const PREVIEW = 'http://localhost:4173'
 const DEMO_EMAIL = 'demo@example.test'
 const VIDEO = 'demo-fallback.webm'
@@ -42,7 +43,7 @@ const report = await runDemoPreflight({
     supabaseUp: () => reachable('http://127.0.0.1:54321/auth/v1/health'),
     mailpitUp: () => reachable('http://127.0.0.1:54324/'),
     migrationsApplied: () => Number(sql('select count(*) from supabase_migrations.schema_migrations')),
-    migrationFiles: () => readdirSync('supabase/migrations').filter((name) => name.endsWith('.sql')).length,
+    migrationFiles: () => readdirSync('../../supabase/migrations').filter((name) => name.endsWith('.sql')).length,
     envReady: () =>
       Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_PUBLISHABLE_KEY && env.SUPABASE_URL && env.SUPABASE_SECRET_KEY) &&
       /127\.0\.0\.1|localhost/.test(env.SUPABASE_URL) &&

@@ -75,7 +75,7 @@ jobs:
           export CHECK_SUPABASE_DB_URL="postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres"
           stamp=$(date -u +%Y%m%dT%H%M%SZ)
           echo "BACKUP_NAME=flp-$stamp" >> "$GITHUB_ENV"
-          scripts/backup-encrypted.sh "$RUNNER_TEMP/flp-$stamp" 2>&1 | tee report.log
+          apps/web/scripts/backup-encrypted.sh "$RUNNER_TEMP/flp-$stamp" 2>&1 | tee report.log
           {
             echo "### Backup flp-$stamp"
             echo '```'

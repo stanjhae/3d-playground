@@ -2,24 +2,24 @@ node_modules
 .pnpm-store
 dist
 # The landing's build-time renderer (scripts/prerender-landing.mjs)
-/.flv-prerender/
+.flv-prerender/
 .DS_Store
 *.local
 .tanstack
 .vercel
 .qa
-public/models/garment-house.glb
+apps/web/public/models/garment-house.glb
 
 # Playwright (Q04 #189)
-/test-results/
-/playwright-report/
-/blob-report/
+test-results/
+playwright-report/
+blob-report/
 
 # Demo fallback video (#201); recorded locally, never committed
 /demo-fallback.webm
 
 # Backups (Q09 #194) hold private user data; never committed
-/backups/
+backups/
 
 # Local hosted-check runs (--allow-local) aren't hosted evidence (#186)
 /docs/evidence/hosted-*-local.md
@@ -30,4 +30,7 @@ public/models/garment-house.glb
 /archive/
 
 # Scratch bakes (scripts/bake-pattern-glb.mjs); a shipped bake names its own --glb
-/.bake/
+.bake/
+
+# TypeScript incremental build info
+*.tsbuildinfo

@@ -1,0 +1,22 @@
+{
+  "name": "@flv/supabase",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Server-side Supabase helpers shared by the apps: the service client, the caller's account, admin checks.",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.4"
+  }
+}

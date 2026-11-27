@@ -883,7 +883,7 @@ ${table}`
   .join('')}${e2eTail ? `\n## e2e output (last 40 lines)\n\n\`\`\`\n${e2eTail}\n\`\`\`\n` : ''}`
 
 // Local runs are gitignored; only a hosted record is evidence to commit.
-const out = new URL(`../docs/evidence/hosted-${date}${hosted ? '' : '-local'}.md`, import.meta.url)
+const out = new URL(`../../../docs/evidence/hosted-${date}${hosted ? '' : '-local'}.md`, import.meta.url)
 mkdirSync(new URL('.', out), { recursive: true })
 writeFileSync(out, record)
 console.log(`\n${verdict}: ${out.pathname.replace(`${process.cwd()}/`, '')}`)

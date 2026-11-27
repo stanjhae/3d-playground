@@ -176,7 +176,7 @@ test('the hoodie and the trousers have their own sliders, which change the rende
 
 /**
  * Evidence, not a check: each garment as made and at its sliders' limits,
- * saved to `docs/evidence/shape-<garment>-<look>.png`. Off unless
+ * saved to `../../docs/evidence/shape-<garment>-<look>.png`. Off unless
  * `SHAPE_EVIDENCE` is set:
  *
  *   SHAPE_EVIDENCE=1 pnpm e2e --project=chromium shape -g evidence
@@ -231,7 +231,7 @@ test('evidence: every garment as made and at its limits', async ({ page }) => {
     await createGarment({ page, label: garment.label, button: garment.button })
     const rail = page.getByTestId('shape-rail')
     await expect(rail).toBeVisible()
-    await sceneShot({ page, path: `docs/evidence/shape-${garment.file}-made.png` })
+    await sceneShot({ page, path: `../../docs/evidence/shape-${garment.file}-made.png` })
 
     for (const [look, sliders] of Object.entries(garment.looks)) {
       if (await rail.getByRole('button', { name: 'Reset shape' }).isEnabled()) {
@@ -243,7 +243,7 @@ test('evidence: every garment as made and at its limits', async ({ page }) => {
       }
 
       await expectSaved({ page })
-      await sceneShot({ page, path: `docs/evidence/shape-${garment.file}-${look}.png` })
+      await sceneShot({ page, path: `../../docs/evidence/shape-${garment.file}-${look}.png` })
     }
   }
 })

@@ -2,11 +2,15 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { fileURLToPath } from 'node:url'
 import { loadEnv } from 'vite'
 import { defineConfig, type Plugin } from 'vitest/config'
 
 import { assertDeployEnv } from './src/lib/build-env.ts'
 import { securityHeaders, supabaseMetaPolicy, supabaseOrigin } from './src/lib/security-headers.ts'
+
+/** The repo root: .env files live there, shared by every app in the workspace. */
+const ENV_DIR = fileURLToPath(new URL('../..', import.meta.url))
 
 async function incomingToRequest({
   req,
@@ -181,7 +185,7 @@ function flvApiPlugin({
       // way Vercel provides them in production. Never exposed to the client.
       // VITE_FLP_REQUIRE_AUTH tells the guest board whether it is closed (#144).
       for (const [key, value] of Object.entries(
-        loadEnv(mode, process.cwd(), ['SUPABASE_', 'VITE_FLP_REQUIRE_AUTH']),
+        loadEnv(mode, ENV_DIR, ['SUPABASE_', 'VITE_FLP_REQUIRE_AUTH']),
       )) {
         process.env[key] ??= value
       }
@@ -232,7 +236,7 @@ function supabaseCspPlugin({ supabase }: { supabase: string | null }): Plugin {
 }
 
 export default defineConfig(({ command, mode }) => {
-  const viteEnv = loadEnv(mode, process.cwd(), 'VITE_')
+  const viteEnv = loadEnv(mode, ENV_DIR, 'VITE_')
   const supabase = supabaseOrigin({ url: viteEnv.VITE_SUPABASE_URL })
 
   if (command === 'build') {
@@ -247,6 +251,7 @@ export default defineConfig(({ command, mode }) => {
   const previewHeaders = securityHeaders({ supabase })
 
   return {
+    envDir: ENV_DIR,
     html: devNonce ? { cspNonce: devNonce } : {},
     server: { headers },
     preview: { headers: previewHeaders },

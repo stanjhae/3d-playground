@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 
 import { chromium } from '@playwright/test'
 
-const [prefix = 'mark-', out = 'docs/evidence/graphics-logos-sheet.png'] = process.argv.slice(2)
+const [prefix = 'mark-', out = '../../docs/evidence/graphics-logos-sheet.png'] = process.argv.slice(2)
 const dir = new URL('../public/graphics/', import.meta.url)
 const files = readdirSync(dir)
   .filter((name) => name.startsWith(prefix) && name.endsWith('.svg'))

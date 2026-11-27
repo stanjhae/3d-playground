@@ -38,11 +38,13 @@ jobs:
       # `pnpm build` runs route generation, tsc and the Vite build.
       - run: pnpm build
       # Byte budgets (R06 #169, P4): all JS and the largest chunk (gzip),
-      # and each garment GLB. Limits are in scripts/budgets.json, with
+      # and each garment GLB. Limits are in apps/web/scripts/budgets.json, with
       # headroom over docs/baseline.md; raise them there, on purpose. The
-      # editor's first-load and frame budgets run in e2e/budgets.spec.ts.
+      # editor's first-load and frame budgets run in apps/web/e2e/budgets.spec.ts.
       - name: Byte budgets
-        run: node scripts/check-budgets.mjs
+        run: node apps/web/scripts/check-budgets.mjs
+      - name: Admin build
+        run: pnpm build:admin
       - run: pnpm test
 
   database:
@@ -73,13 +75,13 @@ jobs:
           export CHECK_SUPABASE_URL="$API_URL" CHECK_SUPABASE_SECRET_KEY="$SECRET_KEY" CHECK_SUPABASE_DB_URL="$db"
           age-keygen -o "$RUNNER_TEMP/backup.key" 2> /dev/null
           export BACKUP_AGE_RECIPIENT="$(age-keygen -y "$RUNNER_TEMP/backup.key")"
-          scripts/backup-encrypted.sh "$RUNNER_TEMP/flp-ci"
+          apps/web/scripts/backup-encrypted.sh "$RUNNER_TEMP/flp-ci"
           # No plaintext is left behind, and the archive matches its checksum.
           test ! -e "$RUNNER_TEMP/flp-ci"
           (cd "$RUNNER_TEMP" && sha256sum --check flp-ci.tar.age.sha256)
           age --decrypt --identity "$RUNNER_TEMP/backup.key" "$RUNNER_TEMP/flp-ci.tar.age" | tar -C "$RUNNER_TEMP" -xf -
           SUPABASE_URL="$API_URL" SUPABASE_SECRET_KEY="$SECRET_KEY" SUPABASE_DB_URL="$db" \
-            node scripts/restore-check.mjs "$RUNNER_TEMP/flp-ci" --verify-only
+            node apps/web/scripts/restore-check.mjs "$RUNNER_TEMP/flp-ci" --verify-only
           rm -rf "$RUNNER_TEMP/flp-ci" "$RUNNER_TEMP/backup.key"
 
   # Browser journey (Q04 #189), in three parts so each stays well inside the
@@ -115,7 +117,7 @@ jobs:
       - name: Visual baselines are committed
         if: always()
         run: |
-          written=$(git status --porcelain --untracked-files=all e2e/__screenshots__)
+          written=$(git status --porcelain --untracked-files=all apps/web/e2e/__screenshots__)
           if [ -n "$written" ]; then
             echo "$written"
             echo "::error::Visual baselines were missing and have been written. Commit them from the playwright-report artifact (docs/e2e.md)."
@@ -126,9 +128,9 @@ jobs:
         with:
           name: playwright-report-${{ matrix.shard }}
           path: |
-            playwright-report/
-            test-results/
-            e2e/__screenshots__/
+            apps/web/playwright-report/
+            apps/web/test-results/
+            apps/web/e2e/__screenshots__/
           retention-days: 7
 
   # WebKit smoke (Q2): non-blocking until WebGL2 is proven in WebKit on
@@ -168,8 +170,8 @@ jobs:
         with:
           name: webkit-report
           path: |
-            playwright-report/
-            test-results/
+            apps/web/playwright-report/
+            apps/web/test-results/
           retention-days: 7
 
   # The other browser jobs build with every flag on, so the suite can drive
@@ -200,6 +202,6 @@ jobs:
         with:
           name: beta-flags-report
           path: |
-            playwright-report/
-            test-results/
+            apps/web/playwright-report/
+            apps/web/test-results/
           retention-days: 7

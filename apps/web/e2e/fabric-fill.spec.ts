@@ -241,7 +241,7 @@ test('evidence: the 3D cloth in each fabric, and fills', async ({ page }) => {
   await page.getByRole('button', { name: 'Brass' }).first().click()
   await expectSaved({ page })
   await page.waitForTimeout(1500)
-  await stage.screenshot({ path: 'docs/evidence/fabric-none.png' })
+  await stage.screenshot({ path: '../../docs/evidence/fabric-none.png' })
 
   for (const [name, mapId] of [
     ['Satin', 'satin-sheen'],
@@ -253,10 +253,10 @@ test('evidence: the 3D cloth in each fabric, and fills', async ({ page }) => {
     await page.getByTestId('fabric-chooser').getByRole('button', { name }).click()
     await expect(material).toHaveAttribute('data-map-id', mapId)
     await page.waitForTimeout(1500)
-    await stage.screenshot({ path: `docs/evidence/fabric-${name.toLowerCase()}.png` })
+    await stage.screenshot({ path: `../../docs/evidence/fabric-${name.toLowerCase()}.png` })
   }
 
-  await page.getByTestId('fabric-chooser').screenshot({ path: 'docs/evidence/fabric-picker.png' })
+  await page.getByTestId('fabric-chooser').screenshot({ path: '../../docs/evidence/fabric-picker.png' })
 
   await goToStep({ page, step: 'design' })
   await chooseTool({ page, tool: 'Graphics' })
@@ -264,7 +264,7 @@ test('evidence: the 3D cloth in each fabric, and fills', async ({ page }) => {
   await page.getByRole('group', { name: 'Repeat the selected graphic' }).getByRole('button', { name: 'Fill this side' }).click()
   await expectSaved({ page })
   await page.waitForTimeout(1500)
-  await page.screenshot({ path: 'docs/evidence/fabric-fill-front.png' })
+  await page.screenshot({ path: '../../docs/evidence/fabric-fill-front.png' })
 
   const patterns = page.getByRole('group', { name: 'Patterns' })
   await patterns.getByRole('button', { name: 'Check', exact: true }).click()
@@ -272,7 +272,7 @@ test('evidence: the 3D cloth in each fabric, and fills', async ({ page }) => {
   await patterns.getByRole('button', { name: 'All sides' }).click()
   await expectSaved({ page })
   await page.waitForTimeout(1500)
-  await page.screenshot({ path: 'docs/evidence/fabric-fill-all-sides.png' })
+  await page.screenshot({ path: '../../docs/evidence/fabric-fill-all-sides.png' })
 })
 
 test('the further patterns are offered, and Honeycomb saves and draws on the garment', async ({ page }) => {

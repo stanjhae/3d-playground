@@ -4,7 +4,7 @@ import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
 
 /**
  * Try-on fit evidence, not a check: puts the tee on each figure and saves a
- * picture to `docs/evidence/fit-<figure>-<FIT_EVIDENCE>.png`. Off unless
+ * picture to `../../docs/evidence/fit-<figure>-<FIT_EVIDENCE>.png`. Off unless
  * `FIT_EVIDENCE` is set (`before` or `after`); the fit itself is checked
  * in `avatars.test.ts`.
  *
@@ -33,7 +33,7 @@ async function shot({ page, file, view }: { page: Page; file: string; view: stri
   await expect(page.getByRole('status').filter({ hasText: /still loading/ })).toHaveCount(0, { timeout: 20_000 })
   const box = (await page.locator('canvas[data-engine]').boundingBox())!
   const clip = { x: box.x + box.width * 0.25, y: box.y, width: box.width * 0.5, height: box.height - 96 }
-  await page.screenshot({ clip, path: `docs/evidence/fit-${file}-${LABEL}.png` })
+  await page.screenshot({ clip, path: `../../docs/evidence/fit-${file}-${LABEL}.png` })
 }
 
 test('the tee on each figure', async ({ page }) => {

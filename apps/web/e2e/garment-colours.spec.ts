@@ -9,7 +9,7 @@ import { deleteAccounts, expectSaved, newEmail, signIn } from './helpers'
  * colour all over (hood included), with no baked-in green or Style3D logo,
  * no empty "Ink" layer, and a picture on its My Studio card.
  *
- * `GARMENT_COLOUR_EVIDENCE=1` also writes `docs/evidence/tester3-*-after.png`.
+ * `GARMENT_COLOUR_EVIDENCE=1` also writes `../../docs/evidence/tester3-*-after.png`.
  */
 
 const emails: string[] = []
@@ -96,7 +96,7 @@ test('a striped hoodie shows the same two colours on its flat panels and in 3D',
   const scene = await countsOf({ page, picture: await sceneShot({ page }) })
 
   if (EVIDENCE) {
-    await page.screenshot({ path: 'docs/evidence/tester3-hoodie-stripes-after.png' })
+    await page.screenshot({ path: '../../docs/evidence/tester3-hoodie-stripes-after.png' })
   }
 
   // The flat front: oxblood ground and ink stripes, no cream.
@@ -127,7 +127,7 @@ test('a new hoodie is one colour all over, with no logo, no empty layer, and a c
   await expect(page.locator('[data-layer-control="select"]')).toHaveCount(0)
 
   // The 3D: no baked green and no dark logo on the white cloth, hood included.
-  const white = await countsOf({ page, picture: await sceneShot({ page, ...(EVIDENCE ? { path: 'docs/evidence/tester3-hoodie-scene-after.png' } : {}) }) })
+  const white = await countsOf({ page, picture: await sceneShot({ page, ...(EVIDENCE ? { path: '../../docs/evidence/tester3-hoodie-scene-after.png' } : {}) }) })
   expect(white.green / white.total).toBeLessThan(0.002)
   expect(white.ink / white.total).toBeLessThan(0.002)
 
@@ -135,7 +135,7 @@ test('a new hoodie is one colour all over, with no logo, no empty layer, and a c
   await goToStep({ page, step: 'color' })
   await page.getByRole('button', { name: 'Oxblood' }).first().click()
   await expectSaved({ page })
-  const colored = await countsOf({ page, picture: await sceneShot({ page, ...(EVIDENCE ? { path: 'docs/evidence/tester3-hoodie-oxblood-after.png' } : {}) }) })
+  const colored = await countsOf({ page, picture: await sceneShot({ page, ...(EVIDENCE ? { path: '../../docs/evidence/tester3-hoodie-oxblood-after.png' } : {}) }) })
   expect(colored.oxblood / colored.total).toBeGreaterThan(0.08)
   expect(colored.green / colored.total).toBeLessThan(0.002)
   expect(colored.cream / colored.total).toBeLessThan(0.002)
@@ -147,7 +147,7 @@ test('a new hoodie is one colour all over, with no logo, no empty layer, and a c
   await expect(thumbnail).toHaveAttribute('data-thumbnail', 'still', { timeout: 30_000 })
 
   if (EVIDENCE) {
-    await card.screenshot({ path: 'docs/evidence/tester3-hoodie-card-after.png' })
+    await card.screenshot({ path: '../../docs/evidence/tester3-hoodie-card-after.png' })
   }
 
   const still = await thumbnail.locator('img').evaluate(async (node) => {
