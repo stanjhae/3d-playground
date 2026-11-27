@@ -113,6 +113,7 @@ Removed with the rebuild: the six-stage walkthrough (Select, Fit, Color, Design,
 | --- | --- | --- | --- |
 | `/vote`, `/look/*` | "Not part of this alpha … To vote, open a shared design's link and sign in." | Working | Corrected on 11 Nov (it said "Voting comes later."). Pinned in `claims.spec.ts`. |
 | `/privacy` | What is stored, who sees it, removal, reporting | Working | Checked against the code for #195. |
+| `/privacy` → "How the site is used" (only when `VITE_POSTHOG_KEY` is set) | Anonymous usage events to PostHog EU, a random per-visit ID held only in memory, no cookies or storage, never linked to an account, no words, images, colours or titles, replays with all text and inputs hidden, nothing with Do Not Track or GPC | Working | `apps/web/src/lib/analytics.ts` (`posthogOptions`, `cleanProperties`, `scrubEvent`, `prefersNoTracking`); `analytics.test.ts`; [analytics.md](analytics.md). |
 | `/terms`, terms gate | Terms of use, version `TERMS_VERSION` | Working | The wording is a plain-language draft awaiting the owner's review (#347). |
 | `/soon` | Redirects to `/#waitlist` | Working | |
 

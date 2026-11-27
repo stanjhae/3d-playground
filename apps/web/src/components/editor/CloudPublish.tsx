@@ -24,7 +24,7 @@ import type { OwnerPublication, PublicRenderKind } from '../../lib/flp-api/publi
 import { publishBlockedReason, useWebglStore } from '../scene/webgl-status'
 import { useCloudSaveStore } from './CloudSave'
 import { getStudioCanvas } from './PublishBar'
-import { trackAssumption } from '../../lib/assumption-events'
+import { track, trackAssumption } from '../../lib/assumption-events'
 import { loadPublicationStatus, publicationStatusFor, usePublicationStatus } from '../../lib/publication-status'
 
 /**
@@ -407,7 +407,10 @@ export function CloudPublish() {
             <button
               type="button"
               className={quietClass}
-              onClick={() => void copy(shareUrl({ slug: publication.slug }))}
+              onClick={() => {
+                void track({ name: 'share_link_copied', properties: { source: 'studio' } })
+                void copy(shareUrl({ slug: publication.slug }))
+              }}
             >
               {copyStatus === 'copied' ? 'Link copied' : 'Copy link'}
             </button>

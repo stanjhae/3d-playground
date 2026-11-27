@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { track } from '../../lib/assumption-events'
 import { useSessionStore } from '../../lib/auth/session-store'
 import type { ComparisonPair } from '../../lib/flp-api/publication'
 import { chooseComparison, getComparison } from '../../lib/flp-api/votes'
@@ -59,6 +60,7 @@ export function ComparePair() {
       return
     }
 
+    void track({ name: 'compare_chosen' })
     setPair(result.data.pair)
     setState(result.data.pair ? 'ready' : 'empty')
   }

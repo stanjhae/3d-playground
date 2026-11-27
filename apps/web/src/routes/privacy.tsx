@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { AI_ASSIST } from '../lib/ai-assist'
 import { CONTACT_EMAIL } from '../lib/alpha-contact'
+import { PRODUCT_ANALYTICS } from '../lib/analytics'
 import { COMMUNITY } from '../lib/community'
 import { PATTERN_BETA } from '../lib/pattern-beta'
 
@@ -100,6 +101,22 @@ function Privacy() {
           There are no ads, and nothing is sold or shared for marketing.
         </p>
       </div>
+
+      {PRODUCT_ANALYTICS ? (
+        <div className={sectionClass}>
+          <h2 className={headingClass}>How the site is used</h2>
+          <p className={textClass}>
+            To see which tools people use and where they get stuck, the site sends anonymous usage events to PostHog, a
+            product analytics service, which keeps them in the EU. An event says what was done, such as opening the
+            text tool, picking a fabric, undoing or publishing, and on which page, without the design or link ID. Each
+            visit gets a random ID that is held only in memory and forgotten when you reload or close the page: no
+            cookies or browser storage are used, and you are never linked to your account, email or designs. Events
+            never include your words, images, colours or titles. Some visits are recorded as a replay of the page
+            layout, clicks and scrolling, with every typed field and all text hidden; 3D views and drawings aren’t
+            recorded. If your browser sends Do Not Track or Global Privacy Control, nothing is sent at all.
+          </p>
+        </div>
+      ) : null}
 
       <div className={sectionClass}>
         <h2 className={headingClass}>Error reports</h2>

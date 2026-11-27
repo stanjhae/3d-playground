@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState, type KeyboardEven
 import { createPortal } from 'react-dom'
 
 import { AI_ASSIST } from '../../lib/ai-assist'
+import { track } from '../../lib/assumption-events'
 import { cn } from '../../lib/cn'
 import { getCanonicalDocument, useEditorStore } from '../../lib/editor-store'
 import {
@@ -36,6 +37,7 @@ import { CUTOUT_SHAPES, type CutoutShape, PATTERN_OP_LIMITS, closeSlit } from '.
 import { PATTERN_LIMITS } from '../../lib/pattern/pattern-document'
 import { patternPresetFor, patternPresetsFor, patternTemplateFor } from '../../lib/pattern/templates'
 import { usePatternDrape } from '../../lib/pattern-drape-status'
+import { patternEditAction } from '../../lib/studio-analytics'
 import { chromeKickerClass, chromeMutedClass, chromeTextClass, railFrameClass } from '../../lib/studio-chrome'
 import { patternKeyAction, patternKeyList } from '../../lib/studio-keys'
 
@@ -120,6 +122,7 @@ export default function PatternEditor() {
     if (!check.ok) {
       setMessages(check.messages)
       setAnnounce(`Not applied: ${check.messages[0]}`)
+      void track({ name: 'pattern_edit_refused', properties: { action: patternEditAction({ what }) } })
       return false
     }
 
@@ -128,6 +131,7 @@ export default function PatternEditor() {
     if (JSON.stringify(next) !== JSON.stringify(getCanonicalDocument().pattern)) {
       setPattern({ pattern: next })
       setAnnounce(what)
+      void track({ name: 'pattern_edit', properties: { action: patternEditAction({ what }) } })
     }
 
     return true
@@ -135,6 +139,7 @@ export default function PatternEditor() {
 
   /** Says why something can't be done, without changing anything. */
   function refuse(message: string) {
+    void track({ name: 'pattern_edit_refused', properties: { action: 'refused' } })
     setMessages([message])
     setAnnounce(`Not applied: ${message}`)
   }

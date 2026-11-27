@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { GownCredit } from '../components/editor/GownCredit'
 import { LookStage } from '../components/scene/LookStage'
+import { track } from '../lib/assumption-events'
 import { documentFromDesign } from '../lib/design-document'
 import { getDesign } from '../lib/designs-api'
 import { type Design } from '../lib/design-schema'
@@ -76,6 +77,8 @@ function LookPage() {
   }, [lookId])
 
   async function handleCopy() {
+    void track({ name: 'share_link_copied', properties: { source: 'look' } })
+
     try {
       await navigator.clipboard.writeText(window.location.href)
       setCopyStatus('copied')

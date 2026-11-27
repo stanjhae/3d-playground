@@ -8,6 +8,7 @@ import { ShareStage } from '../components/share/ShareStage'
 import { COMMUNITY } from '../lib/community'
 import { VoteButton } from '../components/share/VoteButton'
 import { getGarment, sideViewAlt } from '../lib/garments'
+import { track } from '../lib/assumption-events'
 import { useCopyStatus } from '../lib/copy-text'
 import { HOUSE_COPY } from '../lib/house-copy'
 import { pageTitle } from '../lib/page-title'
@@ -210,7 +211,14 @@ function SharedDesign() {
         </div>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <div className="flex flex-wrap gap-3">
-            <button type="button" className={linkClass} onClick={() => void copy(window.location.href)}>
+            <button
+              type="button"
+              className={linkClass}
+              onClick={() => {
+                void track({ name: 'share_link_copied', properties: { source: 'share_page' } })
+                void copy(window.location.href)
+              }}
+            >
               {copyStatus === 'copied' ? HOUSE_COPY.linkCopied : HOUSE_COPY.copyLink}
             </button>
             <MakeYourOwn />
