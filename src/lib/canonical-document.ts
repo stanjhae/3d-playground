@@ -16,7 +16,7 @@
  * See docs/canonical-document.md.
  */
 
-import { MOTIF_IDS, type MotifId } from './base-motifs'
+import { MOTIF_IDS, type MotifId } from './base-motifs.ts'
 import {
   type GarmentShape,
   isNeutralShape,
