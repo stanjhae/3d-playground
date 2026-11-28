@@ -20,6 +20,7 @@ describe.skipIf(!env)('the AI assist route', () => {
   let admin: SupabaseClient
   let accepted: Account
   let notYet: Account
+  let pausedAccount: Account
   let calls = 0
 
   const claude = (async () => {
@@ -39,7 +40,8 @@ describe.skipIf(!env)('the AI assist route', () => {
     )
   }) as typeof fetch
 
-  const on: FlpServerEnv = { ...base, ai: { apiKey: 'test', model: 'claude-opus-5-5', dailyLimit: 2 }, aiFetch: claude }
+  const ai = { apiKey: 'test', model: 'claude-opus-5-5', dailyLimit: 2, monthlyBudgetMicros: 25_000_000, refusalLimit: 2 }
+  const on: FlpServerEnv = { ...base, ai, aiFetch: claude }
   const off: FlpServerEnv = { ...base, ai: null }
   const body = { template: { id: 'tee-crew-short', version: 4 }, prompt: 'a longer tee' }
 
@@ -58,20 +60,27 @@ describe.skipIf(!env)('the AI assist route', () => {
     admin = createClient(base.url, base.secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
     accepted = await createAccount({ admin, env: base, label: 'ai-yes' })
     notYet = await createAccount({ admin, env: base, label: 'ai-no' })
-    const terms = await handleFlpRequest({
-      env: base,
-      request: new Request('http://localhost/api/flp/terms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accepted.token}` },
-        body: JSON.stringify({ version: TERMS_VERSION }),
-      }),
-    })
-    expect(terms.ok).toBe(true)
+    pausedAccount = await createAccount({ admin, env: base, label: 'ai-paused' })
+
+    for (const account of [accepted, pausedAccount]) {
+      const terms = await handleFlpRequest({
+        env: base,
+        request: new Request('http://localhost/api/flp/terms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${account.token}` },
+          body: JSON.stringify({ version: TERMS_VERSION }),
+        }),
+      })
+      expect(terms.ok).toBe(true)
+    }
   })
 
   afterAll(async () => {
-    for (const account of [accepted, notYet]) {
-      if (account) await admin.auth.admin.deleteUser(account.id)
+    for (const account of [accepted, notYet, pausedAccount]) {
+      if (account) {
+        await admin.from('ai_usage').delete().eq('owner_id', account.id)
+        await admin.auth.admin.deleteUser(account.id)
+      }
     }
   })
 
@@ -97,5 +106,42 @@ describe.skipIf(!env)('the AI assist route', () => {
     // The daily limit is 2 here: one answer and one refused request use it up.
     expect((await sketch({ serverEnv: on, token: accepted.token })).status).toBe(429)
     expect(calls).toBe(1)
+  })
+
+  test('records what each answered call cost, and nothing the designer sent', async () => {
+    const { data, error } = await admin.from('ai_usage').select('*').eq('owner_id', accepted.id)
+    expect(error).toBeNull()
+    // One call reached Claude: 1 token in at $4 and 1 out at $20 per million.
+    expect(data).toEqual([
+      expect.objectContaining({ model: 'claude-opus-5-5', input_tokens: 1, output_tokens: 1, cost_micros: 24, outcome: 'answered' }),
+    ])
+    expect(Object.keys(data![0]!).sort()).toEqual(['cost_micros', 'created_at', 'id', 'input_tokens', 'model', 'outcome', 'output_tokens', 'owner_id'])
+  })
+
+  test('stops for everyone once the month’s budget is spent, before calling Claude', async () => {
+    const before = calls
+    const spent: FlpServerEnv = { ...base, ai: { ...ai, monthlyBudgetMicros: 0 }, aiFetch: claude }
+    const response = await sketch({ serverEnv: spent, token: pausedAccount.token })
+    expect(response.status).toBe(503)
+    expect((await response.json()).error.code).toBe('budget')
+    expect(calls).toBe(before)
+  })
+
+  test('pauses an account after too many refused requests in a day', async () => {
+    const refused = { model: 'claude-opus-5-5', input_tokens: 1, output_tokens: 0, cost_micros: 4, outcome: 'refused' }
+    const { error } = await admin.from('ai_usage').insert([{ ...refused, owner_id: pausedAccount.id }, { ...refused, owner_id: pausedAccount.id }])
+    expect(error).toBeNull()
+
+    const before = calls
+    const response = await sketch({ serverEnv: on, token: pausedAccount.token })
+    expect(response.status).toBe(429)
+    expect((await response.json()).error.code).toBe('paused')
+    expect(calls).toBe(before)
+  })
+
+  test('no browser key can read what the assist cost', async () => {
+    const anon = createClient(base.url, base.publishableKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const { error } = await anon.from('ai_usage').select('id')
+    expect(error).not.toBeNull()
   })
 })
